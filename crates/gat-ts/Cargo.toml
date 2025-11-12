@@ -1,0 +1,12 @@
+[package]
+name = "gat-ts"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gat-core = { path = "../gat-core" }
+anyhow = "1.0"
+polars = { version = "0.35", features = ["parquet", "csv", "temporal"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -42,7 +42,8 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
 - `gat pf {dc|ac}` — run DC or AC power flow on stored networks.
 - `gat nminus1 dc grid.arrow --contingencies test_data/nminus1/contingencies.csv --out results/nminus1.parquet` — run contingency screening and detect branch violations.
 - `gat opf {dc|ac}` — solve optimal power flow variants.
-- `gat ts {...}` and `gat viz` (future) — work with telemetry and plotting primitives.
+- `gat ts {resample|join}` — resample telemetry feeds (time buckets) or align multiple series.
+- `gat viz` (future) — work with telemetry and plotting primitives.
 
 Inspect `gat --help` and `gat <command> --help` for full flags.
 
@@ -91,6 +92,29 @@ gat opf ac grid.arrow --out ac-opf.parquet --tol 1e-6 --max-iter 20
 
 Outputs follow the same Parquet schema as DC flows but are computed with the converged AC angles.
 
+### Time-series tools (`gat ts resample/join`)
+
+The `gat ts resample` command buckets telemetry into fixed intervals and reports per-bucket statistics:
+
+```
+gat ts resample test_data/ts/telemetry.parquet \
+  --rule 5s \
+  --timestamp timestamp \
+  --value value \
+  --out out/telemetry.resampled.parquet
+```
+
+Use `gat ts join` to align multiple feeds on a shared timestamp column before analysis or visualization:
+
+```
+gat ts join test_data/ts/telemetry.parquet \
+  test_data/ts/telemetry_extra.parquet \
+  --on timestamp \
+  --out out/telemetry.joint.parquet
+```
+
+Refer to `docs/TS.md` for additional usage notes on file formats and grouping options.
+
 ### N-1 DC screening (`gat nminus1 dc`)
 
 Runs a contingency screen by temporarily removing each listed branch and recomputing the DC flow. The command summarizes how the remaining lines behave and flags any branch that exceeds optional flow limits.
@@ -137,6 +161,7 @@ The command writes a Parquet table of residuals (`value`, `estimate`, `residual`
 - `piecewise.csv` covering `[pmin,pmax]` for multi-segment cost.
 - `nminus1/contingencies.csv` describing branch outages (`branch_id,label`) used by `gat nminus1 dc`.
 - `se/measurements.csv` with `measurement_type,branch_id,bus_id,value,weight,label` for the WLS estimator.
+- `ts/telemetry.parquet` and `ts/telemetry_extra.parquet` for resample/join examples.
 
 Use them to seed CLI runs or unit tests.
 

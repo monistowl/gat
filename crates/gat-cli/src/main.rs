@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use gat_algo::power_flow;
 use gat_core::graph_utils;
 use gat_io::{importers, validate};
+use gat_ts;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 
@@ -47,6 +48,11 @@ enum Commands {
     Nminus1 {
         #[command(subcommand)]
         command: Nminus1Commands,
+    },
+    /// Time-series utilities
+    Ts {
+        #[command(subcommand)]
+        command: TsCommands,
     },
     /// Optimal power flow
     Opf {
@@ -154,6 +160,40 @@ enum Nminus1Commands {
         /// Optional branch limits CSV (branch_id,flow_limit) for violation checks
         #[arg(long)]
         branch_limits: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum TsCommands {
+    /// Resample a telemetry series
+    Resample {
+        /// Input time-series file (CSV or Parquet)
+        input: String,
+        /// Timestamp column name
+        #[arg(long, default_value = "timestamp")]
+        timestamp: String,
+        /// Value column to aggregate
+        #[arg(long, default_value = "value")]
+        value: String,
+        /// Resampling rule (e.g., 5s, 1m, 1h)
+        #[arg(long)]
+        rule: String,
+        /// Output file path (CSV or Parquet)
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Join two telemetry datasets
+    Join {
+        /// Left-hand input file (CSV or Parquet)
+        left: String,
+        /// Right-hand input file (CSV or Parquet)
+        right: String,
+        /// Key column to join on
+        #[arg(long, default_value = "timestamp")]
+        on: String,
+        /// Output file path (CSV or Parquet)
+        #[arg(short, long)]
+        out: String,
     },
 }
 
@@ -367,6 +407,37 @@ fn main() {
             match result {
                 Ok(_) => info!("N-1 command successful!"),
                 Err(e) => error!("N-1 command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Ts { command }) => {
+            let result = match command {
+                TsCommands::Resample {
+                    input,
+                    timestamp,
+                    value,
+                    rule,
+                    out,
+                } => {
+                    info!(
+                        "Resampling {} ({}/{}) every {} -> {}",
+                        input, timestamp, value, rule, out
+                    );
+                    gat_ts::resample_timeseries(input, timestamp, value, rule, out)
+                }
+                TsCommands::Join {
+                    left,
+                    right,
+                    on,
+                    out,
+                } => {
+                    info!("Joining {} and {} on {} -> {}", left, right, on, out);
+                    gat_ts::join_timeseries(left, right, on, out)
+                }
+            };
+
+            match result {
+                Ok(_) => info!("Timeseries command successful!"),
+                Err(e) => error!("Timeseries command failed: {:?}", e),
             }
         }
         Some(Commands::Se { command }) => {

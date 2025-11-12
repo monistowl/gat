@@ -55,7 +55,7 @@ The repository ships a small `test_data/opf` directory with example CSVs:
 
 Use these fixtures in regression tests or as a starting point when authoring your own CSV inputs. The CLI commands above reference the same files so you can reproduce the tests locally.
 
-For the state-estimation workflow, see `docs/SE.md` and `test_data/se/measurements.csv` for the measurement schema and CLI example.
+For the state-estimation workflow, see `docs/SE.md` and `test_data/se/measurements.csv` for the measurement schema and CLI example, and consult `docs/TS.md` for time-series resampling/join patterns based on `test_data/ts`.
 
 ## Contingency fixtures (`test_data/nminus1`)
 
