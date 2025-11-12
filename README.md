@@ -40,7 +40,7 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
 - `gat validate dataset --spec spec.json` — ensure Arrow datasets follow expected schema.
 - `gat graph {stats|islands|export}` — describe connectivity and export graph representations.
 - `gat pf {dc|ac}` — run DC or AC power flow on stored networks.
-- `gat ts {resample|join}` — resample telemetry feeds (time buckets) or align multiple series.
+- `gat ts {resample|join|agg}` — resample telemetry feeds (time buckets) or align multiple series and aggregate.
 - `gat viz plot` — stub visualization helper using `gat-viz`.
 - `gat gui run test_data/matpower/ieee14.arrow --output out/gui.txt` — launch the GUI dashboard stub.
 - `gat nminus1 dc grid.arrow --contingencies test_data/nminus1/contingencies.csv --out results/nminus1.parquet` — run contingency screening and detect branch violations.
@@ -93,7 +93,7 @@ gat opf ac grid.arrow --out ac-opf.parquet --tol 1e-6 --max-iter 20
 
 Outputs follow the same Parquet schema as DC flows but are computed with the converged AC angles.
 
-### Time-series tools (`gat ts resample/join`)
+### Time-series tools (`gat ts resample/join/agg`)
 
 The `gat ts resample` command buckets telemetry into fixed intervals and reports per-bucket statistics:
 
@@ -115,6 +115,16 @@ gat ts join test_data/ts/telemetry.parquet \
 ```
 
 Refer to `docs/TS.md` for additional usage notes on file formats and grouping options.
+
+`gat ts agg` groups telemetry by a column (default `sensor`) and aggregates the value column:
+
+```
+gat ts agg test_data/ts/telemetry.parquet \
+  --group sensor \
+  --value value \
+  --agg sum \
+  --out out/telemetry.agg.parquet
+```
 
 ### N-1 DC screening (`gat nminus1 dc`)
 

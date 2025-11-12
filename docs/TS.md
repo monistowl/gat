@@ -26,3 +26,15 @@ gat ts join test_data/ts/telemetry.parquet \
 This performs an outer join and preserves the `timestamp` column once in the output. Use the joined table to align multiple sensor feeds before feeding them to analytics or visualizations.
 
 For both commands, either CSV or Parquet inputs/outputs are supported; matching the extension (`.csv`/`.parquet`) determines the parser/writer.
+
+## Aggregate
+
+```
+gat ts agg test_data/ts/telemetry.parquet \
+  --group sensor \
+  --value value \
+  --agg sum \
+  --out out/telemetry.agg.parquet
+```
+
+Groups the input table by the chosen column and runs `sum | mean | min | max | count` across the selected value column, emitting the aggregated table (Polars naming convention applies, e.g., `value_sum`).

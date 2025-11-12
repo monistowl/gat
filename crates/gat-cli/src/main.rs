@@ -207,6 +207,23 @@ enum TsCommands {
         #[arg(short, long)]
         out: String,
     },
+    /// Aggregate values by a column
+    Agg {
+        /// Input file path (CSV or Parquet)
+        input: String,
+        /// Column to group by
+        #[arg(long, default_value = "sensor")]
+        group: String,
+        /// Value column to aggregate
+        #[arg(long, default_value = "value")]
+        value: String,
+        /// Aggregation to perform: sum|mean|min|max|count
+        #[arg(long, default_value = "sum")]
+        agg: String,
+        /// Output file path (CSV or Parquet)
+        #[arg(short, long)]
+        out: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -468,6 +485,19 @@ fn main() {
                 } => {
                     info!("Joining {} and {} on {} -> {}", left, right, on, out);
                     gat_ts::join_timeseries(left, right, on, out)
+                }
+                TsCommands::Agg {
+                    input,
+                    group,
+                    value,
+                    agg,
+                    out,
+                } => {
+                    info!(
+                        "Aggregating {} by {} ({}) using {} -> {}",
+                        input, group, value, agg, out
+                    );
+                    gat_ts::aggregate_timeseries(input, group, value, agg, out)
                 }
             };
 

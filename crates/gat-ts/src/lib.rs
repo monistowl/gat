@@ -83,6 +83,36 @@ pub fn join_timeseries(
     Ok(())
 }
 
+pub fn aggregate_timeseries(
+    input_path: &str,
+    group_col: &str,
+    value_column: &str,
+    agg: &str,
+    output_path: &str,
+) -> Result<()> {
+    let df = read_frame(input_path)?;
+    let group = df.group_by([group_col])?;
+    let group = group.select([value_column]);
+    let agg_df = match agg {
+        "sum" => group.sum(),
+        "mean" => group.mean(),
+        "min" => group.min(),
+        "max" => group.max(),
+        "count" => group.count(),
+        other => {
+            return Err(anyhow!(
+                "unsupported aggregation '{}'; use sum, mean, min, max, or count",
+                other
+            ));
+        }
+    }
+    .context("running groupby aggregation")?;
+
+    let mut out = agg_df;
+    write_frame(&mut out, output_path)?;
+    Ok(())
+}
+
 fn read_frame(path: &str) -> Result<DataFrame> {
     let path = Path::new(path);
     let extension = path
@@ -256,5 +286,34 @@ mod tests {
             .collect::<Vec<_>>();
         values.sort();
         assert_eq!(values.as_slice(), [1, 2, 3]);
+    }
+
+    #[test]
+    fn aggregate_timeseries_sums_by_group() {
+        let mut df = DataFrame::new(vec![
+            Series::new("sensor", vec!["A", "B", "A"]),
+            Series::new("value", vec![10.0, 20.0, 5.0]),
+        ])
+        .unwrap();
+
+        let dir = tempdir().unwrap();
+        let input_path = dir.path().join("input.parquet");
+        let out_path = dir.path().join("agg.parquet");
+        write_parquet(&mut df, &input_path).unwrap();
+
+        aggregate_timeseries(
+            input_path.to_str().unwrap(),
+            "sensor",
+            "value",
+            "sum",
+            out_path.to_str().unwrap(),
+        )
+        .unwrap();
+
+        let result = read_frame(out_path.to_str().unwrap()).unwrap();
+        let sums = result.column("value_sum").unwrap().f64().unwrap();
+        let mut collected = sums.into_iter().filter_map(|opt| opt).collect::<Vec<_>>();
+        collected.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(collected, vec![15.0, 20.0]);
     }
 }
