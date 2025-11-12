@@ -53,6 +53,11 @@ enum Commands {
         #[command(subcommand)]
         command: OpfCommands,
     },
+    /// State estimation
+    Se {
+        #[command(subcommand)]
+        command: SeCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -364,6 +369,35 @@ fn main() {
                 Err(e) => error!("N-1 command failed: {:?}", e),
             }
         }
+        Some(Commands::Se { command }) => {
+            let result = match command {
+                SeCommands::Wls {
+                    grid_file,
+                    measurements,
+                    out,
+                    state_out,
+                } => {
+                    info!(
+                        "Running WLS state estimation on {} using {} -> {}",
+                        grid_file, measurements, out
+                    );
+                    match importers::load_grid_from_arrow(grid_file) {
+                        Ok(network) => power_flow::state_estimation_wls(
+                            &network,
+                            measurements,
+                            out,
+                            state_out.as_deref(),
+                        ),
+                        Err(e) => Err(e),
+                    }
+                }
+            };
+
+            match result {
+                Ok(_) => info!("State estimation command successful!"),
+                Err(e) => error!("State estimation command failed: {:?}", e),
+            }
+        }
         Some(Commands::Opf { command }) => {
             let result = match command {
                 OpfCommands::Dc {
@@ -418,4 +452,22 @@ fn main() {
             info!("No subcommand provided. Use `gat --help` for more information.");
         }
     }
+}
+
+#[derive(Subcommand, Debug)]
+enum SeCommands {
+    /// Run WLS state estimation
+    Wls {
+        /// Path to the grid file (Arrow format)
+        grid_file: String,
+        /// Measurements CSV (`measurement_type,branch_id,bus_id,value,weight,label`)
+        #[arg(long)]
+        measurements: String,
+        /// Output Parquet for measurement residuals
+        #[arg(short, long)]
+        out: String,
+        /// Optional Parquet output for the solved bus angles
+        #[arg(long)]
+        state_out: Option<String>,
+    },
 }

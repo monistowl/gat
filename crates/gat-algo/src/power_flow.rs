@@ -48,6 +48,21 @@ struct ContingencyRecord {
     label: Option<String>,
 }
 
+#[derive(Deserialize, Debug)]
+struct MeasurementRecord {
+    measurement_type: String,
+    branch_id: Option<i64>,
+    bus_id: Option<usize>,
+    value: f64,
+    #[serde(default = "default_weight")]
+    weight: f64,
+    label: Option<String>,
+}
+
+fn default_weight() -> f64 {
+    1.0
+}
+
 pub fn dc_power_flow(network: &Network, output_file: &str) -> Result<()> {
     let injections = default_pf_injections(network);
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None)
@@ -401,6 +416,151 @@ pub fn ac_optimal_power_flow(
     Ok(())
 }
 
+pub fn state_estimation_wls(
+    network: &Network,
+    measurements_csv: &str,
+    output_file: &str,
+    state_out: Option<&str>,
+) -> Result<()> {
+    let measurements = load_measurements(measurements_csv)?;
+    let measurement_count = measurements.len();
+    if measurement_count == 0 {
+        return Err(anyhow!("measurements file must contain at least one entry"));
+    }
+
+    let (bus_ids, id_to_index, susceptance) = build_bus_susceptance(network, None);
+    if bus_ids.len() < 2 {
+        return Err(anyhow!(
+            "network must contain at least two buses for WLS state estimation"
+        ));
+    }
+
+    let slack_bus = bus_ids[0];
+    let unknown_buses: Vec<usize> = bus_ids.iter().skip(1).cloned().collect();
+    let mut unknown_idx = HashMap::new();
+    for (idx, bus_id) in unknown_buses.iter().enumerate() {
+        unknown_idx.insert(*bus_id, idx);
+    }
+
+    let measurement_rows = build_measurement_rows(
+        &measurements,
+        &susceptance,
+        &id_to_index,
+        &unknown_buses,
+        &unknown_idx,
+        slack_bus,
+        &network,
+    )?;
+
+    let n_vars = unknown_buses.len();
+    let mut normal = vec![vec![0.0; n_vars]; n_vars];
+    let mut rhs = vec![0.0; n_vars];
+    for row in &measurement_rows {
+        let y_tilde = row.value - row.offset;
+        for i in 0..n_vars {
+            for j in 0..n_vars {
+                normal[i][j] += row.h[i] * row.weight * row.h[j];
+            }
+            rhs[i] += row.h[i] * row.weight * y_tilde;
+        }
+    }
+
+    let solution = solve_linear_system(&normal, &rhs)?;
+    let mut angle_map = HashMap::new();
+    angle_map.insert(slack_bus, 0.0);
+    for (idx, bus_id) in unknown_buses.iter().enumerate() {
+        angle_map.insert(*bus_id, solution[idx]);
+    }
+
+    let mut indexes = Vec::new();
+    let mut types = Vec::new();
+    let mut targets = Vec::new();
+    let mut values = Vec::new();
+    let mut estimates = Vec::new();
+    let mut residuals = Vec::new();
+    let mut normalized_residuals = Vec::new();
+    let mut weights = Vec::new();
+    let mut chi2 = 0.0;
+
+    for (idx, row) in measurement_rows.iter().enumerate() {
+        let predicted = row
+            .h
+            .iter()
+            .enumerate()
+            .map(|(j, coeff)| coeff * solution[j])
+            .sum::<f64>()
+            + row.offset;
+        let residual = predicted - row.value;
+        let normalized = residual * row.weight.sqrt();
+        chi2 += row.weight * residual * residual;
+        indexes.push(idx as i64);
+        types.push(row.kind.clone());
+        targets.push(row.target.clone());
+        values.push(row.value);
+        estimates.push(predicted);
+        residuals.push(residual);
+        normalized_residuals.push(normalized);
+        weights.push(row.weight);
+    }
+
+    let mut measurement_df = DataFrame::new(vec![
+        Series::new("measurement_index", indexes),
+        Series::new("measurement_type", types),
+        Series::new("target", targets),
+        Series::new("value", values),
+        Series::new("estimate", estimates),
+        Series::new("residual", residuals),
+        Series::new("normalized_residual", normalized_residuals),
+        Series::new("weight", weights),
+    ])?;
+
+    let mut file = File::create(output_file).with_context(|| {
+        format!(
+            "creating state estimation output '{}'; ensure directory exists",
+            output_file
+        )
+    })?;
+    ParquetWriter::new(&mut file)
+        .finish(&mut measurement_df)
+        .context("writing state estimation measurements")?;
+
+    if let Some(state_path) = state_out {
+        let mut bus_ids_vec = Vec::new();
+        let mut angle_vec = Vec::new();
+        for bus_id in &bus_ids {
+            bus_ids_vec.push(*bus_id as i64);
+            angle_vec.push(*angle_map.get(bus_id).unwrap_or(&0.0));
+        }
+        let mut state_df = DataFrame::new(vec![
+            Series::new("bus_id", bus_ids_vec),
+            Series::new("angle_rad", angle_vec),
+        ])?;
+        let mut state_file = File::create(state_path).with_context(|| {
+            format!(
+                "creating state output '{}'; ensure directory exists",
+                state_path
+            )
+        })?;
+        ParquetWriter::new(&mut state_file)
+            .finish(&mut state_df)
+            .context("writing state estimation angles")?;
+        println!(
+            "State angles persisted to {} ({} buses)",
+            state_path,
+            bus_ids.len()
+        );
+    }
+
+    println!(
+        "State estimation (WLS): {} measurements, {} state (angles) solved, chi2 {:.3}, persisted to {}",
+        measurement_rows.len(),
+        n_vars,
+        chi2,
+        output_file
+    );
+    Ok(())
+}
+
 fn branch_flow_dataframe(
     network: &Network,
     injections: &HashMap<usize, f64>,
@@ -697,6 +857,130 @@ fn load_piecewise_costs(path: &str) -> Result<HashMap<usize, Vec<PiecewiseSegmen
         });
     }
     Ok(map)
+}
+
+fn load_measurements(path: &str) -> Result<Vec<MeasurementRecord>> {
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(path)
+        .context("opening measurements CSV")?;
+    let mut out = Vec::new();
+    for result in rdr.deserialize() {
+        let record: MeasurementRecord = result.context("parsing measurement record")?;
+        if record.weight <= 0.0 {
+            return Err(anyhow!("measurement weights must be positive"));
+        }
+        out.push(record);
+    }
+    Ok(out)
+}
+
+struct MeasurementRow {
+    kind: String,
+    target: String,
+    h: Vec<f64>,
+    offset: f64,
+    value: f64,
+    weight: f64,
+}
+
+struct BranchDescriptor {
+    from_bus: usize,
+    to_bus: usize,
+    reactance: f64,
+}
+
+fn build_measurement_rows(
+    measurements: &[MeasurementRecord],
+    susceptance: &[Vec<f64>],
+    id_to_index: &HashMap<usize, usize>,
+    unknown_buses: &[usize],
+    unknown_idx: &HashMap<usize, usize>,
+    slack_bus: usize,
+    network: &Network,
+) -> Result<Vec<MeasurementRow>> {
+    let mut branch_map = HashMap::new();
+    for edge in network.graph.edge_references() {
+        if let Edge::Branch(branch) = edge.weight() {
+            branch_map.insert(
+                branch.id.value() as i64,
+                BranchDescriptor {
+                    from_bus: branch.from_bus.value(),
+                    to_bus: branch.to_bus.value(),
+                    reactance: branch.reactance,
+                },
+            );
+        }
+    }
+
+    let mut rows = Vec::new();
+    for record in measurements {
+        let kind = record.measurement_type.to_lowercase();
+        let mut h = vec![0.0; unknown_buses.len()];
+        let mut offset = 0.0;
+        let target = record.label.clone().unwrap_or_else(|| match kind.as_str() {
+            "flow" => format!("branch {}", record.branch_id.unwrap_or(-1)),
+            "injection" => format!("bus {}", record.bus_id.unwrap_or(0)),
+            _ => "measurement".to_string(),
+        });
+
+        match kind.as_str() {
+            "flow" => {
+                let branch_id = record
+                    .branch_id
+                    .ok_or_else(|| anyhow!("flow measurement must include branch_id"))?;
+                let branch = branch_map
+                    .get(&branch_id)
+                    .ok_or_else(|| anyhow!("branch {} not found for measurement", branch_id))?;
+                let gain = 1.0 / branch.reactance.abs().max(1e-6);
+                let mut add_bus = |bus_id: usize, sign: f64| {
+                    if bus_id == slack_bus {
+                        return;
+                    }
+                    if let Some(&col) = unknown_idx.get(&bus_id) {
+                        h[col] += sign * gain;
+                    }
+                };
+                add_bus(branch.from_bus, 1.0);
+                add_bus(branch.to_bus, -1.0);
+            }
+            "injection" => {
+                let bus_id = record
+                    .bus_id
+                    .ok_or_else(|| anyhow!("injection measurement must include bus_id"))?;
+                let matrix_idx = *id_to_index.get(&bus_id).ok_or_else(|| {
+                    anyhow!(
+                        "bus {} not present in network for injection measurement",
+                        bus_id
+                    )
+                })?;
+                let row = &susceptance[matrix_idx];
+                for (col, unknown_bus) in unknown_buses.iter().enumerate() {
+                    let bus_idx = *id_to_index.get(unknown_bus).unwrap_or(&0);
+                    h[col] = row[bus_idx];
+                }
+                let slack_idx = *id_to_index.get(&slack_bus).unwrap_or(&matrix_idx);
+                offset = row[slack_idx] * 0.0;
+            }
+            _ => {
+                return Err(anyhow!(
+                    "unsupported measurement type '{}'",
+                    record.measurement_type
+                ));
+            }
+        }
+
+        rows.push(MeasurementRow {
+            kind,
+            target,
+            h,
+            offset,
+            value: record.value,
+            weight: record.weight,
+        });
+    }
+
+    Ok(rows)
 }
 
 fn build_piecewise_cost_expression(
@@ -1106,5 +1390,35 @@ mod tests {
         let file = File::open(&out).unwrap();
         let df = ParquetReader::new(file).finish().unwrap();
         assert_eq!(df.height(), 1);
+    }
+
+    #[test]
+    fn state_estimation_wls_outputs_residuals() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let meas_path = temp_dir.path().join("measurements.csv");
+        let out = temp_dir.path().join("se.parquet");
+        let state_out = temp_dir.path().join("states.parquet");
+        fs::write(
+            &meas_path,
+            "measurement_type,branch_id,bus_id,value,weight,label\nflow,0,,1.0,1.0,line0-1\ninjection,,1,0.5,1.0,bus1\n",
+        )
+        .unwrap();
+
+        state_estimation_wls(
+            &network,
+            meas_path.to_str().unwrap(),
+            out.to_str().unwrap(),
+            Some(state_out.to_str().unwrap()),
+        )
+        .unwrap();
+
+        let meas_file = File::open(&out).unwrap();
+        let meas_df = ParquetReader::new(meas_file).finish().unwrap();
+        assert_eq!(meas_df.height(), 2);
+
+        let state_file = File::open(&state_out).unwrap();
+        let state_df = ParquetReader::new(state_file).finish().unwrap();
+        assert_eq!(state_df.height(), 2);
     }
 }

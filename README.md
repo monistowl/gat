@@ -104,6 +104,30 @@ gat nminus1 dc grid.arrow \
 
 Each row in the output Parquet file corresponds to a branch outage and includes columns such as `max_abs_flow_mw`, `violated`, and `violation_branch_id` so you can rank contingencies by their worst violations.
 
+### State estimation WLS (`gat se wls`)
+
+Run the Weighted Least Squares estimator by providing measurement values (flows or injections) along with optional measurement weights. The solver treats the smallest bus ID as the slack angle (0) and estimates the remaining bus angles.
+
+```
+gat se wls grid.arrow \
+  --measurements test_data/se/measurements.csv \
+  --out results/se-measurements.parquet \
+  --state-out results/se-states.parquet
+```
+
+Measurement CSV format:
+
+| column | description |
+| --- | --- |
+| `measurement_type` | `flow` or `injection` |
+| `branch_id` | required for `flow`; the `branch` ID to compare |
+| `bus_id` | required for `injection`; the bus ID for the power injection |
+| `value` | measured value (MW) |
+| `weight` | positive weight (1/variance) |
+| `label` | optional descriptor for reporting |
+
+The command writes a Parquet table of residuals (`value`, `estimate`, `residual`, `normalized_residual`, `weight`) and can emit the solved angles via `--state-out`. Use `test_data/se/measurements.csv` for a minimal fixture.
+
 ### Fixtures and regression data
 
 `test_data/opf/` includes:
@@ -112,6 +136,7 @@ Each row in the output Parquet file corresponds to a branch outage and includes 
 - `branch_limits.csv` demonstrating flow constraints.
 - `piecewise.csv` covering `[pmin,pmax]` for multi-segment cost.
 - `nminus1/contingencies.csv` describing branch outages (`branch_id,label`) used by `gat nminus1 dc`.
+- `se/measurements.csv` with `measurement_type,branch_id,bus_id,value,weight,label` for the WLS estimator.
 
 Use them to seed CLI runs or unit tests.
 

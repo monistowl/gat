@@ -55,6 +55,8 @@ The repository ships a small `test_data/opf` directory with example CSVs:
 
 Use these fixtures in regression tests or as a starting point when authoring your own CSV inputs. The CLI commands above reference the same files so you can reproduce the tests locally.
 
+For the state-estimation workflow, see `docs/SE.md` and `test_data/se/measurements.csv` for the measurement schema and CLI example.
+
 ## Contingency fixtures (`test_data/nminus1`)
 
 - `contingencies.csv`: sample branch outages for `gat nminus1 dc` (`branch_id,label`). Combine with `test_data/opf/branch_limits.csv` to reproduce the N-1 scenario used in the regression test suite.
