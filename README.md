@@ -40,11 +40,11 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
 - `gat validate dataset --spec spec.json` — ensure Arrow datasets follow expected schema.
 - `gat graph {stats|islands|export}` — describe connectivity and export graph representations.
 - `gat pf {dc|ac}` — run DC or AC power flow on stored networks.
-- `gat nminus1 dc grid.arrow --contingencies test_data/nminus1/contingencies.csv --out results/nminus1.parquet` — run contingency screening and detect branch violations.
-- `gat opf {dc|ac}` — solve optimal power flow variants.
 - `gat ts {resample|join}` — resample telemetry feeds (time buckets) or align multiple series.
 - `gat viz plot` — stub visualization helper using `gat-viz`.
-- `gat viz` (future) — work with telemetry and plotting primitives.
+- `gat gui run test_data/matpower/ieee14.arrow --output out/gui.txt` — launch the GUI dashboard stub.
+- `gat nminus1 dc grid.arrow --contingencies test_data/nminus1/contingencies.csv --out results/nminus1.parquet` — run contingency screening and detect branch violations.
+- `gat opf {dc|ac}` — solve optimal power flow variants.
 
 Inspect `gat --help` and `gat <command> --help` for full flags.
 
@@ -176,4 +176,4 @@ Use them to seed CLI runs or unit tests.
 
 Future milestones include DC/AC contingency screening, state estimation (WLS), time-series tools, visualization/export, and packaging scripts (`scripts/deploy_staging.sh`). Refer to `ROADMAP.md` for the overall plan and acceptance criteria.
 
-See `docs/VIZ.md` for the current visualization stub and how it ties into `gat-viz`.
+See `docs/VIZ.md` for the visualization stub and `docs/GUI.md` for the GUI command stub.

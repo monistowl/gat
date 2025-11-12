@@ -1,8 +1,10 @@
 use clap::{Parser, Subcommand};
 use gat_algo::power_flow;
 use gat_core::graph_utils;
+use gat_gui;
 use gat_io::{importers, validate};
 use gat_ts;
+use gat_viz;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 
@@ -68,6 +70,11 @@ enum Commands {
     Viz {
         #[command(subcommand)]
         command: VizCommands,
+    },
+    /// GUI dashboard
+    Gui {
+        #[command(subcommand)]
+        command: GuiCommands,
     },
 }
 
@@ -209,6 +216,18 @@ enum VizCommands {
         /// Path to the grid data file (Arrow format)
         grid_file: String,
         /// Optional output path for the visualization artifact
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum GuiCommands {
+    /// Launch the GUI dashboard (placeholder)
+    Run {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Optional path to persist the visualization artifact
         #[arg(short, long)]
         output: Option<String>,
     },
@@ -507,6 +526,31 @@ fn main() {
             match result {
                 Ok(_) => info!("Viz command successful!"),
                 Err(e) => error!("Viz command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Gui { command }) => {
+            let result = match command {
+                GuiCommands::Run { grid_file, output } => {
+                    info!("Launching GUI for {}", grid_file);
+                    match importers::load_grid_from_arrow(grid_file) {
+                        Ok(_network) => match gat_gui::launch(output.as_deref()) {
+                            Ok(summary) => {
+                                println!("GUI summary: {}", summary);
+                                if let Some(path) = output {
+                                    println!("GUI artifact persisted to {}", path);
+                                }
+                                Ok(())
+                            }
+                            Err(e) => Err(e),
+                        },
+                        Err(e) => Err(e),
+                    }
+                }
+            };
+
+            match result {
+                Ok(_) => info!("GUI command successful!"),
+                Err(e) => error!("GUI command failed: {:?}", e),
             }
         }
         Some(Commands::Opf { command }) => {

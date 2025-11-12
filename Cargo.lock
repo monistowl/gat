@@ -1299,6 +1299,7 @@ dependencies = [
  "clap",
  "gat-algo",
  "gat-core",
+ "gat-gui",
  "gat-io",
  "gat-ts",
  "gat-viz",
@@ -1328,6 +1329,7 @@ dependencies = [
 name = "gat-gui"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "gat-core",
  "gat-viz",
 ]

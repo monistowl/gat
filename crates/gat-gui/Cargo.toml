@@ -1,0 +1,9 @@
+[package]
+name = "gat-gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gat-core = { path = "../gat-core" }
+gat-viz = { path = "../gat-viz" }
+anyhow = "1.0"
