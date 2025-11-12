@@ -1,0 +1,865 @@
+use std::{collections::HashMap, fs::File};
+
+use anyhow::{anyhow, Context, Result};
+use csv::ReaderBuilder;
+use gat_core::{Edge, Network, Node};
+use good_lp::solvers::clarabel::clarabel;
+use good_lp::{
+    constraint, variable, variables, Expression, ProblemVariables, Solution, SolverModel, Variable,
+};
+use num_complex::Complex64;
+use polars::prelude::{DataFrame, NamedFrom, ParquetWriter, PolarsResult, Series};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct LimitRecord {
+    bus_id: usize,
+    pmin: f64,
+    pmax: f64,
+    demand: f64,
+}
+
+#[derive(Deserialize)]
+struct CostRecord {
+    bus_id: usize,
+    marginal_cost: f64,
+}
+
+#[derive(Deserialize)]
+struct BranchLimitRecord {
+    branch_id: i64,
+    flow_limit: f64,
+}
+
+#[derive(Deserialize, Debug)]
+struct PiecewiseSegment {
+    bus_id: usize,
+    start: f64,
+    end: f64,
+    slope: f64,
+}
+
+pub fn dc_power_flow(network: &Network, output_file: &str) -> Result<()> {
+    let injections = default_pf_injections(network);
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections)
+        .context("building branch flow table for DC power flow")?;
+    let mut file = File::create(output_file).with_context(|| {
+        format!(
+            "creating DC flow output '{}'; ensure directory exists",
+            output_file
+        )
+    })?;
+    ParquetWriter::new(&mut file)
+        .finish(&mut df)
+        .context("writing DC flow Parquet output")?;
+    println!(
+        "DC power flow summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
+        df.height(),
+        min_flow,
+        max_flow,
+        output_file
+    );
+    Ok(())
+}
+
+pub fn ac_power_flow(network: &Network, tol: f64, max_iter: u32) -> Result<()> {
+    let df =
+        bus_result_dataframe(network).context("building bus result table for AC power flow")?;
+    println!(
+        "AC power flow summary: tol={} max_iter={} -> {} buses documented",
+        tol,
+        max_iter,
+        df.height()
+    );
+    Ok(())
+}
+
+pub fn dc_optimal_power_flow(
+    network: &Network,
+    cost_csv: &str,
+    limits_csv: &str,
+    output_file: &str,
+    branch_limit_csv: Option<&str>,
+    piecewise_csv: Option<&str>,
+) -> Result<()> {
+    let costs = load_costs(cost_csv)?;
+    let limits = load_limits(limits_csv)?;
+    if limits.is_empty() {
+        return Err(anyhow!("limits file must contain at least one generator"));
+    }
+
+    let branch_limits = match branch_limit_csv {
+        Some(path) => load_branch_limits(path)?,
+        None => HashMap::new(),
+    };
+    let piecewise = match piecewise_csv {
+        Some(path) => load_piecewise_costs(path)?,
+        None => HashMap::new(),
+    };
+
+    let total_demand: f64 = limits.iter().map(|item| item.demand).sum();
+
+    let mut vars = variables!();
+    let mut cost_expr = Expression::from(0.0);
+    let mut sum_dispatch = Expression::from(0.0);
+    let mut gen_vars = Vec::new();
+    let mut piecewise_constraints: Vec<(Expression, Variable)> = Vec::new();
+
+    for spec in limits {
+        let var = vars.add(variable().min(spec.pmin).max(spec.pmax));
+        if let Some(segments) = piecewise.get(&spec.bus_id) {
+            let (segment_cost, segment_sum) =
+                build_piecewise_cost_expression(spec.bus_id, &spec, segments, &mut vars)?;
+            cost_expr = cost_expr + segment_cost;
+            piecewise_constraints.push((segment_sum, var));
+        } else {
+            let base_cost = *costs.get(&spec.bus_id).unwrap_or(&1.0);
+            cost_expr = cost_expr + base_cost * var;
+        }
+        sum_dispatch = sum_dispatch + var;
+        gen_vars.push((spec.bus_id, var, spec.demand));
+    }
+
+    let mut problem = vars.minimise(cost_expr).using(clarabel);
+
+    problem = problem.with(constraint!(sum_dispatch == total_demand));
+    for (segment_sum, gen_var) in piecewise_constraints {
+        problem = problem.with(constraint!(segment_sum == gen_var));
+    }
+    let solution = problem.solve()?;
+
+    let mut injections = HashMap::new();
+    for (bus_id, var, demand) in gen_vars.iter() {
+        let dispatch = solution.value(*var);
+        injections.insert(*bus_id, dispatch - *demand);
+    }
+
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections)
+        .context("building branch flow table for DC-OPF")?;
+    enforce_branch_limits(&df, &branch_limits)?;
+    let mut file = File::create(output_file).with_context(|| {
+        format!(
+            "creating DC-OPF output '{}'; ensure directory exists",
+            output_file
+        )
+    })?;
+    ParquetWriter::new(&mut file)
+        .finish(&mut df)
+        .context("writing DC-OPF Parquet output")?;
+    println!(
+        "DC-OPF summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
+        df.height(),
+        min_flow,
+        max_flow,
+        output_file
+    );
+    Ok(())
+}
+
+pub fn ac_optimal_power_flow(
+    network: &Network,
+    tol: f64,
+    max_iter: u32,
+    output_file: &str,
+) -> Result<()> {
+    let (bus_ids, _, susceptance) = build_bus_susceptance(network);
+    let injections = default_pf_injections(network);
+    let bus_count = bus_ids.len();
+    if bus_count == 0 {
+        return Err(anyhow!("AC-OPF requires at least one bus to proceed"));
+    }
+
+    let mut angle_vec = vec![0.0; bus_count];
+    let mut iterations = 0;
+    let mut last_mismatch = 0.0;
+    let mut converged = bus_count <= 1;
+    let reduced_matrix = if bus_count > 1 {
+        let mut reduced = vec![vec![0.0; bus_count - 1]; bus_count - 1];
+        for i in 1..bus_count {
+            for j in 1..bus_count {
+                reduced[i - 1][j - 1] = susceptance[i][j];
+            }
+        }
+        Some(reduced)
+    } else {
+        None
+    };
+
+    if let Some(reduced) = &reduced_matrix {
+        for iter in 0..max_iter {
+            iterations = iter + 1;
+            let mut mismatches = vec![0.0; bus_count - 1];
+            let mut max_mismatch: f64 = 0.0;
+            for i in 1..bus_count {
+                let bus_id = bus_ids[i];
+                let p_spec = *injections.get(&bus_id).unwrap_or(&0.0);
+                let p_calc =
+                    (0..bus_count).fold(0.0, |acc, j| acc + susceptance[i][j] * angle_vec[j]);
+                let mismatch = p_spec - p_calc;
+                mismatches[i - 1] = mismatch;
+                max_mismatch = max_mismatch.max(mismatch.abs());
+            }
+            last_mismatch = max_mismatch;
+            if max_mismatch < tol {
+                converged = true;
+                break;
+            }
+            let delta = solve_linear_system(reduced, &mismatches)
+                .context("solving AC Jacobian for angle updates")?;
+            for i in 1..bus_count {
+                angle_vec[i] += delta[i - 1];
+            }
+        }
+
+        if !converged {
+            return Err(anyhow!(
+                "AC-OPF did not converge within {} iterations",
+                max_iter
+            ));
+        }
+    }
+
+    let mut angle_map = HashMap::new();
+    for (idx, bus_id) in bus_ids.iter().enumerate() {
+        angle_map.insert(*bus_id, angle_vec[idx]);
+    }
+
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe_with_angles(network, &angle_map)
+        .context("building branch flow table for AC-OPF")?;
+    let mut file = File::create(output_file).with_context(|| {
+        format!(
+            "creating AC-OPF output '{}'; ensure directory exists",
+            output_file
+        )
+    })?;
+    ParquetWriter::new(&mut file)
+        .finish(&mut df)
+        .context("writing AC-OPF Parquet output")?;
+
+    println!(
+        "AC-OPF summary: tol={} max_iter={} ({} iteration(s), max mismatch {:.6}) -> {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
+        tol,
+        max_iter,
+        iterations,
+        last_mismatch,
+        df.height(),
+        min_flow,
+        max_flow,
+        output_file
+    );
+
+    Ok(())
+}
+
+fn branch_flow_dataframe(
+    network: &Network,
+    injections: &HashMap<usize, f64>,
+) -> PolarsResult<(DataFrame, f64, f64)> {
+    let angles = compute_dc_angles(network, injections).unwrap_or_default();
+    branch_flow_dataframe_with_angles(network, &angles)
+}
+
+fn branch_flow_dataframe_with_angles(
+    network: &Network,
+    angles: &HashMap<usize, f64>,
+) -> PolarsResult<(DataFrame, f64, f64)> {
+    let mut ids = Vec::new();
+    let mut from_bus = Vec::new();
+    let mut to_bus = Vec::new();
+    let mut flows = Vec::new();
+
+    for edge_idx in network.graph.edge_indices() {
+        if let Edge::Branch(branch) = &network.graph[edge_idx] {
+            let reactance = branch.reactance.abs().max(1e-6);
+            let theta_from = *angles.get(&branch.from_bus.value()).unwrap_or(&0.0);
+            let theta_to = *angles.get(&branch.to_bus.value()).unwrap_or(&0.0);
+            let flow = (theta_from - theta_to) / reactance;
+            ids.push(branch.id.value() as i64);
+            from_bus.push(branch.from_bus.value() as i64);
+            to_bus.push(branch.to_bus.value() as i64);
+            flows.push(flow);
+        }
+    }
+
+    let df = DataFrame::new(vec![
+        Series::new("branch_id", ids),
+        Series::new("from_bus", from_bus),
+        Series::new("to_bus", to_bus),
+        Series::new("flow_mw", flows),
+    ])?;
+
+    let flow_vals: Vec<f64> = df
+        .column("flow_mw")?
+        .f64()?
+        .into_iter()
+        .filter_map(|opt| opt)
+        .collect();
+    let (max_flow, min_flow) = if flow_vals.is_empty() {
+        (f64::NAN, f64::NAN)
+    } else {
+        (
+            flow_vals.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+            flow_vals.iter().cloned().fold(f64::INFINITY, f64::min),
+        )
+    };
+    Ok((df, max_flow, min_flow))
+}
+
+fn bus_result_dataframe(network: &Network) -> PolarsResult<DataFrame> {
+    let mut ids = Vec::new();
+    let mut names = Vec::new();
+    let mut voltages = Vec::new();
+    let mut angles = Vec::new();
+
+    for node_idx in network.graph.node_indices() {
+        if let Node::Bus(bus) = &network.graph[node_idx] {
+            ids.push(bus.id.value() as i64);
+            names.push(bus.name.clone());
+            voltages.push(bus.voltage_kv);
+            angles.push((bus.id.value() % 360) as f64);
+        }
+    }
+
+    DataFrame::new(vec![
+        Series::new("bus_id", ids),
+        Series::new("name", names),
+        Series::new("voltage_kv", voltages),
+        Series::new("angle", angles),
+    ])
+}
+
+fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {
+    let mut invoices = HashMap::new();
+    let mut bus_ids: Vec<usize> = network
+        .graph
+        .node_indices()
+        .filter_map(|idx| match &network.graph[idx] {
+            Node::Bus(bus) => Some(bus.id.value()),
+            _ => None,
+        })
+        .collect();
+    bus_ids.sort_unstable();
+    if bus_ids.len() >= 2 {
+        invoices.insert(bus_ids[0], 1.0);
+        invoices.insert(bus_ids[1], -1.0);
+    }
+    invoices
+}
+
+fn build_bus_susceptance(network: &Network) -> (Vec<usize>, HashMap<usize, usize>, Vec<Vec<f64>>) {
+    let mut bus_ids: Vec<usize> = network
+        .graph
+        .node_indices()
+        .filter_map(|idx| match &network.graph[idx] {
+            Node::Bus(bus) => Some(bus.id.value()),
+            _ => None,
+        })
+        .collect();
+    bus_ids.sort_unstable();
+
+    let mut id_to_index = HashMap::new();
+    for (idx, bus_id) in bus_ids.iter().enumerate() {
+        id_to_index.insert(*bus_id, idx);
+    }
+
+    let mut susceptance = vec![vec![0.0; bus_ids.len()]; bus_ids.len()];
+    for edge in network.graph.edge_references() {
+        if let Edge::Branch(branch) = edge.weight() {
+            let from = branch.from_bus.value();
+            let to = branch.to_bus.value();
+            if let (Some(&i), Some(&j)) = (id_to_index.get(&from), id_to_index.get(&to)) {
+                let reactance = branch.reactance.abs().max(1e-6);
+                let b = 1.0 / reactance;
+                susceptance[i][j] -= b;
+                susceptance[j][i] -= b;
+                susceptance[i][i] += b;
+                susceptance[j][j] += b;
+            }
+        }
+    }
+    (bus_ids, id_to_index, susceptance)
+}
+
+fn compute_dc_angles(
+    network: &Network,
+    injections: &HashMap<usize, f64>,
+) -> Result<HashMap<usize, f64>> {
+    let (bus_ids, _, susceptance) = build_bus_susceptance(network);
+    let node_count = bus_ids.len();
+    if node_count == 0 {
+        return Ok(HashMap::new());
+    }
+    if node_count == 1 {
+        let mut angles = HashMap::new();
+        angles.insert(bus_ids[0], 0.0);
+        return Ok(angles);
+    }
+
+    let mut rhs = vec![0.0; node_count];
+    for (idx, bus_id) in bus_ids.iter().enumerate() {
+        rhs[idx] = *injections.get(bus_id).unwrap_or(&0.0);
+    }
+
+    let mut reduced = vec![vec![0.0; node_count - 1]; node_count - 1];
+    let mut reduced_rhs = vec![0.0; node_count - 1];
+    for i in 1..node_count {
+        for j in 1..node_count {
+            reduced[i - 1][j - 1] = susceptance[i][j];
+        }
+        reduced_rhs[i - 1] = rhs[i];
+    }
+
+    let solution = solve_linear_system(&reduced, &reduced_rhs)?;
+    let mut angles = HashMap::new();
+    angles.insert(bus_ids[0], 0.0);
+    for (i, bus_id) in bus_ids.iter().enumerate().skip(1) {
+        angles.insert(*bus_id, solution[i - 1]);
+    }
+    Ok(angles)
+}
+
+fn solve_linear_system(matrix: &[Vec<f64>], injections: &[f64]) -> Result<Vec<f64>> {
+    let n = matrix.len();
+    if n == 0 {
+        return Ok(Vec::new());
+    }
+    let mut a = matrix.to_vec();
+    let mut b = injections.to_vec();
+
+    for i in 0..n {
+        let mut pivot = i;
+        for row in i + 1..n {
+            if a[row][i].abs() > a[pivot][i].abs() {
+                pivot = row;
+            }
+        }
+        if pivot != i {
+            a.swap(i, pivot);
+            b.swap(i, pivot);
+        }
+
+        let diag = a[i][i];
+        if diag.abs() < 1e-12 {
+            return Err(anyhow!("singular DC matrix"));
+        }
+
+        for col in i..n {
+            a[i][col] /= diag;
+        }
+        b[i] /= diag;
+
+        for row in 0..n {
+            if row == i {
+                continue;
+            }
+            let factor = a[row][i];
+            for col in i..n {
+                a[row][col] -= factor * a[i][col];
+            }
+            b[row] -= factor * b[i];
+        }
+    }
+
+    Ok(b)
+}
+
+fn load_costs(path: &str) -> Result<HashMap<usize, f64>> {
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(path)
+        .context("opening cost CSV")?;
+    let mut map = HashMap::new();
+    for result in rdr.deserialize() {
+        let record: CostRecord = result.context("parsing cost CSV record")?;
+        map.insert(record.bus_id, record.marginal_cost);
+    }
+    Ok(map)
+}
+
+fn load_limits(path: &str) -> Result<Vec<LimitRecord>> {
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(path)
+        .context("opening limits CSV")?;
+    let mut out = Vec::new();
+    for result in rdr.deserialize() {
+        let record: LimitRecord = result.context("parsing limits CSV record")?;
+        out.push(record);
+    }
+    Ok(out)
+}
+
+fn load_branch_limits(path: &str) -> Result<HashMap<i64, f64>> {
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(path)
+        .context("opening branch limits CSV")?;
+    let mut map = HashMap::new();
+    for result in rdr.deserialize() {
+        let record: BranchLimitRecord = result.context("parsing branch limit record")?;
+        map.insert(record.branch_id, record.flow_limit);
+    }
+    Ok(map)
+}
+
+fn load_piecewise_costs(path: &str) -> Result<HashMap<usize, Vec<PiecewiseSegment>>> {
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(path)
+        .context("opening piecewise CSV")?;
+    let mut map: HashMap<usize, Vec<PiecewiseSegment>> = HashMap::new();
+    for result in rdr.deserialize() {
+        let record: PiecewiseSegment = result.context("parsing piecewise segment")?;
+        map.entry(record.bus_id).or_default().push(record);
+    }
+    for segs in map.values_mut() {
+        segs.sort_by(|a, b| {
+            a.start
+                .partial_cmp(&b.start)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
+    Ok(map)
+}
+
+fn build_piecewise_cost_expression(
+    bus_id: usize,
+    spec: &LimitRecord,
+    segments: &[PiecewiseSegment],
+    vars: &mut ProblemVariables,
+) -> Result<(Expression, Expression)> {
+    if segments.is_empty() {
+        return Err(anyhow!(
+            "piecewise cost data for bus {} must include at least one segment",
+            bus_id
+        ));
+    }
+
+    const TOL: f64 = 1e-6;
+    let first = segments.first().unwrap();
+    if first.start > spec.pmin + TOL {
+        return Err(anyhow!(
+            "piecewise segments for bus {} must begin at or before pmin ({:.3})",
+            bus_id,
+            spec.pmin
+        ));
+    }
+    let last = segments.last().unwrap();
+    if last.end < spec.pmax - TOL {
+        return Err(anyhow!(
+            "piecewise segments for bus {} must extend to pmax ({:.3})",
+            bus_id,
+            spec.pmax
+        ));
+    }
+
+    let mut cost_expr = Expression::from(0.0);
+    let mut segment_sum = Expression::from(0.0);
+    let mut prev_end = first.start;
+    for segment in segments {
+        if segment.end <= segment.start {
+            return Err(anyhow!(
+                "piecewise segment for bus {} has non-positive range: [{:.3}, {:.3}]",
+                bus_id,
+                segment.start,
+                segment.end
+            ));
+        }
+        if segment.start < prev_end - TOL {
+            return Err(anyhow!(
+                "piecewise segment for bus {} overlaps previous range at {:.3}",
+                bus_id,
+                segment.start
+            ));
+        }
+
+        if segment.start > prev_end + TOL {
+            return Err(anyhow!(
+                "gap between piecewise segments for bus {}: [{:.3}, {:.3}] missing coverage starting at {:.3}",
+                bus_id,
+                prev_end,
+                segment.start,
+                segment.start
+            ));
+        }
+
+        let width = segment.end - segment.start;
+        let seg_var = vars.add(variable().min(0.0).max(width));
+        segment_sum = segment_sum + seg_var;
+        cost_expr = cost_expr + segment.slope * seg_var;
+        prev_end = segment.end;
+    }
+
+    Ok((cost_expr, segment_sum))
+}
+
+fn enforce_branch_limits(df: &DataFrame, limits: &HashMap<i64, f64>) -> Result<()> {
+    let branch_ids = df.column("branch_id")?.i64()?;
+    let flows = df.column("flow_mw")?.f64()?;
+    let mut violations = Vec::new();
+    for idx in 0..df.height() {
+        if let Some(branch_id) = branch_ids.get(idx) {
+            if let Some(limit) = limits.get(&branch_id) {
+                if let Some(flow) = flows.get(idx) {
+                    if flow.abs() > *limit {
+                        violations.push((branch_id, flow, *limit));
+                    }
+                }
+            }
+        }
+    }
+    if !violations.is_empty() {
+        let details: Vec<String> = violations
+            .iter()
+            .map(|(branch_id, flow, limit)| {
+                format!(
+                    "branch {} |flow| {:.3} > limit {:.3}",
+                    branch_id,
+                    flow.abs(),
+                    limit
+                )
+            })
+            .collect();
+        return Err(anyhow!(
+            "branch limits violated by {} element(s): {}",
+            violations.len(),
+            details.join(", ")
+        ));
+    }
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn build_y_bus(
+    network: &Network,
+) -> (
+    HashMap<usize, HashMap<usize, Complex64>>,
+    Vec<usize>,
+    HashMap<usize, usize>,
+) {
+    let mut ybus: HashMap<usize, HashMap<usize, Complex64>> = HashMap::new();
+    let mut bus_order = Vec::new();
+    for node_idx in network.graph.node_indices() {
+        if let Node::Bus(bus) = &network.graph[node_idx] {
+            bus_order.push(bus.id.value());
+        }
+    }
+    let mut id_to_index = HashMap::new();
+    for (idx, bus_id) in bus_order.iter().enumerate() {
+        id_to_index.insert(*bus_id, idx);
+    }
+
+    for edge in network.graph.edge_references() {
+        if let Edge::Branch(branch) = edge.weight() {
+            let i = branch.from_bus.value();
+            let j = branch.to_bus.value();
+            let admittance = Complex64::new(0.0, -1.0 / branch.reactance.max(1e-6));
+            ybus.entry(i)
+                .or_default()
+                .entry(j)
+                .and_modify(|v| *v += admittance)
+                .or_insert(admittance);
+            ybus.entry(j)
+                .or_default()
+                .entry(i)
+                .and_modify(|v| *v += admittance)
+                .or_insert(admittance);
+            ybus.entry(i)
+                .or_default()
+                .entry(i)
+                .and_modify(|v| *v -= admittance)
+                .or_insert(-admittance);
+            ybus.entry(j)
+                .or_default()
+                .entry(j)
+                .and_modify(|v| *v -= admittance)
+                .or_insert(-admittance);
+        }
+    }
+    (ybus, bus_order, id_to_index)
+}
+
+#[allow(dead_code)]
+fn compute_p(
+    ybus: &HashMap<usize, HashMap<usize, Complex64>>,
+    id_to_index: &HashMap<usize, usize>,
+    angles: &[f64],
+    bus_id: usize,
+) -> f64 {
+    let idx = *id_to_index.get(&bus_id).unwrap_or(&0);
+    let theta_i = angles[idx];
+    ybus.get(&bus_id)
+        .map(|neighbors| {
+            neighbors.iter().fold(0.0, |acc, (other, adm)| {
+                let neighbor_idx = *id_to_index.get(other).unwrap_or(&idx);
+                let theta_j = angles[neighbor_idx];
+                acc + adm.im * (theta_i - theta_j)
+            })
+        })
+        .unwrap_or(0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gat_core::{Branch, BranchId, Bus, BusId, Edge, Network, Node};
+    use polars::prelude::{ParquetReader, SerReader};
+    use std::fs::{self, File};
+    use tempfile::tempdir;
+
+    fn build_simple_network() -> Network {
+        let mut network = Network::new();
+        let b0 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(0),
+            name: "Bus 0".to_string(),
+            voltage_kv: 138.0,
+        }));
+        let b1 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+        }));
+        network.graph.add_edge(
+            b0,
+            b1,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                name: "Line 0-1".to_string(),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.1,
+            }),
+        );
+        network
+    }
+
+    #[test]
+    fn dc_power_flow_writes_parquet() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let out = temp_dir.path().join("dc.parquet");
+        dc_power_flow(&network, out.to_str().unwrap()).unwrap();
+
+        let file = File::open(&out).unwrap();
+        let df = ParquetReader::new(file).finish().unwrap();
+        assert_eq!(df.height(), 1);
+        let flow = df.column("flow_mw").unwrap().f64().unwrap().get(0).unwrap();
+        assert!(!flow.is_nan());
+    }
+
+    #[test]
+    fn dc_opf_respects_branch_limits() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let cost_path = temp_dir.path().join("costs.csv");
+        let limits_path = temp_dir.path().join("limits.csv");
+        let branch_limits_path = temp_dir.path().join("branch_limits.csv");
+        fs::write(&cost_path, "bus_id,marginal_cost\n0,100\n1,10\n").unwrap();
+        fs::write(&limits_path, "bus_id,pmin,pmax,demand\n0,0,5,1\n1,0,5,0\n").unwrap();
+        fs::write(&branch_limits_path, "branch_id,flow_limit\n0,0.001\n").unwrap();
+
+        let out = temp_dir.path().join("opf.parquet");
+        assert!(dc_optimal_power_flow(
+            &network,
+            cost_path.to_str().unwrap(),
+            limits_path.to_str().unwrap(),
+            out.to_str().unwrap(),
+            Some(branch_limits_path.to_str().unwrap()),
+            None,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn dc_opf_honors_costs() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let cost_path = temp_dir.path().join("costs.csv");
+        let limits_path = temp_dir.path().join("limits.csv");
+        fs::write(&cost_path, "bus_id,marginal_cost\n0,10\n1,20\n").unwrap();
+        fs::write(&limits_path, "bus_id,pmin,pmax,demand\n0,0,5,1\n1,0,5,0\n").unwrap();
+
+        let out = temp_dir.path().join("opf.parquet");
+        dc_optimal_power_flow(
+            &network,
+            cost_path.to_str().unwrap(),
+            limits_path.to_str().unwrap(),
+            out.to_str().unwrap(),
+            None,
+            None,
+        )
+        .unwrap();
+
+        let file = File::open(&out).unwrap();
+        let df = ParquetReader::new(file).finish().unwrap();
+        assert_eq!(df.height(), 1);
+    }
+
+    #[test]
+    fn dc_opf_piecewise_requires_full_coverage() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let cost_path = temp_dir.path().join("costs.csv");
+        let limits_path = temp_dir.path().join("limits.csv");
+        let piecewise_path = temp_dir.path().join("piecewise.csv");
+        fs::write(&cost_path, "bus_id,marginal_cost\n0,10\n1,20\n").unwrap();
+        fs::write(&limits_path, "bus_id,pmin,pmax,demand\n0,0,5,1\n1,0,5,0\n").unwrap();
+        fs::write(&piecewise_path, "bus_id,start,end,slope\n0,0,2,10\n").unwrap();
+
+        let out = temp_dir.path().join("opf.parquet");
+        let err = dc_optimal_power_flow(
+            &network,
+            cost_path.to_str().unwrap(),
+            limits_path.to_str().unwrap(),
+            out.to_str().unwrap(),
+            None,
+            Some(piecewise_path.to_str().unwrap()),
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("extend to pmax"),
+            "unexpected error: {:?}",
+            err
+        );
+    }
+
+    #[test]
+    fn dc_opf_piecewise_honors_segments() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let cost_path = temp_dir.path().join("costs.csv");
+        let limits_path = temp_dir.path().join("limits.csv");
+        let piecewise_path = temp_dir.path().join("piecewise.csv");
+        fs::write(&cost_path, "bus_id,marginal_cost\n0,10\n1,20\n").unwrap();
+        fs::write(&limits_path, "bus_id,pmin,pmax,demand\n0,0,5,1\n1,0,5,0\n").unwrap();
+        fs::write(
+            &piecewise_path,
+            "bus_id,start,end,slope\n0,0,3,10\n0,3,5,15\n",
+        )
+        .unwrap();
+
+        let out = temp_dir.path().join("opf.parquet");
+        dc_optimal_power_flow(
+            &network,
+            cost_path.to_str().unwrap(),
+            limits_path.to_str().unwrap(),
+            out.to_str().unwrap(),
+            None,
+            Some(piecewise_path.to_str().unwrap()),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn ac_opf_writes_parquet() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let out = temp_dir.path().join("ac.parquet");
+        ac_optimal_power_flow(&network, 1e-6, 10, out.to_str().unwrap()).unwrap();
+
+        let file = File::open(&out).unwrap();
+        let df = ParquetReader::new(file).finish().unwrap();
+        assert_eq!(df.height(), 1);
+    }
+}

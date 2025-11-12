@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:cim="http://iec.ch/TC57/2013/CIM-schema-cim16#">
+  <cim:BusbarSection rdf:ID="Bus1">
+    <cim:IdentifiedObject.name>Bus 1</cim:IdentifiedObject.name>
+  </cim:BusbarSection>
+  <cim:BusbarSection rdf:ID="Bus2">
+    <cim:IdentifiedObject.name>Bus 2</cim:IdentifiedObject.name>
+  </cim:BusbarSection>
+  <cim:ACLineSegment rdf:ID="Line1">
+    <cim:IdentifiedObject.name>Line 1-2</cim:IdentifiedObject.name>
+    <cim:ACLineSegment.end1 rdf:resource="#Bus1"/>
+    <cim:ACLineSegment.end2 rdf:resource="#Bus2"/>
+    <cim:ACLineSegment.r>0.01</cim:ACLineSegment.r>
+    <cim:ACLineSegment.x>0.05</cim:ACLineSegment.x>
+  </cim:ACLineSegment>
+</rdf:RDF>
