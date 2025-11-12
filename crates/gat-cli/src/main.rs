@@ -64,6 +64,11 @@ enum Commands {
         #[command(subcommand)]
         command: SeCommands,
     },
+    /// Visualization helpers
+    Viz {
+        #[command(subcommand)]
+        command: VizCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -194,6 +199,18 @@ enum TsCommands {
         /// Output file path (CSV or Parquet)
         #[arg(short, long)]
         out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum VizCommands {
+    /// Emit a basic visualization summary (placeholder)
+    Plot {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Optional output path for the visualization artifact
+        #[arg(short, long)]
+        output: Option<String>,
     },
 }
 
@@ -467,6 +484,29 @@ fn main() {
             match result {
                 Ok(_) => info!("State estimation command successful!"),
                 Err(e) => error!("State estimation command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Viz { command }) => {
+            let result = match command {
+                VizCommands::Plot { grid_file, output } => {
+                    info!("Running viz plot on {}", grid_file);
+                    match importers::load_grid_from_arrow(grid_file) {
+                        Ok(_network) => {
+                            let body = gat_viz::visualize_data();
+                            if let Some(path) = output {
+                                println!("Visualization persisted to {}", path);
+                            }
+                            println!("Visualization summary: {}", body);
+                            Ok(())
+                        }
+                        Err(e) => Err(e),
+                    }
+                }
+            };
+
+            match result {
+                Ok(_) => info!("Viz command successful!"),
+                Err(e) => error!("Viz command failed: {:?}", e),
             }
         }
         Some(Commands::Opf { command }) => {
