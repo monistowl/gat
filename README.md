@@ -30,6 +30,13 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
 4. **Inspect results**
    `gat pf dc` and `gat opf` commands emit branch flow tables (`branch_id`, `from_bus`, `to_bus`, `flow_mw`) which you can open with `polars`, `duckdb`, or any Parquet consumer.
 
+5. **Package & install**
+   ```bash
+   scripts/package.sh
+   scripts/install.sh
+   ```
+   Ensure `jq` is installed; the packaging script builds release binaries and emits `dist/gat-<version>-<os>-<arch>.tar.gz`. The install helper copies `gat-cli`/`gat-gui` into `~/.local/bin` by default (see `docs/PACKAGING.md` for details).
+
 ## User manual
 
 ### CLI surface
@@ -186,4 +193,4 @@ Use them to seed CLI runs or unit tests.
 
 Future milestones include DC/AC contingency screening, state estimation (WLS), time-series tools, visualization/export, and packaging scripts (`scripts/deploy_staging.sh`). Refer to `ROADMAP.md` for the overall plan and acceptance criteria.
 
-See `docs/VIZ.md` for the visualization stub and `docs/GUI.md` for the GUI command stub.
+See `docs/VIZ.md` and `docs/GUI.md` for the visualization/GUI stubs, plus `docs/PACKAGING.md` for the current packaging/install workflow.
