@@ -43,6 +43,11 @@ enum Commands {
         #[command(subcommand)]
         command: PowerFlowCommands,
     },
+    /// Contingency analysis
+    Nminus1 {
+        #[command(subcommand)]
+        command: Nminus1Commands,
+    },
     /// Optimal power flow
     Opf {
         #[command(subcommand)]
@@ -126,6 +131,24 @@ enum PowerFlowCommands {
         /// Maximum number of iterations
         #[arg(long, default_value = "20")]
         max_iter: u32,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum Nminus1Commands {
+    /// Run a DC N-1 screening scenario
+    Dc {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Contingency CSV (`branch_id,label`)
+        #[arg(long)]
+        contingencies: String,
+        /// Output Parquet for scenario summaries
+        #[arg(short, long)]
+        out: String,
+        /// Optional branch limits CSV (branch_id,flow_limit) for violation checks
+        #[arg(long)]
+        branch_limits: Option<String>,
     },
 }
 
@@ -310,6 +333,35 @@ fn main() {
             match result {
                 Ok(_) => info!("Power flow command successful!"),
                 Err(e) => error!("Power flow command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Nminus1 { command }) => {
+            let result = match command {
+                Nminus1Commands::Dc {
+                    grid_file,
+                    contingencies,
+                    out,
+                    branch_limits,
+                } => {
+                    info!(
+                        "Running N-1 DC on {} with contingencies {} -> {}",
+                        grid_file, contingencies, out
+                    );
+                    match importers::load_grid_from_arrow(grid_file) {
+                        Ok(network) => power_flow::n_minus_one_dc(
+                            &network,
+                            contingencies,
+                            out,
+                            branch_limits.as_deref(),
+                        ),
+                        Err(e) => Err(e),
+                    }
+                }
+            };
+
+            match result {
+                Ok(_) => info!("N-1 command successful!"),
+                Err(e) => error!("N-1 command failed: {:?}", e),
             }
         }
         Some(Commands::Opf { command }) => {

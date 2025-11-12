@@ -40,6 +40,7 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
 - `gat validate dataset --spec spec.json` — ensure Arrow datasets follow expected schema.
 - `gat graph {stats|islands|export}` — describe connectivity and export graph representations.
 - `gat pf {dc|ac}` — run DC or AC power flow on stored networks.
+- `gat nminus1 dc grid.arrow --contingencies test_data/nminus1/contingencies.csv --out results/nminus1.parquet` — run contingency screening and detect branch violations.
 - `gat opf {dc|ac}` — solve optimal power flow variants.
 - `gat ts {...}` and `gat viz` (future) — work with telemetry and plotting primitives.
 
@@ -90,6 +91,19 @@ gat opf ac grid.arrow --out ac-opf.parquet --tol 1e-6 --max-iter 20
 
 Outputs follow the same Parquet schema as DC flows but are computed with the converged AC angles.
 
+### N-1 DC screening (`gat nminus1 dc`)
+
+Runs a contingency screen by temporarily removing each listed branch and recomputing the DC flow. The command summarizes how the remaining lines behave and flags any branch that exceeds optional flow limits.
+
+```
+gat nminus1 dc grid.arrow \
+  --contingencies test_data/nminus1/contingencies.csv \
+  --branch-limits test_data/opf/branch_limits.csv \
+  --out results/nminus1.parquet
+```
+
+Each row in the output Parquet file corresponds to a branch outage and includes columns such as `max_abs_flow_mw`, `violated`, and `violation_branch_id` so you can rank contingencies by their worst violations.
+
 ### Fixtures and regression data
 
 `test_data/opf/` includes:
@@ -97,6 +111,7 @@ Outputs follow the same Parquet schema as DC flows but are computed with the con
 - `costs.csv`, `limits.csv` for dispatch modeling.
 - `branch_limits.csv` demonstrating flow constraints.
 - `piecewise.csv` covering `[pmin,pmax]` for multi-segment cost.
+- `nminus1/contingencies.csv` describing branch outages (`branch_id,label`) used by `gat nminus1 dc`.
 
 Use them to seed CLI runs or unit tests.
 

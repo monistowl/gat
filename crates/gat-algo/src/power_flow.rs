@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fs::File};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+};
 
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
@@ -39,9 +42,15 @@ struct PiecewiseSegment {
     slope: f64,
 }
 
+#[derive(Deserialize, Debug)]
+struct ContingencyRecord {
+    branch_id: i64,
+    label: Option<String>,
+}
+
 pub fn dc_power_flow(network: &Network, output_file: &str) -> Result<()> {
     let injections = default_pf_injections(network);
-    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections)
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None)
         .context("building branch flow table for DC power flow")?;
     let mut file = File::create(output_file).with_context(|| {
         format!(
@@ -134,7 +143,7 @@ pub fn dc_optimal_power_flow(
         injections.insert(*bus_id, dispatch - *demand);
     }
 
-    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections)
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None)
         .context("building branch flow table for DC-OPF")?;
     enforce_branch_limits(&df, &branch_limits)?;
     let mut file = File::create(output_file).with_context(|| {
@@ -156,13 +165,154 @@ pub fn dc_optimal_power_flow(
     Ok(())
 }
 
+pub fn n_minus_one_dc(
+    network: &Network,
+    contingencies_csv: &str,
+    output_file: &str,
+    branch_limit_csv: Option<&str>,
+) -> Result<()> {
+    let contingencies = load_contingencies(contingencies_csv)?;
+    if contingencies.is_empty() {
+        return Err(anyhow!(
+            "contingency file must contain at least one branch outage record"
+        ));
+    }
+
+    let branch_limits = match branch_limit_csv {
+        Some(path) => load_branch_limits(path)?,
+        None => HashMap::new(),
+    };
+
+    let existing_branches: HashSet<i64> = network
+        .graph
+        .edge_references()
+        .filter_map(|edge| {
+            if let Edge::Branch(branch) = edge.weight() {
+                Some(branch.id.value() as i64)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    for contingency in &contingencies {
+        if !existing_branches.contains(&contingency.branch_id) {
+            return Err(anyhow!(
+                "contingency branch {} not found in network",
+                contingency.branch_id
+            ));
+        }
+    }
+
+    let injections = default_pf_injections(network);
+
+    let mut contingency_branch_ids = Vec::new();
+    let mut contingency_labels = Vec::new();
+    let mut branch_counts = Vec::new();
+    let mut max_flow_branch_ids = Vec::new();
+    let mut max_abs_flows = Vec::new();
+    let mut max_flows = Vec::new();
+    let mut min_flows = Vec::new();
+    let mut violation_flags = Vec::new();
+    let mut violation_branch_ids = Vec::new();
+    let mut violation_mw = Vec::new();
+    let mut violation_limits = Vec::new();
+    let mut violation_total = 0;
+
+    for contingency in contingencies {
+        let (df, max_flow, min_flow) =
+            branch_flow_dataframe(network, &injections, Some(contingency.branch_id))
+                .context("building contingency branch flow table")?;
+        let branch_ids = df.column("branch_id")?.i64()?;
+        let flows = df.column("flow_mw")?.f64()?;
+        let mut max_abs_flow = 0.0;
+        let mut max_branch_id = None;
+        let mut current_violation = 0.0;
+        let mut current_violation_branch = None;
+        let mut current_violation_limit = None;
+
+        for idx in 0..df.height() {
+            if let (Some(branch_id), Some(flow)) = (branch_ids.get(idx), flows.get(idx)) {
+                let abs_flow = flow.abs();
+                if abs_flow > max_abs_flow {
+                    max_abs_flow = abs_flow;
+                    max_branch_id = Some(branch_id);
+                }
+                if let Some(limit) = branch_limits.get(&branch_id) {
+                    if abs_flow > *limit {
+                        let violation = abs_flow - limit;
+                        if violation > current_violation {
+                            current_violation = violation;
+                            current_violation_branch = Some(branch_id);
+                            current_violation_limit = Some(*limit);
+                        }
+                    }
+                }
+            }
+        }
+
+        let rows = df.height() as i64;
+        let violated = current_violation_branch.is_some();
+        if violated {
+            violation_total += 1;
+        }
+
+        contingency_branch_ids.push(contingency.branch_id);
+        contingency_labels.push(contingency.label.clone().unwrap_or_default());
+        branch_counts.push(rows);
+        max_flow_branch_ids.push(max_branch_id);
+        max_abs_flows.push(max_abs_flow);
+        max_flows.push(max_flow);
+        min_flows.push(min_flow);
+        violation_flags.push(violated);
+        violation_branch_ids.push(current_violation_branch);
+        violation_mw.push(if violated {
+            Some(current_violation)
+        } else {
+            None
+        });
+        violation_limits.push(current_violation_limit);
+    }
+
+    let total_outages = contingency_branch_ids.len();
+    let mut df = DataFrame::new(vec![
+        Series::new("contingency_branch_id", contingency_branch_ids),
+        Series::new("contingency_label", contingency_labels),
+        Series::new("branch_count", branch_counts),
+        Series::new("max_flow_branch_id", max_flow_branch_ids),
+        Series::new("max_abs_flow_mw", max_abs_flows),
+        Series::new("max_flow_mw", max_flows),
+        Series::new("min_flow_mw", min_flows),
+        Series::new("violated", violation_flags),
+        Series::new("violation_branch_id", violation_branch_ids),
+        Series::new("max_violation_mw", violation_mw),
+        Series::new("violation_limit_mw", violation_limits),
+    ])?;
+
+    let mut file = File::create(output_file).with_context(|| {
+        format!(
+            "creating N-1 DC output '{}'; ensure directory exists",
+            output_file
+        )
+    })?;
+    ParquetWriter::new(&mut file)
+        .finish(&mut df)
+        .context("writing N-1 DC Parquet output")?;
+
+    println!(
+        "N-1 DC summary: {} contingency(ies), {} violation(s), persisted to {}",
+        total_outages, violation_total, output_file
+    );
+    Ok(())
+}
+
 pub fn ac_optimal_power_flow(
     network: &Network,
     tol: f64,
     max_iter: u32,
     output_file: &str,
 ) -> Result<()> {
-    let (bus_ids, _, susceptance) = build_bus_susceptance(network);
+    let (bus_ids, _, susceptance) = build_bus_susceptance(network, None);
     let injections = default_pf_injections(network);
     let bus_count = bus_ids.len();
     if bus_count == 0 {
@@ -224,7 +374,7 @@ pub fn ac_optimal_power_flow(
         angle_map.insert(*bus_id, angle_vec[idx]);
     }
 
-    let (mut df, max_flow, min_flow) = branch_flow_dataframe_with_angles(network, &angle_map)
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe_with_angles(network, &angle_map, None)
         .context("building branch flow table for AC-OPF")?;
     let mut file = File::create(output_file).with_context(|| {
         format!(
@@ -254,14 +404,16 @@ pub fn ac_optimal_power_flow(
 fn branch_flow_dataframe(
     network: &Network,
     injections: &HashMap<usize, f64>,
+    skip_branch: Option<i64>,
 ) -> PolarsResult<(DataFrame, f64, f64)> {
-    let angles = compute_dc_angles(network, injections).unwrap_or_default();
-    branch_flow_dataframe_with_angles(network, &angles)
+    let angles = compute_dc_angles(network, injections, skip_branch).unwrap_or_default();
+    branch_flow_dataframe_with_angles(network, &angles, skip_branch)
 }
 
 fn branch_flow_dataframe_with_angles(
     network: &Network,
     angles: &HashMap<usize, f64>,
+    skip_branch: Option<i64>,
 ) -> PolarsResult<(DataFrame, f64, f64)> {
     let mut ids = Vec::new();
     let mut from_bus = Vec::new();
@@ -270,6 +422,10 @@ fn branch_flow_dataframe_with_angles(
 
     for edge_idx in network.graph.edge_indices() {
         if let Edge::Branch(branch) = &network.graph[edge_idx] {
+            let branch_id = branch.id.value() as i64;
+            if skip_branch == Some(branch_id) {
+                continue;
+            }
             let reactance = branch.reactance.abs().max(1e-6);
             let theta_from = *angles.get(&branch.from_bus.value()).unwrap_or(&0.0);
             let theta_to = *angles.get(&branch.to_bus.value()).unwrap_or(&0.0);
@@ -346,7 +502,10 @@ fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {
     invoices
 }
 
-fn build_bus_susceptance(network: &Network) -> (Vec<usize>, HashMap<usize, usize>, Vec<Vec<f64>>) {
+fn build_bus_susceptance(
+    network: &Network,
+    skip_branch: Option<i64>,
+) -> (Vec<usize>, HashMap<usize, usize>, Vec<Vec<f64>>) {
     let mut bus_ids: Vec<usize> = network
         .graph
         .node_indices()
@@ -365,6 +524,10 @@ fn build_bus_susceptance(network: &Network) -> (Vec<usize>, HashMap<usize, usize
     let mut susceptance = vec![vec![0.0; bus_ids.len()]; bus_ids.len()];
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
+            let branch_id = branch.id.value() as i64;
+            if skip_branch == Some(branch_id) {
+                continue;
+            }
             let from = branch.from_bus.value();
             let to = branch.to_bus.value();
             if let (Some(&i), Some(&j)) = (id_to_index.get(&from), id_to_index.get(&to)) {
@@ -383,8 +546,9 @@ fn build_bus_susceptance(network: &Network) -> (Vec<usize>, HashMap<usize, usize
 fn compute_dc_angles(
     network: &Network,
     injections: &HashMap<usize, f64>,
+    skip_branch: Option<i64>,
 ) -> Result<HashMap<usize, f64>> {
-    let (bus_ids, _, susceptance) = build_bus_susceptance(network);
+    let (bus_ids, _, susceptance) = build_bus_susceptance(network, skip_branch);
     let node_count = bus_ids.len();
     if node_count == 0 {
         return Ok(HashMap::new());
@@ -500,6 +664,19 @@ fn load_branch_limits(path: &str) -> Result<HashMap<i64, f64>> {
         map.insert(record.branch_id, record.flow_limit);
     }
     Ok(map)
+}
+
+fn load_contingencies(path: &str) -> Result<Vec<ContingencyRecord>> {
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(path)
+        .context("opening contingencies CSV")?;
+    let mut out = Vec::new();
+    for result in rdr.deserialize() {
+        let record: ContingencyRecord = result.context("parsing contingency record")?;
+        out.push(record);
+    }
+    Ok(out)
 }
 
 fn load_piecewise_costs(path: &str) -> Result<HashMap<usize, Vec<PiecewiseSegment>>> {
@@ -734,6 +911,45 @@ mod tests {
         network
     }
 
+    fn build_parallel_network() -> Network {
+        let mut network = Network::new();
+        let b0 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(0),
+            name: "Bus 0".to_string(),
+            voltage_kv: 138.0,
+        }));
+        let b1 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+        }));
+        network.graph.add_edge(
+            b0,
+            b1,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                name: "Line 0-1a".to_string(),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.1,
+            }),
+        );
+        network.graph.add_edge(
+            b0,
+            b1,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                name: "Line 0-1b".to_string(),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.1,
+            }),
+        );
+        network
+    }
+
     #[test]
     fn dc_power_flow_writes_parquet() {
         let network = build_simple_network();
@@ -849,6 +1065,35 @@ mod tests {
             Some(piecewise_path.to_str().unwrap()),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn n_minus_one_dc_detects_violation() {
+        let network = build_parallel_network();
+        let temp_dir = tempdir().unwrap();
+        let contingencies_path = temp_dir.path().join("contingencies.csv");
+        let branch_limits_path = temp_dir.path().join("branch_limits.csv");
+        let out = temp_dir.path().join("nminus1.parquet");
+        fs::write(&contingencies_path, "branch_id,label\n0,line0\n1,line1\n").unwrap();
+        fs::write(&branch_limits_path, "branch_id,flow_limit\n0,5\n1,0.1\n").unwrap();
+
+        n_minus_one_dc(
+            &network,
+            contingencies_path.to_str().unwrap(),
+            out.to_str().unwrap(),
+            Some(branch_limits_path.to_str().unwrap()),
+        )
+        .unwrap();
+
+        let file = File::open(&out).unwrap();
+        let df = ParquetReader::new(file).finish().unwrap();
+        assert_eq!(df.height(), 2);
+        let violated = df.column("violated").unwrap().bool().unwrap();
+        assert!(violated.get(0).unwrap());
+        assert!(!violated.get(1).unwrap());
+        let violation_branch = df.column("violation_branch_id").unwrap().i64().unwrap();
+        assert_eq!(violation_branch.get(0), Some(1));
+        assert_eq!(violation_branch.get(1), None);
     }
 
     #[test]
