@@ -332,7 +332,7 @@ fn main() {
             let result = match command {
                 GraphCommands::Stats { grid_file } => {
                     info!("Displaying graph statistics for {}", grid_file);
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => match graph_utils::graph_stats(&network) {
                             Ok(stats) => {
                                 println!(
@@ -354,7 +354,7 @@ fn main() {
                 }
                 GraphCommands::Islands { grid_file, emit } => {
                     info!("Finding islands in {} (emit_id: {})", grid_file, emit);
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => match graph_utils::find_islands(&network) {
                             Ok(analysis) => {
                                 for summary in &analysis.islands {
@@ -385,7 +385,7 @@ fn main() {
                 }
                 GraphCommands::Export { grid_file, format } => {
                     info!("Exporting graph in {} format", format);
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => match graph_utils::export_graph(&network, format) {
                             Ok(dot) => {
                                 println!("{}", dot);
@@ -407,7 +407,7 @@ fn main() {
             let result = match command {
                 PowerFlowCommands::Dc { grid_file, out } => {
                     info!("Running DC power flow on {} to {}", grid_file, out);
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::dc_power_flow(&network, out),
                         Err(e) => Err(e),
                     }
@@ -421,7 +421,7 @@ fn main() {
                         "Running AC power flow on {} with tol {} and max_iter {}",
                         grid_file, tol, max_iter
                     );
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::ac_power_flow(&network, *tol, *max_iter),
                         Err(e) => Err(e),
                     }
@@ -445,7 +445,7 @@ fn main() {
                         "Running N-1 DC on {} with contingencies {} -> {}",
                         grid_file, contingencies, out
                     );
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::n_minus_one_dc(
                             &network,
                             contingencies,
@@ -518,7 +518,7 @@ fn main() {
                         "Running WLS state estimation on {} using {} -> {}",
                         grid_file, measurements, out
                     );
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::state_estimation_wls(
                             &network,
                             measurements,
@@ -562,7 +562,7 @@ fn main() {
             let result = match command {
                 GuiCommands::Run { grid_file, output } => {
                     info!("Launching GUI for {}", grid_file);
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(_network) => match gat_gui::launch(output.as_deref()) {
                             Ok(summary) => {
                                 println!("GUI summary: {}", summary);
@@ -597,12 +597,12 @@ fn main() {
                         "Running DC OPF on {} with cost {} and limits {} -> {}",
                         grid_file, cost, limits, out
                     );
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::dc_optimal_power_flow(
                             &network,
-                            cost,
-                            limits,
-                            out,
+                            cost.as_str(),
+                            limits.as_str(),
+                            out.as_str(),
                             branch_limits.as_deref(),
                             piecewise.as_deref(),
                         ),
@@ -619,9 +619,14 @@ fn main() {
                         "Running AC OPF on {} with tol {}, max_iter {} -> {}",
                         grid_file, tol, max_iter, out
                     );
-                    match importers::load_grid_from_arrow(grid_file) {
+                    match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => {
-                            power_flow::ac_optimal_power_flow(&network, *tol, *max_iter, out)
+                            power_flow::ac_optimal_power_flow(
+                                &network,
+                                *tol,
+                                *max_iter,
+                                out.as_str(),
+                            )
                         }
                         Err(e) => Err(e),
                     }
