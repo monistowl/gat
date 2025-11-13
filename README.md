@@ -44,6 +44,7 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
 `gat` exposes nested commands:
 
 - `gat import {psse|matpower|cim}` — ingest RAW/MATPOWER/CIM into the internal Arrow network format.
+- `gat dataset rts-gmlc fetch ...` / `gat dataset hiren list/fetch ...` — hydrate curated testbeds (see `docs/DATASETS.md`).
 - `gat validate dataset --spec spec.json` — ensure Arrow datasets follow expected schema.
 - `gat graph {stats|islands|export}` — describe connectivity and export graph representations.
 - `gat pf {dc|ac}` — run DC or AC power flow on stored networks.
@@ -193,4 +194,4 @@ Use them to seed CLI runs or unit tests.
 
 Future milestones include DC/AC contingency screening, state estimation (WLS), time-series tools, visualization/export, and packaging scripts (`scripts/deploy_staging.sh`). Refer to `ROADMAP.md` for the overall plan and acceptance criteria.
 
-See `docs/VIZ.md` and `docs/GUI.md` for the visualization/GUI stubs, plus `docs/PACKAGING.md` for the current packaging/install workflow.
+See `docs/VIZ.md` and `docs/GUI.md` for the visualization/GUI stubs, `docs/DATASETS.md` for the new dataset adapters, plus `docs/PACKAGING.md` for the current packaging/install workflow.

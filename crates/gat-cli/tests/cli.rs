@@ -93,3 +93,48 @@ fn gat_import_and_pf_dc_runs() {
     .stdout(predicate::str::contains("DC power flow summary"));
     assert!(pf_out.exists());
 }
+
+#[test]
+fn gat_dataset_rts_gmlc_fetches_files() {
+    let tmp = tempdir().unwrap();
+    let out = tmp.path().join("rts");
+    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    cmd.args([
+        "dataset",
+        "rts-gmlc",
+        "fetch",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("RTS-GMLC dataset ready"));
+    assert!(out.join("grid.matpower").exists());
+    assert!(out.join("timeseries.csv").exists());
+}
+
+#[test]
+fn gat_dataset_hiren_list_and_fetch() {
+    let tmp = tempdir().unwrap();
+    let out = tmp.path().join("hiren");
+    let mut list_cmd = Command::cargo_bin("gat-cli").unwrap();
+    list_cmd
+        .args(["dataset", "hiren", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("case_big"));
+    let mut fetch_cmd = Command::cargo_bin("gat-cli").unwrap();
+    fetch_cmd
+        .args([
+            "dataset",
+            "hiren",
+            "fetch",
+            "case_big",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("HIREN case case_big copied"));
+    assert!(out.join("case_big.matpower").exists());
+}

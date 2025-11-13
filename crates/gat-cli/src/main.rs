@@ -5,8 +5,11 @@ use gat_gui;
 use gat_io::{importers, validate};
 use gat_ts;
 use gat_viz;
+use std::path::Path;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
+mod dataset;
+use dataset::*;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -75,6 +78,11 @@ enum Commands {
     Gui {
         #[command(subcommand)]
         command: GuiCommands,
+    },
+    /// Dataset adapters
+    Dataset {
+        #[command(subcommand)]
+        command: DatasetCommands,
     },
 }
 
@@ -221,6 +229,75 @@ enum TsCommands {
         #[arg(long, default_value = "sum")]
         agg: String,
         /// Output file path (CSV or Parquet)
+        #[arg(short, long)]
+        out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum DatasetCommands {
+    /// RTS-GMLC helpers
+    RtsGmlc {
+        #[command(subcommand)]
+        command: RtsGmlcCommands,
+    },
+    /// HIREN test cases
+    Hiren {
+        #[command(subcommand)]
+        command: HirenCommands,
+    },
+    /// Import dsgrid Parquet bundle
+    Dsgrid {
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Sup3rCC weather helpers
+    Sup3rcc {
+        #[command(subcommand)]
+        command: Sup3rccCommands,
+    },
+    /// PRAS outputs
+    Pras {
+        /// Path to PRAS directory or file
+        path: String,
+        #[arg(short, long)]
+        out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RtsGmlcCommands {
+    /// Fetch release copy
+    Fetch {
+        #[arg(short, long, default_value = "data/rts-gmlc")]
+        out: String,
+        #[arg(long)]
+        tag: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum HirenCommands {
+    /// List cases
+    List,
+    /// Fetch a case
+    Fetch {
+        case: String,
+        #[arg(short, long, default_value = "data/hiren")]
+        out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum Sup3rccCommands {
+    /// Fetch Parquet
+    Fetch {
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Sample for a grid
+    Sample {
+        grid: String,
         #[arg(short, long)]
         out: String,
     },
@@ -583,6 +660,40 @@ fn main() {
                 Err(e) => error!("GUI command failed: {:?}", e),
             }
         }
+        Some(Commands::Dataset { command }) => {
+            let result = match command {
+                DatasetCommands::RtsGmlc { command } => match command {
+                    RtsGmlcCommands::Fetch { out, tag } => {
+                        fetch_rts_gmlc(Path::new(&out), tag.as_deref())
+                    }
+                },
+                DatasetCommands::Hiren { command } => match command {
+                    HirenCommands::List => {
+                        let cases = list_hiren().unwrap_or_default();
+                        for case in &cases {
+                            println!("{}", case);
+                        }
+                        Ok(())
+                    }
+                    HirenCommands::Fetch { case, out } => fetch_hiren(&case, Path::new(&out)),
+                },
+                DatasetCommands::Dsgrid { out } => import_dsgrid(Path::new(&out)),
+                DatasetCommands::Sup3rcc { command } => match command {
+                    Sup3rccCommands::Fetch { out } => fetch_sup3rcc(Path::new(&out)),
+                    Sup3rccCommands::Sample { grid, out } => {
+                        sample_sup3rcc_grid(Path::new(&grid), Path::new(&out))
+                    }
+                },
+                DatasetCommands::Pras { path, out } => {
+                    import_pras(Path::new(&path), Path::new(&out))
+                }
+            };
+
+            match result {
+                Ok(_) => info!("Dataset command successful!"),
+                Err(e) => error!("Dataset command failed: {:?}", e),
+            }
+        }
         Some(Commands::Opf { command }) => {
             let result = match command {
                 OpfCommands::Dc {
@@ -620,14 +731,12 @@ fn main() {
                         grid_file, tol, max_iter, out
                     );
                     match importers::load_grid_from_arrow(grid_file.as_str()) {
-                        Ok(network) => {
-                            power_flow::ac_optimal_power_flow(
-                                &network,
-                                *tol,
-                                *max_iter,
-                                out.as_str(),
-                            )
-                        }
+                        Ok(network) => power_flow::ac_optimal_power_flow(
+                            &network,
+                            *tol,
+                            *max_iter,
+                            out.as_str(),
+                        ),
                         Err(e) => Err(e),
                     }
                 }
