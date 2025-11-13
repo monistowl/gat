@@ -5,11 +5,22 @@ use gat_gui;
 use gat_io::{importers, validate};
 use gat_ts;
 use gat_viz;
+use num_cpus;
+use rayon::ThreadPoolBuilder;
 use std::path::Path;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
 use dataset::*;
+
+fn configure_threads(spec: &str) {
+    let count = if spec.eq_ignore_ascii_case("auto") {
+        num_cpus::get()
+    } else {
+        spec.parse().unwrap_or_else(|_| num_cpus::get())
+    };
+    let _ = ThreadPoolBuilder::new().num_threads(count).build_global();
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -151,6 +162,9 @@ enum PowerFlowCommands {
         /// Output file path for flows (Parquet format)
         #[arg(short, long)]
         out: String,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
     },
     /// Run AC power flow
     Ac {
@@ -162,6 +176,9 @@ enum PowerFlowCommands {
         /// Maximum number of iterations
         #[arg(long, default_value = "20")]
         max_iter: u32,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
     },
 }
 
@@ -180,6 +197,9 @@ enum Nminus1Commands {
         /// Optional branch limits CSV (branch_id,flow_limit) for violation checks
         #[arg(long)]
         branch_limits: Option<String>,
+        /// Threads: `auto` or numeric
+        #[arg(long, default_value = "auto")]
+        threads: String,
     },
 }
 
@@ -348,6 +368,9 @@ enum OpfCommands {
         /// Optional piecewise cost CSV (bus_id,start,end,slope)
         #[arg(long)]
         piecewise: Option<String>,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
     },
     /// Run AC optimal power flow
     Ac {
@@ -362,6 +385,9 @@ enum OpfCommands {
         /// Maximum number of iterations
         #[arg(long, default_value = "20")]
         max_iter: u32,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
     },
 }
 
@@ -482,7 +508,12 @@ fn main() {
         }
         Some(Commands::Pf { command }) => {
             let result = match command {
-                PowerFlowCommands::Dc { grid_file, out } => {
+                PowerFlowCommands::Dc {
+                    grid_file,
+                    out,
+                    threads,
+                } => {
+                    configure_threads(&threads);
                     info!("Running DC power flow on {} to {}", grid_file, out);
                     match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::dc_power_flow(&network, out),
@@ -493,7 +524,9 @@ fn main() {
                     grid_file,
                     tol,
                     max_iter,
+                    threads,
                 } => {
+                    configure_threads(&threads);
                     info!(
                         "Running AC power flow on {} with tol {} and max_iter {}",
                         grid_file, tol, max_iter
@@ -517,7 +550,9 @@ fn main() {
                     contingencies,
                     out,
                     branch_limits,
+                    threads,
                 } => {
+                    configure_threads(&threads);
                     info!(
                         "Running N-1 DC on {} with contingencies {} -> {}",
                         grid_file, contingencies, out
@@ -590,7 +625,9 @@ fn main() {
                     measurements,
                     out,
                     state_out,
+                    threads,
                 } => {
+                    configure_threads(&threads);
                     info!(
                         "Running WLS state estimation on {} using {} -> {}",
                         grid_file, measurements, out
@@ -703,7 +740,9 @@ fn main() {
                     out,
                     branch_limits,
                     piecewise,
+                    threads,
                 } => {
+                    configure_threads(&threads);
                     info!(
                         "Running DC OPF on {} with cost {} and limits {} -> {}",
                         grid_file, cost, limits, out
@@ -725,7 +764,9 @@ fn main() {
                     out,
                     tol,
                     max_iter,
+                    threads,
                 } => {
+                    configure_threads(&threads);
                     info!(
                         "Running AC OPF on {} with tol {}, max_iter {} -> {}",
                         grid_file, tol, max_iter, out
@@ -768,5 +809,8 @@ enum SeCommands {
         /// Optional Parquet output for the solved bus angles
         #[arg(long)]
         state_out: Option<String>,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
     },
 }
