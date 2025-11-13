@@ -91,24 +91,33 @@ pub fn aggregate_timeseries(
     output_path: &str,
 ) -> Result<()> {
     let df = read_frame(input_path)?;
-    let group = df.group_by([group_col])?;
-    let group = group.select([value_column]);
-    let agg_df = match agg {
-        "sum" => group.sum(),
-        "mean" => group.mean(),
-        "min" => group.min(),
-        "max" => group.max(),
-        "count" => group.count(),
+    let (suffix, expr) = match agg {
+        "sum" => ("_sum", col(value_column).sum()),
+        "mean" => ("_mean", col(value_column).mean()),
+        "min" => ("_min", col(value_column).min()),
+        "max" => ("_max", col(value_column).max()),
+        "count" => ("_count", col(value_column).count()),
         other => {
             return Err(anyhow!(
                 "unsupported aggregation '{}'; use sum, mean, min, max, or count",
                 other
             ));
         }
-    }
-    .context("running groupby aggregation")?;
+    };
 
-    let mut out = agg_df;
+    let mut agg_df = df
+        .lazy()
+        .group_by([col(group_col)])
+        .agg([expr])
+        .collect()
+        .context("running groupby aggregation")?;
+
+    let alias_name = format!("{value_column}{suffix}");
+    agg_df
+        .rename(value_column, alias_name.as_str())
+        .context("renaming aggregated column")?;
+
+    let mut out = agg_df.clone();
     write_frame(&mut out, output_path)?;
     Ok(())
 }
