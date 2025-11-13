@@ -6,7 +6,8 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
 
 1. **Install prerequisites**
    - [Rust toolchain](https://rustup.rs) (stable).
-   - Optional: `bd` for issue tracking and `beads-mcp` if you want MCP integration.
+   - `bd` for issue tracking (`bd ready`, `bd create`, etc.).
+   - Optional: `beads-mcp` for MCP-compatible agents if you already use `bd`.
 
 2. **Build the CLI**
    ```bash
@@ -27,10 +28,19 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
    ```
    These commands demonstrate powering flows, enforcing generator limits, and exporting branch summaries in Parquet format.
 
-4. **Inspect results**
+4. **Leverage solver and partition flags**
+   ```
+   gat pf dc grid.arrow \
+     --out results/dc-flows.parquet \
+     --solver faer \
+     --out-partitions `grid_id,date`
+   ```
+   Use `--solver {gauss,faer}` to switch solver backends and `--out-partitions` to emit partitioned directories. Each run records the solver/partition choices inside `run.json`, so `gat runs resume run.json --execute` can replay the exact configuration later (the manifest lives next to the output file).
+
+5. **Inspect results**
    `gat pf dc` and `gat opf` commands emit branch flow tables (`branch_id`, `from_bus`, `to_bus`, `flow_mw`) which you can open with `polars`, `duckdb`, or any Parquet consumer.
 
-5. **Package & install**
+6. **Package & install**
    ```bash
    scripts/package.sh
    scripts/install.sh
@@ -66,12 +76,16 @@ Command:
 gat pf dc grid.arrow --out flows.parquet
 ```
 
+Use `--solver {gauss|faer}` to swap the solver backend and `--out-partitions` if you want per-key partition directories zipped by `key=value`. The CLI also records those flags in `run.json`, so a future `gat runs resume run.json --execute` picks them up.
+
 ### AC power flow (`gat pf ac`)
 
 Newton–Raphson solver over the internal admittance matrices. Specify tolerance or iteration limit for convergence.
 ```
 gat pf ac grid.arrow --tol 1e-8 --max-iter 20 --out flows.parquet
 ```
+
+Specify `--solver`/`--out-partitions` for AC flows too; the manifest captures those values so `gat runs resume` preserves the same backend and partition spec.
 
 ### DC optimal power flow (`gat opf dc`)
 
@@ -183,6 +197,27 @@ The command writes a Parquet table of residuals (`value`, `estimate`, `residual`
 - `ts/telemetry.parquet` and `ts/telemetry_extra.parquet` for resample/join examples.
 
 Use them to seed CLI runs or unit tests.
+
+### MCP integration (optional)
+
+If you already use `bd`, adding `beads-mcp` lets MCP-aware agents (Claude, etc.) interact with your issue tracker without breaking the git-based workflow. Install it via:
+
+```bash
+pip install beads-mcp
+```
+
+Then point your MCP config (e.g., `~/.config/claude/config.json`) at the helper:
+
+```json
+{
+  "beads": {
+    "command": "beads-mcp",
+    "args": []
+  }
+}
+```
+
+`beads-mcp` exposes the same issues, ready work, and metadata as the CLI (it reads/writes `.beads/issues.jsonl`), so your git commits stay synchronized with bd state. This setup makes Horizon 1 solver/partition work easier to coordinate via a Claude/MCP interface.
 
 ## Development hints
 
