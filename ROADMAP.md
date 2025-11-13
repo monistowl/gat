@@ -245,6 +245,41 @@ gat ts {resample|join|agg} …           # M6
 
 ---
 
+# 14) Easiest wins: drop-in adapters
+
+Leverage publicly maintained datasets that already publish MATPOWER/CSV/Parquet slices so GAT can ingest them with existing adapters (`gat-io`, `gat-ts`, `polars`, `netcdf`). Focus on the commands below to hydrate test cases, telemetry, and resource weather onto the Arrow/Parquet stack, then reuse the `pf/opf/nminus1/ts` paths you already built.
+
+## Keys to success
+
+1. **RTS-GMLC** – publish `gat dataset rts-gmlc fetch [--tag vX.Y]` to download releases, then `gat import matpower …` + `gat ts import …` to produce `grid.arrow` + `timeseries.parquet`, ready for `pf`, `opf`, and contingency commands. ([NREL][24])
+2. **Test Case Repository for High Renewable Study** – add `gat dataset hiren list` / `gat dataset hiren fetch <case>` and normalizing importers that map their MATPOWER/CSV bundles into Arrow/Parquet benchmarks (9-bus → 240-bus). ([NREL][25])
+3. **dsgrid Parquet API** – expose `gat ts import dsgrid <url-or-path>` that reads county/BA demand scenarios, joins to `polars` frames, and feeds `ts resample/join/agg`. ([NREL][26])
+4. **Sup3rCC resource data** – add `gat weather sup3rcc fetch …` plus `gat weather sample --grid grid.arrow --out weather.parquet` to spatially tie resource grids to bus coordinates (use `geo` KD-tree or grid lookup) for climate-driven OPF stress testing. ([NREL][27])
+5. **PRAS outputs** – `gat adequacy import-pras <path>` normalizes LOLE/EUE forecasts (by region/season/hour), optionally emitting Gat scenarios for PRAS. ([NREL][28])
+
+### Minimal glue
+
+* OEDI fetcher – helper to pull dsgrid/Sup3r catalogs (HTTP range, checksums) straight into Polars/NetCDF.
+* Spatial join – `geo`/KD-trees for bus ↔ Sup3r grid mapping or county FIPS ↔ dsgrid records.
+* Case normalizers – thin wrappers to standardize RTS-GMLC/HIREN tables before writing Arrow/Parquet.
+
+### Nice-to-have (not day-1)
+
+* **SMART-DS** – ingest OpenDSS/GRIDLAB outputs when you later add distribution adapters. ([NREL][29])
+* **AGILE** – stream sensor data to `gat-ts` (Kafka/InfluxDB/TCP) as a downstream integration. ([NREL][30])
+
+### Suggested CLI verbs
+
+```
+gat dataset rts-gmlc fetch [--tag vX.Y] [--out data/rts-gmlc]
+gat dataset hiren {list|fetch <case>}
+gat ts import dsgrid <path-or-url> [--filter county=... --filter enduse=...]
+gat weather sup3rcc {fetch|sample} --grid grid.arrow --out weather.parquet
+gat adequacy import-pras <dir> --out pras.parquet
+```
+
+---
+
 # 13) Recent deliverables
 
 * Time-series suite now provides resample/join/agg helpers (`gat ts …`) plus vetted CLI regression tests covering telemetry flows, import + DC PF, and GUI stubs (`docs/TS.md`, `docs/GUI.md`).
@@ -273,100 +308,12 @@ gat ts {resample|join|agg} …           # M6
 [20]: https://docs.rs/geo/?utm_source=chatgpt.com "Crate geo - Rust"
 [21]: https://matpower.org/docs/ref/matpower5.0/caseformat.html?utm_source=chatgpt.com "Description of caseformat"
 [22]: https://docs.rs/caseformat?utm_source=chatgpt.com "caseformat - Rust"
+[23]: https://docs.rs/polars/latest/polars/prelude/struct.LazyFrame.html?utm_source=chatgpt.com "LazyFrame in polars::prelude - Rust"
+[24]: https://www.nrel.gov/grid/reliability-test-system "RTS-GMLC - NREL"
+[25]: https://www.nrel.gov/grid/test-case-repository "Test Case Repository for High Renewable Study - NREL"
+[26]: https://www.nrel.gov/analysis/dsgrid.html "dsgrid - Demand-Side Grid Toolkit - NREL"
+[27]: https://www.nrel.gov/analysis/sup3rcc.html "Sup3r: Super‐Resolution for Renewable Energy Resource Data"
+[28]: https://www.nrel.gov/analysis/pras.html "PRAS: Probabilistic Resource Adequacy Suite"
+[29]: https://www.nrel.gov/grid/smart-ds "SMART-DS - NREL"
+[30]: https://www.nrel.gov/grid/agile "AGILE: Autonomous Grids – Identification, Learning, and Estimation"
 [23]: https://arrow.apache.org/rust/parquet/index.html?utm_source=chatgpt.com "parquet - Rust"
-
-# NEW SECTION BELOW
-# Easiest wins (drop-in adapters)
-
-1. **RTS-GMLC (Reliability Test System)**
-   Why it’s easy: it ships as a modernized IEEE test system with geolocated load/RE timeseries and is hosted on GitHub; formats commonly include MATPOWER/CSV that your `gat-io` and `gat-ts` can already read.
-   What to add:
-
-* `gat dataset rts-gmlc fetch` → clone/download release
-* `gat import matpower …` / `gat ts import …` → hydrate to `grid.arrow` + `timeseries.parquet`
-* Ready targets for `pf dc|ac`, `opf dc`, and contingency screening. ([NREL][1])
-
-2. **Test Case Repository for High Renewable Study**
-   Why it’s easy: it’s a curated collection of open test cases (from 9-bus to a reduced 240-bus WECC) with renewable time series and cross-tool equivalents; you can treat it as fixtures for CLI regression.
-   What to add:
-
-* `gat dataset hiren list` / `gat dataset hiren fetch <case>`
-* Normalized importer → MATPOWER/CSV → Parquet bundle for repeatable benchmarks. ([NREL][2])
-
-3. **dsgrid (Demand-Side Grid Toolkit) — Parquet API**
-   Why it’s easy: dsgrid now publishes national EV-charging projections and other demand data in **Parquet**, which drops straight into Polars.
-   What to add:
-
-* `gat ts import dsgrid <oedi-url-or-path>` → Polars LazyFrame; provide simple county/BA crosswalk joins
-* Use for load shaping scenarios and DR studies (`ts resample/join/agg` already there). ([NREL][3])
-
-4. **Sup3r / Sup3rCC (high-res climate & resource data)**
-   Why it’s easy: public datasets via OEDI; weather/resource time series usually in NetCDF/Parquet. You already planned `netcdf` + `polars`.
-   What to add:
-
-* `gat weather sup3rcc fetch …` + `gat weather sample --buses grid.arrow` to spatially join hourly temperature/irradiance/wind to bus coords (use `geo` + KD-tree or grid index).
-* Great for stressing OPF with climate scenarios. ([NREL][4])
-
-5. **PRAS (Probabilistic Resource Adequacy Suite)**
-   Why it’s easy: open-source; even if you don’t run PRAS from Rust, you can **ingest its outputs** (risk metrics, shortfall distributions) and compare against gat scenarios.
-   What to add:
-
-* `gat adequacy import-pras <path>` → normalize LOLE/EUE by region/season/hour
-* Optional: emit gat-formatted scenario CSVs that PRAS expects. ([NREL][5])
-
-# “Nice if you want them,” but not day-1
-
-* **SMART-DS** (synthetic distribution feeders + scenarios). Valuable, but models are often OpenDSS/GRIDLAB-D/DIgSILENT/CI-heavy; useful once you add a distribution model adapter or keep it as **import-of-outputs** first. ([NREL][6])
-* **AGILE** (Node.js TCP bridge for sensor data). Could be a **streaming input** to `gat-ts` (Kafka/InfluxDB → TCP → CSV/Parquet), but it’s an integration task not a format adapter. ([NREL][7])
-
-# Minimal glue code you’ll need
-
-* **OEDI fetcher**: tiny helper to pull from Open Energy Data Initiative catalogs (HTTP range + checksums) used by dsgrid/Sup3r. Then hand straight to `polars`/`netcdf`. ([NREL][3])
-* **Spatial join**: `geo` for point-in-cell or nearest-grid mapping (bus lat/lon ↔ Sup3r grid cell; county FIPS ↔ dsgrid records).
-* **Case normalizers**: thin wrappers that standardize bus/branch/gen tables from RTS-GMLC/Test-Case repo into your internal schema before writing Arrow/Parquet.
-
-# Suggested new CLI verbs (all doable now)
-
-```
-gat dataset rts-gmlc fetch [--tag vX.Y] [--out data/rts-gmlc]
-gat dataset hiren {list|fetch <case>}
-gat ts import dsgrid <path-or-url> [--filter county=... enduse=...]
-gat weather sup3rcc {fetch|sample} --grid grid.arrow --out weather.parquet
-gat adequacy import-pras <dir> --out pras.parquet
-```
-
-If you want, I’ll turn these into a quick PR plan (tasks, acceptance tests, and stub modules) so your agents can knock them down in order.
-
-—Recency notes: the NREL “Grid Data & Tools” index itself (and the RTS-GMLC/PRAS/dsgrid/Sup3r pages) were updated in 2025; links above reflect those pages’ current scope and data access points. ([NREL][8])
-
-[1]: https://www.nrel.gov/grid/reliability-test-system "
-	Reliability Test System–Grid Modernization Lab Consortium
- \| Grid Modernization | NREL
-"
-[2]: https://www.nrel.gov/grid/test-case-repository "
-	Test Case Repository for High Renewable Study
- \| Grid Modernization | NREL
-"
-[3]: https://www.nrel.gov/analysis/dsgrid.html "
-	dsgrid: Demand-Side Grid Toolkit
- \| Energy Analysis | NREL
-"
-[4]: https://www.nrel.gov/analysis/sup3rcc.html "
-	Sup3r: Super-Resolution for Renewable Energy Resource Data | Energy Systems Analysis | NREL
-"
-[5]: https://www.nrel.gov/analysis/pras.html "
-	PRAS: Probabilistic Resource Adequacy Suite
- \| Energy Analysis | NREL
-"
-[6]: https://www.nrel.gov/grid/smart-ds "
-	SMART-DS: Synthetic Models for Advanced, Realistic Testing: Distribution Systems and Scenarios
- \| Grid Modernization | NREL
-"
-[7]: https://www.nrel.gov/grid/agile "
-	AGILE: Autonomous Grids – Identification, Learning, and Estimation
- \| Grid Modernization | NREL
-"
-[8]: https://www.nrel.gov/grid/grid-data-tools "
-	Grid Data and Tools
- \| Grid Modernization | NREL
-"
