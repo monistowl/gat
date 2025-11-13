@@ -1,0 +1,19 @@
+[package]
+name = "gat-io"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+caseformat = "0.1"
+gat-core = { path = "../gat-core" }
+polars = { version = "0.35", features = ["lazy", "parquet", "ipc"] }
+power_flow_data = "0.1"
+quick-xml = "0.31"
+serde = { version = "1.0", features = ["derive"] }
+sophia = "0.8"
+zip = "0.6"
+serde_json = "1.0"
+
+[dev-dependencies]
+tempfile = "3"

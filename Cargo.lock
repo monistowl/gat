@@ -1481,6 +1481,8 @@ dependencies = [
  "polars",
  "power_flow_data",
  "quick-xml",
+ "serde",
+ "serde_json",
  "sophia",
  "tempfile",
  "zip",
