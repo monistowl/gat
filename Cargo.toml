@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "crates/gat-core",
+    "crates/gat-io",
+    "crates/gat-algo",
+    "crates/gat-ts",
+    "crates/gat-viz",
+    "crates/gat-cli",
+    "crates/gat-gui",
+    "xtask",
+    "crates/gat-mcp-docs",
+]
+resolver = "2" # See https://doc.rust-lang.org/cargo/reference/workspaces.html#the-resolver-field
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+opt-level = 3

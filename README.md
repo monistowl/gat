@@ -225,6 +225,25 @@ Then point your MCP config (e.g., `~/.config/claude/config.json`) at the helper:
 - Follow `bd` instructions in `AGENTS.md` for tracking work (`bd create`, `bd ready`, etc.).
 - Keep planning docs in `history/` if you need to record design decisions.
 
+## Auto docs & MCP surface
+
+The new docs pipeline is wired into `xtask`:
+
+- `cargo xtask doc cli` re-emits the Markdown CLI reference (`docs/cli/gat.md`) and man page (`docs/man/gat.1`).
+- `cargo xtask doc schemas` writes JSON schemas for manifests and branch-flow outputs to `docs/schemas/`.
+- `cargo xtask doc site` seeds `site/book/` with a minimal mdBook-style summary.
+- `cargo xtask doc all` rebuilds everything in order so `gat-mcp-docs` can serve a consistent tree.
+
+Run `cargo xtask doc all` after changing CLI flags, manifest fields, or schema declarations.
+
+The `gat-mcp-docs` server exposes the generated docs over HTTP and can be pointed at Claude/other MCP clients:
+
+```
+gat-mcp-docs --docs docs --addr 127.0.0.1:4321
+```
+
+It offers `/resources`, `/doc/<path>`, `/search?q=`, and `/explain?command=pf+dc`, making the docs discoverable via MCP resources/tools.
+
 ## Further work
 
 Future milestones include DC/AC contingency screening, state estimation (WLS), time-series tools, visualization/export, and packaging scripts (`scripts/deploy_staging.sh`). Refer to `ROADMAP.md` for the overall plan and acceptance criteria.
