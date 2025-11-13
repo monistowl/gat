@@ -13,9 +13,21 @@ struct Opt {
 
 #[derive(Subcommand)]
 enum Task {
-    /// Documentation helpers
+    /// Documentation helpers (use `doc` + subcommand)
     #[command(subcommand)]
     Doc(DocCommand),
+    /// `xtask doc:all`
+    #[command(name = "doc:all")]
+    DocAll,
+    /// `xtask doc:cli`
+    #[command(name = "doc:cli")]
+    DocCli,
+    /// `xtask doc:schemas`
+    #[command(name = "doc:schemas")]
+    DocSchemas,
+    /// `xtask doc:site`
+    #[command(name = "doc:site")]
+    DocSite,
 }
 
 #[derive(Subcommand)]
@@ -39,6 +51,10 @@ fn main() -> Result<()> {
             DocCommand::Schemas => doc_schemas(),
             DocCommand::Site => doc_site(),
         },
+        Task::DocAll => doc_all(),
+        Task::DocCli => doc_cli(),
+        Task::DocSchemas => doc_schemas(),
+        Task::DocSite => doc_site(),
     }
 }
 
