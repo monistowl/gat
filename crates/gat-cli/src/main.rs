@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use gat_algo::power_flow;
-use gat_core::graph_utils;
+use gat_core::{graph_utils, solver::SolverKind};
 use gat_gui;
 use gat_io::{importers, validate};
 use gat_ts;
@@ -10,6 +10,7 @@ use rayon::ThreadPoolBuilder;
 use std::env;
 use std::path::Path;
 use std::process::Command;
+use std::sync::Arc;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
@@ -53,6 +54,53 @@ fn resume_manifest(manifest: &manifest::ManifestEntry) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("resumed run failed with {}", status));
     }
     Ok(())
+}
+
+fn parse_partitions(spec: Option<&String>) -> Vec<String> {
+    spec.map_or("", String::as_str)
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+        .collect()
+}
+
+fn describe_manifest(manifest: &manifest::ManifestEntry) {
+    println!(
+        "Manifest {} (cmd: `{}` @ v{} from {})",
+        manifest.run_id, manifest.command, manifest.version, manifest.timestamp
+    );
+    if let Some(seed) = &manifest.seed {
+        println!("Seed: {}", seed);
+    }
+    if !manifest.params.is_empty() {
+        println!("Parameters:");
+        for param in &manifest.params {
+            println!("  {} = {}", param.name, param.value);
+        }
+    }
+    if !manifest.inputs.is_empty() {
+        println!("Inputs:");
+        for input in &manifest.inputs {
+            let hash = input.hash.as_deref().unwrap_or("unknown");
+            println!("  {} ({})", input.path, hash);
+        }
+    }
+    if !manifest.outputs.is_empty() {
+        println!("Outputs:");
+        for output in &manifest.outputs {
+            println!("  {}", output);
+        }
+    }
+    if manifest.chunk_map.is_empty() {
+        println!("Chunk map entries: 0");
+    } else {
+        println!("Chunk map:");
+        for chunk in &manifest.chunk_map {
+            let when = chunk.completed_at.as_deref().unwrap_or("pending");
+            println!("  {} -> {} ({})", chunk.id, chunk.status, when);
+        }
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -203,6 +251,12 @@ enum PowerFlowCommands {
         /// Threading hint (`auto` or integer)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// Solver to use (gauss, faer)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
     /// Run AC power flow
     Ac {
@@ -220,6 +274,12 @@ enum PowerFlowCommands {
         /// Threading hint (`auto` or integer)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// Solver to use (gauss, faer)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
 }
 
@@ -241,6 +301,12 @@ enum Nminus1Commands {
         /// Threads: `auto` or numeric
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// Solver to use (gauss, faer)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
 }
 
@@ -332,6 +398,9 @@ enum RunsCommands {
     Resume {
         /// Manifest JSON path
         manifest: String,
+        /// Actually re-run the command recorded in the manifest
+        #[arg(long)]
+        execute: bool,
     },
 }
 
@@ -421,6 +490,12 @@ enum OpfCommands {
         /// Threading hint (`auto` or integer)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// Solver to use (gauss, faer)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
     /// Run AC optimal power flow
     Ac {
@@ -438,6 +513,12 @@ enum OpfCommands {
         /// Threading hint (`auto` or integer)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// Solver to use (gauss, faer)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
 }
 
@@ -562,25 +643,41 @@ fn main() {
                     grid_file,
                     out,
                     threads,
+                    solver,
+                    out_partitions,
                 } => {
                     configure_threads(&threads);
                     info!("Running DC power flow on {} to {}", grid_file, out);
-                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                        Ok(network) => power_flow::dc_power_flow(&network, out),
-                        Err(e) => Err(e),
-                    };
-                    if res.is_ok() {
-                        record_run(
-                            out,
-                            "pf dc",
-                            &[
-                                ("grid_file", grid_file),
-                                ("out", out),
-                                ("threads", &threads),
-                            ],
-                        );
-                    }
-                    res
+                    (|| -> anyhow::Result<()> {
+                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_impl = solver_kind.build_solver();
+                        let partitions = parse_partitions(out_partitions.as_ref());
+                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                        let out_path = Path::new(out);
+                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
+                            Ok(network) => power_flow::dc_power_flow(
+                                &network,
+                                solver_impl.as_ref(),
+                                out_path,
+                                &partitions,
+                            ),
+                            Err(e) => Err(e),
+                        };
+                        if res.is_ok() {
+                            record_run(
+                                out,
+                                "pf dc",
+                                &[
+                                    ("grid_file", grid_file),
+                                    ("out", out),
+                                    ("threads", &threads),
+                                    ("solver", solver_kind.as_str()),
+                                    ("out_partitions", partition_spec.as_str()),
+                                ],
+                            );
+                        }
+                        res
+                    })()
                 }
                 PowerFlowCommands::Ac {
                     grid_file,
@@ -588,35 +685,48 @@ fn main() {
                     tol,
                     max_iter,
                     threads,
+                    solver,
+                    out_partitions,
                 } => {
                     configure_threads(&threads);
                     info!(
                         "Running AC power flow on {} with tol {} and max_iter {}",
                         grid_file, tol, max_iter
                     );
-                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                        Ok(network) => power_flow::ac_optimal_power_flow(
-                            &network,
-                            *tol,
-                            *max_iter,
-                            out.as_str(),
-                        ),
-                        Err(e) => Err(e),
-                    };
-                    if res.is_ok() {
-                        record_run(
-                            out,
-                            "pf ac",
-                            &[
-                                ("grid_file", grid_file),
-                                ("threads", &threads),
-                                ("out", out),
-                                ("tol", &tol.to_string()),
-                                ("max_iter", &max_iter.to_string()),
-                            ],
-                        );
-                    }
-                    res
+                    (|| -> anyhow::Result<()> {
+                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_impl = solver_kind.build_solver();
+                        let partitions = parse_partitions(out_partitions.as_ref());
+                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                        let out_path = Path::new(out);
+                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
+                            Ok(network) => power_flow::ac_optimal_power_flow(
+                                &network,
+                                solver_impl.as_ref(),
+                                *tol,
+                                *max_iter,
+                                out_path,
+                                &partitions,
+                            ),
+                            Err(e) => Err(e),
+                        };
+                        if res.is_ok() {
+                            record_run(
+                                out,
+                                "pf ac",
+                                &[
+                                    ("grid_file", grid_file),
+                                    ("threads", &threads),
+                                    ("out", out),
+                                    ("tol", &tol.to_string()),
+                                    ("max_iter", &max_iter.to_string()),
+                                    ("solver", solver_kind.as_str()),
+                                    ("out_partitions", partition_spec.as_str()),
+                                ],
+                            );
+                        }
+                        res
+                    })()
                 }
             };
 
@@ -633,34 +743,47 @@ fn main() {
                     out,
                     branch_limits,
                     threads,
+                    solver,
+                    out_partitions,
                 } => {
                     configure_threads(&threads);
                     info!(
                         "Running N-1 DC on {} with contingencies {} -> {}",
                         grid_file, contingencies, out
                     );
-                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                        Ok(network) => power_flow::n_minus_one_dc(
-                            &network,
-                            contingencies,
-                            out,
-                            branch_limits.as_deref(),
-                        ),
-                        Err(e) => Err(e),
-                    };
-                    if res.is_ok() {
-                        record_run(
-                            out,
-                            "nminus1 dc",
-                            &[
-                                ("grid_file", grid_file),
-                                ("threads", &threads),
-                                ("branch_limits", branch_limits.as_deref().unwrap_or("none")),
-                                ("out", out),
-                            ],
-                        );
-                    }
-                    res
+                    (|| -> anyhow::Result<()> {
+                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_impl = solver_kind.build_solver();
+                        let partitions = parse_partitions(out_partitions.as_ref());
+                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                        let out_path = Path::new(out);
+                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
+                            Ok(network) => power_flow::n_minus_one_dc(
+                                &network,
+                                Arc::clone(&solver_impl),
+                                contingencies,
+                                out_path,
+                                &partitions,
+                                branch_limits.as_deref(),
+                            ),
+                            Err(e) => Err(e),
+                        };
+                        if res.is_ok() {
+                            record_run(
+                                out,
+                                "nminus1 dc",
+                                &[
+                                    ("grid_file", grid_file),
+                                    ("threads", &threads),
+                                    ("branch_limits", branch_limits.as_deref().unwrap_or("none")),
+                                    ("out", out),
+                                    ("solver", solver_kind.as_str()),
+                                    ("out_partitions", partition_spec.as_str()),
+                                ],
+                            );
+                        }
+                        res
+                    })()
                 }
             };
 
@@ -721,33 +844,47 @@ fn main() {
                     out,
                     state_out,
                     threads,
+                    solver,
+                    out_partitions,
                 } => {
                     configure_threads(&threads);
                     info!(
                         "Running WLS state estimation on {} using {} -> {}",
                         grid_file, measurements, out
                     );
-                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                        Ok(network) => power_flow::state_estimation_wls(
-                            &network,
-                            measurements,
-                            out,
-                            state_out.as_deref(),
-                        ),
-                        Err(e) => Err(e),
-                    };
-                    if res.is_ok() {
-                        record_run(
-                            out,
-                            "se wls",
-                            &[
-                                ("grid_file", grid_file),
-                                ("measurements", measurements.as_str()),
-                                ("threads", &threads),
-                            ],
-                        );
-                    }
-                    res
+                    (|| -> anyhow::Result<()> {
+                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_impl = solver_kind.build_solver();
+                        let partitions = parse_partitions(out_partitions.as_ref());
+                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                        let out_path = Path::new(out);
+                        let state_path = state_out.as_deref().map(Path::new);
+                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
+                            Ok(network) => power_flow::state_estimation_wls(
+                                &network,
+                                solver_impl.as_ref(),
+                                measurements,
+                                out_path,
+                                &partitions,
+                                state_path,
+                            ),
+                            Err(e) => Err(e),
+                        };
+                        if res.is_ok() {
+                            record_run(
+                                out,
+                                "se wls",
+                                &[
+                                    ("grid_file", grid_file),
+                                    ("measurements", measurements.as_str()),
+                                    ("threads", &threads),
+                                    ("solver", solver_kind.as_str()),
+                                    ("out_partitions", partition_spec.as_str()),
+                                ],
+                            );
+                        }
+                        res
+                    })()
                 }
             };
 
@@ -840,18 +977,26 @@ fn main() {
         }
         Some(Commands::Runs { command }) => {
             let result = match command {
-                RunsCommands::Resume { manifest } => match read_manifest(Path::new(&manifest)) {
-                    Ok(manifest) => {
-                        match resume_manifest(&manifest) {
-                            Ok(_) => {
-                                println!("Manifest {} resumed", manifest.run_id);
+                RunsCommands::Resume { manifest, execute } => {
+                    match read_manifest(Path::new(&manifest)) {
+                        Ok(manifest) => {
+                            describe_manifest(&manifest);
+                            if *execute {
+                                match resume_manifest(&manifest) {
+                                    Ok(_) => {
+                                        println!("Manifest {} resumed", manifest.run_id);
+                                        Ok(())
+                                    }
+                                    Err(err) => Err(err),
+                                }
+                            } else {
+                                println!("Manifest {} ready (not executed)", manifest.run_id);
                                 Ok(())
                             }
-                            Err(err) => Err(err),
                         }
+                        Err(e) => Err(e),
                     }
-                    Err(e) => Err(e),
-                },
+                }
             };
             match result {
                 Ok(_) => info!("Runs command successful!"),
@@ -868,35 +1013,47 @@ fn main() {
                     branch_limits,
                     piecewise,
                     threads,
+                    solver,
+                    out_partitions,
                 } => {
                     configure_threads(&threads);
                     info!(
                         "Running DC OPF on {} with cost {} and limits {} -> {}",
                         grid_file, cost, limits, out
                     );
-                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                        Ok(network) => power_flow::dc_optimal_power_flow(
-                            &network,
-                            cost.as_str(),
-                            limits.as_str(),
-                            out.as_str(),
-                            branch_limits.as_deref(),
-                            piecewise.as_deref(),
-                        ),
-                        Err(e) => Err(e),
-                    };
-                    if res.is_ok() {
-                        record_run(
-                            out,
-                            "opf dc",
-                            &[
-                                ("grid_file", grid_file),
-                                ("threads", &threads),
-                                ("cost", cost.as_str()),
-                            ],
-                        );
-                    }
-                    res
+                    (|| -> anyhow::Result<()> {
+                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_impl = solver_kind.build_solver();
+                        let partitions = parse_partitions(out_partitions.as_ref());
+                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                        let out_path = Path::new(out);
+                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
+                            Ok(network) => power_flow::dc_optimal_power_flow(
+                                &network,
+                                solver_impl.as_ref(),
+                                cost.as_str(),
+                                limits.as_str(),
+                                out_path,
+                                &partitions,
+                                branch_limits.as_deref(),
+                                piecewise.as_deref(),
+                            ),
+                            Err(e) => Err(e),
+                        };
+                        if res.is_ok() {
+                            record_run(
+                                out,
+                                "opf dc",
+                                &[
+                                    ("grid_file", grid_file),
+                                    ("threads", &threads),
+                                    ("solver", solver_kind.as_str()),
+                                    ("out_partitions", partition_spec.as_str()),
+                                ],
+                            );
+                        }
+                        res
+                    })()
                 }
                 OpfCommands::Ac {
                     grid_file,
@@ -904,33 +1061,47 @@ fn main() {
                     tol,
                     max_iter,
                     threads,
+                    solver,
+                    out_partitions,
                 } => {
                     configure_threads(&threads);
                     info!(
                         "Running AC OPF on {} with tol {}, max_iter {} -> {}",
                         grid_file, tol, max_iter, out
                     );
-                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                        Ok(network) => power_flow::ac_optimal_power_flow(
-                            &network,
-                            *tol,
-                            *max_iter,
-                            out.as_str(),
-                        ),
-                        Err(e) => Err(e),
-                    };
-                    if res.is_ok() {
-                        record_run(
-                            out,
-                            "opf ac",
-                            &[
-                                ("grid_file", grid_file),
-                                ("threads", &threads),
-                                ("tol", &tol.to_string()),
-                            ],
-                        );
-                    }
-                    res
+                    (|| -> anyhow::Result<()> {
+                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_impl = solver_kind.build_solver();
+                        let partitions = parse_partitions(out_partitions.as_ref());
+                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                        let out_path = Path::new(out);
+                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
+                            Ok(network) => power_flow::ac_optimal_power_flow(
+                                &network,
+                                solver_impl.as_ref(),
+                                *tol,
+                                *max_iter,
+                                out_path,
+                                &partitions,
+                            ),
+                            Err(e) => Err(e),
+                        };
+                        if res.is_ok() {
+                            record_run(
+                                out,
+                                "opf ac",
+                                &[
+                                    ("grid_file", grid_file),
+                                    ("threads", &threads),
+                                    ("tol", &tol.to_string()),
+                                    ("max_iter", &max_iter.to_string()),
+                                    ("solver", solver_kind.as_str()),
+                                    ("out_partitions", partition_spec.as_str()),
+                                ],
+                            );
+                        }
+                        res
+                    })()
                 }
             };
 
@@ -963,5 +1134,11 @@ enum SeCommands {
         /// Threading hint (`auto` or integer)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// Solver to use (gauss, faer)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
 }

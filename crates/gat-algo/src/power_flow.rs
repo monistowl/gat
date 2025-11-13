@@ -1,6 +1,8 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs::File,
+    fs::{self, File},
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -11,7 +13,9 @@ use good_lp::{
     constraint, variable, variables, Expression, ProblemVariables, Solution, SolverModel, Variable,
 };
 use num_complex::Complex64;
-use polars::prelude::{DataFrame, NamedFrom, ParquetWriter, PolarsResult, Series};
+use polars::frame::group_by::GroupsIndicator;
+use polars::prelude::{DataFrame, IdxCa, IdxSize, NamedFrom, ParquetWriter, PolarsResult, Series};
+use rayon::prelude::*;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -63,25 +67,24 @@ fn default_weight() -> f64 {
     1.0
 }
 
-pub fn dc_power_flow(network: &Network, output_file: &str) -> Result<()> {
+use gat_core::solver::LinearSolver;
+
+pub fn dc_power_flow(
+    network: &Network,
+    solver: &dyn LinearSolver,
+    output_file: &Path,
+    partitions: &[String],
+) -> Result<()> {
     let injections = default_pf_injections(network);
-    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None)
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC power flow")?;
-    let mut file = File::create(output_file).with_context(|| {
-        format!(
-            "creating DC flow output '{}'; ensure directory exists",
-            output_file
-        )
-    })?;
-    ParquetWriter::new(&mut file)
-        .finish(&mut df)
-        .context("writing DC flow Parquet output")?;
+    persist_dataframe(&mut df, output_file, partitions)?;
     println!(
         "DC power flow summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
         df.height(),
         min_flow,
         max_flow,
-        output_file
+        output_file.display()
     );
     Ok(())
 }
@@ -100,9 +103,11 @@ pub fn ac_power_flow(network: &Network, tol: f64, max_iter: u32) -> Result<()> {
 
 pub fn dc_optimal_power_flow(
     network: &Network,
+    solver: &dyn LinearSolver,
     cost_csv: &str,
     limits_csv: &str,
-    output_file: &str,
+    output_file: &Path,
+    partitions: &[String],
     branch_limit_csv: Option<&str>,
     piecewise_csv: Option<&str>,
 ) -> Result<()> {
@@ -158,32 +163,26 @@ pub fn dc_optimal_power_flow(
         injections.insert(*bus_id, dispatch - *demand);
     }
 
-    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None)
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC-OPF")?;
     enforce_branch_limits(&df, &branch_limits)?;
-    let mut file = File::create(output_file).with_context(|| {
-        format!(
-            "creating DC-OPF output '{}'; ensure directory exists",
-            output_file
-        )
-    })?;
-    ParquetWriter::new(&mut file)
-        .finish(&mut df)
-        .context("writing DC-OPF Parquet output")?;
+    persist_dataframe(&mut df, output_file, partitions).context("writing DC-OPF Parquet output")?;
     println!(
         "DC-OPF summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
         df.height(),
         min_flow,
         max_flow,
-        output_file
+        output_file.display()
     );
     Ok(())
 }
 
 pub fn n_minus_one_dc(
     network: &Network,
+    solver: Arc<dyn LinearSolver>,
     contingencies_csv: &str,
-    output_file: &str,
+    output_file: &Path,
+    partitions: &[String],
     branch_limit_csv: Option<&str>,
 ) -> Result<()> {
     let contingencies = load_contingencies(contingencies_csv)?;
@@ -221,75 +220,111 @@ pub fn n_minus_one_dc(
 
     let injections = default_pf_injections(network);
 
-    let mut contingency_branch_ids = Vec::new();
-    let mut contingency_labels = Vec::new();
-    let mut branch_counts = Vec::new();
-    let mut max_flow_branch_ids = Vec::new();
-    let mut max_abs_flows = Vec::new();
-    let mut max_flows = Vec::new();
-    let mut min_flows = Vec::new();
-    let mut violation_flags = Vec::new();
-    let mut violation_branch_ids = Vec::new();
-    let mut violation_mw = Vec::new();
-    let mut violation_limits = Vec::new();
-    let mut violation_total = 0;
+    struct ContingencySummary {
+        branch_id: i64,
+        label: String,
+        branch_count: i64,
+        max_flow_branch_id: Option<i64>,
+        max_abs_flow: f64,
+        max_flow: f64,
+        min_flow: f64,
+        violated: bool,
+        violation_branch_id: Option<i64>,
+        violation_mw: Option<f64>,
+        violation_limit_mw: Option<f64>,
+    }
 
-    for contingency in contingencies {
-        let (df, max_flow, min_flow) =
-            branch_flow_dataframe(network, &injections, Some(contingency.branch_id))
-                .context("building contingency branch flow table")?;
-        let branch_ids = df.column("branch_id")?.i64()?;
-        let flows = df.column("flow_mw")?.f64()?;
-        let mut max_abs_flow = 0.0;
-        let mut max_branch_id = None;
-        let mut current_violation = 0.0;
-        let mut current_violation_branch = None;
-        let mut current_violation_limit = None;
+    let solver = Arc::clone(&solver);
+    let results: Vec<ContingencySummary> = contingencies
+        .par_iter()
+        .map(|contingency| -> Result<ContingencySummary> {
+            let solver = Arc::clone(&solver);
+            let (df, max_flow, min_flow) = branch_flow_dataframe(
+                network,
+                &injections,
+                Some(contingency.branch_id),
+                solver.as_ref(),
+            )
+            .context("building contingency branch flow table")?;
+            let branch_ids = df.column("branch_id")?.i64()?;
+            let flows = df.column("flow_mw")?.f64()?;
+            let mut max_abs_flow = 0.0;
+            let mut max_branch_id = None;
+            let mut current_violation = 0.0;
+            let mut current_violation_branch = None;
+            let mut current_violation_limit = None;
 
-        for idx in 0..df.height() {
-            if let (Some(branch_id), Some(flow)) = (branch_ids.get(idx), flows.get(idx)) {
-                let abs_flow = flow.abs();
-                if abs_flow > max_abs_flow {
-                    max_abs_flow = abs_flow;
-                    max_branch_id = Some(branch_id);
-                }
-                if let Some(limit) = branch_limits.get(&branch_id) {
-                    if abs_flow > *limit {
-                        let violation = abs_flow - limit;
-                        if violation > current_violation {
-                            current_violation = violation;
-                            current_violation_branch = Some(branch_id);
-                            current_violation_limit = Some(*limit);
+            for idx in 0..df.height() {
+                if let (Some(branch_id), Some(flow)) = (branch_ids.get(idx), flows.get(idx)) {
+                    let abs_flow = flow.abs();
+                    if abs_flow > max_abs_flow {
+                        max_abs_flow = abs_flow;
+                        max_branch_id = Some(branch_id);
+                    }
+                    if let Some(limit) = branch_limits.get(&branch_id) {
+                        if abs_flow > *limit {
+                            let violation = abs_flow - limit;
+                            if violation > current_violation {
+                                current_violation = violation;
+                                current_violation_branch = Some(branch_id);
+                                current_violation_limit = Some(*limit);
+                            }
                         }
                     }
                 }
             }
-        }
 
-        let rows = df.height() as i64;
-        let violated = current_violation_branch.is_some();
-        if violated {
-            violation_total += 1;
-        }
+            let rows = df.height() as i64;
+            let violated = current_violation_branch.is_some();
 
-        contingency_branch_ids.push(contingency.branch_id);
-        contingency_labels.push(contingency.label.clone().unwrap_or_default());
-        branch_counts.push(rows);
-        max_flow_branch_ids.push(max_branch_id);
-        max_abs_flows.push(max_abs_flow);
-        max_flows.push(max_flow);
-        min_flows.push(min_flow);
-        violation_flags.push(violated);
-        violation_branch_ids.push(current_violation_branch);
-        violation_mw.push(if violated {
-            Some(current_violation)
-        } else {
-            None
-        });
-        violation_limits.push(current_violation_limit);
+            Ok(ContingencySummary {
+                branch_id: contingency.branch_id,
+                label: contingency.label.clone().unwrap_or_default(),
+                branch_count: rows,
+                max_flow_branch_id: max_branch_id,
+                max_abs_flow,
+                max_flow,
+                min_flow,
+                violated,
+                violation_branch_id: current_violation_branch,
+                violation_mw: if violated {
+                    Some(current_violation)
+                } else {
+                    None
+                },
+                violation_limit_mw: current_violation_limit,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let violation_total = results.iter().filter(|summary| summary.violated).count();
+    let total_outages = results.len();
+    let mut contingency_branch_ids = Vec::with_capacity(total_outages);
+    let mut contingency_labels = Vec::with_capacity(total_outages);
+    let mut branch_counts = Vec::with_capacity(total_outages);
+    let mut max_flow_branch_ids = Vec::with_capacity(total_outages);
+    let mut max_abs_flows = Vec::with_capacity(total_outages);
+    let mut max_flows = Vec::with_capacity(total_outages);
+    let mut min_flows = Vec::with_capacity(total_outages);
+    let mut violation_flags = Vec::with_capacity(total_outages);
+    let mut violation_branch_ids = Vec::with_capacity(total_outages);
+    let mut violation_mw = Vec::with_capacity(total_outages);
+    let mut violation_limits = Vec::with_capacity(total_outages);
+
+    for summary in results {
+        contingency_branch_ids.push(summary.branch_id);
+        contingency_labels.push(summary.label);
+        branch_counts.push(summary.branch_count);
+        max_flow_branch_ids.push(summary.max_flow_branch_id);
+        max_abs_flows.push(summary.max_abs_flow);
+        max_flows.push(summary.max_flow);
+        min_flows.push(summary.min_flow);
+        violation_flags.push(summary.violated);
+        violation_branch_ids.push(summary.violation_branch_id);
+        violation_mw.push(summary.violation_mw);
+        violation_limits.push(summary.violation_limit_mw);
     }
 
-    let total_outages = contingency_branch_ids.len();
     let mut df = DataFrame::new(vec![
         Series::new("contingency_branch_id", contingency_branch_ids),
         Series::new("contingency_label", contingency_labels),
@@ -304,28 +339,24 @@ pub fn n_minus_one_dc(
         Series::new("violation_limit_mw", violation_limits),
     ])?;
 
-    let mut file = File::create(output_file).with_context(|| {
-        format!(
-            "creating N-1 DC output '{}'; ensure directory exists",
-            output_file
-        )
-    })?;
-    ParquetWriter::new(&mut file)
-        .finish(&mut df)
-        .context("writing N-1 DC Parquet output")?;
+    persist_dataframe(&mut df, output_file, partitions).context("writing N-1 DC Parquet output")?;
 
     println!(
         "N-1 DC summary: {} contingency(ies), {} violation(s), persisted to {}",
-        total_outages, violation_total, output_file
+        total_outages,
+        violation_total,
+        output_file.display()
     );
     Ok(())
 }
 
 pub fn ac_optimal_power_flow(
     network: &Network,
+    solver: &dyn LinearSolver,
     tol: f64,
     max_iter: u32,
-    output_file: &str,
+    output_file: &Path,
+    partitions: &[String],
 ) -> Result<()> {
     let (bus_ids, _, susceptance) = build_bus_susceptance(network, None);
     let injections = default_pf_injections(network);
@@ -369,7 +400,7 @@ pub fn ac_optimal_power_flow(
                 converged = true;
                 break;
             }
-            let delta = solve_linear_system(reduced, &mismatches)
+            let delta = solve_linear_system(reduced, &mismatches, solver)
                 .context("solving AC Jacobian for angle updates")?;
             for i in 1..bus_count {
                 angle_vec[i] += delta[i - 1];
@@ -391,15 +422,7 @@ pub fn ac_optimal_power_flow(
 
     let (mut df, max_flow, min_flow) = branch_flow_dataframe_with_angles(network, &angle_map, None)
         .context("building branch flow table for AC-OPF")?;
-    let mut file = File::create(output_file).with_context(|| {
-        format!(
-            "creating AC-OPF output '{}'; ensure directory exists",
-            output_file
-        )
-    })?;
-    ParquetWriter::new(&mut file)
-        .finish(&mut df)
-        .context("writing AC-OPF Parquet output")?;
+    persist_dataframe(&mut df, output_file, partitions).context("writing AC-OPF Parquet output")?;
 
     println!(
         "AC-OPF summary: tol={} max_iter={} ({} iteration(s), max mismatch {:.6}) -> {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
@@ -410,7 +433,7 @@ pub fn ac_optimal_power_flow(
         df.height(),
         min_flow,
         max_flow,
-        output_file
+        output_file.display()
     );
 
     Ok(())
@@ -418,9 +441,11 @@ pub fn ac_optimal_power_flow(
 
 pub fn state_estimation_wls(
     network: &Network,
+    solver: &dyn LinearSolver,
     measurements_csv: &str,
-    output_file: &str,
-    state_out: Option<&str>,
+    output_file: &Path,
+    partitions: &[String],
+    state_out: Option<&Path>,
 ) -> Result<()> {
     let measurements = load_measurements(measurements_csv)?;
     let measurement_count = measurements.len();
@@ -465,7 +490,7 @@ pub fn state_estimation_wls(
         }
     }
 
-    let solution = solve_linear_system(&normal, &rhs)?;
+    let solution = solve_linear_system(&normal, &rhs, solver)?;
     let mut angle_map = HashMap::new();
     angle_map.insert(slack_bus, 0.0);
     for (idx, bus_id) in unknown_buses.iter().enumerate() {
@@ -514,14 +539,7 @@ pub fn state_estimation_wls(
         Series::new("weight", weights),
     ])?;
 
-    let mut file = File::create(output_file).with_context(|| {
-        format!(
-            "creating state estimation output '{}'; ensure directory exists",
-            output_file
-        )
-    })?;
-    ParquetWriter::new(&mut file)
-        .finish(&mut measurement_df)
+    persist_dataframe(&mut measurement_df, output_file, partitions)
         .context("writing state estimation measurements")?;
 
     if let Some(state_path) = state_out {
@@ -535,18 +553,11 @@ pub fn state_estimation_wls(
             Series::new("bus_id", bus_ids_vec),
             Series::new("angle_rad", angle_vec),
         ])?;
-        let mut state_file = File::create(state_path).with_context(|| {
-            format!(
-                "creating state output '{}'; ensure directory exists",
-                state_path
-            )
-        })?;
-        ParquetWriter::new(&mut state_file)
-            .finish(&mut state_df)
+        persist_dataframe(&mut state_df, state_path, &[])
             .context("writing state estimation angles")?;
         println!(
             "State angles persisted to {} ({} buses)",
-            state_path,
+            state_path.display(),
             bus_ids.len()
         );
     }
@@ -556,18 +567,82 @@ pub fn state_estimation_wls(
         measurement_rows.len(),
         n_vars,
         chi2,
-        output_file
+        output_file.display()
     );
     Ok(())
+}
+
+fn persist_dataframe(df: &mut DataFrame, output: &Path, partitions: &[String]) -> Result<()> {
+    if partitions.is_empty() {
+        let mut file = File::create(output)
+            .with_context(|| format!("creating Parquet output '{}'", output.display()))?;
+        ParquetWriter::new(&mut file)
+            .finish(df)
+            .context("writing Parquet output")?;
+    } else {
+        write_partitions(df, output, partitions)?;
+    }
+    Ok(())
+}
+
+fn write_partitions(df: &DataFrame, output: &Path, partitions: &[String]) -> Result<()> {
+    let group_by = df.group_by(partitions)?;
+    let groups = group_by.get_groups();
+    for (i, group) in groups.iter().enumerate() {
+        let (mut partition_df, first) = match group {
+            GroupsIndicator::Idx((first, indices)) => {
+                let idx_ca = IdxCa::new("row_idx", indices.as_slice());
+                (df.take(&idx_ca)?, first)
+            }
+            GroupsIndicator::Slice([first, len]) => (df.slice(first as i64, len as usize), first),
+        };
+        let dir = partition_dir(output, partitions, df, first)?;
+        write_partition_file(&mut partition_df, &dir, i)?;
+    }
+    Ok(())
+}
+
+fn write_partition_file(df: &mut DataFrame, dir: &Path, index: usize) -> Result<()> {
+    fs::create_dir_all(dir)
+        .with_context(|| format!("creating partition directory '{}'", dir.display()))?;
+    let file_path = dir.join(format!("part-{index:04}.parquet"));
+    let mut file = File::create(&file_path)
+        .with_context(|| format!("creating partition file '{}'", file_path.display()))?;
+    ParquetWriter::new(&mut file)
+        .finish(df)
+        .with_context(|| format!("writing partition file '{}'", file_path.display()))?;
+    Ok(())
+}
+
+fn partition_dir(
+    output: &Path,
+    partitions: &[String],
+    df: &DataFrame,
+    row_idx: IdxSize,
+) -> Result<PathBuf> {
+    let mut path = output.to_path_buf();
+    for key in partitions {
+        let series = df.column(key)?;
+        let idx = row_idx as usize;
+        let value = series.get(idx)?;
+        let value = sanitize_partition_value(&value.to_string());
+        path.push(format!("{}={}", key, value));
+    }
+    Ok(path)
+}
+
+fn sanitize_partition_value(value: &str) -> String {
+    value.replace(std::path::MAIN_SEPARATOR, "_")
 }
 
 fn branch_flow_dataframe(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
-) -> PolarsResult<(DataFrame, f64, f64)> {
-    let angles = compute_dc_angles(network, injections, skip_branch).unwrap_or_default();
-    branch_flow_dataframe_with_angles(network, &angles, skip_branch)
+    solver: &dyn LinearSolver,
+) -> Result<(DataFrame, f64, f64)> {
+    let angles = compute_dc_angles(network, injections, skip_branch, solver)?;
+    branch_flow_dataframe_with_angles(network, &angles, skip_branch).map_err(|err| anyhow!(err))
 }
 
 fn branch_flow_dataframe_with_angles(
@@ -707,6 +782,7 @@ fn compute_dc_angles(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
+    solver: &dyn LinearSolver,
 ) -> Result<HashMap<usize, f64>> {
     let (bus_ids, _, susceptance) = build_bus_susceptance(network, skip_branch);
     let node_count = bus_ids.len();
@@ -733,7 +809,7 @@ fn compute_dc_angles(
         reduced_rhs[i - 1] = rhs[i];
     }
 
-    let solution = solve_linear_system(&reduced, &reduced_rhs)?;
+    let solution = solve_linear_system(&reduced, &reduced_rhs, solver)?;
     let mut angles = HashMap::new();
     angles.insert(bus_ids[0], 0.0);
     for (i, bus_id) in bus_ids.iter().enumerate().skip(1) {
@@ -742,49 +818,12 @@ fn compute_dc_angles(
     Ok(angles)
 }
 
-fn solve_linear_system(matrix: &[Vec<f64>], injections: &[f64]) -> Result<Vec<f64>> {
-    let n = matrix.len();
-    if n == 0 {
-        return Ok(Vec::new());
-    }
-    let mut a = matrix.to_vec();
-    let mut b = injections.to_vec();
-
-    for i in 0..n {
-        let mut pivot = i;
-        for row in i + 1..n {
-            if a[row][i].abs() > a[pivot][i].abs() {
-                pivot = row;
-            }
-        }
-        if pivot != i {
-            a.swap(i, pivot);
-            b.swap(i, pivot);
-        }
-
-        let diag = a[i][i];
-        if diag.abs() < 1e-12 {
-            return Err(anyhow!("singular DC matrix"));
-        }
-
-        for col in i..n {
-            a[i][col] /= diag;
-        }
-        b[i] /= diag;
-
-        for row in 0..n {
-            if row == i {
-                continue;
-            }
-            let factor = a[row][i];
-            for col in i..n {
-                a[row][col] -= factor * a[i][col];
-            }
-            b[row] -= factor * b[i];
-        }
-    }
-
-    Ok(b)
+fn solve_linear_system(
+    matrix: &[Vec<f64>],
+    injections: &[f64],
+    solver: &dyn LinearSolver,
+) -> Result<Vec<f64>> {
+    solver.solve(matrix, injections)
 }
 
 fn load_costs(path: &str) -> Result<HashMap<usize, f64>> {
@@ -1163,9 +1202,11 @@ fn compute_p(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gat_core::solver::GaussSolver;
     use gat_core::{Branch, BranchId, Bus, BusId, Edge, Network, Node};
     use polars::prelude::{ParquetReader, SerReader};
     use std::fs::{self, File};
+    use std::sync::Arc;
     use tempfile::tempdir;
 
     fn build_simple_network() -> Network {
@@ -1239,7 +1280,8 @@ mod tests {
         let network = build_simple_network();
         let temp_dir = tempdir().unwrap();
         let out = temp_dir.path().join("dc.parquet");
-        dc_power_flow(&network, out.to_str().unwrap()).unwrap();
+        let solver = GaussSolver::default();
+        dc_power_flow(&network, &solver, &out, &[]).unwrap();
 
         let file = File::open(&out).unwrap();
         let df = ParquetReader::new(file).finish().unwrap();
@@ -1260,11 +1302,14 @@ mod tests {
         fs::write(&branch_limits_path, "branch_id,flow_limit\n0,0.001\n").unwrap();
 
         let out = temp_dir.path().join("opf.parquet");
+        let solver = GaussSolver::default();
         assert!(dc_optimal_power_flow(
             &network,
+            &solver,
             cost_path.to_str().unwrap(),
             limits_path.to_str().unwrap(),
-            out.to_str().unwrap(),
+            &out,
+            &[],
             Some(branch_limits_path.to_str().unwrap()),
             None,
         )
@@ -1281,11 +1326,14 @@ mod tests {
         fs::write(&limits_path, "bus_id,pmin,pmax,demand\n0,0,5,1\n1,0,5,0\n").unwrap();
 
         let out = temp_dir.path().join("opf.parquet");
+        let solver = GaussSolver::default();
         dc_optimal_power_flow(
             &network,
+            &solver,
             cost_path.to_str().unwrap(),
             limits_path.to_str().unwrap(),
-            out.to_str().unwrap(),
+            &out,
+            &[],
             None,
             None,
         )
@@ -1308,11 +1356,14 @@ mod tests {
         fs::write(&piecewise_path, "bus_id,start,end,slope\n0,0,2,10\n").unwrap();
 
         let out = temp_dir.path().join("opf.parquet");
+        let solver = GaussSolver::default();
         let err = dc_optimal_power_flow(
             &network,
+            &solver,
             cost_path.to_str().unwrap(),
             limits_path.to_str().unwrap(),
-            out.to_str().unwrap(),
+            &out,
+            &[],
             None,
             Some(piecewise_path.to_str().unwrap()),
         )
@@ -1340,11 +1391,14 @@ mod tests {
         .unwrap();
 
         let out = temp_dir.path().join("opf.parquet");
+        let solver = GaussSolver::default();
         dc_optimal_power_flow(
             &network,
+            &solver,
             cost_path.to_str().unwrap(),
             limits_path.to_str().unwrap(),
-            out.to_str().unwrap(),
+            &out,
+            &[],
             None,
             Some(piecewise_path.to_str().unwrap()),
         )
@@ -1361,10 +1415,13 @@ mod tests {
         fs::write(&contingencies_path, "branch_id,label\n0,line0\n1,line1\n").unwrap();
         fs::write(&branch_limits_path, "branch_id,flow_limit\n0,5\n1,0.1\n").unwrap();
 
+        let solver = Arc::new(GaussSolver::default());
         n_minus_one_dc(
             &network,
+            solver,
             contingencies_path.to_str().unwrap(),
-            out.to_str().unwrap(),
+            &out,
+            &[],
             Some(branch_limits_path.to_str().unwrap()),
         )
         .unwrap();
@@ -1372,6 +1429,11 @@ mod tests {
         let file = File::open(&out).unwrap();
         let df = ParquetReader::new(file).finish().unwrap();
         assert_eq!(df.height(), 2);
+        let contingency_ids = df.column("contingency_branch_id").unwrap().i64().unwrap();
+        assert_eq!(
+            contingency_ids.into_no_null_iter().collect::<Vec<_>>(),
+            vec![0, 1]
+        );
         let violated = df.column("violated").unwrap().bool().unwrap();
         assert!(violated.get(0).unwrap());
         assert!(!violated.get(1).unwrap());
@@ -1385,7 +1447,8 @@ mod tests {
         let network = build_simple_network();
         let temp_dir = tempdir().unwrap();
         let out = temp_dir.path().join("ac.parquet");
-        ac_optimal_power_flow(&network, 1e-6, 10, out.to_str().unwrap()).unwrap();
+        let solver = GaussSolver::default();
+        ac_optimal_power_flow(&network, &solver, 1e-6, 10, &out, &[]).unwrap();
 
         let file = File::open(&out).unwrap();
         let df = ParquetReader::new(file).finish().unwrap();
@@ -1405,11 +1468,14 @@ mod tests {
         )
         .unwrap();
 
+        let solver = GaussSolver::default();
         state_estimation_wls(
             &network,
+            &solver,
             meas_path.to_str().unwrap(),
-            out.to_str().unwrap(),
-            Some(state_out.to_str().unwrap()),
+            &out,
+            &[],
+            Some(state_out.as_path()),
         )
         .unwrap();
 
