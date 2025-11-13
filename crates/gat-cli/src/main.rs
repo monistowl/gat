@@ -7,17 +7,15 @@ use gat_ts;
 use gat_viz;
 use num_cpus;
 use rayon::ThreadPoolBuilder;
-use serde::Serialize;
-use std::collections::HashMap;
+use std::env;
 use std::path::Path;
+use std::process::Command;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
 use dataset::*;
 mod manifest;
-use manifest::record_manifest;
-mod manifest;
-use manifest::record_manifest;
+use manifest::{read_manifest, record_manifest};
 
 fn configure_threads(spec: &str) {
     let count = if spec.eq_ignore_ascii_case("auto") {
@@ -32,6 +30,29 @@ fn record_run(out: &str, command: &str, params: &[(&str, &str)]) {
     if let Err(err) = record_manifest(Path::new(out), command, params) {
         eprintln!("Failed to record run manifest: {err}");
     }
+}
+
+fn resume_manifest(manifest: &manifest::ManifestEntry) -> anyhow::Result<()> {
+    let mut args: Vec<String> = manifest
+        .command
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+    for param in &manifest.params {
+        match param.name.as_str() {
+            "grid_file" => args.push(param.value.clone()),
+            _ => {
+                args.push(format!("--{}", param.name));
+                args.push(param.value.clone());
+            }
+        }
+    }
+    let exe = env::current_exe()?;
+    let status = Command::new(exe).args(&args).status()?;
+    if !status.success() {
+        return Err(anyhow::anyhow!("resumed run failed with {}", status));
+    }
+    Ok(())
 }
 
 #[derive(Parser, Debug)]
@@ -101,6 +122,11 @@ enum Commands {
     Gui {
         #[command(subcommand)]
         command: GuiCommands,
+    },
+    /// Run management
+    Runs {
+        #[command(subcommand)]
+        command: RunsCommands,
     },
     /// Dataset adapters
     Dataset {
@@ -182,6 +208,9 @@ enum PowerFlowCommands {
     Ac {
         /// Path to the grid data file (Arrow format)
         grid_file: String,
+        /// Output file path for flows (Parquet format)
+        #[arg(short, long)]
+        out: String,
         /// Tolerance for convergence
         #[arg(long, default_value = "1e-8")]
         tol: f64,
@@ -294,6 +323,15 @@ enum DatasetCommands {
         path: String,
         #[arg(short, long)]
         out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RunsCommands {
+    /// Resume a long run from a manifest
+    Resume {
+        /// Manifest JSON path
+        manifest: String,
     },
 }
 
@@ -532,12 +570,21 @@ fn main() {
                         Err(e) => Err(e),
                     };
                     if res.is_ok() {
-                        record_run(out, "pf dc", &[("grid_file", grid_file), ("threads", &threads)]);
+                        record_run(
+                            out,
+                            "pf dc",
+                            &[
+                                ("grid_file", grid_file),
+                                ("out", out),
+                                ("threads", &threads),
+                            ],
+                        );
                     }
                     res
                 }
                 PowerFlowCommands::Ac {
                     grid_file,
+                    out,
                     tol,
                     max_iter,
                     threads,
@@ -563,6 +610,7 @@ fn main() {
                             &[
                                 ("grid_file", grid_file),
                                 ("threads", &threads),
+                                ("out", out),
                                 ("tol", &tol.to_string()),
                                 ("max_iter", &max_iter.to_string()),
                             ],
@@ -608,6 +656,7 @@ fn main() {
                                 ("grid_file", grid_file),
                                 ("threads", &threads),
                                 ("branch_limits", branch_limits.as_deref().unwrap_or("none")),
+                                ("out", out),
                             ],
                         );
                     }
@@ -787,6 +836,26 @@ fn main() {
             match result {
                 Ok(_) => info!("Dataset command successful!"),
                 Err(e) => error!("Dataset command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Runs { command }) => {
+            let result = match command {
+                RunsCommands::Resume { manifest } => match read_manifest(Path::new(&manifest)) {
+                    Ok(manifest) => {
+                        match resume_manifest(&manifest) {
+                            Ok(_) => {
+                                println!("Manifest {} resumed", manifest.run_id);
+                                Ok(())
+                            }
+                            Err(err) => Err(err),
+                        }
+                    }
+                    Err(e) => Err(e),
+                },
+            };
+            match result {
+                Ok(_) => info!("Runs command successful!"),
+                Err(e) => error!("Runs command failed: {:?}", e),
             }
         }
         Some(Commands::Opf { command }) => {

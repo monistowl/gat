@@ -1,7 +1,10 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
+use serde_json::{json, to_string_pretty};
+use std::fs;
 use std::path::PathBuf;
 use tempfile::tempdir;
+use uuid::Uuid;
 
 fn repo_path(relative: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -92,6 +95,32 @@ fn gat_import_and_pf_dc_runs() {
     .success()
     .stdout(predicate::str::contains("DC power flow summary"));
     assert!(pf_out.exists());
+}
+
+#[test]
+fn gat_runs_resume_displays_manifest() {
+    let entry = json!({
+        "run_id": Uuid::new_v4().to_string(),
+        "command": "pf dc",
+        "version": "0.1.0",
+        "timestamp": "1980-01-01T00:00:00Z",
+        "outputs": ["/tmp/fake.parquet"],
+        "params": [
+            {"name": "grid_file", "value": "grid.arrow"},
+            {"name": "out", "value": "/tmp/fake.parquet"},
+            {"name": "threads", "value": "auto"}
+        ]
+    });
+    let tmp = tempdir().unwrap();
+    let path = tmp.path().join("run.json");
+    fs::write(&path, to_string_pretty(&entry).unwrap()).unwrap();
+
+    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    cmd.args(["runs", "resume", path.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Manifest"))
+        .stdout(predicate::str::contains("grid.arrow"));
 }
 
 #[test]

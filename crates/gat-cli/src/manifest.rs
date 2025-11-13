@@ -1,27 +1,27 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Serialize)]
-struct ManifestEntry {
-    run_id: String,
-    command: String,
-    version: &'static str,
-    timestamp: String,
-    outputs: Vec<String>,
-    params: Vec<Param>,
+#[derive(Serialize, Deserialize)]
+pub struct ManifestEntry {
+    pub run_id: String,
+    pub command: String,
+    pub version: String,
+    pub timestamp: String,
+    pub outputs: Vec<String>,
+    pub params: Vec<Param>,
 }
 
-#[derive(Serialize)]
-struct Param {
-    name: String,
-    value: String,
+#[derive(Serialize, Deserialize)]
+pub struct Param {
+    pub name: String,
+    pub value: String,
 }
 
 pub fn record_manifest(output: &Path, command: &str, params: &[(&str, &str)]) -> Result<()> {
@@ -34,7 +34,7 @@ pub fn record_manifest(output: &Path, command: &str, params: &[(&str, &str)]) ->
     let manifest = ManifestEntry {
         run_id: run_id.clone(),
         command: command.to_string(),
-        version: env!("CARGO_PKG_VERSION"),
+        version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: Utc::now().to_rfc3339(),
         outputs: vec![output.display().to_string()],
         params: params
@@ -50,4 +50,10 @@ pub fn record_manifest(output: &Path, command: &str, params: &[(&str, &str)]) ->
     fs::write(&path, json).with_context(|| format!("writing {}", path.display()))?;
     println!("Recorded run manifest {}", path.display());
     Ok(())
+}
+
+pub fn read_manifest(path: &Path) -> Result<ManifestEntry> {
+    let json = fs::read_to_string(path)?;
+    let manifest = serde_json::from_str(&json)?;
+    Ok(manifest)
 }
