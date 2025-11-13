@@ -1,5 +1,7 @@
 use anyhow::Result;
+use chrono::Utc;
 use clap::{Parser, Subcommand};
+use serde::Serialize;
 use serde_json::json;
 use std::fs;
 use std::path::Path;
@@ -62,6 +64,7 @@ fn doc_all() -> Result<()> {
     doc_cli()?;
     doc_schemas()?;
     doc_site()?;
+    write_docs_index()?;
     Ok(())
 }
 
@@ -131,6 +134,49 @@ This book indexes the auto-generated docs that the MCC server exposes.
 "#;
     fs::write(book_dir.join("index.md"), index)?;
 
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct DocIndex {
+    default: String,
+    updated_at: String,
+    versions: Vec<DocVersion>,
+}
+
+#[derive(Serialize)]
+struct DocVersion {
+    name: String,
+    uri: String,
+    generated_at: String,
+}
+
+fn write_docs_index() -> Result<()> {
+    let generated_at = Utc::now().to_rfc3339();
+    let mut versions = vec![DocVersion {
+        name: "latest".to_string(),
+        uri: "/doc/index.md".to_string(),
+        generated_at: generated_at.clone(),
+    }];
+    if let Ok(tagged) = std::env::var("GAT_DOCS_VERSION") {
+        let tagged = tagged.trim();
+        if !tagged.is_empty() && tagged != "latest" {
+            versions.push(DocVersion {
+                name: tagged.to_string(),
+                uri: format!("/doc/index.md?version={tagged}"),
+                generated_at: generated_at.clone(),
+            });
+        }
+    }
+
+    let index = DocIndex {
+        default: "latest".to_string(),
+        updated_at: generated_at,
+        versions,
+    };
+    let path = Path::new("docs/index.json");
+    ensure_parent(path)?;
+    fs::write(path, serde_json::to_string_pretty(&index)?)?;
     Ok(())
 }
 

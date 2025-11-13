@@ -234,6 +234,8 @@ The new docs pipeline is wired into `xtask`:
 - `cargo xtask doc site` seeds `site/book/` with a minimal mdBook-style summary.
 - `cargo xtask doc all` rebuilds everything in order so `gat-mcp-docs` can serve a consistent tree.
 
+`cargo xtask doc:all` also writes `docs/index.json`, mapping version tags (default `latest`, configurable via `GAT_DOCS_VERSION`) to the generated URIs so the MCP server can expose both the live and pinned snapshots.
+
 Run `cargo xtask doc all` after changing CLI flags, manifest fields, or schema declarations.
 
 The `gat-mcp-docs` server exposes the generated docs over HTTP and can be pointed at Claude/other MCP clients:

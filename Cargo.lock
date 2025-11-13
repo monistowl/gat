@@ -4647,10 +4647,12 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "clap-markdown",
  "clap_mangen",
  "gat-cli",
+ "serde",
  "serde_json",
  "walkdir",
 ]
