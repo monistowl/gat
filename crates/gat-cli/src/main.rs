@@ -7,11 +7,17 @@ use gat_ts;
 use gat_viz;
 use num_cpus;
 use rayon::ThreadPoolBuilder;
+use serde::Serialize;
+use std::collections::HashMap;
 use std::path::Path;
 use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
 use dataset::*;
+mod manifest;
+use manifest::record_manifest;
+mod manifest;
+use manifest::record_manifest;
 
 fn configure_threads(spec: &str) {
     let count = if spec.eq_ignore_ascii_case("auto") {
@@ -20,6 +26,12 @@ fn configure_threads(spec: &str) {
         spec.parse().unwrap_or_else(|_| num_cpus::get())
     };
     let _ = ThreadPoolBuilder::new().num_threads(count).build_global();
+}
+
+fn record_run(out: &str, command: &str, params: &[(&str, &str)]) {
+    if let Err(err) = record_manifest(Path::new(out), command, params) {
+        eprintln!("Failed to record run manifest: {err}");
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -515,10 +527,14 @@ fn main() {
                 } => {
                     configure_threads(&threads);
                     info!("Running DC power flow on {} to {}", grid_file, out);
-                    match importers::load_grid_from_arrow(grid_file.as_str()) {
+                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::dc_power_flow(&network, out),
                         Err(e) => Err(e),
+                    };
+                    if res.is_ok() {
+                        record_run(out, "pf dc", &[("grid_file", grid_file), ("threads", &threads)]);
                     }
+                    res
                 }
                 PowerFlowCommands::Ac {
                     grid_file,
@@ -531,10 +547,28 @@ fn main() {
                         "Running AC power flow on {} with tol {} and max_iter {}",
                         grid_file, tol, max_iter
                     );
-                    match importers::load_grid_from_arrow(grid_file.as_str()) {
-                        Ok(network) => power_flow::ac_power_flow(&network, *tol, *max_iter),
+                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
+                        Ok(network) => power_flow::ac_optimal_power_flow(
+                            &network,
+                            *tol,
+                            *max_iter,
+                            out.as_str(),
+                        ),
                         Err(e) => Err(e),
+                    };
+                    if res.is_ok() {
+                        record_run(
+                            out,
+                            "pf ac",
+                            &[
+                                ("grid_file", grid_file),
+                                ("threads", &threads),
+                                ("tol", &tol.to_string()),
+                                ("max_iter", &max_iter.to_string()),
+                            ],
+                        );
                     }
+                    res
                 }
             };
 
@@ -557,7 +591,7 @@ fn main() {
                         "Running N-1 DC on {} with contingencies {} -> {}",
                         grid_file, contingencies, out
                     );
-                    match importers::load_grid_from_arrow(grid_file.as_str()) {
+                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::n_minus_one_dc(
                             &network,
                             contingencies,
@@ -565,7 +599,19 @@ fn main() {
                             branch_limits.as_deref(),
                         ),
                         Err(e) => Err(e),
+                    };
+                    if res.is_ok() {
+                        record_run(
+                            out,
+                            "nminus1 dc",
+                            &[
+                                ("grid_file", grid_file),
+                                ("threads", &threads),
+                                ("branch_limits", branch_limits.as_deref().unwrap_or("none")),
+                            ],
+                        );
                     }
+                    res
                 }
             };
 
@@ -632,7 +678,7 @@ fn main() {
                         "Running WLS state estimation on {} using {} -> {}",
                         grid_file, measurements, out
                     );
-                    match importers::load_grid_from_arrow(grid_file.as_str()) {
+                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::state_estimation_wls(
                             &network,
                             measurements,
@@ -640,7 +686,19 @@ fn main() {
                             state_out.as_deref(),
                         ),
                         Err(e) => Err(e),
+                    };
+                    if res.is_ok() {
+                        record_run(
+                            out,
+                            "se wls",
+                            &[
+                                ("grid_file", grid_file),
+                                ("measurements", measurements.as_str()),
+                                ("threads", &threads),
+                            ],
+                        );
                     }
+                    res
                 }
             };
 
@@ -747,7 +805,7 @@ fn main() {
                         "Running DC OPF on {} with cost {} and limits {} -> {}",
                         grid_file, cost, limits, out
                     );
-                    match importers::load_grid_from_arrow(grid_file.as_str()) {
+                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::dc_optimal_power_flow(
                             &network,
                             cost.as_str(),
@@ -757,7 +815,19 @@ fn main() {
                             piecewise.as_deref(),
                         ),
                         Err(e) => Err(e),
+                    };
+                    if res.is_ok() {
+                        record_run(
+                            out,
+                            "opf dc",
+                            &[
+                                ("grid_file", grid_file),
+                                ("threads", &threads),
+                                ("cost", cost.as_str()),
+                            ],
+                        );
                     }
+                    res
                 }
                 OpfCommands::Ac {
                     grid_file,
@@ -771,7 +841,7 @@ fn main() {
                         "Running AC OPF on {} with tol {}, max_iter {} -> {}",
                         grid_file, tol, max_iter, out
                     );
-                    match importers::load_grid_from_arrow(grid_file.as_str()) {
+                    let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => power_flow::ac_optimal_power_flow(
                             &network,
                             *tol,
@@ -779,7 +849,19 @@ fn main() {
                             out.as_str(),
                         ),
                         Err(e) => Err(e),
+                    };
+                    if res.is_ok() {
+                        record_run(
+                            out,
+                            "opf ac",
+                            &[
+                                ("grid_file", grid_file),
+                                ("threads", &threads),
+                                ("tol", &tol.to_string()),
+                            ],
+                        );
                     }
+                    res
                 }
             };
 
