@@ -243,6 +243,14 @@ gat ts {resample|join|agg} …           # M6
 * Use **a simple installer pattern** (tarball + `install.sh`) so labs can adopt without cargo. ([GitHub][1])
 * For large cases, bias to **sparse paths** (`sprs`) and graph-aware updates.
 
+---
+
+# 13) Recent deliverables
+
+* Time-series suite now provides resample/join/agg helpers (`gat ts …`) plus vetted CLI regression tests covering telemetry flows, import + DC PF, and GUI stubs (`docs/TS.md`, `docs/GUI.md`).
+* Packaging scripts (`scripts/package.sh`, `scripts/install.sh`, documented in `docs/PACKAGING.md`) yield release tarballs and repeatable local installs, matching the installer pattern from M10.
+* CLI tests use workspace fixtures (`test_data/ts`, `test_data/matpower`) and `assert_cmd` so future releases keep working end-to-end.
+
 [1]: https://github.com/monistowl/elf "GitHub - monistowl/elf: Extensible Lab Framework"
 [2]: https://docs.rs/anyhow?utm_source=chatgpt.com "anyhow - Rust"
 [3]: https://docs.rs/clap?utm_source=chatgpt.com "clap - Rust"
