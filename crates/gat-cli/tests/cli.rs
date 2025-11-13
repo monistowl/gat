@@ -57,3 +57,39 @@ fn gat_ts_agg_runs() {
     .stdout(predicate::str::contains("Aggregating"));
     assert!(out.exists());
 }
+
+#[test]
+fn gat_import_and_pf_dc_runs() {
+    let tmp = tempdir().unwrap();
+    let arrow_path = tmp.path().join("case.arrow");
+    let pf_out = tmp.path().join("dc.parquet");
+    let case_file = repo_path("test_data/matpower/ieee14.case");
+
+    let mut import = Command::cargo_bin("gat-cli").unwrap();
+    import
+        .args([
+            "import",
+            "matpower",
+            "--m",
+            case_file.to_str().unwrap(),
+            "-o",
+            arrow_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Importing MATPOWER"));
+    assert!(arrow_path.exists());
+
+    let mut pf = Command::cargo_bin("gat-cli").unwrap();
+    pf.args([
+        "pf",
+        "dc",
+        arrow_path.to_str().unwrap(),
+        "--out",
+        pf_out.to_str().unwrap(),
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("DC power flow summary"));
+    assert!(pf_out.exists());
+}
