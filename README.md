@@ -35,7 +35,7 @@ GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system pro
      --solver faer \
      --out-partitions `grid_id,date`
    ```
-   Use `--solver {gauss,faer}` to switch solver backends and `--out-partitions` to emit partitioned directories. Each run records the solver/partition choices inside `run.json`, so `gat runs resume run.json --execute` can replay the exact configuration later (the manifest lives next to the output file).
+Use `--solver {gauss,faer}` to switch solver backends, `--lp-solver {clarabel,coin_cbc,highs}` to pick the DC-OPF LP engine, and `--out-partitions` to emit partitioned directories. Each heavy output now lands under a stage directory (`pf-dc`, `opf-dc`, `nminus1-dc`, `se-wls`, etc.) so stage dashboards can find their artifacts without mixing runs. Each run records the solver/partition choices inside `run.json`, so `gat runs resume run.json --execute` can replay the exact configuration later (the manifest lives next to the output file).
 
 5. **Inspect results**
    `gat pf dc` and `gat opf` commands emit branch flow tables (`branch_id`, `from_bus`, `to_bus`, `flow_mw`) which you can open with `polars`, `duckdb`, or any Parquet consumer.
@@ -76,7 +76,7 @@ Command:
 gat pf dc grid.arrow --out flows.parquet
 ```
 
-Use `--solver {gauss|faer}` to swap the solver backend and `--out-partitions` if you want per-key partition directories zipped by `key=value`. The CLI also records those flags in `run.json`, so a future `gat runs resume run.json --execute` picks them up.
+Use `--solver {gauss|faer}` to swap the solver backend, `--lp-solver` to pick the LP engine for DC-OPF, and `--out-partitions` if you want per-key partition directories zipped by `key=value`. The CLI also records those flags in `run.json`, so a future `gat runs resume run.json --execute` picks them up.
 
 ### AC power flow (`gat pf ac`)
 
@@ -182,6 +182,10 @@ Measurement CSV format:
 | `value` | measured value (MW) |
 | `weight` | positive weight (1/variance) |
 | `label` | optional descriptor for reporting |
+
+Supported measurement types now include `angle` and `voltage` (both treated as angle observables on the requested bus), so you can describe instrumentation beyond flows/injections.
+
+The command also accepts `--slack-bus <BUS_ID>` so you can pick a different reference than the smallest bus ID that the solver uses by default.
 
 The command writes a Parquet table of residuals (`value`, `estimate`, `residual`, `normalized_residual`, `weight`) and can emit the solved angles via `--state-out`. Use `test_data/se/measurements.csv` for a minimal fixture.
 

@@ -1,5 +1,5 @@
 use clap::Parser;
-use gat_algo::power_flow;
+use gat_algo::{power_flow, LpSolverKind};
 use gat_core::{graph_utils, solver::SolverKind};
 use gat_gui;
 use gat_io::{importers, validate};
@@ -434,6 +434,7 @@ fn main() {
                     threads,
                     solver,
                     out_partitions,
+                    slack_bus,
                 } => {
                     configure_threads(&threads);
                     info!(
@@ -455,10 +456,12 @@ fn main() {
                                 out_path,
                                 &partitions,
                                 state_path,
+                                *slack_bus,
                             ),
                             Err(e) => Err(e),
                         };
                         if res.is_ok() {
+                            let slack_spec = slack_bus.map(|id| id.to_string());
                             record_run(
                                 out,
                                 "se wls",
@@ -468,6 +471,7 @@ fn main() {
                                     ("threads", &threads),
                                     ("solver", solver_kind.as_str()),
                                     ("out_partitions", partition_spec.as_str()),
+                                    ("slack_bus", slack_spec.as_deref().unwrap_or("auto")),
                                 ],
                             );
                         }
@@ -602,6 +606,7 @@ fn main() {
                     piecewise,
                     threads,
                     solver,
+                    lp_solver,
                     out_partitions,
                 } => {
                     configure_threads(&threads);
@@ -612,6 +617,7 @@ fn main() {
                     (|| -> anyhow::Result<()> {
                         let solver_kind = SolverKind::from_str(&solver)?;
                         let solver_impl = solver_kind.build_solver();
+                        let lp_solver_kind = LpSolverKind::from_str(&lp_solver)?;
                         let partitions = parse_partitions(out_partitions.as_ref());
                         let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
                         let out_path = Path::new(out);
@@ -625,6 +631,7 @@ fn main() {
                                 &partitions,
                                 branch_limits.as_deref(),
                                 piecewise.as_deref(),
+                                &lp_solver_kind,
                             ),
                             Err(e) => Err(e),
                         };
@@ -636,6 +643,7 @@ fn main() {
                                     ("grid_file", grid_file),
                                     ("threads", &threads),
                                     ("solver", solver_kind.as_str()),
+                                    ("lp_solver", lp_solver_kind.as_str()),
                                     ("out_partitions", partition_spec.as_str()),
                                 ],
                             );

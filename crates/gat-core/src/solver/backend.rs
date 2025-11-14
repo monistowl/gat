@@ -1,0 +1,100 @@
+use anyhow::{anyhow, Result};
+use faer::{prelude::*, solvers::PartialPivLu, Mat};
+/// Trait that abstracts solver backends (dense LU/LDL engines).
+pub trait SolverBackend: Send + Sync {
+    fn solve(&self, matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>>;
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct GaussSolver;
+
+impl SolverBackend for GaussSolver {
+    fn solve(&self, matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>> {
+        let n = matrix.len();
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        if rhs.len() != n {
+            return Err(anyhow!(
+                "rhs length ({}) does not match matrix dimension {}",
+                rhs.len(),
+                n
+            ));
+        }
+        if matrix.iter().any(|row| row.len() != n) {
+            return Err(anyhow!("matrix must be square"));
+        }
+
+        let mut a = matrix.to_vec();
+        let mut b = rhs.to_vec();
+
+        for i in 0..n {
+            let mut pivot = i;
+            for row in i + 1..n {
+                if a[row][i].abs() > a[pivot][i].abs() {
+                    pivot = row;
+                }
+            }
+            if pivot != i {
+                a.swap(i, pivot);
+                b.swap(i, pivot);
+            }
+
+            let diag = a[i][i];
+            if diag.abs() < 1e-12 {
+                return Err(anyhow!("singular matrix"));
+            }
+
+            for col in i..n {
+                a[i][col] /= diag;
+            }
+            b[i] /= diag;
+
+            for row in 0..n {
+                if row == i {
+                    continue;
+                }
+                let factor = a[row][i];
+                for col in i..n {
+                    a[row][col] -= factor * a[i][col];
+                }
+                b[row] -= factor * b[i];
+            }
+        }
+
+        Ok(b)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct FaerSolver;
+
+impl SolverBackend for FaerSolver {
+    fn solve(&self, matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>> {
+        let n = matrix.len();
+        if n == 0 {
+            return Ok(Vec::new());
+        }
+        if rhs.len() != n {
+            return Err(anyhow!(
+                "rhs length ({}) does not match matrix dimension {}",
+                rhs.len(),
+                n
+            ));
+        }
+        if matrix.iter().any(|row| row.len() != n) {
+            return Err(anyhow!("matrix must be square"));
+        }
+
+        let mat = Mat::from_fn(n, n, |i, j| matrix[i][j]);
+        let rhs_mat = Mat::from_fn(n, 1, |i, _| rhs[i]);
+        let lu = PartialPivLu::new(mat.as_ref());
+        let sol = lu.solve(&rhs_mat);
+
+        let mut solution = Vec::with_capacity(n);
+        for i in 0..n {
+            solution.push(sol.read(i, 0));
+        }
+        Ok(solution)
+    }
+}

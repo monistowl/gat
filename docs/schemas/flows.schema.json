@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "branch_id": {
+      "type": "integer"
+    },
+    "flow_mw": {
+      "type": "number"
+    },
+    "from_bus": {
+      "type": "integer"
+    },
+    "to_bus": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "branch_id",
+    "from_bus",
+    "to_bus",
+    "flow_mw"
+  ],
+  "title": "Branch flows",
+  "type": "object"
+}

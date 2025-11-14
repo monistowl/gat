@@ -37,6 +37,8 @@ struct AppState {
     resources: Vec<Resource>,
     version_roots: HashMap<String, PathBuf>,
     default_version: String,
+    resource_texts: Vec<String>,
+    search_index: HashMap<String, Vec<usize>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -77,7 +79,7 @@ struct DocRequestParams {
 async fn main() -> Result<()> {
     let opts = Opt::parse();
     let canonical_root = fs::canonicalize(&opts.docs)?;
-    let resources = collect_resources(&opts.docs)?;
+    let (resources, resource_texts) = collect_resources(&opts.docs)?;
     let index = load_doc_index(&opts.docs)?;
     let mut version_roots = HashMap::new();
     for version in &index.versions {
@@ -87,10 +89,13 @@ async fn main() -> Result<()> {
     if !version_roots.contains_key(&index.default) {
         version_roots.insert(index.default.clone(), PathBuf::new());
     }
+    let search_index = build_search_index(&resource_texts);
     let state = Arc::new(AppState {
         docs_root: opts.docs,
         canonical_root,
         resources,
+        resource_texts,
+        search_index,
         version_roots,
         default_version: index.default.clone(),
     });
@@ -147,37 +152,29 @@ async fn search_docs(
     Query(params): Query<SearchParams>,
     Extension(state): Extension<Arc<AppState>>,
 ) -> Json<Vec<SearchHit>> {
-    let query = params.q.to_lowercase();
-    let mut hits = Vec::new();
-    for resource in state.resources.iter() {
-        if hits.len() >= 10 {
-            break;
-        }
-        if resource.path.to_lowercase().contains(&query) {
-            hits.push(SearchHit {
-                path: resource.path.clone(),
-                snippet: "matched path".into(),
-            });
-            continue;
-        }
-        let file_path = state.docs_root.join(&resource.path);
-        if let Ok(text) = fs::read_to_string(&file_path) {
-            if let Some(idx) = text.to_lowercase().find(&query) {
-                let snippet = text[idx..]
-                    .lines()
-                    .next()
-                    .unwrap_or("")
-                    .chars()
-                    .take(120)
-                    .collect();
-                hits.push(SearchHit {
-                    path: resource.path.clone(),
-                    snippet,
-                });
+    let query = params.q.split_whitespace().collect::<Vec<_>>().join(" ");
+    let query_lower = query.to_lowercase();
+    let tokens = tokenize(&query_lower);
+    let mut scores: HashMap<usize, usize> = HashMap::new();
+    for token in &tokens {
+        if let Some(entries) = state.search_index.get(token) {
+            for idx in entries {
+                *scores.entry(*idx).or_insert(0) += 1;
             }
         }
     }
-    Json(hits)
+    let mut hits: Vec<(usize, usize)> = scores.into_iter().collect();
+    hits.sort_by(|a, b| b.1.cmp(&a.1));
+    hits.truncate(10);
+    let results = hits
+        .into_iter()
+        .map(|(idx, _)| {
+            let path = state.resources[idx].path.clone();
+            let snippet = build_snippet(&state.resource_texts[idx], &query_lower);
+            SearchHit { path, snippet }
+        })
+        .collect();
+    Json(results)
 }
 
 async fn explain_command(
@@ -197,6 +194,77 @@ async fn explain_command(
         }
     }
     Json(None)
+}
+
+fn tokenize(text: &str) -> Vec<String> {
+    text.split(|c: char| !c.is_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .map(|token| token.to_string())
+        .collect()
+}
+
+fn build_search_index(texts: &[String]) -> HashMap<String, Vec<usize>> {
+    let mut index: HashMap<String, Vec<usize>> = HashMap::new();
+    for (idx, text) in texts.iter().enumerate() {
+        for token in tokenize(&text.to_lowercase()) {
+            index.entry(token).or_default().push(idx);
+        }
+    }
+    index
+}
+
+fn build_snippet(text: &str, query: &str) -> String {
+    let lower = text.to_lowercase();
+    if let Some(idx) = lower.find(query) {
+        return highlight_snippet(text, idx, query.len());
+    }
+    for token in tokenize(query) {
+        if let Some(idx) = lower.find(&token) {
+            return highlight_snippet(text, idx, token.len());
+        }
+    }
+    text.lines()
+        .next()
+        .unwrap_or("")
+        .chars()
+        .take(120)
+        .collect()
+}
+
+fn highlight_snippet(text: &str, idx: usize, len: usize) -> String {
+    let context = 60;
+    let start = clamp_backward(text, idx.saturating_sub(context));
+    let end = clamp_forward(text, (idx + len + context).min(text.len()));
+    let snippet = &text[start..end];
+    let rel_start = idx - start;
+    let rel_end = rel_start + len;
+    let mut highlighted = String::new();
+    if start > 0 {
+        highlighted.push_str("…");
+    }
+    highlighted.push_str(&snippet[..rel_start]);
+    highlighted.push_str("**");
+    highlighted.push_str(&snippet[rel_start..rel_end]);
+    highlighted.push_str("**");
+    highlighted.push_str(&snippet[rel_end..]);
+    if end < text.len() {
+        highlighted.push('…');
+    }
+    highlighted
+}
+
+fn clamp_backward(text: &str, mut pos: usize) -> usize {
+    while pos > 0 && !text.is_char_boundary(pos) {
+        pos -= 1;
+    }
+    pos
+}
+
+fn clamp_forward(text: &str, mut pos: usize) -> usize {
+    while pos < text.len() && !text.is_char_boundary(pos) {
+        pos += 1;
+    }
+    pos.min(text.len())
 }
 
 fn load_doc_index(root: &StdPath) -> Result<DocIndex> {
@@ -225,8 +293,9 @@ fn resolve_version_root(state: &AppState, version: Option<&str>) -> PathBuf {
         .clone()
 }
 
-fn collect_resources(root: &StdPath) -> anyhow::Result<Vec<Resource>> {
+fn collect_resources(root: &StdPath) -> anyhow::Result<(Vec<Resource>, Vec<String>)> {
     let mut entries = Vec::new();
+    let mut texts = Vec::new();
     for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
         if entry.file_type().is_file() {
             let rel = entry.path().strip_prefix(root).unwrap();
@@ -237,14 +306,16 @@ fn collect_resources(root: &StdPath) -> anyhow::Result<Vec<Resource>> {
                 Some("1") => "manpage",
                 _ => "file",
             };
+            let text = fs::read_to_string(entry.path()).unwrap_or_default();
             entries.push(Resource {
                 path: path.clone(),
                 uri: format!("/doc/{path}"),
                 kind: kind.to_string(),
             });
+            texts.push(text);
         }
     }
-    Ok(entries)
+    Ok((entries, texts))
 }
 
 #[derive(Deserialize)]

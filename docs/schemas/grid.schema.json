@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GAT Grid Export",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["bus", "gen", "load", "branch", "transformer"],
+      "description": "Row type describing the component stored in this record."
+    },
+    "id": {
+      "type": "integer",
+      "description": "Component ID (bus, branch, generator, load or transformer)."
+    },
+    "name": {
+      "type": "string",
+      "description": "Human readable label for the component."
+    },
+    "voltage_kv": {
+      "type": ["number", "null"],
+      "description": "Base voltage for a bus (null for edges or equipment that do not specify it)."
+    },
+    "from_bus": {
+      "type": ["integer", "null"],
+      "description": "Source bus (edges or equipment describing a connection)."
+    },
+    "to_bus": {
+      "type": ["integer", "null"],
+      "description": "Destination bus (edges or equipment describing a connection)."
+    },
+    "resistance": {
+      "type": ["number", "null"],
+      "description": "Series resistance for branches; null for buses, loads, generators, or transformers without a resistance field."
+    },
+    "reactance": {
+      "type": ["number", "null"],
+      "description": "Series reactance for branches; null for buses, loads, generators, or transformers without a reactance field."
+    },
+    "active_power_mw": {
+      "type": ["number", "null"],
+      "description": "Active power injection (positive generation, negative load) recorded when Node::Gen/Node::Load entries exist."
+    },
+    "reactive_power_mvar": {
+      "type": ["number", "null"],
+      "description": "Reactive power injection for generator/load nodes."
+    }
+  },
+  "required": [
+    "type",
+    "id",
+    "name",
+    "voltage_kv",
+    "from_bus",
+    "to_bus",
+    "resistance",
+    "reactance",
+    "active_power_mw",
+    "reactive_power_mvar"
+  ],
+  "additionalProperties": false
+}

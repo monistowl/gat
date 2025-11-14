@@ -151,6 +151,9 @@ pub enum PowerFlowCommands {
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
         solver: String,
+        /// LP solver for the cost minimization (clarabel, coin_cbc, highs)
+        #[arg(long, default_value = "clarabel")]
+        lp_solver: String,
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
@@ -443,6 +446,9 @@ pub enum SeCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Slack bus ID (defaults to lowest bus ID)
+        #[arg(long)]
+        slack_bus: Option<usize>,
     },
 }
 

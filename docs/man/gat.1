@@ -1,0 +1,63 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH gat-cli 1  "gat-cli 0.1.0" 
+.SH NAME
+gat\-cli
+.SH SYNOPSIS
+\fBgat\-cli\fR [\fB\-\-log\-level\fR] [\fB\-\-profile\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] [\fIsubcommands\fR]
+.SH DESCRIPTION
+.SH OPTIONS
+.TP
+\fB\-\-log\-level\fR \fI<LOG_LEVEL>\fR [default: info]
+Set the logging level
+.TP
+\fB\-\-profile\fR \fI<PROFILE>\fR [default: dev]
+Set the profile (e.g., "dev", "release")
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version
+.SH SUBCOMMANDS
+.TP
+gat\-cli\-import(1)
+Import data from various formats
+.TP
+gat\-cli\-validate(1)
+Validate a dataset against a schema
+.TP
+gat\-cli\-graph(1)
+Graph utilities
+.TP
+gat\-cli\-pf(1)
+Power flow solvers
+.TP
+gat\-cli\-nminus1(1)
+Contingency analysis
+.TP
+gat\-cli\-ts(1)
+Time\-series utilities
+.TP
+gat\-cli\-opf(1)
+Optimal power flow
+.TP
+gat\-cli\-se(1)
+State estimation
+.TP
+gat\-cli\-viz(1)
+Visualization helpers
+.TP
+gat\-cli\-gui(1)
+GUI dashboard
+.TP
+gat\-cli\-runs(1)
+Run management
+.TP
+gat\-cli\-dataset(1)
+Dataset adapters
+.TP
+gat\-cli\-help(1)
+Print this message or the help of the given subcommand(s)
+.SH VERSION
+v0.1.0

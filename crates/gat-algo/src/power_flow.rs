@@ -1,20 +1,23 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs::{self, File},
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
 };
 
+use crate::{io::persist_dataframe, test_utils::read_stage_dataframe, OutputStage};
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
+use gat_core::solver::SolverBackend;
 use gat_core::{Edge, Network, Node};
-use good_lp::solvers::clarabel::clarabel;
+use good_lp::solvers::{
+    clarabel::clarabel as clarabel_solver, coin_cbc::coin_cbc as coin_cbc_solver,
+    highs::highs as highs_solver,
+};
 use good_lp::{
     constraint, variable, variables, Expression, ProblemVariables, Solution, SolverModel, Variable,
 };
 use num_complex::Complex64;
-use polars::frame::group_by::GroupsIndicator;
-use polars::prelude::{DataFrame, IdxCa, IdxSize, NamedFrom, ParquetWriter, PolarsResult, Series};
+use polars::prelude::{DataFrame, NamedFrom, PolarsResult, Series};
 use rayon::prelude::*;
 use serde::Deserialize;
 
@@ -67,18 +70,55 @@ fn default_weight() -> f64 {
     1.0
 }
 
-use gat_core::solver::LinearSolver;
+#[derive(Debug, Clone, Copy)]
+pub enum LpSolverKind {
+    Clarabel,
+    CoinCbc,
+    Highs,
+}
+
+impl Default for LpSolverKind {
+    fn default() -> Self {
+        LpSolverKind::Clarabel
+    }
+}
+
+impl LpSolverKind {
+    pub fn available() -> &'static [&'static str] {
+        &["clarabel", "coin_cbc", "highs"]
+    }
+
+    pub fn from_str(value: &str) -> Result<Self> {
+        match value.to_ascii_lowercase().as_str() {
+            "clarabel" => Ok(LpSolverKind::Clarabel),
+            "coin_cbc" | "cbc" => Ok(LpSolverKind::CoinCbc),
+            "highs" => Ok(LpSolverKind::Highs),
+            other => Err(anyhow!(
+                "unknown lp solver '{}'; supported values: clarabel, coin_cbc, highs",
+                other
+            )),
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LpSolverKind::Clarabel => "clarabel",
+            LpSolverKind::CoinCbc => "coin_cbc",
+            LpSolverKind::Highs => "highs",
+        }
+    }
+}
 
 pub fn dc_power_flow(
     network: &Network,
-    solver: &dyn LinearSolver,
+    solver: &dyn SolverBackend,
     output_file: &Path,
     partitions: &[String],
 ) -> Result<()> {
     let injections = default_pf_injections(network);
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC power flow")?;
-    persist_dataframe(&mut df, output_file, partitions)?;
+    persist_dataframe(&mut df, output_file, partitions, OutputStage::PfDc.as_str())?;
     println!(
         "DC power flow summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
         df.height(),
@@ -103,13 +143,14 @@ pub fn ac_power_flow(network: &Network, tol: f64, max_iter: u32) -> Result<()> {
 
 pub fn dc_optimal_power_flow(
     network: &Network,
-    solver: &dyn LinearSolver,
+    solver: &dyn SolverBackend,
     cost_csv: &str,
     limits_csv: &str,
     output_file: &Path,
     partitions: &[String],
     branch_limit_csv: Option<&str>,
     piecewise_csv: Option<&str>,
+    lp_solver: &LpSolverKind,
 ) -> Result<()> {
     let costs = load_costs(cost_csv)?;
     let limits = load_limits(limits_csv)?;
@@ -149,13 +190,49 @@ pub fn dc_optimal_power_flow(
         gen_vars.push((spec.bus_id, var, spec.demand));
     }
 
-    let mut problem = vars.minimise(cost_expr).using(clarabel);
-
-    problem = problem.with(constraint!(sum_dispatch == total_demand));
-    for (segment_sum, gen_var) in piecewise_constraints {
-        problem = problem.with(constraint!(segment_sum == gen_var));
-    }
-    let solution = problem.solve()?;
+    let unsolved = vars.minimise(cost_expr);
+    let mut problem_builder = Some(unsolved);
+    let solution: Box<dyn Solution> = match lp_solver {
+        LpSolverKind::Clarabel => {
+            let problem = problem_builder
+                .take()
+                .expect("building LP problem")
+                .using(clarabel_solver);
+            let problem = add_dispatch_constraints(
+                problem,
+                &sum_dispatch,
+                &piecewise_constraints,
+                total_demand,
+            );
+            Box::new(problem.solve()?)
+        }
+        LpSolverKind::CoinCbc => {
+            let problem = problem_builder
+                .take()
+                .expect("building LP problem")
+                .using(coin_cbc_solver);
+            let problem = add_dispatch_constraints(
+                problem,
+                &sum_dispatch,
+                &piecewise_constraints,
+                total_demand,
+            );
+            Box::new(problem.solve()?)
+        }
+        LpSolverKind::Highs => {
+            let problem = problem_builder
+                .take()
+                .expect("building LP problem")
+                .using(highs_solver);
+            let problem = add_dispatch_constraints(
+                problem,
+                &sum_dispatch,
+                &piecewise_constraints,
+                total_demand,
+            );
+            Box::new(problem.solve()?)
+        }
+    };
 
     let mut injections = HashMap::new();
     for (bus_id, var, demand) in gen_vars.iter() {
@@ -166,7 +243,13 @@ pub fn dc_optimal_power_flow(
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC-OPF")?;
     enforce_branch_limits(&df, &branch_limits)?;
-    persist_dataframe(&mut df, output_file, partitions).context("writing DC-OPF Parquet output")?;
+    persist_dataframe(
+        &mut df,
+        output_file,
+        partitions,
+        OutputStage::OpfDc.as_str(),
+    )
+    .context("writing DC-OPF Parquet output")?;
     println!(
         "DC-OPF summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
         df.height(),
@@ -177,9 +260,25 @@ pub fn dc_optimal_power_flow(
     Ok(())
 }
 
+fn add_dispatch_constraints<M>(
+    mut problem: M,
+    sum_dispatch: &Expression,
+    piecewise_constraints: &[(Expression, Variable)],
+    total_demand: f64,
+) -> M
+where
+    M: SolverModel,
+{
+    problem = problem.with(constraint!(sum_dispatch.clone() == total_demand));
+    for (segment_sum, gen_var) in piecewise_constraints {
+        problem = problem.with(constraint!(segment_sum.clone() == *gen_var));
+    }
+    problem
+}
+
 pub fn n_minus_one_dc(
     network: &Network,
-    solver: Arc<dyn LinearSolver>,
+    solver: Arc<dyn SolverBackend>,
     contingencies_csv: &str,
     output_file: &Path,
     partitions: &[String],
@@ -339,7 +438,13 @@ pub fn n_minus_one_dc(
         Series::new("violation_limit_mw", violation_limits),
     ])?;
 
-    persist_dataframe(&mut df, output_file, partitions).context("writing N-1 DC Parquet output")?;
+    persist_dataframe(
+        &mut df,
+        output_file,
+        partitions,
+        OutputStage::Nminus1Dc.as_str(),
+    )
+    .context("writing N-1 DC Parquet output")?;
 
     println!(
         "N-1 DC summary: {} contingency(ies), {} violation(s), persisted to {}",
@@ -352,7 +457,7 @@ pub fn n_minus_one_dc(
 
 pub fn ac_optimal_power_flow(
     network: &Network,
-    solver: &dyn LinearSolver,
+    solver: &dyn SolverBackend,
     tol: f64,
     max_iter: u32,
     output_file: &Path,
@@ -422,7 +527,13 @@ pub fn ac_optimal_power_flow(
 
     let (mut df, max_flow, min_flow) = branch_flow_dataframe_with_angles(network, &angle_map, None)
         .context("building branch flow table for AC-OPF")?;
-    persist_dataframe(&mut df, output_file, partitions).context("writing AC-OPF Parquet output")?;
+    persist_dataframe(
+        &mut df,
+        output_file,
+        partitions,
+        OutputStage::OpfAc.as_str(),
+    )
+    .context("writing AC-OPF Parquet output")?;
 
     println!(
         "AC-OPF summary: tol={} max_iter={} ({} iteration(s), max mismatch {:.6}) -> {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
@@ -441,11 +552,12 @@ pub fn ac_optimal_power_flow(
 
 pub fn state_estimation_wls(
     network: &Network,
-    solver: &dyn LinearSolver,
+    solver: &dyn SolverBackend,
     measurements_csv: &str,
     output_file: &Path,
     partitions: &[String],
     state_out: Option<&Path>,
+    slack_bus: Option<usize>,
 ) -> Result<()> {
     let measurements = load_measurements(measurements_csv)?;
     let measurement_count = measurements.len();
@@ -460,7 +572,17 @@ pub fn state_estimation_wls(
         ));
     }
 
-    let slack_bus = bus_ids[0];
+    let default_slack = *bus_ids
+        .first()
+        .ok_or_else(|| anyhow!("network must contain at least one bus for WLS"))?;
+    let slack_bus = if let Some(bus) = slack_bus {
+        if !id_to_index.contains_key(&bus) {
+            return Err(anyhow!("slack bus {} not found in network", bus));
+        }
+        bus
+    } else {
+        default_slack
+    };
     let unknown_buses: Vec<usize> = bus_ids.iter().skip(1).cloned().collect();
     let mut unknown_idx = HashMap::new();
     for (idx, bus_id) in unknown_buses.iter().enumerate() {
@@ -539,8 +661,13 @@ pub fn state_estimation_wls(
         Series::new("weight", weights),
     ])?;
 
-    persist_dataframe(&mut measurement_df, output_file, partitions)
-        .context("writing state estimation measurements")?;
+    persist_dataframe(
+        &mut measurement_df,
+        output_file,
+        partitions,
+        OutputStage::SeWls.as_str(),
+    )
+    .context("writing state estimation measurements")?;
 
     if let Some(state_path) = state_out {
         let mut bus_ids_vec = Vec::new();
@@ -553,7 +680,7 @@ pub fn state_estimation_wls(
             Series::new("bus_id", bus_ids_vec),
             Series::new("angle_rad", angle_vec),
         ])?;
-        persist_dataframe(&mut state_df, state_path, &[])
+        persist_dataframe(&mut state_df, state_path, &[], OutputStage::SeWls.as_str())
             .context("writing state estimation angles")?;
         println!(
             "State angles persisted to {} ({} buses)",
@@ -572,74 +699,11 @@ pub fn state_estimation_wls(
     Ok(())
 }
 
-fn persist_dataframe(df: &mut DataFrame, output: &Path, partitions: &[String]) -> Result<()> {
-    if partitions.is_empty() {
-        let mut file = File::create(output)
-            .with_context(|| format!("creating Parquet output '{}'", output.display()))?;
-        ParquetWriter::new(&mut file)
-            .finish(df)
-            .context("writing Parquet output")?;
-    } else {
-        write_partitions(df, output, partitions)?;
-    }
-    Ok(())
-}
-
-fn write_partitions(df: &DataFrame, output: &Path, partitions: &[String]) -> Result<()> {
-    let group_by = df.group_by(partitions)?;
-    let groups = group_by.get_groups();
-    for (i, group) in groups.iter().enumerate() {
-        let (mut partition_df, first) = match group {
-            GroupsIndicator::Idx((first, indices)) => {
-                let idx_ca = IdxCa::new("row_idx", indices.as_slice());
-                (df.take(&idx_ca)?, first)
-            }
-            GroupsIndicator::Slice([first, len]) => (df.slice(first as i64, len as usize), first),
-        };
-        let dir = partition_dir(output, partitions, df, first)?;
-        write_partition_file(&mut partition_df, &dir, i)?;
-    }
-    Ok(())
-}
-
-fn write_partition_file(df: &mut DataFrame, dir: &Path, index: usize) -> Result<()> {
-    fs::create_dir_all(dir)
-        .with_context(|| format!("creating partition directory '{}'", dir.display()))?;
-    let file_path = dir.join(format!("part-{index:04}.parquet"));
-    let mut file = File::create(&file_path)
-        .with_context(|| format!("creating partition file '{}'", file_path.display()))?;
-    ParquetWriter::new(&mut file)
-        .finish(df)
-        .with_context(|| format!("writing partition file '{}'", file_path.display()))?;
-    Ok(())
-}
-
-fn partition_dir(
-    output: &Path,
-    partitions: &[String],
-    df: &DataFrame,
-    row_idx: IdxSize,
-) -> Result<PathBuf> {
-    let mut path = output.to_path_buf();
-    for key in partitions {
-        let series = df.column(key)?;
-        let idx = row_idx as usize;
-        let value = series.get(idx)?;
-        let value = sanitize_partition_value(&value.to_string());
-        path.push(format!("{}={}", key, value));
-    }
-    Ok(path)
-}
-
-fn sanitize_partition_value(value: &str) -> String {
-    value.replace(std::path::MAIN_SEPARATOR, "_")
-}
-
 fn branch_flow_dataframe(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
-    solver: &dyn LinearSolver,
+    solver: &dyn SolverBackend,
 ) -> Result<(DataFrame, f64, f64)> {
     let angles = compute_dc_angles(network, injections, skip_branch, solver)?;
     branch_flow_dataframe_with_angles(network, &angles, skip_branch).map_err(|err| anyhow!(err))
@@ -720,21 +784,35 @@ fn bus_result_dataframe(network: &Network) -> PolarsResult<DataFrame> {
 }
 
 fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {
-    let mut invoices = HashMap::new();
-    let mut bus_ids: Vec<usize> = network
-        .graph
-        .node_indices()
-        .filter_map(|idx| match &network.graph[idx] {
-            Node::Bus(bus) => Some(bus.id.value()),
-            _ => None,
-        })
-        .collect();
-    bus_ids.sort_unstable();
-    if bus_ids.len() >= 2 {
-        invoices.insert(bus_ids[0], 1.0);
-        invoices.insert(bus_ids[1], -1.0);
+    let mut injections = HashMap::new();
+    for node_idx in network.graph.node_indices() {
+        match &network.graph[node_idx] {
+            Node::Gen(gen) => {
+                *injections.entry(gen.bus.value()).or_insert(0.0) += gen.active_power_mw;
+            }
+            Node::Load(load) => {
+                *injections.entry(load.bus.value()).or_insert(0.0) -= load.active_power_mw;
+            }
+            _ => {}
+        }
     }
-    invoices
+
+    if injections.is_empty() {
+        let mut bus_ids: Vec<usize> = network
+            .graph
+            .node_indices()
+            .filter_map(|idx| match &network.graph[idx] {
+                Node::Bus(bus) => Some(bus.id.value()),
+                _ => None,
+            })
+            .collect();
+        bus_ids.sort_unstable();
+        if bus_ids.len() >= 2 {
+            injections.insert(bus_ids[0], 1.0);
+            injections.insert(bus_ids[1], -1.0);
+        }
+    }
+    injections
 }
 
 fn build_bus_susceptance(
@@ -782,7 +860,7 @@ fn compute_dc_angles(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
-    solver: &dyn LinearSolver,
+    solver: &dyn SolverBackend,
 ) -> Result<HashMap<usize, f64>> {
     let (bus_ids, _, susceptance) = build_bus_susceptance(network, skip_branch);
     let node_count = bus_ids.len();
@@ -821,7 +899,7 @@ fn compute_dc_angles(
 fn solve_linear_system(
     matrix: &[Vec<f64>],
     injections: &[f64],
-    solver: &dyn LinearSolver,
+    solver: &dyn SolverBackend,
 ) -> Result<Vec<f64>> {
     solver.solve(matrix, injections)
 }
@@ -960,6 +1038,8 @@ fn build_measurement_rows(
         let target = record.label.clone().unwrap_or_else(|| match kind.as_str() {
             "flow" => format!("branch {}", record.branch_id.unwrap_or(-1)),
             "injection" => format!("bus {}", record.bus_id.unwrap_or(0)),
+            "angle" => format!("angle {}", record.bus_id.unwrap_or(0)),
+            "voltage" => format!("voltage {}", record.bus_id.unwrap_or(0)),
             _ => "measurement".to_string(),
         });
 
@@ -1000,6 +1080,14 @@ fn build_measurement_rows(
                 }
                 let slack_idx = *id_to_index.get(&slack_bus).unwrap_or(&matrix_idx);
                 offset = row[slack_idx] * 0.0;
+            }
+            "angle" | "voltage" => {
+                let bus_id = record
+                    .bus_id
+                    .ok_or_else(|| anyhow!("{} measurement must include bus_id", kind))?;
+                if let Some(&col) = unknown_idx.get(&bus_id) {
+                    h[col] = 1.0;
+                }
             }
             _ => {
                 return Err(anyhow!(
@@ -1204,8 +1292,7 @@ mod tests {
     use super::*;
     use gat_core::solver::GaussSolver;
     use gat_core::{Branch, BranchId, Bus, BusId, Edge, Network, Node};
-    use polars::prelude::{ParquetReader, SerReader};
-    use std::fs::{self, File};
+    use std::fs;
     use std::sync::Arc;
     use tempfile::tempdir;
 
@@ -1283,8 +1370,7 @@ mod tests {
         let solver = GaussSolver::default();
         dc_power_flow(&network, &solver, &out, &[]).unwrap();
 
-        let file = File::open(&out).unwrap();
-        let df = ParquetReader::new(file).finish().unwrap();
+        let df = read_stage_dataframe(&out, OutputStage::PfDc).unwrap();
         assert_eq!(df.height(), 1);
         let flow = df.column("flow_mw").unwrap().f64().unwrap().get(0).unwrap();
         assert!(!flow.is_nan());
@@ -1312,6 +1398,7 @@ mod tests {
             &[],
             Some(branch_limits_path.to_str().unwrap()),
             None,
+            &LpSolverKind::Clarabel,
         )
         .is_err());
     }
@@ -1336,11 +1423,63 @@ mod tests {
             &[],
             None,
             None,
+            &LpSolverKind::Clarabel,
         )
         .unwrap();
 
-        let file = File::open(&out).unwrap();
-        let df = ParquetReader::new(file).finish().unwrap();
+        let df = read_stage_dataframe(&out, OutputStage::OpfDc).unwrap();
+        assert_eq!(df.height(), 1);
+    }
+
+    #[test]
+    fn dc_opf_coin_cbc_available() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let cost_path = temp_dir.path().join("costs.csv");
+        let limits_path = temp_dir.path().join("limits.csv");
+        fs::write(&cost_path, "bus_id,marginal_cost\n0,10\n1,20\n").unwrap();
+        fs::write(&limits_path, "bus_id,pmin,pmax,demand\n0,0,5,1\n1,0,5,0\n").unwrap();
+        let out = temp_dir.path().join("coin.parquet");
+        let solver = GaussSolver::default();
+        dc_optimal_power_flow(
+            &network,
+            &solver,
+            cost_path.to_str().unwrap(),
+            limits_path.to_str().unwrap(),
+            &out,
+            &[],
+            None,
+            None,
+            &LpSolverKind::CoinCbc,
+        )
+        .unwrap();
+        let df = read_stage_dataframe(&out, OutputStage::OpfDc).unwrap();
+        assert_eq!(df.height(), 1);
+    }
+
+    #[test]
+    fn dc_opf_highs_available() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let cost_path = temp_dir.path().join("costs.csv");
+        let limits_path = temp_dir.path().join("limits.csv");
+        fs::write(&cost_path, "bus_id,marginal_cost\n0,10\n1,20\n").unwrap();
+        fs::write(&limits_path, "bus_id,pmin,pmax,demand\n0,0,5,1\n1,0,5,0\n").unwrap();
+        let out = temp_dir.path().join("highs.parquet");
+        let solver = GaussSolver::default();
+        dc_optimal_power_flow(
+            &network,
+            &solver,
+            cost_path.to_str().unwrap(),
+            limits_path.to_str().unwrap(),
+            &out,
+            &[],
+            None,
+            None,
+            &LpSolverKind::Highs,
+        )
+        .unwrap();
+        let df = read_stage_dataframe(&out, OutputStage::OpfDc).unwrap();
         assert_eq!(df.height(), 1);
     }
 
@@ -1366,6 +1505,7 @@ mod tests {
             &[],
             None,
             Some(piecewise_path.to_str().unwrap()),
+            &LpSolverKind::Clarabel,
         )
         .unwrap_err();
         assert!(
@@ -1401,6 +1541,7 @@ mod tests {
             &[],
             None,
             Some(piecewise_path.to_str().unwrap()),
+            &LpSolverKind::Clarabel,
         )
         .unwrap();
     }
@@ -1426,8 +1567,7 @@ mod tests {
         )
         .unwrap();
 
-        let file = File::open(&out).unwrap();
-        let df = ParquetReader::new(file).finish().unwrap();
+        let df = read_stage_dataframe(&out, OutputStage::Nminus1Dc).unwrap();
         assert_eq!(df.height(), 2);
         let contingency_ids = df.column("contingency_branch_id").unwrap().i64().unwrap();
         assert_eq!(
@@ -1450,8 +1590,7 @@ mod tests {
         let solver = GaussSolver::default();
         ac_optimal_power_flow(&network, &solver, 1e-6, 10, &out, &[]).unwrap();
 
-        let file = File::open(&out).unwrap();
-        let df = ParquetReader::new(file).finish().unwrap();
+        let df = read_stage_dataframe(&out, OutputStage::OpfAc).unwrap();
         assert_eq!(df.height(), 1);
     }
 
@@ -1476,15 +1615,45 @@ mod tests {
             &out,
             &[],
             Some(state_out.as_path()),
+            None,
         )
         .unwrap();
 
-        let meas_file = File::open(&out).unwrap();
-        let meas_df = ParquetReader::new(meas_file).finish().unwrap();
+        let meas_df = read_stage_dataframe(&out, OutputStage::SeWls).unwrap();
         assert_eq!(meas_df.height(), 2);
 
-        let state_file = File::open(&state_out).unwrap();
-        let state_df = ParquetReader::new(state_file).finish().unwrap();
+        let state_df = read_stage_dataframe(&state_out, OutputStage::SeWls).unwrap();
+        assert_eq!(state_df.height(), 2);
+    }
+
+    #[test]
+    fn state_estimation_angle_measurement_with_slack_flag() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let meas_path = temp_dir.path().join("angle.csv");
+        let out = temp_dir.path().join("se-angle.parquet");
+        let state_out = temp_dir.path().join("state-angle.parquet");
+        fs::write(
+            &meas_path,
+            "measurement_type,branch_id,bus_id,value,weight,label\nangle,,0,0.0,1.0,bus0-angle\ninjection,,1,0.0,1.0,bus1-inj\n",
+        )
+        .unwrap();
+
+        let solver = GaussSolver::default();
+        state_estimation_wls(
+            &network,
+            &solver,
+            meas_path.to_str().unwrap(),
+            &out,
+            &[],
+            Some(state_out.as_path()),
+            Some(1),
+        )
+        .unwrap();
+
+        let meas_df = read_stage_dataframe(&out, OutputStage::SeWls).unwrap();
+        assert_eq!(meas_df.height(), 2);
+        let state_df = read_stage_dataframe(&state_out, OutputStage::SeWls).unwrap();
         assert_eq!(state_df.height(), 2);
     }
 }
