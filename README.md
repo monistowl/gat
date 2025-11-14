@@ -127,6 +127,8 @@ gat ts resample test_data/ts/telemetry.parquet \
   --out out/telemetry.resampled.parquet
 ```
 
+All `gat ts` commands accept `--out-partitions` and emit their Parquet outputs under the matching stage (`ts-resample`, `ts-join`, `ts-agg`) so you can align them with the same artifact layout that heavier commands use.
+
 Use `gat ts join` to align multiple feeds on a shared timestamp column before analysis or visualization:
 
 ```

@@ -4,7 +4,10 @@ use std::{
     sync::Arc,
 };
 
-use crate::{io::persist_dataframe, test_utils::read_stage_dataframe, OutputStage};
+use crate::io::persist_dataframe;
+use crate::OutputStage;
+#[cfg(test)]
+use crate::test_utils::read_stage_dataframe;
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
 use gat_core::solver::SolverBackend;
