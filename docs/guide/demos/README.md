@@ -13,3 +13,4 @@ The `test_data/demo.md` overview points to the reliability-pricing script so new
 
 * `test_data/demos/reliability_pricing.py` → `docs/guide/demos/reliability-pricing.md`
 * `test_data/demos/storage_cournot.sh` → `docs/guide/demos/storage-cournot.md`
+* `out/demos/cournot/cournot_results.csv` → `docs/guide/demos/cournot-analysis.ipynb`
