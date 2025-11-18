@@ -1,6 +1,4 @@
-# OPF CLI Guide (archived)
-
-> **Note:** This file is preserved for context. The current OPF guide lives at `docs/guide/opf.md` and should be treated as authoritative.
+# OPF CLI Guide
 
 This document describes how to run the DC and AC optimal power flow workflows that are available through the `gat` CLI and what inputs/outputs they expect.
 

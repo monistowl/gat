@@ -1,11 +1,9 @@
-# GAT: GRID ANALYSIS TOOLKIT
+#GAT: GRID ANALYSIS TOOLKIT
 GAT is a CLI-driven suite of tools for working with power grid analytics data.
 
 **Status check (current):** DC PF/OPF, N-1 DC screening, and WLS state estimation are implemented; AC PF/OPF and GUI polish remain planned work, and installer packaging is still pending.
 
 # 0) Workspace layout (monorepo)
-
-**Status:** repository structure and core crates are in place; CLI/GUI split matches the layout below.
 
 ```
 gat/
@@ -28,8 +26,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 
 # 1) Cross-cutting foundations (Milestone M0)
 
-**Status:** error handling, tracing, and CLI scaffolding shipped; keep tightening progress reporting as new commands land.
-
 **Targets**
 
 * Error + tracing: `anyhow`/`thiserror` and `tracing` + `tracing-subscriber`. ([Docs.rs][2])
@@ -46,8 +42,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 ---
 
 # 2) File formats & ingestion (M1)
-
-**Status:** Arrow/Parquet IO and MATPOWER imports are available; CIM and RAW ingestion remain on the backlog.
 
 **Scope**
 
@@ -72,8 +66,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 
 # 3) Topology & graph utilities (M2)
 
-**Status:** core graph types exist; CLI graph utilities are planned but not yet wired.
-
 **Scope**
 
 * Build/clean graph from ingested data: connectivity, islanding, k-core, spanning trees, degree stats. `petgraph::algo` covers BFS/DFS, Dijkstra, SCC; add your own on top. ([Docs.rs][11])
@@ -87,8 +79,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 ---
 
 # 4) Power flow solvers (M3)
-
-**Status:** DC PF is implemented; AC PF remains planned work.
 
 **DC PF**
 
@@ -114,8 +104,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 
 # 5) Optimal Power Flow (M4)
 
-**Status:** DC-OPF is implemented; AC-OPF is an iterative DC-approximation bridge pending a fuller nonlinear model.
-
 **DC-OPF**
 
 * Model as LP/MILP with `good_lp` + `highs` backend; supports large LP/MIP and integrates cleanly. ([GitHub][15])
@@ -132,8 +120,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 ---
 
 # 6) Contingency analysis & state estimation (M5)
-
-**Status:** N-1 DC screening and WLS state estimation are implemented; AC paths and broader measurement types are future work.
 
 **N-1 screening**
 
@@ -152,8 +138,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 
 # 7) Time-series & markets (M6)
 
-**Status:** not started; revisit once PF/OPF pipelines stabilize.
-
 **Timeseries**
 
 * Store and manipulate telemetry (SCADA/PMU) with Polars LazyFrames; resample/join/window ops. ([Docs.rs][17])
@@ -167,8 +151,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 ---
 
 # 8) GUI (egui) dashboard (M7)
-
-**Status:** layout concepts drafted; feature-complete dashboard remains planned.
 
 **Approach**
 
@@ -186,8 +168,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 
 # 9) Visualization & export (M7+)
 
-**Status:** planned; rely on roadmap milestones above for ordering.
-
 * Lightweight plotting primitives (lines/markers) for CLI/GUI parity—export SVG/PNG/Parquet summaries.
 * Optional geospatial overlays: `geo` + `shapefile`/`geozero-shp` to render lines on maps. ([Docs.rs][20])
 
@@ -195,15 +175,11 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 
 # 10) Packaging & installers (continuous)
 
-**Status:** scripts exist in outline; automated release packaging is still to come.
-
 * ELF-style `scripts/package.sh` to produce `gat-<ver>-<arch>-<os>.tar.xz` plus `.sha256` and `scripts/install.sh` that symlinks `gat` and `gat-gui` to `~/.local/bin` (and a `current` pointer). ([GitHub][1])
 
 ---
 
 # 11) Testing strategy
-
-**Status:** fixtures and regression hooks exist; continue expanding coverage as new commands land.
 
 * Golden fixtures in `test_data/` (tiny RAW/MATPOWER/CIM); CLI regression suite (`cargo test` spawns subcommands).
 * Compare PF/OPF outputs against well-known cases (MATPOWER docs; PowerModels/Julia PSSE parsing references). ([Matpower][21])
@@ -211,8 +187,6 @@ Why this shape: it mirrors ELF’s split between `*-lib`, `*-cli`, and `*-gui`, 
 ---
 
 # 12) Initial CLI surface (v0.1)
-
-**Status:** PF/OPF/N-1/SE subcommands are available; import/graph/TS/GUI commands are stubs awaiting implementation.
 
 ```
 gat import {psse|matpower|cim} …      # M1
