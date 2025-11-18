@@ -45,18 +45,19 @@ impl SolverBackend for GaussSolver {
                 return Err(anyhow!("singular matrix"));
             }
 
-            for col in i..n {
-                a[i][col] /= diag;
+            for value in a[i][i..].iter_mut() {
+                *value /= diag;
             }
             b[i] /= diag;
 
+            let pivot_segment = a[i][i..].to_vec();
             for row in 0..n {
                 if row == i {
                     continue;
                 }
                 let factor = a[row][i];
-                for col in i..n {
-                    a[row][col] -= factor * a[i][col];
+                for (target, &pivot) in a[row][i..].iter_mut().zip(pivot_segment.iter()) {
+                    *target -= factor * pivot;
                 }
                 b[row] -= factor * b[i];
             }

@@ -191,9 +191,8 @@ fn write_frame_staged(
         if let Some(parent) = output.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::copy(&staged, output).with_context(|| {
-            format!("copying {} to {}", staged.display(), output.display())
-        })?;
+        fs::copy(&staged, output)
+            .with_context(|| format!("copying {} to {}", staged.display(), output.display()))?;
         Ok(())
     } else {
         write_partitions(df, &staged, partitions)

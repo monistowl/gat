@@ -1,13 +1,14 @@
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
+    str::FromStr,
     sync::Arc,
 };
 
 use crate::io::persist_dataframe;
-use crate::OutputStage;
 #[cfg(test)]
 use crate::test_utils::read_stage_dataframe;
+use crate::OutputStage;
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
 use gat_core::solver::SolverBackend;
@@ -73,25 +74,36 @@ fn default_weight() -> f64 {
     1.0
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum LpSolverKind {
+    #[default]
     Clarabel,
     CoinCbc,
     Highs,
 }
 
-impl Default for LpSolverKind {
-    fn default() -> Self {
-        LpSolverKind::Clarabel
+impl LpSolverKind {
+    pub fn available() -> &'static [&'static str] {
+        &[
+            "clarabel",
+            "coin_cbc",
+            "highs",
+        ]
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LpSolverKind::Clarabel => "clarabel",
+            LpSolverKind::CoinCbc => "coin_cbc",
+            LpSolverKind::Highs => "highs",
+        }
     }
 }
 
-impl LpSolverKind {
-    pub fn available() -> &'static [&'static str] {
-        &["clarabel", "coin_cbc", "highs"]
-    }
+impl FromStr for LpSolverKind {
+    type Err = anyhow::Error;
 
-    pub fn from_str(value: &str) -> Result<Self> {
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.to_ascii_lowercase().as_str() {
             "clarabel" => Ok(LpSolverKind::Clarabel),
             "coin_cbc" | "cbc" => Ok(LpSolverKind::CoinCbc),
@@ -100,14 +112,6 @@ impl LpSolverKind {
                 "unknown lp solver '{}'; supported values: clarabel, coin_cbc, highs",
                 other
             )),
-        }
-    }
-
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            LpSolverKind::Clarabel => "clarabel",
-            LpSolverKind::CoinCbc => "coin_cbc",
-            LpSolverKind::Highs => "highs",
         }
     }
 }
@@ -147,6 +151,7 @@ pub fn ac_power_flow(network: &Network, tol: f64, max_iter: u32) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn dc_optimal_power_flow(
     network: &Network,
     solver: &dyn SolverBackend,
@@ -188,13 +193,13 @@ pub fn dc_optimal_power_flow(
         if let Some(segments) = piecewise.get(&spec.bus_id) {
             let (segment_cost, segment_sum) =
                 build_piecewise_cost_expression(spec.bus_id, &spec, segments, &mut vars)?;
-            cost_expr = cost_expr + segment_cost;
+            cost_expr += segment_cost;
             piecewise_constraints.push((segment_sum, var));
         } else {
             let base_cost = *costs.get(&spec.bus_id).unwrap_or(&1.0);
-            cost_expr = cost_expr + base_cost * var;
+            cost_expr += base_cost * var;
         }
-        sum_dispatch = sum_dispatch + var;
+        sum_dispatch += var;
         gen_vars.push((spec.bus_id, var, spec.demand));
     }
 
@@ -604,7 +609,7 @@ pub fn state_estimation_wls(
         &unknown_buses,
         &unknown_idx,
         slack_bus,
-        &network,
+        network,
     )?;
 
     let n_vars = unknown_buses.len();
@@ -612,11 +617,11 @@ pub fn state_estimation_wls(
     let mut rhs = vec![0.0; n_vars];
     for row in &measurement_rows {
         let y_tilde = row.value - row.offset;
-        for i in 0..n_vars {
-            for j in 0..n_vars {
-                normal[i][j] += row.h[i] * row.weight * row.h[j];
+        for (i, &h_i) in row.h.iter().enumerate().take(n_vars) {
+            for (j, &h_j) in row.h.iter().enumerate().take(n_vars) {
+                normal[i][j] += h_i * row.weight * h_j;
             }
-            rhs[i] += row.h[i] * row.weight * y_tilde;
+            rhs[i] += h_i * row.weight * y_tilde;
         }
     }
 
@@ -755,7 +760,7 @@ fn branch_flow_dataframe_with_angles(
         .column("flow_mw")?
         .f64()?
         .into_iter()
-        .filter_map(|opt| opt)
+        .flatten()
         .collect();
     let (max_flow, min_flow) = if flow_vals.is_empty() {
         (f64::NAN, f64::NAN)
@@ -1181,8 +1186,8 @@ fn build_piecewise_cost_expression(
 
         let width = segment.end - segment.start;
         let seg_var = vars.add(variable().min(0.0).max(width));
-        segment_sum = segment_sum + seg_var;
-        cost_expr = cost_expr + segment.slope * seg_var;
+        segment_sum += seg_var;
+        cost_expr += segment.slope * seg_var;
         prev_end = segment.end;
     }
 
@@ -1225,14 +1230,14 @@ fn enforce_branch_limits(df: &DataFrame, limits: &HashMap<i64, f64>) -> Result<(
     Ok(())
 }
 
-#[allow(dead_code)]
-fn build_y_bus(
-    network: &Network,
-) -> (
+type YBusComponents = (
     HashMap<usize, HashMap<usize, Complex64>>,
     Vec<usize>,
     HashMap<usize, usize>,
-) {
+);
+
+#[allow(dead_code)]
+fn build_y_bus(network: &Network) -> YBusComponents {
     let mut ybus: HashMap<usize, HashMap<usize, Complex64>> = HashMap::new();
     let mut bus_order = Vec::new();
     for node_idx in network.graph.node_indices() {

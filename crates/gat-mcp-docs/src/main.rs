@@ -8,7 +8,6 @@ use axum::{
 };
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use serde_json;
 use std::{
     collections::HashMap,
     fs::{self, File},
@@ -240,7 +239,7 @@ fn highlight_snippet(text: &str, idx: usize, len: usize) -> String {
     let rel_end = rel_start + len;
     let mut highlighted = String::new();
     if start > 0 {
-        highlighted.push_str("…");
+        highlighted.push('…');
     }
     highlighted.push_str(&snippet[..rel_start]);
     highlighted.push_str("**");

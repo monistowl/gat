@@ -55,9 +55,8 @@ pub fn persist_dataframe(
             fs::create_dir_all(parent)
                 .with_context(|| format!("creating output directory '{}'", parent.display()))?;
         }
-        fs::copy(&staged, output).with_context(|| {
-            format!("copying {} to {}", staged.display(), output.display())
-        })?;
+        fs::copy(&staged, output)
+            .with_context(|| format!("copying {} to {}", staged.display(), output.display()))?;
     } else {
         write_partitions(df, &staged, partitions)?;
     }

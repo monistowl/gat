@@ -1,11 +1,7 @@
 use clap::Parser;
 use gat_algo::{power_flow, LpSolverKind};
 use gat_core::{graph_utils, solver::SolverKind};
-use gat_gui;
 use gat_io::{importers, validate};
-use gat_ts;
-use gat_viz;
-use num_cpus;
 use rayon::ThreadPoolBuilder;
 use std::env;
 use std::path::Path;
@@ -235,10 +231,10 @@ fn main() {
                     lp_solver,
                     out_partitions,
                 } => {
-                    configure_threads(&threads);
+                    configure_threads(threads);
                     info!("Running DC power flow on {} to {}", grid_file, out);
                     (|| -> anyhow::Result<()> {
-                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_kind = solver.parse::<SolverKind>()?;
                         let solver_impl = solver_kind.build_solver();
                         let _ = lp_solver;
                         let partitions = parse_partitions(out_partitions.as_ref());
@@ -260,7 +256,7 @@ fn main() {
                                 &[
                                     ("grid_file", grid_file),
                                     ("out", out),
-                                    ("threads", &threads),
+                                    ("threads", threads),
                                     ("solver", solver_kind.as_str()),
                                     ("out_partitions", partition_spec.as_str()),
                                 ],
@@ -279,13 +275,13 @@ fn main() {
                     lp_solver,
                     out_partitions,
                 } => {
-                    configure_threads(&threads);
+                    configure_threads(threads);
                     info!(
                         "Running AC power flow on {} with tol {} and max_iter {}",
                         grid_file, tol, max_iter
                     );
                     (|| -> anyhow::Result<()> {
-                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_kind = solver.parse::<SolverKind>()?;
                         let solver_impl = solver_kind.build_solver();
                         let _ = lp_solver;
                         let partitions = parse_partitions(out_partitions.as_ref());
@@ -308,7 +304,7 @@ fn main() {
                                 "pf ac",
                                 &[
                                     ("grid_file", grid_file),
-                                    ("threads", &threads),
+                                    ("threads", threads),
                                     ("out", out),
                                     ("tol", &tol.to_string()),
                                     ("max_iter", &max_iter.to_string()),
@@ -338,13 +334,13 @@ fn main() {
                     solver,
                     out_partitions,
                 } => {
-                    configure_threads(&threads);
+                    configure_threads(threads);
                     info!(
                         "Running N-1 DC on {} with contingencies {} -> {}",
                         grid_file, contingencies, out
                     );
                     (|| -> anyhow::Result<()> {
-                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_kind = solver.parse::<SolverKind>()?;
                         let solver_impl = solver_kind.build_solver();
                         let partitions = parse_partitions(out_partitions.as_ref());
                         let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
@@ -366,7 +362,7 @@ fn main() {
                                 "nminus1 dc",
                                 &[
                                     ("grid_file", grid_file),
-                                    ("threads", &threads),
+                                    ("threads", threads),
                                     ("branch_limits", branch_limits.as_deref().unwrap_or("none")),
                                     ("out", out),
                                     ("solver", solver_kind.as_str()),
@@ -501,13 +497,13 @@ fn main() {
                     out_partitions,
                     slack_bus,
                 } => {
-                    configure_threads(&threads);
+                    configure_threads(threads);
                     info!(
                         "Running WLS state estimation on {} using {} -> {}",
                         grid_file, measurements, out
                     );
                     (|| -> anyhow::Result<()> {
-                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_kind = solver.parse::<SolverKind>()?;
                         let solver_impl = solver_kind.build_solver();
                         let partitions = parse_partitions(out_partitions.as_ref());
                         let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
@@ -533,7 +529,7 @@ fn main() {
                                 &[
                                     ("grid_file", grid_file),
                                     ("measurements", measurements.as_str()),
-                                    ("threads", &threads),
+                                    ("threads", threads),
                                     ("solver", solver_kind.as_str()),
                                     ("out_partitions", partition_spec.as_str()),
                                     ("slack_bus", slack_spec.as_deref().unwrap_or("auto")),
@@ -613,7 +609,7 @@ fn main() {
                         }
                         Ok(())
                     }
-                    HirenCommands::Fetch { case, out } => fetch_hiren(&case, Path::new(&out)),
+                    HirenCommands::Fetch { case, out } => fetch_hiren(case, Path::new(&out)),
                 },
                 DatasetCommands::Dsgrid { out } => import_dsgrid(Path::new(&out)),
                 DatasetCommands::Sup3rcc { command } => match command {
@@ -674,15 +670,15 @@ fn main() {
                     lp_solver,
                     out_partitions,
                 } => {
-                    configure_threads(&threads);
+                    configure_threads(threads);
                     info!(
                         "Running DC OPF on {} with cost {} and limits {} -> {}",
                         grid_file, cost, limits, out
                     );
                     (|| -> anyhow::Result<()> {
-                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_kind = solver.parse::<SolverKind>()?;
                         let solver_impl = solver_kind.build_solver();
-                        let lp_solver_kind = LpSolverKind::from_str(&lp_solver)?;
+                        let lp_solver_kind = lp_solver.parse::<LpSolverKind>()?;
                         let partitions = parse_partitions(out_partitions.as_ref());
                         let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
                         let out_path = Path::new(out);
@@ -706,7 +702,7 @@ fn main() {
                                 "opf dc",
                                 &[
                                     ("grid_file", grid_file),
-                                    ("threads", &threads),
+                                    ("threads", threads),
                                     ("solver", solver_kind.as_str()),
                                     ("lp_solver", lp_solver_kind.as_str()),
                                     ("out_partitions", partition_spec.as_str()),
@@ -725,13 +721,13 @@ fn main() {
                     solver,
                     out_partitions,
                 } => {
-                    configure_threads(&threads);
+                    configure_threads(threads);
                     info!(
                         "Running AC OPF on {} with tol {}, max_iter {} -> {}",
                         grid_file, tol, max_iter, out
                     );
                     (|| -> anyhow::Result<()> {
-                        let solver_kind = SolverKind::from_str(&solver)?;
+                        let solver_kind = solver.parse::<SolverKind>()?;
                         let solver_impl = solver_kind.build_solver();
                         let partitions = parse_partitions(out_partitions.as_ref());
                         let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
@@ -753,7 +749,7 @@ fn main() {
                                 "opf ac",
                                 &[
                                     ("grid_file", grid_file),
-                                    ("threads", &threads),
+                                    ("threads", threads),
                                     ("tol", &tol.to_string()),
                                     ("max_iter", &max_iter.to_string()),
                                     ("solver", solver_kind.as_str()),

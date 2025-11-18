@@ -1,5 +1,4 @@
 use anyhow::Result;
-use gat_viz;
 
 pub fn launch(output: Option<&str>) -> Result<String> {
     if let Some(path) = output {

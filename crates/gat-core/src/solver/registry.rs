@@ -1,36 +1,21 @@
 use super::backend::{FaerSolver, GaussSolver, SolverBackend};
 use anyhow::{anyhow, Result};
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Simple registry of available solvers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SolverKind {
+    #[default]
     Gauss,
     Faer,
 }
 
-impl Default for SolverKind {
-    fn default() -> Self {
-        SolverKind::Gauss
-    }
-}
-
 impl SolverKind {
-    pub fn from_str(input: &str) -> Result<Self> {
-        match input.to_ascii_lowercase().as_str() {
-            "gauss" | "default" => Ok(SolverKind::Gauss),
-            "faer" => Ok(SolverKind::Faer),
-            other => Err(anyhow!(
-                "unknown solver '{}'; supported values: gauss, faer",
-                other
-            )),
-        }
-    }
-
     pub fn build_solver(self) -> Arc<dyn SolverBackend> {
         match self {
-            SolverKind::Gauss => Arc::new(GaussSolver::default()),
-            SolverKind::Faer => Arc::new(FaerSolver::default()),
+            SolverKind::Gauss => Arc::new(GaussSolver),
+            SolverKind::Faer => Arc::new(FaerSolver),
         }
     }
 
@@ -45,6 +30,22 @@ impl SolverKind {
         }
     }
 }
+
+impl FromStr for SolverKind {
+    type Err = anyhow::Error;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input.to_ascii_lowercase().as_str() {
+            "gauss" | "default" => Ok(SolverKind::Gauss),
+            "faer" => Ok(SolverKind::Faer),
+            other => Err(anyhow!(
+                "unknown solver '{}'; supported values: gauss, faer",
+                other
+            )),
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
