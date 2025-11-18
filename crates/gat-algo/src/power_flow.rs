@@ -615,6 +615,9 @@ pub fn state_estimation_wls(
     let n_vars = unknown_buses.len();
     let mut normal = vec![vec![0.0; n_vars]; n_vars];
     let mut rhs = vec![0.0; n_vars];
+    // Build the weighted normal equations for WLS: (HᵗWH)θ = HᵗWz, where H is the measurement Jacobian
+    // and W contains the measurement weights (DOI:10.1109/PWRS.2003.1307674). The loop accumulates
+    // each measurement contribution into the `normal` matrix and `rhs` vector.
     for row in &measurement_rows {
         let y_tilde = row.value - row.offset;
         for (i, &h_i) in row.h.iter().enumerate().take(n_vars) {
@@ -828,6 +831,12 @@ fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {
     injections
 }
 
+/// Builds the network susceptance matrix (B) used in the DC power-flow linear system.
+///
+/// Each branch contributes +1/x on the diagonal and -1/x on the corresponding off-diagonals,
+/// which yields the classic B′ matrix from the DC approximation (DOI:10.1109/TPWRS.2007.899019).
+/// We expose the ordered bus list plus a lookup map so downstream routines can index into the
+/// reduced system that eliminates the reference bus.
 fn build_bus_susceptance(
     network: &Network,
     skip_branch: Option<i64>,
@@ -869,6 +878,12 @@ fn build_bus_susceptance(
     (bus_ids, id_to_index, susceptance)
 }
 
+/// Solves B′ θ = P for voltage angles given nodal injections.
+///
+/// The first bus is designated as the slack (angle = 0) to remove the singularity, so we
+/// build the reduced system by dropping the slack row/column before solving. This mirrors
+/// the textbook DC power-flow algorithm (DOI:10.1109/TPWRS.2007.899019) with a simple
+/// nodal injection vector derived from generator/load balances.
 fn compute_dc_angles(
     network: &Network,
     injections: &HashMap<usize, f64>,
