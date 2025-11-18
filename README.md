@@ -1,3 +1,5 @@
+![image](./screenshot.png)
+
 # GRID ANALYSIS TOOLKIT (GAT)
 
 *A fast Rust-powered command-line toolkit for power-system modeling, flows, dispatch, and time-series analysis.*
