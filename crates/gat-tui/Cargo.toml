@@ -1,0 +1,15 @@
+[package]
+name = "gat-tui"
+version = "0.1.0"
+edition = "2021"
+authors = ["Grid Team <grid@example.com>"]
+description = "Terminal UI for inspecting GAT workflows"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+ratatui = { version = "0.20", features = ["crossterm"] }
+crossterm = "0.26"
+anyhow = "1.0"
+chrono = "0.4"
+csv = "1"
+serde = { version = "1.0", features = ["derive"] }

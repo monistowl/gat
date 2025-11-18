@@ -293,3 +293,7 @@ Future demos/examples in the backlog:
 1. A beginner tutorial (“Your first week with GAT”).
 2. A sample notebook using DuckDB + Polars to explore outputs.
 3. A cluster-fanout cheat sheet for students and undergrads.
+
+## Terminal dashboard
+
+`gat-tui` is a Ratatui-based visualizer (see [awesome-ratatui](https://github.com/ratatui/awesome-ratatui) for inspiration) that lives in `crates/gat-tui`. It keeps workflows, statuses, and logs in one terminal screen so newcomers can picture the pipeline before opening a browser or GUI. Run it with `cargo run -p gat-tui --release`.

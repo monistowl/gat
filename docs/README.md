@@ -17,6 +17,8 @@ Use `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` to preview the generated tr
 - `docs/guide/doc-workflow.md`: outlines the beads (`bd`) issue workflow plus the doc-regeneration steps you should follow.
 - `docs/guide/datasets.md`, `docs/guide/opf.md`, `docs/guide/se.md`, `docs/guide/ts.md`, `docs/guide/gui.md`, `docs/guide/viz.md`, and `docs/guide/packaging.md` document the curated workflows you can script from the CLI.
 - `docs/guide/demos/README.md` shows how to add training-focused demos (the first one lives in `test_data/demos/reliability_pricing.py`).
+- `docs/guide/demos/README.md` shows how to add training-focused demos (the first one lives in `test_data/demos/reliability_pricing.py`).
+- `docs/guide/gat-tui.md` introduces the Ratatui-powered `gat-tui` monitor for workflow visibility.
 - `docs/guide/scaling.md`: describes the multi-horizon scaling roadmap along with concrete code/CLI targets.
 - `docs/ROADMAP.md`: the canonical plan for the workspace with phases, milestones, and deliverables.
 
