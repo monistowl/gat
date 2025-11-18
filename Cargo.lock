@@ -1543,6 +1543,7 @@ dependencies = [
  "indicatif",
  "ndarray 0.15.6",
  "ndarray-linalg",
+ "once_cell",
  "petgraph",
  "polars",
  "sprs",

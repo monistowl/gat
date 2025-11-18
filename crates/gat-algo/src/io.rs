@@ -10,6 +10,7 @@ use std::{
 #[derive(Debug, Clone, Copy)]
 pub enum OutputStage {
     PfDc,
+    PfAc,
     OpfDc,
     OpfAc,
     Nminus1Dc,
@@ -20,6 +21,7 @@ impl OutputStage {
     pub fn as_str(&self) -> &'static str {
         match self {
             OutputStage::PfDc => "pf-dc",
+            OutputStage::PfAc => "pf-ac",
             OutputStage::OpfDc => "opf-dc",
             OutputStage::OpfAc => "opf-ac",
             OutputStage::Nminus1Dc => "nminus1-dc",

@@ -135,14 +135,27 @@ pub fn dc_power_flow(
     Ok(())
 }
 
-pub fn ac_power_flow(network: &Network, tol: f64, max_iter: u32) -> Result<()> {
-    let df =
-        bus_result_dataframe(network).context("building bus result table for AC power flow")?;
+pub fn ac_power_flow(
+    network: &Network,
+    solver: &dyn SolverBackend,
+    tol: f64,
+    max_iter: u32,
+    output_file: &Path,
+    partitions: &[String],
+) -> Result<()> {
+    let injections = default_pf_injections(network);
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
+        .context("building branch flow table for AC power flow")?;
+    persist_dataframe(&mut df, output_file, partitions, OutputStage::PfAc.as_str())?;
+    let bus_df = bus_result_dataframe(network).context("building bus table for AC power flow")?;
     println!(
-        "AC power flow summary: tol={} max_iter={} -> {} buses documented",
+        "AC power flow summary: tol={} max_iter={} -> {} buses, branch flow range [{:.3}, {:.3}] MW, persisted to {}",
         tol,
         max_iter,
-        df.height()
+        bus_df.height(),
+        min_flow,
+        max_flow,
+        output_file.display()
     );
     Ok(())
 }
@@ -1390,6 +1403,20 @@ mod tests {
         dc_power_flow(&network, &solver, &out, &[]).unwrap();
 
         let df = read_stage_dataframe(&out, OutputStage::PfDc).unwrap();
+        assert_eq!(df.height(), 1);
+        let flow = df.column("flow_mw").unwrap().f64().unwrap().get(0).unwrap();
+        assert!(!flow.is_nan());
+    }
+
+    #[test]
+    fn ac_power_flow_writes_parquet() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let out = temp_dir.path().join("ac.parquet");
+        let solver = GaussSolver::default();
+        ac_power_flow(&network, &solver, 1e-6, 5, &out, &[]).unwrap();
+
+        let df = read_stage_dataframe(&out, OutputStage::PfAc).unwrap();
         assert_eq!(df.height(), 1);
         let flow = df.column("flow_mw").unwrap().f64().unwrap().get(0).unwrap();
         assert!(!flow.is_nan());

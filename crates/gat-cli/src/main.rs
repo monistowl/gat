@@ -304,7 +304,7 @@ fn main() {
                         let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
                         let out_path = Path::new(out);
                         let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                            Ok(network) => power_flow::ac_optimal_power_flow(
+                            Ok(network) => power_flow::ac_power_flow(
                                 &network,
                                 solver_impl.as_ref(),
                                 *tol,

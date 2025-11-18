@@ -67,6 +67,7 @@ This structure mirrors toolkits like ELF: shared libs feed both CLI and GUI, pac
 **AC PF:** Newton–Raphson with LDL, optional `power_flow` crate reference.
 
 CLI: `gat pf dc grid.arrow --out flows.parquet`, `gat pf ac ... --tol 1e-8`.
+* Both commands persist flows under `pf-dc/` or `pf-ac/` and surface solver choice via the registry.
 
 **Acceptance:** Converge MATPOWER cases, compare flows/angles, AC NR scales to ~10k buses.
 
