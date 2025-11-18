@@ -59,6 +59,7 @@ This structure mirrors toolkits like ELF: shared libs feed both CLI and GUI, pac
 
 * Build/clean graphs, compute stats, identify islands and exports.
 * CLI: `gat graph stats`, `gat graph islands`, `gat graph export`.
+* Export command supports `--format graphviz|dot` and `--out <file>` while `--emit` prints the node→island map.
 
 ## Milestone 3 — Power flow solvers (M3)
 
@@ -152,5 +153,6 @@ See `docs/guide/scaling.md` for the detailed horizon-by-horizon plan, chunk cont
 ## Recent deliverables
 
 * Time-series suite with `gat ts {resample,join,agg}` plus regression tests covering telemetry workflows.
+* Graph tooling (`gat graph stats/islands/export`) now surfaces topology summaries and DOT exports for Milestone 2.
 * Packaging scripts documented in `docs/guide/packaging.md` that build/install release artifacts.
 * CLI tests using workspace fixtures (`test_data/ts`, `test_data/matpower`) and `assert_cmd` to guard PF/OPF progress.
