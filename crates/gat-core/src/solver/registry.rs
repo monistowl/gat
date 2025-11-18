@@ -46,7 +46,6 @@ impl FromStr for SolverKind {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

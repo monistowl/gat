@@ -169,12 +169,7 @@ struct PsseGen {
     status: i32,
 }
 
-type PsseRawTables = (
-    Vec<PsseBus>,
-    Vec<PsseBranch>,
-    Vec<PsseLoad>,
-    Vec<PsseGen>,
-);
+type PsseRawTables = (Vec<PsseBus>, Vec<PsseBranch>, Vec<PsseLoad>, Vec<PsseGen>);
 
 #[derive(PartialEq, Eq)]
 enum PsseSection {
@@ -414,11 +409,7 @@ fn build_network_from_psse(
         gen_id += 1;
     }
 
-    for (branch_id, branch) in branches
-        .into_iter()
-        .filter(|b| b.in_service)
-        .enumerate()
-    {
+    for (branch_id, branch) in branches.into_iter().filter(|b| b.in_service).enumerate() {
         let from_idx = *bus_index_map
             .get(&branch.from)
             .with_context(|| format!("PSSE branch references unknown bus {}", branch.from))?;

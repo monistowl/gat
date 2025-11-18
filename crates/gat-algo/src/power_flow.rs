@@ -84,11 +84,7 @@ pub enum LpSolverKind {
 
 impl LpSolverKind {
     pub fn available() -> &'static [&'static str] {
-        &[
-            "clarabel",
-            "coin_cbc",
-            "highs",
-        ]
+        &["clarabel", "coin_cbc", "highs"]
     }
 
     pub fn as_str(&self) -> &'static str {
@@ -759,12 +755,7 @@ fn branch_flow_dataframe_with_angles(
         Series::new("flow_mw", flows),
     ])?;
 
-    let flow_vals: Vec<f64> = df
-        .column("flow_mw")?
-        .f64()?
-        .into_iter()
-        .flatten()
-        .collect();
+    let flow_vals: Vec<f64> = df.column("flow_mw")?.f64()?.into_iter().flatten().collect();
     let (max_flow, min_flow) = if flow_vals.is_empty() {
         (f64::NAN, f64::NAN)
     } else {
