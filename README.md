@@ -1,259 +1,293 @@
 # GRID ANALYSIS TOOLKIT (GAT)
 
-GAT is a CLI-first toolkit for modeling, analyzing, and solving power-system problems across graph topology, power flow, and optimal dispatch. The workspace mirrors the canonical layout of `gat-core`, `gat-io`, `gat-algo`, `gat-ts`, `gat-viz`, and `gat-cli` so shared logic can feed both command-line interactions and downstream GUIs while keeping data formats (Arrow/Parquet/CSV) consistent.
+*A fast Rust-powered command-line toolkit for power-system modeling, flows, dispatch, and time-series analysis.*
 
-## Quick start
+If you’re comfortable running simple CLI commands and want to start doing *real* grid analysis — without needing a giant Python stack or a full simulation lab — **GAT gives you industrial-grade tools in a form you can actually tinker with.** Everything runs as standalone commands, and all the heavy lifting is Rust-fast.
 
-1. **Install prerequisites**
-   - [Rust toolchain](https://rustup.rs) (stable).
-   - `bd` for issue tracking (`bd ready`, `bd create`, etc.).
-   - Optional: `beads-mcp` for MCP-compatible agents if you already use `bd`.
+---
 
-2. **Build the CLI**
-   ```bash
-   cargo build --package gat-cli
-   ```
+## 🌟 What Makes GAT worth learning?
 
-3. **Run a sample workflow**
-   ```bash
-   gat pf dc test_data/matpower/case9.arrow --out out/dc-flows.parquet
-   gat opf dc test_data/matpower/case9.arrow \
-     --cost test_data/opf/costs.csv \
-     --limits test_data/opf/limits.csv \
-     --piecewise test_data/opf/piecewise.csv \
-     --out out/dc-opf.parquet
-   gat opf ac test_data/matpower/case9.arrow \
-     --out out/ac-opf.parquet \
-     --tol 1e-6 --max-iter 20
-   ```
-   These commands demonstrate powering flows, enforcing generator limits, and exporting branch summaries in Parquet format.
+**For beginners:**
 
-4. **Leverage solver and partition flags**
-   ```
-   gat pf dc grid.arrow \
-     --out results/dc-flows.parquet \
-     --solver faer \
-     --out-partitions `grid_id,date`
-   ```
-Use `--solver {gauss,faer}` to switch solver backends, `--lp-solver {clarabel,coin_cbc,highs}` to pick the DC-OPF LP engine, and `--out-partitions` to emit partitioned directories. Each heavy output now lands under a stage directory (`pf-dc`, `opf-dc`, `nminus1-dc`, `se-wls`, etc.) so stage dashboards can find their artifacts without mixing runs. Each run records the solver/partition choices inside `run.json`, so `gat runs resume run.json --execute` can replay the exact configuration later (the manifest lives next to the output file).
+* You can start with *one command at a time*.
+* Outputs are in Parquet/Arrow/CSV — easy to open in Python, R, DuckDB, Polars.
+* Commands behave like Unix tools: pipeable, scriptable, reproducible.
 
-5. **Inspect results**
-   `gat pf dc` and `gat opf` commands emit branch flow tables (`branch_id`, `from_bus`, `to_bus`, `flow_mw`) which you can open with `polars`, `duckdb`, or any Parquet consumer.
+**For advanced users (where you may grow into):**
 
-6. **Package & install**
-   ```bash
-   scripts/package.sh
-   scripts/install.sh
-   ```
-   Ensure `jq` is installed; the packaging script builds release binaries and emits `dist/gat-<version>-<os>-<arch>.tar.gz`. The install helper copies `gat-cli`/`gat-gui` into `~/.local/bin` by default (see `docs/PACKAGING.md` for details).
+* Full DC/AC power-flow solvers
+* DC/AC optimal power-flow (OPF)
+* N-1 contingency analysis
+* Time-series resampling, joining, aggregation
+* State estimation (WLS)
 
-## User manual
+**Why Rust?**
+Because Rust gives you C-like execution speed without unsafe foot-guns. For grid models with thousands of buses/branches, that matters. Even on a laptop.
 
-### CLI surface
+---
 
-`gat` exposes nested commands:
+# 📦 Installation
 
-- `gat import {psse|matpower|cim}` — ingest RAW/MATPOWER/CIM into the internal Arrow network format.
-- `gat dataset rts-gmlc fetch ...` / `gat dataset hiren list/fetch ...` — hydrate curated testbeds (see `docs/DATASETS.md`).
-- `gat validate dataset --spec spec.json` — ensure Arrow datasets follow expected schema.
-- `gat graph {stats|islands|export}` — describe connectivity and export graph representations.
-- `gat pf {dc|ac}` — run DC or AC power flow on stored networks.
-- `gat ts {resample|join|agg}` — resample telemetry feeds (time buckets) or align multiple series and aggregate.
-- `gat viz plot` — stub visualization helper using `gat-viz`.
-- `gat gui run test_data/matpower/ieee14.arrow --output out/gui.txt` — launch the GUI dashboard stub.
-- `gat nminus1 dc grid.arrow --contingencies test_data/nminus1/contingencies.csv --out results/nminus1.parquet` — run contingency screening and detect branch violations.
-- `gat opf {dc|ac}` — solve optimal power flow variants.
+### 1. Install Rust (required)
 
-Inspect `gat --help` and `gat <command> --help` for full flags.
+Go to https://rustup.rs. This installs `cargo` and the toolchain helpers used across the workspace.
 
-### DC power flow (`gat pf dc`)
+### 2. Optional helpers
 
-Runs a linear DC power flow with default injections (two bus injections if the network has ≥2 buses).
-Outputs branch summary in Parquet via `--out`.
+These tools make documentation changes and CLI workflows easier:
 
-Command:
-```
-gat pf dc grid.arrow --out flows.parquet
+* `bd` — the beads issue tracker (run `bd ready` before you start work).
+* `beads-mcp` — so MCP-compatible agents can inspect docs via `gat-mcp-docs`.
+* `jq` — required by `scripts/package.sh`.
+
+### 3. Build GAT
+
+```bash
+cargo build --package gat-cli
 ```
 
-Use `--solver {gauss|faer}` to swap the solver backend, `--lp-solver` to pick the LP engine for DC-OPF, and `--out-partitions` if you want per-key partition directories zipped by `key=value`. The CLI also records those flags in `run.json`, so a future `gat runs resume run.json --execute` picks them up.
+GAT produces a `gat` binary under `target/debug/`.
 
-### AC power flow (`gat pf ac`)
+### 4. Package and install
 
-Newton–Raphson solver over the internal admittance matrices. Specify tolerance or iteration limit for convergence.
+```bash
+scripts/package.sh
+scripts/install.sh
 ```
-gat pf ac grid.arrow --tol 1e-8 --max-iter 20 --out flows.parquet
+
+The scripts create release tarballs (`dist/gat-<version>-<os>-<arch>.tar.gz`) and install `gat-cli`/`gat-gui` into `~/.local/bin` by default.
+
+---
+
+# 🚀 Quick Demo: Your First GAT Workflow
+
+## 1. DC Power Flow (fastest starter)
+
+```bash
+gat pf dc test_data/matpower/case9.arrow --out out/dc-flows.parquet
 ```
 
-Specify `--solver`/`--out-partitions` for AC flows too; the manifest captures those values so `gat runs resume` preserves the same backend and partition spec.
+**What this does:**
 
-### DC optimal power flow (`gat opf dc`)
+* Loads MATPOWER case9 as Arrow.
+* Solves the DC approximation.
+* Writes a Parquet branch-flow summary.
 
-Inputs:
-- `--cost BUS_ID,MARGINAL_COST` CSV (required).
-- `--limits BUS_ID,PMIN,PMAX,DEMAND` CSV (required) describing dispatch bounds and the demanded injection.
-- Optional `--branch-limits BRANCH_ID,FLOW_LIMIT` and `--piecewise BUS_ID,START,END,SLOPE`. Piecewise segments must cover `[pmin,pmax]` per bus, no gaps or overlaps.
+---
 
-Example:
-```
-gat opf dc grid.arrow \
+## 2. DC Optimal Power Flow (dispatch with costs)
+
+```bash
+gat opf dc test_data/matpower/case9.arrow \
   --cost test_data/opf/costs.csv \
   --limits test_data/opf/limits.csv \
   --piecewise test_data/opf/piecewise.csv \
   --out out/dc-opf.parquet
 ```
 
-The solver uses `good_lp` with the Clarabel backend and enforces branch limits, reporting violations if any cost solution exceeds them.
+**Inputs:**
 
-### AC optimal power flow (`gat opf ac`)
+* Cost per bus
+* Dispatch limits
+* Demand
+* Optional piecewise curve segments
 
-Newton–Raphson linearization on B′, solves reduced system assuming bus angles, and emits branch flows. Tolerances/defaults:
+**Outputs:**
 
-```
-gat opf ac grid.arrow --out ac-opf.parquet --tol 1e-6 --max-iter 20
-```
+* Feasible dispatch
+* Branch flows
+* Violation flags
 
-Outputs follow the same Parquet schema as DC flows but are computed with the converged AC angles.
+---
 
-### Time-series tools (`gat ts resample/join/agg`)
-
-The `gat ts resample` command buckets telemetry into fixed intervals and reports per-bucket statistics:
-
-```
-gat ts resample test_data/ts/telemetry.parquet \
-  --rule 5s \
-  --timestamp timestamp \
-  --value value \
-  --out out/telemetry.resampled.parquet
-```
-
-All `gat ts` commands accept `--out-partitions` and emit their Parquet outputs under the matching stage (`ts-resample`, `ts-join`, `ts-agg`) so you can align them with the same artifact layout that heavier commands use.
-
-Use `gat ts join` to align multiple feeds on a shared timestamp column before analysis or visualization:
-
-```
-gat ts join test_data/ts/telemetry.parquet \
-  test_data/ts/telemetry_extra.parquet \
-  --on timestamp \
-  --out out/telemetry.joint.parquet
-```
-
-Refer to `docs/TS.md` for additional usage notes on file formats and grouping options.
-
-`gat ts agg` groups telemetry by a column (default `sensor`) and aggregates the value column:
-
-```
-gat ts agg test_data/ts/telemetry.parquet \
-  --group sensor \
-  --value value \
-  --agg sum \
-  --out out/telemetry.agg.parquet
-```
-
-### N-1 DC screening (`gat nminus1 dc`)
-
-Runs a contingency screen by temporarily removing each listed branch and recomputing the DC flow. The command summarizes how the remaining lines behave and flags any branch that exceeds optional flow limits.
-
-```
-gat nminus1 dc grid.arrow \
-  --contingencies test_data/nminus1/contingencies.csv \
-  --branch-limits test_data/opf/branch_limits.csv \
-  --out results/nminus1.parquet
-```
-
-Each row in the output Parquet file corresponds to a branch outage and includes columns such as `max_abs_flow_mw`, `violated`, and `violation_branch_id` so you can rank contingencies by their worst violations.
-
-### State estimation WLS (`gat se wls`)
-
-Run the Weighted Least Squares estimator by providing measurement values (flows or injections) along with optional measurement weights. The solver treats the smallest bus ID as the slack angle (0) and estimates the remaining bus angles.
-
-```
-gat se wls grid.arrow \
-  --measurements test_data/se/measurements.csv \
-  --out results/se-measurements.parquet \
-  --state-out results/se-states.parquet
-```
-
-Measurement CSV format:
-
-| column | description |
-| --- | --- |
-| `measurement_type` | `flow` or `injection` |
-| `branch_id` | required for `flow`; the `branch` ID to compare |
-| `bus_id` | required for `injection`; the bus ID for the power injection |
-| `value` | measured value (MW) |
-| `weight` | positive weight (1/variance) |
-| `label` | optional descriptor for reporting |
-
-Supported measurement types now include `angle` and `voltage` (both treated as angle observables on the requested bus), so you can describe instrumentation beyond flows/injections.
-
-The command also accepts `--slack-bus <BUS_ID>` so you can pick a different reference than the smallest bus ID that the solver uses by default.
-
-The command writes a Parquet table of residuals (`value`, `estimate`, `residual`, `normalized_residual`, `weight`) and can emit the solved angles via `--state-out`. Use `test_data/se/measurements.csv` for a minimal fixture.
-
-### Fixtures and regression data
-
-`test_data/opf/` includes:
-
-- `costs.csv`, `limits.csv` for dispatch modeling.
-- `branch_limits.csv` demonstrating flow constraints.
-- `piecewise.csv` covering `[pmin,pmax]` for multi-segment cost.
-- `nminus1/contingencies.csv` describing branch outages (`branch_id,label`) used by `gat nminus1 dc`.
-- `se/measurements.csv` with `measurement_type,branch_id,bus_id,value,weight,label` for the WLS estimator.
-- `ts/telemetry.parquet` and `ts/telemetry_extra.parquet` for resample/join examples.
-
-Use them to seed CLI runs or unit tests.
-
-### MCP integration (optional)
-
-If you already use `bd`, adding `beads-mcp` lets MCP-aware agents (Claude, etc.) interact with your issue tracker without breaking the git-based workflow. Install it via:
+## 3. AC Optimal Power Flow (nonlinear)
 
 ```bash
-pip install beads-mcp
+gat opf ac test_data/matpower/case9.arrow \
+  --out out/ac-opf.parquet \
+  --tol 1e-6 --max-iter 20
 ```
 
-Then point your MCP config (e.g., `~/.config/claude/config.json`) at the helper:
+AC OPF lets you graduate from the linear DC baseline to Newton–Raphson solves.
 
-```json
-{
-  "beads": {
-    "command": "beads-mcp",
-    "args": []
-  }
-}
+---
+
+# 🧠 Beginner’s Section: Understanding GAT Concepts
+
+### **Power Flow (PF)** — “What are the voltages and flows right now?”
+
+* **DC PF:** fast, linear approximation
+* **AC PF:** nonlinear, more accurate
+
+### **Optimal Power Flow (OPF)** — “What’s the cheapest feasible dispatch?”
+
+* Adds costs, limits, and optional branch constraints
+* Produces an optimized operating point
+
+### **N-1 Screening** — “What happens if one thing breaks?”
+
+* Remove one branch at a time
+* Re-solve DC flows
+* Summarize and rank violations
+
+### **State Estimation (SE)** — “Given measurements, what’s happening?”
+
+Weighted least squares over branch flows & injections.
+
+### **Time-Series Tools** — “Make telemetry usable.”
+
+* Resample fixed-width windows
+* Join multiple streams on timestamp
+* Aggregate across sensors
+
+All outputs follow consistent Arrow/Parquet schemas.
+
+---
+
+# 🛠 CLI Reference (Simplified View)
+
+```
+gat <category> <subcommand> [options]
 ```
 
-`beads-mcp` exposes the same issues, ready work, and metadata as the CLI (it reads/writes `.beads/issues.jsonl`), so your git commits stay synchronized with bd state. This setup makes Horizon 1 solver/partition work easier to coordinate via a Claude/MCP interface.
-
-## Development hints
-
-- Run `cargo test -p gat-algo` and `cargo test -p gat-cli` after changes.
-- Follow `bd` instructions in `AGENTS.md` for tracking work (`bd create`, `bd ready`, etc.).
-- Keep planning docs in `history/` if you need to record design decisions.
-
-## Auto docs & MCP surface
-
-The new docs pipeline is wired into `xtask`:
-
-- `cargo xtask doc cli` re-emits the Markdown CLI reference (`docs/cli/gat.md`) and man page (`docs/man/gat.1`).
-- `cargo xtask doc schemas` writes JSON schemas for manifests and branch-flow outputs to `docs/schemas/`.
-- `cargo xtask doc site` seeds `site/book/` with a minimal mdBook-style summary.
-- `cargo xtask doc all` rebuilds everything in order so `gat-mcp-docs` can serve a consistent tree.
-
-`cargo xtask doc:all` also writes `docs/index.json`, mapping version tags (default `latest`, configurable via `GAT_DOCS_VERSION`) to the generated URIs so the MCP server can expose both the live and pinned snapshots.
-
-Run `cargo xtask doc all` after changing CLI flags, manifest fields, or schema declarations.
-
-The `gat-mcp-docs` server exposes the generated docs over HTTP and can be pointed at Claude/other MCP clients:
+### **Importers**
 
 ```
-gat-mcp-docs --docs docs --addr 127.0.0.1:4321
+gat import psse
+gat import matpower
+gat import cim
 ```
 
-It offers `/resources`, `/doc/<path>`, `/search?q=`, and `/explain?command=pf+dc`, making the docs discoverable via MCP resources/tools.
+### **Graph tools**
 
-## Further work
+```
+gat graph stats
+gat graph islands
+gat graph export
+```
 
-Future milestones include DC/AC contingency screening, state estimation (WLS), time-series tools, visualization/export, and packaging scripts (`scripts/deploy_staging.sh`). Refer to `ROADMAP.md` for the overall plan and acceptance criteria.
+### **Power Flow & OPF**
 
-See `docs/VIZ.md` and `docs/GUI.md` for the visualization/GUI stubs, `docs/DATASETS.md` for the new dataset adapters, plus `docs/PACKAGING.md` for the current packaging/install workflow.
+```
+gat pf dc
+gat pf ac
+gat opf dc
+gat opf ac
+```
+
+### **Time Series**
+
+```
+gat ts resample
+gat ts join
+gat ts agg
+```
+
+### **Contingency & SE**
+
+```
+gat nminus1 dc
+gat se wls
+gat gui run
+```
+
+Use `gat --help` and `gat <command> --help` for detailed flags and device-specific options.
+
+---
+
+# 📤 Outputs & Formats
+
+All major commands emit **Parquet** because it is fast, columnar, and compatible with Polars, DuckDB, Pandas, Spark, R, etc.
+
+Every run also emits `run.json` with the full argument list so you can reproduce runs with:
+
+```bash
+gat runs resume run.json --execute
+```
+
+This makes CI, batch jobs, and fan-out pipelines reproducible.
+
+---
+
+# 🏎 Why Rust & Cluster Fan-Outs?
+
+* Rust delivers fast execution in a single binary — no Conda or Python stack.
+* Each CLI command stands alone so you can fan them out across multiple machines (different AC-PF cases, OPF scenarios, thousands of N-1 contingencies, telemetry streams).
+* Instead of running one monolith, slice work embarrassingly parallel:
+
+```bash
+parallel gat pf dc grid.arrow --out out/flows_{}.parquet ::: {1..500}
+```
+
+If you know `xargs -P` or GNU `parallel`, you already know the essence of the workflow.
+
+---
+
+# 📚 Test Fixtures (Great for Learning)
+
+* `test_data/matpower/` — MATPOWER cases
+* `test_data/opf/` — cost curves, limits, branch limits
+* `test_data/nminus1/` — contingency definitions
+* `test_data/se/` — measurement CSVs
+* `test_data/ts/` — telemetry examples
+
+Modify these freely while experimenting.
+
+---
+
+# 🗂 Documentation & Workflows
+
+All curated docs now live under `docs/guide/` and the generated assets live under `docs/cli`, `docs/schemas`, `docs/arrow`, and `site/book/`. Key references:
+
+* `docs/guide/doc-workflow.md` lays out the `bd` issue workflow plus the `cargo xtask doc all` steps that keep helpful docs in sync.
+* `docs/guide/datasets.md`, `docs/guide/opf.md`, `docs/guide/se.md`, `docs/guide/ts.md`, `docs/guide/gui.md`, `docs/guide/viz.md`, `docs/guide/packaging.md`, and `docs/guide/scaling.md` capture curated workflows and scaling guidance.
+* `docs/README.md` explains the auto-doc targets and how `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` exposes the tree for agents.
+* `docs/ROADMAP.md` is the canonical plan for the workspace.
+
+After documentation changes, run `cargo xtask doc all` (and optionally `cargo xtask doc site`) so the MCP server and `site/book/` stay up to date.
+
+---
+
+# 📝 Auto-Documentation System
+
+```bash
+cargo xtask doc all
+```
+
+This regenerates:
+
+* CLI Markdown (`docs/cli/gat.md`)
+* `gat.1` man page (`docs/man/gat.1`)
+* JSON schemas (`docs/schemas/`)
+* A minimal book site (`site/book/`)
+
+Reload `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` to preview the results with MCP tooling.
+
+---
+
+# 🗺 Roadmap (High-Level)
+
+* More advanced DC/AC contingency screening
+* Broader SE functionality
+* Better GUI dashboards
+* More dataset importers (PSSE/CIM variants)
+* Improved packaging & distribution
+
+See `docs/ROADMAP.md` for the authoritative project plan with milestones, phases, and acceptance criteria.
+
+---
+
+# 🧩 Final Notes
+
+GAT scales with you:
+
+* Two lines for a DC power flow.
+* A thousand AC-OPF scenarios on 20 machines when you need throughput.
+* All without Conda, Jupyter, or heavyweight clusters.
+
+Future demos/examples in the backlog:
+
+1. A beginner tutorial (“Your first week with GAT”).
+2. A sample notebook using DuckDB + Polars to explore outputs.
+3. A cluster-fanout cheat sheet for students and undergrads.

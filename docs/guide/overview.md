@@ -6,7 +6,7 @@ Auto-generated docs live under `docs/cli`, `docs/schemas`, and `docs/arrow`. The
 - Schema exports: `cargo xtask doc schemas`.
 - Minimal site bundle: `cargo xtask doc site`.
 
-Run `cargo xtask doc all` after making CLI, manifest, or schema changes to refresh everything. The MCP docs server (`git mcp-docs`) reads this layout and exposes it via HTTP/Model Context Protocol resources.
+Run `cargo xtask doc all` after making CLI, manifest, or schema changes to refresh everything. The MCP docs server (`gat-mcp-docs`) reads this layout and exposes it via HTTP/Model Context Protocol resources. See `docs/guide/doc-workflow.md` for the full beads (`bd`) issue workflow that keeps documentation updates, auto-doc regen, and issue tracking synchronized.
 
 ## Outputs and partitions
 

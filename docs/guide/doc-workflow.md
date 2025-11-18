@@ -1,0 +1,22 @@
+# Documentation & issue workflow
+
+This project treats documentation updates and issue tracking as linked operations. Follow these steps when you touch docs:
+
+1. **Claim the work via `bd`**
+   * Run `bd ready --json` to see unblocked items.
+   * Use `bd update <id> --status in_progress --json` once you start.
+   * If you discover a new task while editing docs, `bd create "..." -p 1 --deps discovered-from:<parent-id> --json` keeps the graph tidy.
+2. **Edit the Markdown under `docs/`**
+   * Pull content into `docs/guide/` or the generated folders (`docs/cli`, `docs/schemas`, etc.).
+   * Keep ephemeral design notes (plans, designs, tests) under `history/` so the repository root stays clean.
+3. **Regenerate the auto-docs**
+   * Run `cargo xtask doc all` to refresh CLI references, schemas, Arrow dumps, and the guide that `gat-mcp-docs` serves.
+   * Optionally run `cargo xtask doc site` before releasing the built `site/book/` bundle.
+   * Confirm that `docs/index.md`, `docs/README.md`, and the new guide files sync with your changes.
+4. **Preview the docs**
+   * Start the MCP docs server with `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` to inspect the generated tree and ensure agents can access it.
+5. **Wrap up with `bd`**
+   * Update the issue: `bd update <id> --status review --json` or `--status completed` when merged.
+   * Close the issue with `bd close <id> --reason "Completed" --json` once everything lands.
+
+Following this workflow keeps the `docs/` tree in lockstep with the code, keeps `cargo xtask doc all` evergreen, and ensures `bd` stays authoritative for open work.
