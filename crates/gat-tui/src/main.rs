@@ -11,7 +11,9 @@ use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::Marker;
 use ratatui::text::{Span, Spans};
-use ratatui::widgets::{Axis, Block, Borders, Cell, Chart, Dataset, Paragraph, Row, Table, Wrap};
+use ratatui::widgets::{
+    Axis, Block, Borders, Cell, Chart, Dataset, Gauge, Paragraph, Row, Table, Wrap,
+};
 use ratatui::{Frame, Terminal};
 use serde::Deserialize;
 use std::collections::VecDeque;
@@ -125,19 +127,41 @@ impl App {
         if self.demo_records.is_empty() {
             return "demo data unavailable".into();
         }
-        let avg_price = self
-            .demo_records
-            .iter()
-            .map(|row| row.price)
-            .sum::<f64>()
+        let avg_price = self.demo_records.iter().map(|row| row.price).sum::<f64>()
             / self.demo_records.len() as f64;
-        let avg_eens = self
-            .demo_records
-            .iter()
-            .map(|row| row.eens)
-            .sum::<f64>()
+        let avg_eens = self.demo_records.iter().map(|row| row.eens).sum::<f64>()
             / self.demo_records.len() as f64;
-        format!("Avg price {:.1} $/MWh | Avg EENS {:.1} MWh", avg_price, avg_eens)
+        format!(
+            "Avg price {:.1} $/MWh · Avg EENS {:.1} MWh",
+            avg_price, avg_eens
+        )
+    }
+
+    fn gauge_metrics(&self) -> Vec<(&'static str, f64)> {
+        if self.demo_records.is_empty() {
+            return vec![("avg price", 0.0), ("avg eens", 0.0)];
+        }
+        let avg_price = self.demo_records.iter().map(|row| row.price).sum::<f64>()
+            / self.demo_records.len() as f64;
+        let avg_eens = self.demo_records.iter().map(|row| row.eens).sum::<f64>()
+            / self.demo_records.len() as f64;
+        vec![("avg price", avg_price), ("avg eens", avg_eens)]
+    }
+
+    fn stage_graph(&self) -> Vec<Spans<'_>> {
+        let mut spans = Vec::new();
+        let stages = ["Data", "Simulation", "Dispatch", "Screening"];
+        for stage in stages {
+            let style = if self.workflows[self.selected].stage == stage {
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            spans.push(Spans::from(vec![Span::styled(stage, style)]));
+        }
+        spans
     }
 }
 
@@ -244,6 +268,7 @@ fn draw_ui<B: ratatui::backend::Backend>(f: &mut Frame<B>, app: &App) {
         .constraints([
             Constraint::Length(6),
             Constraint::Length(3),
+            Constraint::Length(9),
             Constraint::Min(6),
         ])
         .split(body_chunks[1]);
@@ -314,7 +339,37 @@ fn draw_ui<B: ratatui::backend::Backend>(f: &mut Frame<B>, app: &App) {
     )
     .x_axis(Axis::default().title("N firms").bounds([x_min, x_max]))
     .y_axis(Axis::default().title("Value"));
-    f.render_widget(chart, right_chunks[1]);
+    f.render_widget(chart, right_chunks[2]);
+
+    let bottom_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(right_chunks[3]);
+
+    let graph = Paragraph::new(app.stage_graph()).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Workflow graph"),
+    );
+    f.render_widget(graph, bottom_chunks[0]);
+
+    let gauges = app.gauge_metrics();
+    let gauge_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            gauges
+                .iter()
+                .map(|_| Constraint::Length(3))
+                .collect::<Vec<_>>(),
+        )
+        .split(bottom_chunks[1]);
+    for ((label, value), area) in gauges.iter().zip(gauge_chunks.iter()) {
+        let gauge = Gauge::default()
+            .block(Block::default().borders(Borders::ALL).title(*label))
+            .gauge_style(Style::default().fg(Color::LightBlue))
+            .ratio((value / 200.0).min(1.0));
+        f.render_widget(gauge, *area);
+    }
 
     let log_text: Vec<Spans> = app
         .logs
