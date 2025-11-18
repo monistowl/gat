@@ -20,3 +20,15 @@ python3 test_data/demos/reliability_pricing.py > out/demo/reliability-pricing.ht
 ## Extend it for future demos
 
 Add more Python helpers under `test_data/demos/` and a short Markdown summary in this file when you want to teach another theme (time-series resampling, dataset adapters, etc.).
+
+## Cournot storage demo
+
+The second demo demonstrates a stylized oligopoly of storage owners. Run it with:
+
+```bash
+bash test_data/demos/storage_cournot.sh
+```
+
+It copies `data/rts-gmlc/*` into `out/demos/cournot/`, scales renewable supply, acutely stresses reliability, and solves a DC OPF for 500 scenarios as it varies the number of storage firms. The resulting `cournot_results.csv` lists price, EENS, consumer surplus, storage profits, and total welfare per oligopoly size (1..10 firms by default). Use `gnuplot` or any plotting tool to explore the tradeoffs.
+
+Documented guidance is available in `docs/guide/demos/storage-cournot.md`.
