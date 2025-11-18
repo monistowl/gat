@@ -1,0 +1,86 @@
+PolyForm Shield License 1.0.0
+
+Licensor: [Your Name or Organization]
+Licensed Work: "GAT" (Grid Analysis Toolkit)
+Licensor Entity: [Your Name or Org Again]
+Effective Date: [YYYY-MM-DD]
+
+Acceptance  
+By using the Licensed Work, you agree to the terms of this license.
+
+Copyright  
+The Licensor grants you a copyright license to the Licensed Work under
+the terms and conditions of this license.
+
+Noncommercial Use  
+You may use the Licensed Work for any purpose other than a Commercial
+Purpose. “Commercial Purpose” means the sale, lease, or offering of the
+Licensed Work to third parties as a paid product or paid service,
+including but not limited to: selling access to the Licensed Work,
+offering hosted or cloud versions of the Licensed Work, integrating the
+Licensed Work into a paid product or service, or using the Licensed Work
+to provide commercial consulting, support, or professional services.
+
+Shield  
+You may not use the Licensed Work to create, build, train, provision,
+run, or otherwise provide a product or service that competes with or
+substitutes for the Licensed Work or any paid or commercial version of
+the Licensed Work provided by the Licensor. You may not use the
+Licensed Work to provide any product, service, or hosted offering that
+exposes the functionality of the Licensed Work to third parties.
+
+Disallowed Uses (Plain Language Summary)  
+You may NOT:
+- Sell GAT or sell access to GAT
+- Offer GAT as a cloud service or hosted service
+- Integrate GAT into a paid tool, SaaS, or platform
+- Build or run a commercial grid analytics product on top of GAT
+- Offer professional or consulting services powered by GAT
+- Use GAT to provide or operate a competing analytics or simulation
+  platform (paid or unpaid)
+
+Allowable Uses (Plain Language Summary)  
+You MAY:
+- Use GAT for academic research or experimentation
+- Use GAT in coursework, labs, personal projects, hackathons, or
+  educational settings
+- Use GAT privately inside a company for evaluation or experimentation,
+  so long as it is NOT part of a commercial service or product
+- Fork, study, and modify the code for your own noncommercial learning
+- Publish academic papers using results derived from GAT
+
+Notices  
+You must keep all attribution notices and copyright statements intact.
+If you distribute any portion of the Licensed Work, you must include a
+copy of this license.
+
+No License to Trademarks  
+This license does not grant you rights to the Licensor’s trademarks,
+including the name “GAT” or “Grid Analysis Toolkit,” except for
+attribution as required.
+
+Patent License  
+The Licensor grants you a non-exclusive, worldwide, royalty-free patent
+license for noncommercial use of any patent claims they license that
+are necessarily infringed by the Licensed Work.
+
+No Warranty  
+The Licensed Work is provided “as is” and without warranty.
+
+Limitation of Liability  
+To the maximum extent permitted by applicable law, the Licensor is not
+liable for any damages arising out of your use of the Licensed Work.
+
+Termination  
+If you violate the terms of this license, your rights terminate
+automatically. You may regain your license only through express written
+permission from the Licensor.
+
+Future Commercial Licensing  
+For commercial licensing or production use of GAT, including hosted
+offerings, enterprise features, or embedded deployments, please contact:
+[commercial-contact-email-or-url]
+
+Full License Text  
+The official text of the PolyForm Shield License 1.0.0 is available at:
+https://polyformproject.org/licenses/shield/1.0.0
