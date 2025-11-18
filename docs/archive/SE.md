@@ -1,4 +1,6 @@
-# State Estimation (WLS)
+# State Estimation (WLS) — archived
+
+> **Note:** The up-to-date state-estimation guide lives at `docs/guide/state_estimation.md`. Use this file only for historical reference.
 
 Run the `gat se wls` command to perform a weighted least-squares estimation of bus angles given DC-style measurements (branch flows or bus injections).
 

@@ -310,7 +310,7 @@ Useful for MCP agents and for browsing functionality.
 * More dataset importers (PSSE/CIM variants)
 * Improved packaging & distribution
 
-See `ROADMAP.md` for the authoritative project plan.
+See `docs/ROADMAP.md` for the authoritative project plan.
 
 ---
 

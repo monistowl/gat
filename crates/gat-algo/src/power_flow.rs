@@ -144,6 +144,13 @@ pub fn ac_power_flow(network: &Network, tol: f64, max_iter: u32) -> Result<()> {
     Ok(())
 }
 
+/// Solve a linearized (DC) optimal power flow as an LP over generator
+/// dispatch variables with optional piecewise-linear costs. The formulation
+/// matches the standard single-period DC-OPF used in market clearing and
+/// follows the small-angle, lossless network model summarized by Stott,
+/// Jardim, and Alsaç, “DC Power Flow Revisited” (IEEE Trans. Power Systems,
+/// 2009, doi:10.1109/TPWRS.2009.2034561). Callers can pick from the
+/// available LP backends exposed by `good_lp`.
 pub fn dc_optimal_power_flow(
     network: &Network,
     solver: &dyn SolverBackend,
@@ -279,6 +286,10 @@ where
     problem
 }
 
+/// Run N-1 DC contingency analysis by re-running the linear power-flow solve
+/// for each single-line outage in parallel. This mirrors the screening step
+/// described in classic security-assessment workflows (e.g., Stott & Alsaç,
+/// “Security Analysis and Optimization,” Proc. IEEE, 1974, doi:10.1109/PROC.1974.9549).
 pub fn n_minus_one_dc(
     network: &Network,
     solver: Arc<dyn SolverBackend>,
@@ -553,6 +564,12 @@ pub fn ac_optimal_power_flow(
     Ok(())
 }
 
+/// Weighted least-squares (WLS) state estimation on bus voltage angles. The
+/// Jacobian (H) is built from active-power flow/injection linearizations and
+/// angle/voltage pseudo-measurements, then the normal equations HᵀWH·Δθ =
+/// HᵀW(z - h(x)) are solved with the configured backend. See Schweppe and
+/// Wildes, “Power System Static-State Estimation” (IEEE Trans. PAS, 1970,
+/// doi:10.1109/TPAS.1970.292696) for the canonical formulation.
 pub fn state_estimation_wls(
     network: &Network,
     solver: &dyn SolverBackend,
@@ -615,6 +632,9 @@ pub fn state_estimation_wls(
         }
     }
 
+    // Classic weighted least squares estimator (Gauss–Newton step on the
+    // normal equations) following Schweppe and Wildes, “Power System
+    // Static-State Estimation” (IEEE Trans. PAS, 1970, doi:10.1109/TPAS.1970.292696).
     let solution = solve_linear_system(&normal, &rhs, solver)?;
     let mut angle_map = HashMap::new();
     angle_map.insert(slack_bus, 0.0);
@@ -818,6 +838,13 @@ fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {
     injections
 }
 
+/// Build the B′ susceptance matrix used by linearized (DC) power flow.
+///
+/// The entries follow the standard branch-incidence accumulation from the
+/// DC approximation—each line contributes a `-1/x` coupling off-diagonal and
+/// the same magnitude on the diagonal—mirroring the formulation in Stott,
+/// Jardim, and Alsaç, “DC Power Flow Revisited” (IEEE Trans. Power Systems,
+/// 2009, doi:10.1109/TPWRS.2009.2034561).
 fn build_bus_susceptance(
     network: &Network,
     skip_branch: Option<i64>,
@@ -859,6 +886,11 @@ fn build_bus_susceptance(
     (bus_ids, id_to_index, susceptance)
 }
 
+/// Solve the reduced B′·θ = P system for bus voltage angles under the DC
+/// approximation, selecting the first bus as the slack reference. This is a
+/// Kron-reduced linear solve: the slack bus row/column are removed before
+/// solving and reinserted with angle 0 rad. The approach aligns with the
+/// small-angle, lossless model described by Stott, Jardim, and Alsaç (doi:10.1109/TPWRS.2009.2034561).
 fn compute_dc_angles(
     network: &Network,
     injections: &HashMap<usize, f64>,
@@ -899,6 +931,11 @@ fn compute_dc_angles(
     Ok(angles)
 }
 
+/// Dispatch to the configured linear solver backend to solve A·x = b.
+///
+/// All PF/OPF/state-estimation paths build dense normal equations before
+/// calling this hook, so the backend can remain pluggable (Gaussian
+/// elimination, sparse, etc.) without changing the algorithm scaffolding.
 fn solve_linear_system(
     matrix: &[Vec<f64>],
     injections: &[f64],

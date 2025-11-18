@@ -1,6 +1,8 @@
 #GAT: GRID ANALYSIS TOOLKIT
 GAT is a CLI-driven suite of tools for working with power grid analytics data.
 
+> **Note:** This is an archived snapshot. `docs/ROADMAP.md` is the canonical roadmap with status notes on implemented features.
+
 # 0) Workspace layout (monorepo)
 
 ```
