@@ -4,6 +4,7 @@ use gat_core::{graph_utils, solver::SolverKind};
 use gat_io::{importers, validate};
 use rayon::ThreadPoolBuilder;
 use std::env;
+use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
@@ -153,16 +154,15 @@ fn main() {
                     match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => match graph_utils::graph_stats(&network) {
                             Ok(stats) => {
+                                println!("Graph statistics for {grid_file}:");
+                                println!("  Nodes         : {}", stats.node_count);
+                                println!("  Edges         : {}", stats.edge_count);
+                                println!("  Components    : {}", stats.connected_components);
                                 println!(
-                                    "Nodes: {}\nEdges: {}\nComponents: {}\nDegree[min/avg/max]: {}/{:.2}/{}\nDensity: {:.4}",
-                                    stats.node_count,
-                                    stats.edge_count,
-                                    stats.connected_components,
-                                    stats.min_degree,
-                                    stats.avg_degree,
-                                    stats.max_degree,
-                                    stats.density
+                                    "  Degree [min/avg/max]: {}/{:.2}/{}",
+                                    stats.min_degree, stats.avg_degree, stats.max_degree
                                 );
+                                println!("  Density       : {:.4}", stats.density);
                                 Ok(())
                             }
                             Err(e) => Err(e),
@@ -201,13 +201,29 @@ fn main() {
                         Err(e) => Err(e),
                     }
                 }
-                GraphCommands::Export { grid_file, format } => {
-                    info!("Exporting graph in {} format", format);
+                GraphCommands::Export {
+                    grid_file,
+                    format,
+                    out,
+                } => {
+                    info!("Exporting graph from {} in {} format", grid_file, format);
                     match importers::load_grid_from_arrow(grid_file.as_str()) {
                         Ok(network) => match graph_utils::export_graph(&network, format) {
                             Ok(dot) => {
-                                println!("{}", dot);
-                                Ok(())
+                                if let Some(path) = out {
+                                    if let Err(e) = fs::write(path, &dot) {
+                                        Err(anyhow::anyhow!(
+                                            "writing graph export to {}: {e}",
+                                            path
+                                        ))
+                                    } else {
+                                        println!("Graph exported to {}", path);
+                                        Ok(())
+                                    }
+                                } else {
+                                    println!("{}", dot);
+                                    Ok(())
+                                }
                             }
                             Err(e) => Err(e),
                         },

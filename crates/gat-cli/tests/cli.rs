@@ -2,7 +2,7 @@ use assert_cmd::Command;
 use predicates::prelude::*;
 use serde_json::{json, to_string_pretty};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use uuid::Uuid;
 
@@ -13,6 +13,24 @@ fn repo_path(relative: &str) -> PathBuf {
         .parent()
         .unwrap()
         .join(relative)
+}
+
+fn import_ieee14_arrow(tmp: &Path) -> PathBuf {
+    let arrow_path = tmp.join("case.arrow");
+    let case_file = repo_path("test_data/matpower/ieee14.case");
+    let mut import = Command::cargo_bin("gat-cli").unwrap();
+    import
+        .args([
+            "import",
+            "matpower",
+            "--m",
+            case_file.to_str().unwrap(),
+            "-o",
+            arrow_path.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    arrow_path
 }
 
 #[test]
@@ -166,4 +184,53 @@ fn gat_dataset_hiren_list_and_fetch() {
         .success()
         .stdout(predicate::str::contains("HIREN case case_big copied"));
     assert!(out.join("case_big.matpower").exists());
+}
+
+#[test]
+fn gat_graph_stats_runs() {
+    let tmp = tempdir().unwrap();
+    let arrow = import_ieee14_arrow(tmp.path());
+
+    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    cmd.args(["graph", "stats", arrow.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Graph statistics"))
+        .stdout(predicate::str::contains("Nodes"));
+}
+
+#[test]
+fn gat_graph_islands_runs() {
+    let tmp = tempdir().unwrap();
+    let arrow = import_ieee14_arrow(tmp.path());
+
+    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    cmd.args(["graph", "islands", arrow.to_str().unwrap(), "--emit"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Island"))
+        .stdout(predicate::str::contains("Node"));
+}
+
+#[test]
+fn gat_graph_export_writes_file() {
+    let tmp = tempdir().unwrap();
+    let arrow = import_ieee14_arrow(tmp.path());
+    let out_file = tmp.path().join("topo.dot");
+
+    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    cmd.args([
+        "graph",
+        "export",
+        arrow.to_str().unwrap(),
+        "--format",
+        "graphviz",
+        "--out",
+        out_file.to_str().unwrap(),
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("Graph exported to"));
+    let contents = fs::read_to_string(&out_file).unwrap();
+    assert!(contents.contains("graph"));
 }

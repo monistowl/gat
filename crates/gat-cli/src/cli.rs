@@ -131,8 +131,11 @@ pub enum GraphCommands {
         /// Path to the grid data file (Arrow format)
         grid_file: String,
         /// Output format (e.g., graphviz)
-        #[arg(long)]
+        #[arg(long, default_value = "graphviz")]
         format: String,
+        /// Optional output file path
+        #[arg(short, long)]
+        out: Option<String>,
     },
 }
 
