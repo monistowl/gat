@@ -338,6 +338,7 @@ Resample a telemetry series
   Default value: `value`
 * `--rule <RULE>` — Resampling rule (e.g., 5s, 1m, 1h)
 * `-o`, `--out <OUT>` — Output file path (CSV or Parquet)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
 
 
 
@@ -358,6 +359,7 @@ Join two telemetry datasets
 
   Default value: `timestamp`
 * `-o`, `--out <OUT>` — Output file path (CSV or Parquet)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
 
 
 
@@ -383,6 +385,7 @@ Aggregate values by a column
 
   Default value: `sum`
 * `-o`, `--out <OUT>` — Output file path (CSV or Parquet)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
 
 
 
@@ -489,6 +492,7 @@ Run WLS state estimation
 
   Default value: `gauss`
 * `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
+* `--slack-bus <SLACK_BUS>` — Slack bus ID (defaults to lowest bus ID)
 
 
 

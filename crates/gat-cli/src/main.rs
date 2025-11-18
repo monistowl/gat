@@ -232,6 +232,7 @@ fn main() {
                     out,
                     threads,
                     solver,
+                    lp_solver,
                     out_partitions,
                 } => {
                     configure_threads(&threads);
@@ -239,6 +240,7 @@ fn main() {
                     (|| -> anyhow::Result<()> {
                         let solver_kind = SolverKind::from_str(&solver)?;
                         let solver_impl = solver_kind.build_solver();
+                        let _ = lp_solver;
                         let partitions = parse_partitions(out_partitions.as_ref());
                         let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
                         let out_path = Path::new(out);
@@ -274,6 +276,7 @@ fn main() {
                     max_iter,
                     threads,
                     solver,
+                    lp_solver,
                     out_partitions,
                 } => {
                     configure_threads(&threads);
@@ -284,6 +287,7 @@ fn main() {
                     (|| -> anyhow::Result<()> {
                         let solver_kind = SolverKind::from_str(&solver)?;
                         let solver_impl = solver_kind.build_solver();
+                        let _ = lp_solver;
                         let partitions = parse_partitions(out_partitions.as_ref());
                         let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
                         let out_path = Path::new(out);
@@ -388,21 +392,63 @@ fn main() {
                     value,
                     rule,
                     out,
+                    out_partitions,
                 } => {
                     info!(
                         "Resampling {} ({}/{}) every {} -> {}",
                         input, timestamp, value, rule, out
                     );
-                    gat_ts::resample_timeseries(input, timestamp, value, rule, out)
+                    let partitions = parse_partitions(out_partitions.as_ref());
+                    let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                    let res = gat_ts::resample_timeseries(
+                        input,
+                        timestamp,
+                        value,
+                        rule,
+                        out,
+                        &partitions,
+                    );
+                    if res.is_ok() {
+                        record_run(
+                            out,
+                            "ts resample",
+                            &[
+                                ("input", input),
+                                ("timestamp", timestamp),
+                                ("value", value),
+                                ("rule", rule),
+                                ("out", out),
+                                ("out_partitions", partition_spec.as_str()),
+                            ],
+                        );
+                    }
+                    res
                 }
                 TsCommands::Join {
                     left,
                     right,
                     on,
                     out,
+                    out_partitions,
                 } => {
                     info!("Joining {} and {} on {} -> {}", left, right, on, out);
-                    gat_ts::join_timeseries(left, right, on, out)
+                    let partitions = parse_partitions(out_partitions.as_ref());
+                    let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                    let res = gat_ts::join_timeseries(left, right, on, out, &partitions);
+                    if res.is_ok() {
+                        record_run(
+                            out,
+                            "ts join",
+                            &[
+                                ("left", left),
+                                ("right", right),
+                                ("on", on),
+                                ("out", out),
+                                ("out_partitions", partition_spec.as_str()),
+                            ],
+                        );
+                    }
+                    res
                 }
                 TsCommands::Agg {
                     input,
@@ -410,12 +456,31 @@ fn main() {
                     value,
                     agg,
                     out,
+                    out_partitions,
                 } => {
                     info!(
                         "Aggregating {} by {} ({}) using {} -> {}",
                         input, group, value, agg, out
                     );
-                    gat_ts::aggregate_timeseries(input, group, value, agg, out)
+                    let partitions = parse_partitions(out_partitions.as_ref());
+                    let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                    let res =
+                        gat_ts::aggregate_timeseries(input, group, value, agg, out, &partitions);
+                    if res.is_ok() {
+                        record_run(
+                            out,
+                            "ts agg",
+                            &[
+                                ("input", input),
+                                ("group", group),
+                                ("value", value),
+                                ("agg", agg),
+                                ("out", out),
+                                ("out_partitions", partition_spec.as_str()),
+                            ],
+                        );
+                    }
+                    res
                 }
             };
 

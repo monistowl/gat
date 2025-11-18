@@ -51,6 +51,13 @@ pub fn persist_dataframe(
         ParquetWriter::new(&mut file)
             .finish(df)
             .context("writing Parquet output")?;
+        if let Some(parent) = output.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("creating output directory '{}'", parent.display()))?;
+        }
+        fs::copy(&staged, output).with_context(|| {
+            format!("copying {} to {}", staged.display(), output.display())
+        })?;
     } else {
         write_partitions(df, &staged, partitions)?;
     }

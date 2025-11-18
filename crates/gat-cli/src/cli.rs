@@ -177,6 +177,9 @@ pub enum PowerFlowCommands {
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
         solver: String,
+        /// LP solver for the cost minimization (clarabel, coin_cbc, highs)
+        #[arg(long, default_value = "clarabel")]
+        lp_solver: String,
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
@@ -228,6 +231,9 @@ pub enum TsCommands {
         /// Output file path (CSV or Parquet)
         #[arg(short, long)]
         out: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
     /// Join two telemetry datasets
     Join {
@@ -241,6 +247,9 @@ pub enum TsCommands {
         /// Output file path (CSV or Parquet)
         #[arg(short, long)]
         out: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
     /// Aggregate values by a column
     Agg {
@@ -258,6 +267,9 @@ pub enum TsCommands {
         /// Output file path (CSV or Parquet)
         #[arg(short, long)]
         out: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
     },
 }
 
@@ -393,6 +405,9 @@ pub enum OpfCommands {
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
         solver: String,
+        /// LP solver for the cost minimization (clarabel, coin_cbc, highs)
+        #[arg(long, default_value = "clarabel")]
+        lp_solver: String,
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
