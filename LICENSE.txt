@@ -1,9 +1,9 @@
 PolyForm Shield License 1.0.0
 
-Licensor: [Your Name or Organization]
+Licensor: Tom Wilson
 Licensed Work: "GAT" (Grid Analysis Toolkit)
-Licensor Entity: [Your Name or Org Again]
-Effective Date: [YYYY-MM-DD]
+Licensor Entity: Tom Wilson
+Effective Date: 2025-11-18
 
 Acceptance  
 By using the Licensed Work, you agree to the terms of this license.
@@ -79,7 +79,7 @@ permission from the Licensor.
 Future Commercial Licensing  
 For commercial licensing or production use of GAT, including hosted
 offerings, enterprise features, or embedded deployments, please contact:
-[commercial-contact-email-or-url]
+monistowl@gmail.com
 
 Full License Text  
 The official text of the PolyForm Shield License 1.0.0 is available at:
