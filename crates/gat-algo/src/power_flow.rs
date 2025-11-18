@@ -118,6 +118,9 @@ pub fn dc_power_flow(
     output_file: &Path,
     partitions: &[String],
 ) -> Result<()> {
+    // The DC power flow linearizes the AC equations by assuming small voltage angle differences and
+    // ignoring losses, so we solve B' θ = P to get branch flows quickly. This is the same classical
+    // model described in doi:10.1109/TPWRS.2007.899019.
     let injections = default_pf_injections(network);
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC power flow")?;
@@ -155,6 +158,8 @@ pub fn dc_optimal_power_flow(
     piecewise_csv: Option<&str>,
     lp_solver: &LpSolverKind,
 ) -> Result<()> {
+    // DC OPF is formulated as a linear program that minimizes dispatch cost under flow/demand
+    // balance constraints. See doi:10.1109/TPWRS.2014.2363333 for a canonical LP-based treatment.
     let costs = load_costs(cost_csv)?;
     let limits = load_limits(limits_csv)?;
     if limits.is_empty() {
