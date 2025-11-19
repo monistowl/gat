@@ -142,6 +142,59 @@ fn gat_runs_resume_displays_manifest() {
 }
 
 #[test]
+fn gat_runs_list_reports_manifests() {
+    let entry = json!({
+        "run_id": Uuid::new_v4().to_string(),
+        "command": "pf ac",
+        "version": "0.1.0",
+        "timestamp": "1980-01-01T00:00:00Z",
+        "outputs": ["/tmp/dc.parquet"],
+        "params": []
+    });
+    let tmp = tempdir().unwrap();
+    let path = tmp.path().join("run.json");
+    fs::write(&path, to_string_pretty(&entry).unwrap()).unwrap();
+
+    let mut cmd = cargo_bin_cmd!("gat-cli");
+    cmd.args(["runs", "list", "--root", tmp.path().to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("RUN ID"))
+        .stdout(predicate::str::contains("pf ac"));
+}
+
+#[test]
+fn gat_runs_describe_accepts_run_id_alias() {
+    let run_id = Uuid::new_v4().to_string();
+    let entry = json!({
+        "run_id": run_id,
+        "command": "pf dc",
+        "version": "0.1.0",
+        "timestamp": "1980-01-01T00:00:00Z",
+        "outputs": ["/tmp/dc.parquet"],
+        "params": []
+    });
+    let tmp = tempdir().unwrap();
+    let path = tmp.path().join("run-0.json");
+    fs::write(&path, to_string_pretty(&entry).unwrap()).unwrap();
+
+    let mut cmd = cargo_bin_cmd!("gat-cli");
+    cmd.args([
+        "runs",
+        "describe",
+        run_id.as_str(),
+        "--root",
+        tmp.path().to_str().unwrap(),
+        "--format",
+        "json",
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("\"command\""))
+    .stdout(predicate::str::contains("pf dc"));
+}
+
+#[test]
 fn gat_dataset_rts_gmlc_fetches_files() {
     let tmp = tempdir().unwrap();
     let out = tmp.path().join("rts");

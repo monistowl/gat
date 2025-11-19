@@ -23,6 +23,8 @@ uuid = { version = "1.5", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
 schemars = "0.8"
+walkdir = "2"
+tabwriter = "1.2"
 
 [dev-dependencies]
 assert_cmd = "2"

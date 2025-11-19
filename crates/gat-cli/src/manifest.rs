@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
 pub struct ManifestEntry {
     pub run_id: String,
     pub command: String,
@@ -22,20 +22,20 @@ pub struct ManifestEntry {
     pub chunk_map: Vec<ChunkState>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
 pub struct InputArtifact {
     pub path: String,
     pub hash: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
 pub struct ChunkState {
     pub id: String,
     pub status: String,
     pub completed_at: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
 pub struct Param {
     pub name: String,
     pub value: String,

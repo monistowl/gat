@@ -1,4 +1,5 @@
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -335,9 +336,32 @@ pub enum TuiCommands {
 
 #[derive(Subcommand, Debug)]
 pub enum RunsCommands {
+    /// List recorded runs
+    List {
+        /// Root path(s) to scan for run manifests
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Output format for the listing
+        #[arg(long, value_enum, default_value_t = RunFormat::Plain)]
+        format: RunFormat,
+    },
+    /// Describe a recorded run
+    Describe {
+        /// Manifest path or run_id alias
+        target: String,
+        /// Root path where manifests are scanned (used when target is a run_id)
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Output format for the description
+        #[arg(long, value_enum, default_value_t = RunFormat::Plain)]
+        format: RunFormat,
+    },
     /// Resume a long run from a manifest
     Resume {
-        /// Manifest JSON path
+        /// Root path where manifests are scanned (used when the manifest argument is a run_id)
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+        /// Manifest JSON path or run_id alias
         manifest: String,
         /// Actually re-run the command recorded in the manifest
         #[arg(long)]
@@ -494,6 +518,12 @@ pub enum SeCommands {
         #[arg(long)]
         slack_bus: Option<usize>,
     },
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
+pub enum RunFormat {
+    Plain,
+    Json,
 }
 
 pub fn build_cli_command() -> clap::Command {

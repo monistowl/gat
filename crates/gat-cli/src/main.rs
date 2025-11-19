@@ -6,23 +6,27 @@ use gat_io::{importers, validate};
 use rayon::ThreadPoolBuilder;
 use std::env;
 use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
+use tabwriter::TabWriter;
 use tracing::{error, info};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
+mod runs;
 use dataset::*;
 use gat_cli::{
     cli::{
         Cli, Commands, DatasetCommands, GraphCommands, GuiCommands, HirenCommands, ImportCommands,
-        Nminus1Commands, OpfCommands, PowerFlowCommands, RtsGmlcCommands, RunsCommands, SeCommands,
-        Sup3rccCommands, TsCommands, TuiCommands, VizCommands,
+        Nminus1Commands, OpfCommands, PowerFlowCommands, RtsGmlcCommands, RunFormat, RunsCommands,
+        SeCommands, Sup3rccCommands, TsCommands, TuiCommands, VizCommands,
     },
     manifest,
 };
 use gat_viz::layout::layout_network;
-use manifest::{read_manifest, record_manifest, ManifestEntry};
+use manifest::{record_manifest, ManifestEntry};
+use runs::{discover_runs, resolve_manifest, summaries, RunRecord};
 use serde_json;
 
 fn configure_threads(spec: &str) {
@@ -108,6 +112,40 @@ fn describe_manifest(manifest: &ManifestEntry) {
             println!("  {} -> {} ({})", chunk.id, chunk.status, when);
         }
     }
+}
+
+fn run_list(root: &Path, format: RunFormat) -> anyhow::Result<()> {
+    let records = discover_runs(root)?;
+    match format {
+        RunFormat::Plain => print_run_table(&records),
+        RunFormat::Json => print_run_json(&records),
+    }
+}
+
+fn print_run_table(records: &[RunRecord]) -> anyhow::Result<()> {
+    let mut writer = TabWriter::new(io::stdout());
+    writeln!(writer, "RUN ID\tCOMMAND\tTIMESTAMP\tVERSION\tMANIFEST")?;
+    for record in records {
+        writeln!(
+            writer,
+            "{}\t{}\t{}\t{}\t{}",
+            record.manifest.run_id,
+            record.manifest.command,
+            record.manifest.timestamp,
+            record.manifest.version,
+            record.path.display()
+        )?;
+    }
+    writer.flush()?;
+    Ok(())
+}
+
+fn print_run_json(records: &[RunRecord]) -> anyhow::Result<()> {
+    let runs = summaries(records);
+    serde_json::to_writer_pretty(io::stdout(), &runs)
+        .map_err(|err| anyhow::anyhow!("serializing run list to JSON: {err}"))?;
+    println!();
+    Ok(())
 }
 
 const TUI_CONFIG_TEMPLATE: &str = "\
@@ -694,26 +732,38 @@ fn main() {
         }
         Some(Commands::Runs { command }) => {
             let result = match command {
-                RunsCommands::Resume { manifest, execute } => {
-                    match read_manifest(Path::new(&manifest)) {
-                        Ok(manifest) => {
-                            describe_manifest(&manifest);
-                            if *execute {
-                                match resume_manifest(&manifest) {
-                                    Ok(_) => {
-                                        println!("Manifest {} resumed", manifest.run_id);
-                                        Ok(())
-                                    }
-                                    Err(err) => Err(err),
-                                }
-                            } else {
-                                println!("Manifest {} ready (not executed)", manifest.run_id);
-                                Ok(())
-                            }
+                RunsCommands::List { root, format } => run_list(root.as_path(), *format),
+                RunsCommands::Describe {
+                    target,
+                    root,
+                    format,
+                } => (|| -> anyhow::Result<()> {
+                    let record = resolve_manifest(root.as_path(), target.as_str())?;
+                    match format {
+                        RunFormat::Plain => describe_manifest(&record.manifest),
+                        RunFormat::Json => {
+                            serde_json::to_writer_pretty(io::stdout(), &record.manifest)
+                                .map_err(|err| anyhow::anyhow!("serializing manifest: {err}"))?;
+                            println!();
                         }
-                        Err(e) => Err(e),
                     }
-                }
+                    Ok(())
+                })(),
+                RunsCommands::Resume {
+                    root,
+                    manifest,
+                    execute,
+                } => (|| -> anyhow::Result<()> {
+                    let record = resolve_manifest(root.as_path(), manifest.as_str())?;
+                    describe_manifest(&record.manifest);
+                    if *execute {
+                        resume_manifest(&record.manifest)?;
+                        println!("Manifest {} resumed", record.manifest.run_id);
+                    } else {
+                        println!("Manifest {} ready (not executed)", record.manifest.run_id);
+                    }
+                    Ok(())
+                })(),
             };
             match result {
                 Ok(_) => info!("Runs command successful!"),

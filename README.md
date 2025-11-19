@@ -210,6 +210,8 @@ gat runs resume run.json --execute
 
 This makes CI, batch jobs, and fan-out pipelines reproducible.
 
+Use `gat runs list --root <dir>` to inspect all saved manifests and `gat runs describe <run_id> --root <dir> --format json` when you need the metadata before resuming.
+
 ---
 
 # 🏎 Why Rust & Cluster Fan-Outs?
