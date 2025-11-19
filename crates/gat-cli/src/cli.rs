@@ -1,4 +1,5 @@
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap_complete::Shell;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -33,6 +34,15 @@ pub enum Commands {
     Graph {
         #[command(subcommand)]
         command: GraphCommands,
+    },
+    /// Generate shell completion scripts
+    Completions {
+        /// Shell type
+        #[arg(value_enum)]
+        shell: Shell,
+        /// Write output to a file instead of stdout
+        #[arg(short, long)]
+        out: Option<PathBuf>,
     },
     /// Power flow solvers
     Pf {

@@ -1,4 +1,5 @@
 use clap::Parser;
+use clap_complete::{generate, Shell};
 use dirs::config_dir;
 use gat_algo::{power_flow, LpSolverKind};
 use gat_core::{graph_utils, solver::SolverKind};
@@ -18,9 +19,10 @@ mod runs;
 use dataset::*;
 use gat_cli::{
     cli::{
-        Cli, Commands, DatasetCommands, GraphCommands, GuiCommands, HirenCommands, ImportCommands,
-        Nminus1Commands, OpfCommands, PowerFlowCommands, RtsGmlcCommands, RunFormat, RunsCommands,
-        SeCommands, Sup3rccCommands, TsCommands, TuiCommands, VizCommands,
+        build_cli_command, Cli, Commands, DatasetCommands, GraphCommands, GuiCommands,
+        HirenCommands, ImportCommands, Nminus1Commands, OpfCommands, PowerFlowCommands,
+        RtsGmlcCommands, RunFormat, RunsCommands, SeCommands, Sup3rccCommands, TsCommands,
+        TuiCommands, VizCommands,
     },
     manifest,
 };
@@ -145,6 +147,22 @@ fn print_run_json(records: &[RunRecord]) -> anyhow::Result<()> {
     serde_json::to_writer_pretty(io::stdout(), &runs)
         .map_err(|err| anyhow::anyhow!("serializing run list to JSON: {err}"))?;
     println!();
+    Ok(())
+}
+
+fn generate_completions(shell: Shell, out: Option<&Path>) -> anyhow::Result<()> {
+    let mut cmd = build_cli_command();
+    if let Some(path) = out {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let mut file = fs::File::create(path)?;
+        generate(shell, &mut cmd, "gat", &mut file);
+        println!("Wrote {shell:?} completion to {}", path.display());
+    } else {
+        let stdout = &mut io::stdout();
+        generate(shell, &mut cmd, "gat", stdout);
+    }
     Ok(())
 }
 
@@ -321,6 +339,13 @@ fn main() {
             match result {
                 Ok(_) => info!("Graph command successful!"),
                 Err(e) => error!("Graph command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Completions { shell, out }) => {
+            let result = generate_completions(*shell, out.as_deref());
+            match result {
+                Ok(_) => info!("Completions generated"),
+                Err(e) => error!("Completions generation failed: {:?}", e),
             }
         }
         Some(Commands::Pf { command }) => {

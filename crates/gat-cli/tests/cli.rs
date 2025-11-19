@@ -266,6 +266,15 @@ fn gat_graph_islands_runs() {
 }
 
 #[test]
+fn gat_completions_outputs_script() {
+    cargo_bin_cmd!("gat-cli")
+        .args(["completions", "bash"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("_gat()"));
+}
+
+#[test]
 fn gat_graph_export_writes_file() {
     let tmp = tempdir().unwrap();
     let arrow = import_ieee14_arrow(tmp.path());

@@ -43,6 +43,23 @@ These tools make documentation changes and CLI workflows easier:
 * `beads-mcp` — so MCP-compatible agents can inspect docs via `gat-mcp-docs`.
 * `jq` — required by `scripts/package.sh`.
 
+### 2.1 Shell completions
+
+Generate shell completions once `gat` is installed:
+
+```bash
+gat completions bash | sudo tee /etc/bash_completion.d/gat > /dev/null
+gat completions zsh --out ~/.local/share/zsh/site-functions/_gat
+gat completions fish --out ~/.config/fish/completions/gat.fish
+gat completions powershell --out ~/gat.ps1
+```
+
+Alternatively source them on the fly:
+
+```bash
+source <(gat completions bash)
+```
+
 ### 3. Build GAT
 
 ```bash
