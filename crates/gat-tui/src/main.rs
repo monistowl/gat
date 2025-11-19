@@ -1,4 +1,5 @@
 use anyhow::Result;
+use atty::Stream;
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{
@@ -10,6 +11,11 @@ use ratatui::Terminal;
 use std::io;
 
 fn main() -> Result<()> {
+    if !atty::is(Stream::Stdout) {
+        eprintln!("gat-tui requires an interactive terminal (stdout is not a TTY).");
+        eprintln!("Run `gat-gui` if you only need a rendered summary without a terminal.");
+        return Ok(());
+    }
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
