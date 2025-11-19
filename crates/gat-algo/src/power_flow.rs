@@ -1437,11 +1437,13 @@ fn compute_p(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // GaussSolver provides the reference dense solver used in unit tests to keep behavior deterministic.
     use gat_core::solver::GaussSolver;
     use gat_core::{Branch, BranchId, Bus, BusId, Edge, Network, Node};
     use good_lp::variables;
     use std::fs;
     use std::sync::Arc;
+    // `tempdir` lets tests stage temporary Parquet files without clobbering workspace fixtures.
     use tempfile::tempdir;
 
     fn build_simple_network() -> Network {
@@ -1468,6 +1470,7 @@ mod tests {
                 reactance: 0.1,
             }),
         );
+        // This simplest two-bus graph lets us sanity-check matrix assembly without trig regressions.
         network
     }
 
@@ -1507,6 +1510,7 @@ mod tests {
                 reactance: 0.1,
             }),
         );
+        // Parallel branches reveal that the susceptance sums correctly accumulate for each path.
         network
     }
 

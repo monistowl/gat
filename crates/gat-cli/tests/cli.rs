@@ -18,6 +18,7 @@ fn repo_path(relative: &str) -> PathBuf {
 fn import_ieee14_arrow(tmp: &Path) -> PathBuf {
     let arrow_path = tmp.join("case.arrow");
     let case_file = repo_path("test_data/matpower/ieee14.case");
+    // Import the canonical IEEE-14 case into Arrow so downstream CLI commands have a stable grid input.
     let mut import = cargo_bin_cmd!("gat-cli");
     import
         .args([
@@ -266,6 +267,7 @@ fn gat_dataset_hiren_list_and_fetch() {
 #[test]
 fn gat_dataset_public_list_shows_catalog() {
     let mut cmd = cargo_bin_cmd!("gat-cli");
+    // Verifies that the embedded public dataset catalog prints the expected IDs without spinning up downloads.
     cmd.args(["dataset", "public", "list"])
         .assert()
         .success()
@@ -276,6 +278,7 @@ fn gat_dataset_public_list_shows_catalog() {
 #[test]
 fn gat_dataset_public_list_filters_by_tag() {
     let mut cmd = cargo_bin_cmd!("gat-cli");
+    // Tag filtering ensures the lightweight catalog list remains queryable.
     cmd.args(["dataset", "public", "list", "--tag", "tutorial"])
         .assert()
         .success()
@@ -286,6 +289,7 @@ fn gat_dataset_public_list_filters_by_tag() {
 #[test]
 fn gat_dataset_public_describe_outputs_metadata() {
     let mut cmd = cargo_bin_cmd!("gat-cli");
+    // Describe ensures the CLI surfaces the full metadata before triggering downloads.
     cmd.args(["dataset", "public", "describe", "airtravel"])
         .assert()
         .success()
