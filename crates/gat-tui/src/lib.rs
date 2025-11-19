@@ -33,6 +33,8 @@ use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod catalog;
+use catalog::{catalog, DatasetEntry};
 mod demo_stats;
 use demo_stats::DemoStats;
 
@@ -239,6 +241,11 @@ pub struct App {
     command_editor: Editor,
     command_editor_visible: bool,
     command_editor_area: Option<Rect>,
+    dataset_index: usize,
+    analytics_grid: String,
+    analytics_source: usize,
+    analytics_sink: usize,
+    analytics_transfer: f64,
 }
 
 pub trait EventSource {
@@ -333,6 +340,11 @@ impl App {
             command_editor,
             command_editor_visible: false,
             command_editor_area: None,
+            dataset_index: 0,
+            analytics_grid: "test_data/matpower/ieee14.arrow".into(),
+            analytics_source: 1,
+            analytics_sink: 2,
+            analytics_transfer: 1.0,
         };
         app.reload_config(None);
         app
@@ -467,22 +479,28 @@ impl App {
     }
 
     fn start_live_run(&mut self) {
-        if self.live_run_handle.is_some() {
-            self.push_log("Live run already in progress");
-            return;
-        }
         if self.control.command.is_empty() {
             self.push_log("No live-run command configured");
             return;
         }
         let command_parts = self.control.command.clone();
-        let summary = command_parts.join(" ");
-        self.push_log(&format!("Starting live run: {}", summary));
+        let summary = format!("Live run: {}", command_parts.join(" "));
+        self.spawn_command(command_parts, summary);
+    }
+
+    fn spawn_command(&mut self, command_parts: Vec<String>, summary: String) {
+        if self.live_run_handle.is_some() {
+            self.push_log("Another run is already in progress");
+            return;
+        }
+        self.push_log(&format!("Starting {}", summary));
         let (sender, receiver) = mpsc::channel();
+        let command_clone = command_parts.clone();
+        let summary_clone = summary.clone();
         let handle = thread::spawn(move || {
-            sender.send(format!("> {}", summary)).ok();
-            let mut cmd = Command::new(&command_parts[0]);
-            for arg in command_parts.iter().skip(1) {
+            sender.send(format!("> {}", summary_clone)).ok();
+            let mut cmd = Command::new(&command_clone[0]);
+            for arg in command_clone.iter().skip(1) {
                 cmd.arg(arg);
             }
             match cmd.output() {
@@ -494,11 +512,13 @@ impl App {
                         sender.send(line.to_string()).ok();
                     }
                     sender
-                        .send(format!("Live run exited with {}", output.status))
+                        .send(format!("{} exited with {}", summary_clone, output.status))
                         .ok();
                 }
                 Err(err) => {
-                    sender.send(format!("Live run failed: {}", err)).ok();
+                    sender
+                        .send(format!("{} failed: {}", summary_clone, err))
+                        .ok();
                 }
             }
             drop(sender);
@@ -507,7 +527,7 @@ impl App {
             receiver,
             join_handle: Some(handle),
         });
-        self.live_run_status = Some("Running...".into());
+        self.live_run_status = Some(format!("Running {}", summary));
     }
 
     fn poll_live_run(&mut self) {
@@ -524,6 +544,111 @@ impl App {
                 }
             }
         }
+    }
+
+    fn dataset_entries(&self) -> &'static [DatasetEntry] {
+        catalog()
+    }
+
+    fn current_dataset(&self) -> Option<&DatasetEntry> {
+        let catalog = self.dataset_entries();
+        if catalog.is_empty() {
+            None
+        } else {
+            Some(&catalog[self.dataset_index % catalog.len()])
+        }
+    }
+
+    fn next_dataset(&mut self) {
+        let catalog = self.dataset_entries();
+        if catalog.is_empty() {
+            return;
+        }
+        self.dataset_index = (self.dataset_index + 1) % catalog.len();
+        self.push_log(&format!(
+            "Selected dataset {}",
+            catalog[self.dataset_index].id
+        ));
+    }
+
+    fn previous_dataset(&mut self) {
+        let catalog = self.dataset_entries();
+        if catalog.is_empty() {
+            return;
+        }
+        if self.dataset_index == 0 {
+            self.dataset_index = catalog.len() - 1;
+        } else {
+            self.dataset_index -= 1;
+        }
+        self.push_log(&format!(
+            "Selected dataset {}",
+            catalog[self.dataset_index].id
+        ));
+    }
+
+    fn launch_dataset_fetch(&mut self) {
+        if let Some(entry) = self.current_dataset() {
+            let summary = format!("gat dataset public fetch {}", entry.id);
+            let command_parts = vec![
+                "gat".into(),
+                "dataset".into(),
+                "public".into(),
+                "fetch".into(),
+                entry.id.into(),
+                "--out".into(),
+                "data/public".into(),
+            ];
+            self.spawn_command(command_parts, summary);
+        }
+    }
+
+    fn adjust_analytics_source(&mut self, delta: isize) {
+        let new = (self.analytics_source as isize + delta).max(1) as usize;
+        if new != self.analytics_source {
+            self.analytics_source = new;
+            self.push_log(&format!("Source bus {}", new));
+        }
+    }
+
+    fn adjust_analytics_sink(&mut self, delta: isize) {
+        let new = (self.analytics_sink as isize + delta).max(1) as usize;
+        if new != self.analytics_sink {
+            self.analytics_sink = new;
+            self.push_log(&format!("Sink bus {}", new));
+        }
+    }
+
+    fn adjust_analytics_transfer(&mut self, delta: f64) {
+        let new = (self.analytics_transfer + delta).max(0.1);
+        self.analytics_transfer = (new * 10.0).round() / 10.0;
+        self.push_log(&format!("Transfer size {:.1} MW", self.analytics_transfer));
+    }
+
+    fn launch_analytics_ptdf(&mut self) {
+        if self.analytics_grid.is_empty() {
+            self.push_log("Set analytics grid path before launching PTDF");
+            return;
+        }
+        let summary = format!(
+            "gat analytics ptdf {}→{}",
+            self.analytics_source, self.analytics_sink
+        );
+        let command_parts = vec![
+            "gat".into(),
+            "analytics".into(),
+            "ptdf".into(),
+            self.analytics_grid.clone(),
+            "--source".into(),
+            self.analytics_source.to_string(),
+            "--sink".into(),
+            self.analytics_sink.to_string(),
+            "--transfer".into(),
+            format!("{:.1}", self.analytics_transfer),
+            "--out".into(),
+            "out/ptdf.parquet".into(),
+        ];
+        self.spawn_command(command_parts, summary);
     }
 
     fn toggle_help(&mut self) {
@@ -694,6 +819,16 @@ where
                     RtKeyCode::Char('L') => app.reload_config(None),
                     RtKeyCode::Char('c') => app.open_command_editor(),
                     RtKeyCode::Char('e') => app.toggle_config_explorer(),
+                    RtKeyCode::Char('j') => app.next_dataset(),
+                    RtKeyCode::Char('k') => app.previous_dataset(),
+                    RtKeyCode::Char('F') => app.launch_dataset_fetch(),
+                    RtKeyCode::Char('+') => app.adjust_analytics_transfer(1.0),
+                    RtKeyCode::Char('-') => app.adjust_analytics_transfer(-1.0),
+                    RtKeyCode::Char('<') => app.adjust_analytics_source(-1),
+                    RtKeyCode::Char('>') => app.adjust_analytics_source(1),
+                    RtKeyCode::Char('(') => app.adjust_analytics_sink(-1),
+                    RtKeyCode::Char(')') => app.adjust_analytics_sink(1),
+                    RtKeyCode::Char('t') => app.launch_analytics_ptdf(),
                     _ => {}
                 }
             }
@@ -754,15 +889,19 @@ fn draw_ui(f: &mut Frame, app: &mut App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(7),
-            Constraint::Length(7),
+            Constraint::Length(8),
             Constraint::Length(6),
+            Constraint::Length(6),
+            Constraint::Length(5),
             Constraint::Min(6),
         ])
         .split(body_chunks[2]);
     render_control_panel(f, right_chunks[0], app);
-    render_config_preview(f, right_chunks[1], app);
-    render_live_run_status(f, right_chunks[2], app);
-    render_key_help(f, right_chunks[3]);
+    render_dataset_panel(f, right_chunks[1], app);
+    render_analytics_panel(f, right_chunks[2], app);
+    render_config_preview(f, right_chunks[3], app);
+    render_live_run_status(f, right_chunks[4], app);
+    render_key_help(f, right_chunks[5]);
 
     render_logs(f, chunks[2], app);
 
@@ -926,6 +1065,76 @@ fn render_demo_chart(f: &mut Frame, area: Rect, app: &App) {
     .x_axis(Axis::default().title("N firms").bounds([x_min, x_max]))
     .y_axis(Axis::default().title("Value"));
     f.render_widget(chart, area);
+}
+
+fn render_dataset_panel(f: &mut Frame, area: Rect, app: &App) {
+    let entries = app.dataset_entries();
+    if entries.is_empty() {
+        let block = Paragraph::new("No public datasets configured.")
+            .block(Block::default().borders(Borders::ALL).title("Datasets"));
+        f.render_widget(block, area);
+        return;
+    }
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(4), Constraint::Min(3)])
+        .split(area);
+    let rows: Vec<Row> = entries
+        .iter()
+        .enumerate()
+        .map(|(idx, entry)| {
+            let style = if idx == app.dataset_index {
+                Style::default().fg(Color::Black).bg(Color::Blue)
+            } else {
+                Style::default()
+            };
+            Row::new(vec![
+                Cell::from(entry.id),
+                Cell::from(entry.tags.join(", ")),
+            ])
+            .style(style)
+        })
+        .collect();
+    let table = Table::new(rows, [Constraint::Length(20), Constraint::Length(25)])
+        .header(Row::new(vec!["ID", "Tags"]).style(Style::default().fg(Color::Yellow)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Public datasets"),
+        )
+        .widths(&[Constraint::Length(20), Constraint::Length(25)]);
+    f.render_widget(table, sections[0]);
+    if let Some(entry) = app.current_dataset() {
+        let description =
+            Paragraph::new(Text::from(vec![Line::from(Span::raw(entry.description))]))
+                .block(Block::default().title("Description").borders(Borders::ALL))
+                .wrap(Wrap { trim: true });
+        f.render_widget(description, sections[1]);
+    }
+}
+
+fn render_analytics_panel(f: &mut Frame, area: Rect, app: &App) {
+    let lines = vec![
+        Line::from(Span::styled(
+            "PTDF analytics",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::raw(format!("Grid: {}", app.analytics_grid))),
+        Line::from(Span::raw(format!("Source bus: {}", app.analytics_source))),
+        Line::from(Span::raw(format!("Sink bus: {}", app.analytics_sink))),
+        Line::from(Span::raw(format!(
+            "Transfer: {:.1} MW",
+            app.analytics_transfer
+        ))),
+        Line::from(Span::raw(
+            "Keys: </> adjust source, () adjust sink, +/- transfer",
+        )),
+        Line::from(Span::raw("Press t to run gat analytics ptdf")),
+    ];
+    let block = Paragraph::new(Text::from(lines))
+        .block(Block::default().borders(Borders::ALL).title("Analytics"))
+        .wrap(Wrap { trim: true });
+    f.render_widget(block, area);
 }
 
 fn render_stage_graph(f: &mut Frame, area: Rect, app: &App) {
@@ -1109,12 +1318,17 @@ fn render_live_run_status(f: &mut Frame, area: Rect, app: &App) {
 fn render_key_help(f: &mut Frame, area: Rect) {
     let lines = vec![
         Line::from(Span::raw(
-            "Keys: ↑/↓ select, l manual log, q quit, c edit cmd",
+            "Keys: ↑/↓ select workflow, l manual log, q quit, c edit cmd",
         )),
         Line::from(Span::raw(
-            "Live run: r, config reload: L, help: h, config explorer: e, Enter loads",
+            "Live run: r, config reload: L, help: h, explorer: e, Enter loads",
         )),
-        Line::from(Span::raw("Use presets to pre-pack nice defaults")),
+        Line::from(Span::raw(
+            "Datasets: j/k cycle, F fetch selected dataset to data/public",
+        )),
+        Line::from(Span::raw(
+            "Analytics: t run PTDF, </> change source, () change sink, +/- change transfer",
+        )),
     ];
     let block = Paragraph::new(Text::from(lines))
         .block(Block::default().borders(Borders::ALL).title("Key hints"))
@@ -1158,6 +1372,12 @@ fn help_text(app: &App) -> Vec<Line<'_>> {
         )),
         Line::from(Span::raw("Press h to dismiss this help dialog.")),
         Line::from(Span::raw(app.preset_description())),
+        Line::from(Span::raw(
+            "Public datasets show metadata (j/k) and fetch via F to copy to data/public.",
+        )),
+        Line::from(Span::raw(
+            "PTDF analytics: t runs gat analytics ptdf with the configured params.",
+        )),
     ]
 }
 

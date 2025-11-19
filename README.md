@@ -346,6 +346,8 @@ The UI pulls its demo metrics from `out/demos/cournot/cournot_results.csv` (run 
 * A control panel (poll frequency, solver selection, verbosity, command preview) paired with an in-line command editor (press `c` and edit `cargo run -p gat-cli -- --help`, Ctrl+S to save) plus presets that brand configurations as “Baseline”, “Cournot Demo”, or “Dispatch Check”.
 * A config preview (auto reloads `~/.config/gat-tui/config.toml` with `L`) and a live-run status block that shows what the next `cargo run` command would do.
 * A built-in file explorer (`e` toggles it, Enter loads the highlighted `.toml`, Esc cancels) so you can browse configs without leaving the TUI.
+* A dataset browser: `j`/`k` scroll the catalog entries, `F` fetches the highlighted dataset into `data/public`, and the description panel summarizes tags and licenses.
+* A PTDF analytics pane that keeps track of the configured grid/source/sink/transfer and launches `gat analytics ptdf <grid>` runs via `t` (adjust the source with `</>`, the sink with `()` and the transfer with `+/-`).
 
 New controls: `↑`/`↓` to change the highlighted workflow, `l` for a manual log entry, `[`/`]` to tweak the polling rate, `s` to rotate solvers, `v` to toggle verbosity, `p`/`P` to cycle presets, `c` to edit the live command (Ctrl+S saves, Esc cancels), `r` to kick off the configured `gat-cli` command, `L` to reload the config file, `h` to open the help overlay, and `q` to quit.
 
