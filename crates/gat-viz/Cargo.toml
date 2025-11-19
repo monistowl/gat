@@ -1,0 +1,10 @@
+[package]
+name = "gat-viz"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fdg-sim = "0.9.1"
+gat-core = { path = "../gat-core" }
+petgraph = "0.6"
+serde = { version = "1.0", features = ["derive"] }
