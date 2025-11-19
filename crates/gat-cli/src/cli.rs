@@ -78,6 +78,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: DatasetCommands,
     },
+    /// Helpers for the terminal dashboard
+    Tui {
+        #[command(subcommand)]
+        command: TuiCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -315,6 +320,16 @@ pub enum DatasetCommands {
         path: String,
         #[arg(short, long)]
         out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TuiCommands {
+    /// Write a default gat-tui config file
+    Config {
+        /// Output path, defaults to ~/.config/gat-tui/config.toml
+        #[arg(short, long)]
+        out: Option<String>,
     },
 }
 

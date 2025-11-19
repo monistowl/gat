@@ -174,6 +174,8 @@ pub fn dc_optimal_power_flow(
 ) -> Result<()> {
     // DC OPF is formulated as a linear program that minimizes dispatch cost under flow/demand
     // balance constraints. See doi:10.1109/TPWRS.2014.2363333 for a canonical LP-based treatment.
+    // Each generator has a decision variable whose coefficient is either a constant marginal cost
+    // or a convex piecewise-linear approximation, and the sum of dispatches must match total load.
     let costs = load_costs(cost_csv)?;
     let limits = load_limits(limits_csv)?;
     if limits.is_empty() {
@@ -198,6 +200,7 @@ pub fn dc_optimal_power_flow(
     let mut piecewise_constraints: Vec<(Expression, Variable)> = Vec::new();
 
     for spec in limits {
+        // `var` represents a generator dispatch variable that is bounded by the unit's offered limits.
         let var = vars.add(variable().min(spec.pmin).max(spec.pmax));
         if let Some(segments) = piecewise.get(&spec.bus_id) {
             let (segment_cost, segment_sum) =
@@ -258,12 +261,14 @@ pub fn dc_optimal_power_flow(
 
     let mut injections = HashMap::new();
     for (bus_id, var, demand) in gen_vars.iter() {
+        // Subtract load from the solved dispatch to compute nodal injections for the power flow.
         let dispatch = solution.value(*var);
         injections.insert(*bus_id, dispatch - *demand);
     }
 
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC-OPF")?;
+    // After dispatch, re-run the linearized power flow to recover branch flows for reporting.
     enforce_branch_limits(&df, &branch_limits)?;
     persist_dataframe(
         &mut df,
@@ -291,6 +296,8 @@ fn add_dispatch_constraints<M>(
 where
     M: SolverModel,
 {
+    // Enforce that the sum of all dispatch variables equals total demand and
+    // that each piecewise segment sum tracks its main generator variable.
     problem = problem.with(constraint!(sum_dispatch.clone() == total_demand));
     for (segment_sum, gen_var) in piecewise_constraints {
         problem = problem.with(constraint!(segment_sum.clone() == *gen_var));
@@ -306,6 +313,9 @@ pub fn n_minus_one_dc(
     partitions: &[String],
     branch_limit_csv: Option<&str>,
 ) -> Result<()> {
+    // The N-1 contingency scan is a lightweight security assessment where each branch
+    // outage is simulated independently to verify that overloads do not arise under
+    // the DC approximation (cf. doi:10.1109/TPWRS.1987.4335095).
     let contingencies = load_contingencies(contingencies_csv)?;
     if contingencies.is_empty() {
         return Err(anyhow!(
@@ -359,6 +369,8 @@ pub fn n_minus_one_dc(
     let results: Vec<ContingencySummary> = contingencies
         .par_iter()
         .map(|contingency| -> Result<ContingencySummary> {
+            // Rayon's `par_iter` lets us evaluate each outage in parallel without
+            // manually managing locks, since every scenario only reads the shared data.
             let solver = Arc::clone(&solver);
             let (df, max_flow, min_flow) = branch_flow_dataframe(
                 network,
@@ -485,6 +497,10 @@ pub fn ac_optimal_power_flow(
     output_file: &Path,
     partitions: &[String],
 ) -> Result<()> {
+    // This routine mimics the Fast-Decoupled AC power flow (Stott & Alsac 1974, doi:10.1109/TPAS.1974.293985)
+    // by iteratively updating voltage angles using the B′ susceptance matrix to represent the full
+    // AC Jacobian in a reduced form; the slack bus is held constant and the remaining buses are solved
+    // via Newton-style mismatches.
     let (bus_ids, _, susceptance) = build_bus_susceptance(network, None);
     let injections = default_pf_injections(network);
     let bus_count = bus_ids.len();
@@ -519,6 +535,8 @@ pub fn ac_optimal_power_flow(
                 let p_calc =
                     (0..bus_count).fold(0.0, |acc, j| acc + susceptance[i][j] * angle_vec[j]);
                 let mismatch = p_spec - p_calc;
+                // The mismatch vector represents the difference between specified injections and
+                // the linearized injections predicted by the current angle estimate.
                 mismatches[i - 1] = mismatch;
                 max_mismatch = max_mismatch.max(mismatch.abs());
             }
@@ -529,6 +547,7 @@ pub fn ac_optimal_power_flow(
             }
             let delta = solve_linear_system(reduced, &mismatches, solver)
                 .context("solving AC Jacobian for angle updates")?;
+            // Solve B′ Δθ = mismatch to get the Newton step in the angle space.
             for i in 1..bus_count {
                 angle_vec[i] += delta[i - 1];
             }
@@ -581,6 +600,8 @@ pub fn state_estimation_wls(
     state_out: Option<&Path>,
     slack_bus: Option<usize>,
 ) -> Result<()> {
+    // State estimation builds the DC Jacobian, weights it by measurement confidence,
+    // and solves the normal equations (HᵗWH θ = HᵗWz) to recover the angle state vector.
     let measurements = load_measurements(measurements_csv)?;
     let measurement_count = measurements.len();
     if measurement_count == 0 {
@@ -628,6 +649,8 @@ pub fn state_estimation_wls(
     // and W contains the measurement weights (DOI:10.1109/PWRS.2003.1307674). The loop accumulates
     // each measurement contribution into the `normal` matrix and `rhs` vector.
     for row in &measurement_rows {
+        // Each measurement increments the normal matrix by h_i * w * h_j and the RHS by h_i * w * (z - offset),
+        // which enforces the weighted least squares criterion that downplays low-weight data.
         let y_tilde = row.value - row.offset;
         for (i, &h_i) in row.h.iter().enumerate().take(n_vars) {
             for (j, &h_j) in row.h.iter().enumerate().take(n_vars) {
@@ -730,6 +753,7 @@ fn branch_flow_dataframe(
     skip_branch: Option<i64>,
     solver: &dyn SolverBackend,
 ) -> Result<(DataFrame, f64, f64)> {
+    // Recover branch flows by solving for angles (B′ θ = P) and then computing each branch difference
     let angles = compute_dc_angles(network, injections, skip_branch, solver)?;
     branch_flow_dataframe_with_angles(network, &angles, skip_branch).map_err(|err| anyhow!(err))
 }
@@ -739,6 +763,7 @@ fn branch_flow_dataframe_with_angles(
     angles: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
 ) -> PolarsResult<(DataFrame, f64, f64)> {
+    // Each branch flow is computed directly as the angle difference divided by reactance.
     let mut ids = Vec::new();
     let mut from_bus = Vec::new();
     let mut to_bus = Vec::new();
@@ -818,6 +843,8 @@ fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {
     }
 
     if injections.is_empty() {
+        // Fall back to a simple two-bus injection pattern when no explicit generators or loads are present,
+        // which keeps the linear solver well-posed.
         let mut bus_ids: Vec<usize> = network
             .graph
             .node_indices()
@@ -919,6 +946,8 @@ fn compute_dc_angles(
         reduced_rhs[i - 1] = rhs[i];
     }
 
+    // Drop the slack bus row/column so the susceptance matrix becomes non-singular before solving Aj = P.
+
     let solution = solve_linear_system(&reduced, &reduced_rhs, solver)?;
     let mut angles = HashMap::new();
     angles.insert(bus_ids[0], 0.0);
@@ -955,6 +984,7 @@ fn load_limits(path: &str) -> Result<Vec<LimitRecord>> {
         .from_path(path)
         .context("opening limits CSV")?;
     let mut out = Vec::new();
+    // Track every generator's min/max dispatch and its native demand so DC OPF can balance net injections.
     for result in rdr.deserialize() {
         let record: LimitRecord = result.context("parsing limits CSV record")?;
         out.push(record);
@@ -1014,6 +1044,7 @@ fn load_measurements(path: &str) -> Result<Vec<MeasurementRecord>> {
         .from_path(path)
         .context("opening measurements CSV")?;
     let mut out = Vec::new();
+    // Each CSV row becomes a weighted measurement; strict positivity of weights keeps W less badly conditioned.
     for result in rdr.deserialize() {
         let record: MeasurementRecord = result.context("parsing measurement record")?;
         if record.weight <= 0.0 {
@@ -1048,6 +1079,9 @@ fn build_measurement_rows(
     slack_bus: usize,
     network: &Network,
 ) -> Result<Vec<MeasurementRow>> {
+    // Each measurement contributes a row to the WLS Jacobian, mapping the unknown bus angles
+    // into the expected measurement; flow and injection equations come from the DC sensitivities,
+    // while angle/voltage measurements are direct observations of a single variable (see doi:10.1109/PWRS.2003.1307674).
     let mut branch_map = HashMap::new();
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
@@ -1148,6 +1182,9 @@ fn build_piecewise_cost_expression(
     segments: &[PiecewiseSegment],
     vars: &mut ProblemVariables,
 ) -> Result<(Expression, Expression)> {
+    // Piecewise linear segments model convex generator cost curves by splitting dispatch
+    // into anchored intervals; this mirrors canonical formulations for convex OPF cost
+    // approximation (see doi:10.1016/j.epsr.2021.107191).
     if segments.is_empty() {
         return Err(anyhow!(
             "piecewise cost data for bus {} must include at least one segment",
@@ -1214,6 +1251,7 @@ fn build_piecewise_cost_expression(
 }
 
 fn enforce_branch_limits(df: &DataFrame, limits: &HashMap<i64, f64>) -> Result<()> {
+    // Compare each computed branch flow with the user-specified limit to catch post-OPF violations.
     let branch_ids = df.column("branch_id")?.i64()?;
     let flows = df.column("flow_mw")?.f64()?;
     let mut violations = Vec::new();
@@ -1257,6 +1295,7 @@ type YBusComponents = (
 
 #[allow(dead_code)]
 fn build_y_bus(network: &Network) -> YBusComponents {
+    // Build the full complex admittance matrix (YBus), useful for future AC analysis extensions.
     let mut ybus: HashMap<usize, HashMap<usize, Complex64>> = HashMap::new();
     let mut bus_order = Vec::new();
     for node_idx in network.graph.node_indices() {
@@ -1306,6 +1345,7 @@ fn compute_p(
     angles: &[f64],
     bus_id: usize,
 ) -> f64 {
+    // Compute the real power injection using imag(Y_ij) times angle differences.
     let idx = *id_to_index.get(&bus_id).unwrap_or(&0);
     let theta_i = angles[idx];
     ybus.get(&bus_id)
@@ -1324,6 +1364,7 @@ mod tests {
     use super::*;
     use gat_core::solver::GaussSolver;
     use gat_core::{Branch, BranchId, Bus, BusId, Edge, Network, Node};
+    use good_lp::variables;
     use std::fs;
     use std::sync::Arc;
     use tempfile::tempdir;
@@ -1593,6 +1634,37 @@ mod tests {
     }
 
     #[test]
+    fn dc_opf_piecewise_rejects_overlapping_segments() {
+        let spec = LimitRecord {
+            bus_id: 0,
+            pmin: 0.0,
+            pmax: 5.0,
+            demand: 1.0,
+        };
+        let segments = vec![
+            PiecewiseSegment {
+                bus_id: 0,
+                start: 0.0,
+                end: 3.0,
+                slope: 10.0,
+            },
+            PiecewiseSegment {
+                bus_id: 0,
+                start: 2.5,
+                end: 5.0,
+                slope: 12.0,
+            },
+        ];
+        let mut vars = variables!();
+        let err = build_piecewise_cost_expression(0, &spec, &segments, &mut vars).unwrap_err();
+        assert!(
+            err.to_string().contains("overlaps"),
+            "got unexpected error: {}",
+            err
+        );
+    }
+
+    #[test]
     fn n_minus_one_dc_detects_violation() {
         let network = build_parallel_network();
         let temp_dir = tempdir().unwrap();
@@ -1701,5 +1773,53 @@ mod tests {
         assert_eq!(meas_df.height(), 2);
         let state_df = read_stage_dataframe(&state_out, OutputStage::SeWls).unwrap();
         assert_eq!(state_df.height(), 2);
+    }
+
+    #[test]
+    fn load_measurements_rejects_nonpositive_weight() {
+        let temp_dir = tempdir().unwrap();
+        let meas_path = temp_dir.path().join("weight.csv");
+        fs::write(
+            &meas_path,
+            "measurement_type,branch_id,bus_id,value,weight,label\nflow,0,,1.0,0.0,zero-weight\n",
+        )
+        .unwrap();
+
+        let err = load_measurements(meas_path.to_str().unwrap()).unwrap_err();
+        assert!(
+            err.to_string().contains("weights must be positive"),
+            "unexpected error: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn state_estimation_rejects_unknown_measurement_type() {
+        let network = build_simple_network();
+        let temp_dir = tempdir().unwrap();
+        let meas_path = temp_dir.path().join("unknown.csv");
+        fs::write(
+            &meas_path,
+            "measurement_type,branch_id,bus_id,value,weight,label\nunknown,,0,0.0,1.0,bad\n",
+        )
+        .unwrap();
+        let out = temp_dir.path().join("state.csv");
+        let solver = GaussSolver::default();
+
+        let err = state_estimation_wls(
+            &network,
+            &solver,
+            meas_path.to_str().unwrap(),
+            &out,
+            &[],
+            None,
+            None,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("unsupported measurement type"),
+            "unexpected error: {}",
+            err
+        );
     }
 }

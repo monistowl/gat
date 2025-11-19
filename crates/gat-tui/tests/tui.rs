@@ -1,8 +1,9 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use gat_tui::{run_tui, App, EventSource};
 use ratatui::backend::TestBackend;
-use ratatui::terminal::Terminal;
+use ratatui::Terminal;
 use std::collections::VecDeque;
+use std::io;
 use std::time::Duration;
 
 struct MockInput {
@@ -18,11 +19,11 @@ impl MockInput {
 }
 
 impl EventSource for MockInput {
-    fn poll(&mut self, _timeout: Duration) -> crossterm::Result<bool> {
+    fn poll(&mut self, _timeout: Duration) -> io::Result<bool> {
         Ok(!self.events.is_empty())
     }
 
-    fn read(&mut self) -> crossterm::Result<Event> {
+    fn read(&mut self) -> io::Result<Event> {
         Ok(self.events.pop_front().unwrap())
     }
 }

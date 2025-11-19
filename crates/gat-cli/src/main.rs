@@ -1,11 +1,12 @@
 use clap::Parser;
+use dirs::config_dir;
 use gat_algo::{power_flow, LpSolverKind};
 use gat_core::{graph_utils, solver::SolverKind};
 use gat_io::{importers, validate};
 use rayon::ThreadPoolBuilder;
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -16,7 +17,7 @@ use gat_cli::{
     cli::{
         Cli, Commands, DatasetCommands, GraphCommands, GuiCommands, HirenCommands, ImportCommands,
         Nminus1Commands, OpfCommands, PowerFlowCommands, RtsGmlcCommands, RunsCommands, SeCommands,
-        Sup3rccCommands, TsCommands, VizCommands,
+        Sup3rccCommands, TsCommands, TuiCommands, VizCommands,
     },
     manifest,
 };
@@ -107,6 +108,29 @@ fn describe_manifest(manifest: &ManifestEntry) {
             println!("  {} -> {} ({})", chunk.id, chunk.status, when);
         }
     }
+}
+
+const TUI_CONFIG_TEMPLATE: &str = "\
+poll_secs=1
+solver=gauss
+verbose=false
+command=cargo run -p gat-cli -- --help
+";
+
+fn default_tui_config_path() -> Option<PathBuf> {
+    config_dir().map(|dir| dir.join("gat-tui").join("config.toml"))
+}
+
+fn write_tui_config(out: Option<&str>) -> anyhow::Result<PathBuf> {
+    let target = out
+        .map(PathBuf::from)
+        .or_else(default_tui_config_path)
+        .ok_or_else(|| anyhow::anyhow!("unable to determine gat-tui config path"))?;
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&target, TUI_CONFIG_TEMPLATE)?;
+    Ok(target)
 }
 
 fn main() {
@@ -807,6 +831,12 @@ fn main() {
                 Err(e) => error!("OPF command failed: {:?}", e),
             }
         }
+        Some(Commands::Tui { command }) => match command {
+            TuiCommands::Config { out } => match write_tui_config(out.as_deref()) {
+                Ok(path) => info!("gat-tui config written to {}", path.display()),
+                Err(err) => error!("failed to write gat-tui config: {}", err),
+            },
+        },
         None => {
             info!("No subcommand provided. Use `gat --help` for more information.");
         }

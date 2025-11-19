@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use serde_json::{json, to_string_pretty};
 use std::fs;
@@ -18,7 +18,7 @@ fn repo_path(relative: &str) -> PathBuf {
 fn import_ieee14_arrow(tmp: &Path) -> PathBuf {
     let arrow_path = tmp.join("case.arrow");
     let case_file = repo_path("test_data/matpower/ieee14.case");
-    let mut import = Command::cargo_bin("gat-cli").unwrap();
+    let mut import = cargo_bin_cmd!("gat-cli");
     import
         .args([
             "import",
@@ -38,7 +38,7 @@ fn gat_ts_resample_runs() {
     let out_dir = tempdir().unwrap();
     let out = out_dir.path().join("resampled.parquet");
     let input = repo_path("test_data/ts/telemetry.parquet");
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args([
         "ts",
         "resample",
@@ -59,7 +59,7 @@ fn gat_ts_agg_runs() {
     let out_dir = tempdir().unwrap();
     let out = out_dir.path().join("aggregated.parquet");
     let input = repo_path("test_data/ts/telemetry.parquet");
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args([
         "ts",
         "agg",
@@ -86,7 +86,7 @@ fn gat_import_and_pf_dc_runs() {
     let pf_out = tmp.path().join("dc.parquet");
     let case_file = repo_path("test_data/matpower/ieee14.case");
 
-    let mut import = Command::cargo_bin("gat-cli").unwrap();
+    let mut import = cargo_bin_cmd!("gat-cli");
     import
         .args([
             "import",
@@ -101,7 +101,7 @@ fn gat_import_and_pf_dc_runs() {
         .stdout(predicate::str::contains("Importing MATPOWER"));
     assert!(arrow_path.exists());
 
-    let mut pf = Command::cargo_bin("gat-cli").unwrap();
+    let mut pf = cargo_bin_cmd!("gat-cli");
     pf.args([
         "pf",
         "dc",
@@ -133,7 +133,7 @@ fn gat_runs_resume_displays_manifest() {
     let path = tmp.path().join("run.json");
     fs::write(&path, to_string_pretty(&entry).unwrap()).unwrap();
 
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args(["runs", "resume", path.to_str().unwrap()])
         .assert()
         .success()
@@ -145,7 +145,7 @@ fn gat_runs_resume_displays_manifest() {
 fn gat_dataset_rts_gmlc_fetches_files() {
     let tmp = tempdir().unwrap();
     let out = tmp.path().join("rts");
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args([
         "dataset",
         "rts-gmlc",
@@ -164,13 +164,13 @@ fn gat_dataset_rts_gmlc_fetches_files() {
 fn gat_dataset_hiren_list_and_fetch() {
     let tmp = tempdir().unwrap();
     let out = tmp.path().join("hiren");
-    let mut list_cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut list_cmd = cargo_bin_cmd!("gat-cli");
     list_cmd
         .args(["dataset", "hiren", "list"])
         .assert()
         .success()
         .stdout(predicate::str::contains("case_big"));
-    let mut fetch_cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut fetch_cmd = cargo_bin_cmd!("gat-cli");
     fetch_cmd
         .args([
             "dataset",
@@ -191,7 +191,7 @@ fn gat_graph_stats_runs() {
     let tmp = tempdir().unwrap();
     let arrow = import_ieee14_arrow(tmp.path());
 
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args(["graph", "stats", arrow.to_str().unwrap()])
         .assert()
         .success()
@@ -204,7 +204,7 @@ fn gat_graph_islands_runs() {
     let tmp = tempdir().unwrap();
     let arrow = import_ieee14_arrow(tmp.path());
 
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args(["graph", "islands", arrow.to_str().unwrap(), "--emit"])
         .assert()
         .success()
@@ -218,7 +218,7 @@ fn gat_graph_export_writes_file() {
     let arrow = import_ieee14_arrow(tmp.path());
     let out_file = tmp.path().join("topo.dot");
 
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args([
         "graph",
         "export",
@@ -241,7 +241,7 @@ fn gat_graph_visualize_writes_file() {
     let arrow = import_ieee14_arrow(tmp.path());
     let out = tmp.path().join("layout.json");
 
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args([
         "graph",
         "visualize",
@@ -263,7 +263,7 @@ fn gat_graph_visualize_prints_json() {
     let tmp = tempdir().unwrap();
     let arrow = import_ieee14_arrow(tmp.path());
 
-    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    let mut cmd = cargo_bin_cmd!("gat-cli");
     cmd.args([
         "graph",
         "visualize",

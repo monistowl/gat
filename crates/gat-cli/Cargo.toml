@@ -10,6 +10,7 @@ gat-algo = { path = "../gat-algo" }
 gat-ts = { path = "../gat-ts" }
 gat-viz = { path = "../gat-viz" }
 gat-gui = { path = "../gat-gui" }
+dirs = "4"
 clap = { version = "4.0", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"

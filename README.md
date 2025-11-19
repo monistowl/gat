@@ -300,9 +300,13 @@ Future demos/examples in the backlog:
 
 The UI pulls its demo metrics from `out/demos/cournot/cournot_results.csv` (run `test_data/demos/storage_cournot.sh` to refresh) and renders:
 
-* A workflow table plus log ticks describing each stage.
-* Gauges/summary pulled from the shared `DemoStats` model (avg price, EENS, storage profits, consumer surplus).
-* A force-directed layout preview powered by `gat graph visualize`/`fdg-sim` so the terminal view and the CLI `graph visualize` formatter use the same coordinates.
-* A demo chart and workflow graph providing quick snapshots without leaving the terminal.
+* A workflow table backed by `DemoStats` for aggregate metrics (average price, EENS, storage profits, consumer surplus) plus log ticks describing each stage.
+* A force-directed layout preview powered by `gat graph visualize`/`fdg-sim` so the terminal view and CLI layout tool share the same coordinates.
+* A chart and workflow graph for quick snapshots without leaving the terminal.
+* A control panel (poll frequency, solver selection, verbosity, command preview) paired with an in-line command editor (press `c` and edit `cargo run -p gat-cli -- --help`, Ctrl+S to save) plus presets that brand configurations as “Baseline”, “Cournot Demo”, or “Dispatch Check”.
+* A config preview (auto reloads `~/.config/gat-tui/config.toml` with `L`) and a live-run status block that shows what the next `cargo run` command would do.
+* A built-in file explorer (`e` toggles it, Enter loads the highlighted `.toml`, Esc cancels) so you can browse configs without leaving the TUI.
 
-Controls: `↑`/`↓` to change the highlighted workflow, `l` adds a log entry, and `q` quits.
+New controls: `↑`/`↓` to change the highlighted workflow, `l` for a manual log entry, `[`/`]` to tweak the polling rate, `s` to rotate solvers, `v` to toggle verbosity, `p`/`P` to cycle presets, `c` to edit the live command (Ctrl+S saves, Esc cancels), `r` to kick off the configured `gat-cli` command, `L` to reload the config file, `h` to open the help overlay, and `q` to quit.
+
+You can bootstrap the configuration with `gat-cli tui config --out ~/.config/gat-tui/config.toml`, which writes a template containing the current default command, solver, and poll period. Once `gat-tui` runs, it watches the config file, so you can tweak the poll interval or command text without recompiling.
