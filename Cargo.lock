@@ -1653,6 +1653,7 @@ dependencies = [
  "polars",
  "rayon",
  "serde",
+ "tempfile",
 ]
 
 [[package]]

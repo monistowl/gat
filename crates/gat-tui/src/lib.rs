@@ -488,6 +488,7 @@ impl App {
         self.spawn_command(command_parts, summary);
     }
 
+    /// Spawn a detached child command and stream stdout/stderr into the log area.
     fn spawn_command(&mut self, command_parts: Vec<String>, summary: String) {
         if self.live_run_handle.is_some() {
             self.push_log("Another run is already in progress");
@@ -546,10 +547,12 @@ impl App {
         }
     }
 
+    /// Return the read-only catalog so UI can render dataset metadata without reloading the CLI config.
     fn dataset_entries(&self) -> &'static [DatasetEntry] {
         catalog()
     }
 
+    /// The currently highlighted entry in the dataset table.
     fn current_dataset(&self) -> Option<&DatasetEntry> {
         let catalog = self.dataset_entries();
         if catalog.is_empty() {
@@ -559,6 +562,7 @@ impl App {
         }
     }
 
+    /// Move to the next dataset, wrapping at the ends for cyclic navigation.
     fn next_dataset(&mut self) {
         let catalog = self.dataset_entries();
         if catalog.is_empty() {
@@ -571,6 +575,7 @@ impl App {
         ));
     }
 
+    /// Move to the previous dataset (circular) so cardinals can browse faster.
     fn previous_dataset(&mut self) {
         let catalog = self.dataset_entries();
         if catalog.is_empty() {
@@ -587,6 +592,7 @@ impl App {
         ));
     }
 
+    /// When the user hits `F`, run the same `gat dataset public fetch` command used by the CLI.
     fn launch_dataset_fetch(&mut self) {
         if let Some(entry) = self.current_dataset() {
             let summary = format!("gat dataset public fetch {}", entry.id);
@@ -603,6 +609,7 @@ impl App {
         }
     }
 
+    /// Source bus ID increment helper; ensures the ID stays ≥1.
     fn adjust_analytics_source(&mut self, delta: isize) {
         let new = (self.analytics_source as isize + delta).max(1) as usize;
         if new != self.analytics_source {
@@ -611,6 +618,7 @@ impl App {
         }
     }
 
+    /// Sink bus ID increment helper; ensures the ID stays ≥1.
     fn adjust_analytics_sink(&mut self, delta: isize) {
         let new = (self.analytics_sink as isize + delta).max(1) as usize;
         if new != self.analytics_sink {
@@ -619,12 +627,14 @@ impl App {
         }
     }
 
+    /// Transfer magnitude adjustment; clamps at 0.1 MW and rounds to one decimal for readability.
     fn adjust_analytics_transfer(&mut self, delta: f64) {
         let new = (self.analytics_transfer + delta).max(0.1);
         self.analytics_transfer = (new * 10.0).round() / 10.0;
         self.push_log(&format!("Transfer size {:.1} MW", self.analytics_transfer));
     }
 
+    /// Fire off the PTDF analyzer (doi:10.1109/TPWRS.2008.916398) with the configured parameters.
     fn launch_analytics_ptdf(&mut self) {
         if self.analytics_grid.is_empty() {
             self.push_log("Set analytics grid path before launching PTDF");
@@ -1075,6 +1085,7 @@ fn render_dataset_panel(f: &mut Frame, area: Rect, app: &App) {
         f.render_widget(block, area);
         return;
     }
+    // Allocate a small upper slice for the table and the rest for description text.
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(4), Constraint::Min(3)])
@@ -1114,6 +1125,7 @@ fn render_dataset_panel(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_analytics_panel(f: &mut Frame, area: Rect, app: &App) {
+    // Show the configured PTDF params and key hints so users can tweak them before running the command.
     let lines = vec![
         Line::from(Span::styled(
             "PTDF analytics",

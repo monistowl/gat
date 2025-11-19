@@ -12,3 +12,6 @@ num-complex = "0.4"
 polars = { version = "0.35", features = ["lazy", "parquet", "ipc"] }
 rayon = "1.7"
 serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
