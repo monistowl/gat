@@ -1,0 +1,10 @@
+[package]
+name = "gat-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+faer = "0.17"
+once_cell = "1"
+petgraph = "0.6"

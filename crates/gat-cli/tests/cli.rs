@@ -116,6 +116,30 @@ fn gat_import_and_pf_dc_runs() {
 }
 
 #[test]
+fn gat_analytics_ptdf_runs() {
+    let tmp = tempdir().unwrap();
+    let arrow = import_ieee14_arrow(tmp.path());
+    let out = tmp.path().join("ptdf.parquet");
+    let mut cmd = cargo_bin_cmd!("gat-cli");
+    cmd.args([
+        "analytics",
+        "ptdf",
+        arrow.to_str().unwrap(),
+        "--source",
+        "1",
+        "--sink",
+        "2",
+        "-o",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("PTDF analysis"))
+    .stdout(predicate::str::contains("persisted"));
+    assert!(out.exists());
+}
+
+#[test]
 fn gat_runs_resume_displays_manifest() {
     let entry = json!({
         "run_id": Uuid::new_v4().to_string(),
@@ -237,6 +261,36 @@ fn gat_dataset_hiren_list_and_fetch() {
         .success()
         .stdout(predicate::str::contains("HIREN case case_big copied"));
     assert!(out.join("case_big.matpower").exists());
+}
+
+#[test]
+fn gat_dataset_public_list_shows_catalog() {
+    let mut cmd = cargo_bin_cmd!("gat-cli");
+    cmd.args(["dataset", "public", "list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("opsd-time-series-2020"))
+        .stdout(predicate::str::contains("airtravel"));
+}
+
+#[test]
+fn gat_dataset_public_list_filters_by_tag() {
+    let mut cmd = cargo_bin_cmd!("gat-cli");
+    cmd.args(["dataset", "public", "list", "--tag", "tutorial"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("airtravel"))
+        .stdout(predicate::str::contains("opsd-time-series-2020").not());
+}
+
+#[test]
+fn gat_dataset_public_describe_outputs_metadata() {
+    let mut cmd = cargo_bin_cmd!("gat-cli");
+    cmd.args(["dataset", "public", "describe", "airtravel"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Dataset: airtravel"))
+        .stdout(predicate::str::contains("Tags: time-series, tutorial"));
 }
 
 #[test]

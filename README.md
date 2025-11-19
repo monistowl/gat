@@ -211,6 +211,14 @@ gat se wls
 gat gui run
 ```
 
+### **Grid Analytics**
+
+```
+gat analytics ptdf <grid.arrow> --source <bus> --sink <bus> --out <file>
+```
+
+Generate PTDF sensitivity tables for a 1 MW injection withdrawal between two buses. The command writes a Parquet table with branch IDs, flow magnitudes, and the resulting PTDF values plus a summary message that reports the branch/ptdf ranges. Use `--transfer` to scale the transfer magnitude, `--solver` to change the linear system backend (gauss/faer), and `--out-partitions` if you want partitioned outputs for large grids.
+
 Use `gat --help` and `gat <command> --help` for detailed flags and device-specific options.
 
 ---
@@ -254,6 +262,19 @@ If you know `xargs -P` or GNU `parallel`, you already know the essence of the wo
 * `test_data/ts/` — telemetry examples
 
 Modify these freely while experimenting.
+
+---
+
+# 📥 Public Dataset Fetching
+
+Use `gat dataset public list` to preview the curated datasets, optionally filtering with `--tag` or `--query`, and `gat dataset public describe <id>` to inspect the source, license, and tags. Run `gat dataset public fetch <id>` to download the file — it defaults to `~/.cache/gat/datasets` (falling back to `data/public` if the cache directory is unavailable) but you can override the staging location with `--out` or set `GAT_PUBLIC_DATASET_DIR` in your environment.
+
+Available datasets (network connectivity permitting):
+
+- `opsd-time-series-2020` — an October 6, 2020 snapshot of the Open Power System Data 60-minute single-index time series (CC-BY-SA 4.0).
+- `airtravel` — a compact US air travel passenger CSV that introduces a lightweight time-series size in the CLI.
+
+Add `--force` to refresh a cached copy and `--extract` to unpack a ZIP file if a future entry ships compressed. The CLI prints the staged path so you can reuse it in downstream commands such as `gat ts join` or `gat pf dc`.
 
 ---
 

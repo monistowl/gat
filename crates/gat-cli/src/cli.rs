@@ -1,4 +1,4 @@
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
 use std::path::PathBuf;
 
@@ -73,6 +73,11 @@ pub enum Commands {
     Viz {
         #[command(subcommand)]
         command: VizCommands,
+    },
+    /// Grid analytics helpers (PTDF, sensitivities, etc.)
+    Analytics {
+        #[command(subcommand)]
+        command: AnalyticsCommands,
     },
     /// GUI dashboard
     Gui {
@@ -332,6 +337,41 @@ pub enum DatasetCommands {
         #[arg(short, long)]
         out: String,
     },
+    /// Public dataset catalog
+    Public {
+        #[command(subcommand)]
+        command: PublicDatasetCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AnalyticsCommands {
+    /// PTDF sensitivity for a source→sink transfer
+    Ptdf {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Injection bus ID
+        #[arg(long)]
+        source: usize,
+        /// Withdrawal bus ID
+        #[arg(long)]
+        sink: usize,
+        /// Transfer size in MW (defaults to 1 MW)
+        #[arg(long, default_value = "1.0")]
+        transfer: f64,
+        /// Output file path for branch PTDF table (Parquet)
+        #[arg(short, long, default_value = "ptdf.parquet")]
+        out: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
+        /// Solver to use (gauss, faer, etc.)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -414,6 +454,38 @@ pub enum Sup3rccCommands {
         grid: String,
         #[arg(short, long)]
         out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PublicDatasetCommands {
+    /// List curated public datasets we know how to fetch
+    List {
+        /// Filter datasets by tag
+        #[arg(long)]
+        tag: Option<String>,
+        /// Search term that matches dataset id or description
+        #[arg(long)]
+        query: Option<String>,
+    },
+    /// Show metadata about a curated dataset
+    Describe {
+        /// Dataset ID (see `gat dataset public list`)
+        id: String,
+    },
+    /// Fetch a curated dataset by ID
+    Fetch {
+        /// Dataset ID (see `gat dataset public list`)
+        id: String,
+        /// Directory to stage the download (defaults to ~/.cache/gat/datasets or data/public)
+        #[arg(short, long, value_hint = ValueHint::DirPath)]
+        out: Option<String>,
+        /// Force re-download if the file already exists
+        #[arg(long)]
+        force: bool,
+        /// Try to extract the dataset if it's a zip archive
+        #[arg(long)]
+        extract: bool,
     },
 }
 

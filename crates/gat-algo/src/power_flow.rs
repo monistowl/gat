@@ -135,6 +135,81 @@ pub fn dc_power_flow(
     Ok(())
 }
 
+/// Run a PTDF analysis for a single source→sink transfer and emit branch sensitivities (doi:10.1109/TPWRS.2008.916398).
+pub fn ptdf_analysis(
+    network: &Network,
+    solver: &dyn SolverBackend,
+    source_bus: usize,
+    sink_bus: usize,
+    transfer_mw: f64,
+    output_file: &Path,
+    partitions: &[String],
+) -> Result<()> {
+    if source_bus == sink_bus {
+        return Err(anyhow!(
+            "source and sink buses must differ for PTDF analysis"
+        ));
+    }
+    if transfer_mw == 0.0 {
+        return Err(anyhow!("transfer magnitude must be non-zero"));
+    }
+
+    let (bus_ids, _, _) = build_bus_susceptance(network, None);
+    if !bus_ids.contains(&source_bus) {
+        return Err(anyhow!("source bus {} not found in network", source_bus));
+    }
+    if !bus_ids.contains(&sink_bus) {
+        return Err(anyhow!("sink bus {} not found in network", sink_bus));
+    }
+
+    let mut injections = HashMap::new();
+    injections.insert(source_bus, transfer_mw);
+    injections.insert(sink_bus, -transfer_mw);
+
+    let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
+        .context("building branch flow table for PTDF analysis")?;
+
+    let ptdf_values: Vec<f64> = df
+        .column("flow_mw")?
+        .f64()?
+        .into_iter()
+        .map(|value| value.unwrap_or(0.0) / transfer_mw)
+        .collect();
+
+    let (min_ptdf, max_ptdf) = if ptdf_values.is_empty() {
+        (f64::NAN, f64::NAN)
+    } else {
+        let min = ptdf_values.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = ptdf_values
+            .iter()
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max);
+        (min, max)
+    };
+
+    df.with_column(Series::new("ptdf", ptdf_values))?;
+    persist_dataframe(
+        &mut df,
+        output_file,
+        partitions,
+        OutputStage::AnalyticsPtdf.as_str(),
+    )?;
+
+    println!(
+        "PTDF analysis {}→{} (Δ {:.3} MW): branch flow range [{:.3}, {:.3}] MW, PTDF range [{:.3}, {:.3}], persisted to {}",
+        source_bus,
+        sink_bus,
+        transfer_mw,
+        min_flow,
+        max_flow,
+        min_ptdf,
+        max_ptdf,
+        output_file.display()
+    );
+
+    Ok(())
+}
+
 pub fn ac_power_flow(
     network: &Network,
     solver: &dyn SolverBackend,

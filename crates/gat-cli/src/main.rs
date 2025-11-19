@@ -19,10 +19,10 @@ mod runs;
 use dataset::*;
 use gat_cli::{
     cli::{
-        build_cli_command, Cli, Commands, DatasetCommands, GraphCommands, GuiCommands,
-        HirenCommands, ImportCommands, Nminus1Commands, OpfCommands, PowerFlowCommands,
-        RtsGmlcCommands, RunFormat, RunsCommands, SeCommands, Sup3rccCommands, TsCommands,
-        TuiCommands, VizCommands,
+        build_cli_command, AnalyticsCommands, Cli, Commands, DatasetCommands, GraphCommands,
+        GuiCommands, HirenCommands, ImportCommands, Nminus1Commands, OpfCommands,
+        PowerFlowCommands, PublicDatasetCommands, RtsGmlcCommands, RunFormat, RunsCommands,
+        SeCommands, Sup3rccCommands, TsCommands, TuiCommands, VizCommands,
     },
     manifest,
 };
@@ -745,6 +745,24 @@ fn main() {
                         sample_sup3rcc_grid(Path::new(&grid), Path::new(&out))
                     }
                 },
+                // Dataset catalog helpers plug directly into the public-fetch functions we added above.
+                DatasetCommands::Public { command } => match command {
+                    PublicDatasetCommands::List { tag, query } => {
+                        let filter = PublicDatasetFilter {
+                            tag: tag.clone(),
+                            query: query.clone(),
+                        };
+                        list_public_datasets(&filter)
+                    }
+                    PublicDatasetCommands::Describe { id } => describe_public_dataset(id),
+                    PublicDatasetCommands::Fetch {
+                        id,
+                        out,
+                        force,
+                        extract,
+                    } => fetch_public_dataset(id, out.as_deref().map(Path::new), *extract, *force)
+                        .map(|_| ()),
+                },
                 DatasetCommands::Pras { path, out } => {
                     import_pras(Path::new(&path), Path::new(&out))
                 }
@@ -753,6 +771,62 @@ fn main() {
             match result {
                 Ok(_) => info!("Dataset command successful!"),
                 Err(e) => error!("Dataset command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Analytics { command }) => {
+            let result = match command {
+                AnalyticsCommands::Ptdf {
+                    grid_file,
+                    source,
+                    sink,
+                    transfer,
+                    out,
+                    out_partitions,
+                    threads,
+                    solver,
+                } => {
+                    configure_threads(threads);
+                    info!(
+                        "Running PTDF analysis {}→{} ({:.3} MW) on {}",
+                        source, sink, transfer, grid_file
+                    );
+                    // Wrap the entire PTDF workflow in a closure so we can use `?` and log once.
+                    let res = (|| -> anyhow::Result<()> {
+                        let solver_kind = solver.parse::<SolverKind>()?;
+                        let solver_impl = solver_kind.build_solver();
+                        let partitions = parse_partitions(out_partitions.as_ref());
+                        let partition_spec = out_partitions.as_deref().unwrap_or("");
+                        let network = importers::load_grid_from_arrow(grid_file.as_str())?;
+                        power_flow::ptdf_analysis(
+                            &network,
+                            solver_impl.as_ref(),
+                            *source,
+                            *sink,
+                            *transfer,
+                            Path::new(out),
+                            &partitions,
+                        )?;
+                        record_run(
+                            out,
+                            "analytics ptdf",
+                            &[
+                                ("grid_file", grid_file),
+                                ("source", &source.to_string()),
+                                ("sink", &sink.to_string()),
+                                ("transfer", &transfer.to_string()),
+                                ("solver", solver_kind.as_str()),
+                                ("out_partitions", partition_spec),
+                            ],
+                        );
+                        Ok(())
+                    })();
+                    res
+                }
+            };
+
+            match result {
+                Ok(_) => info!("Analytics command successful!"),
+                Err(e) => error!("Analytics command failed: {:?}", e),
             }
         }
         Some(Commands::Runs { command }) => {
