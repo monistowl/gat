@@ -15,17 +15,18 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PACKAGE_DIR="$ROOT_DIR/dist"
 
 install_binary() {
-  local bin_name="$1"
-  local src="$PACKAGE_DIR/bin/$bin_name"
+  local src_name="$1"
+  local dest_name="${2:-$1}"
+  local src="$PACKAGE_DIR/bin/$src_name"
   if [[ ! -x "$src" ]]; then
     echo "Missing built binary: $src"
     exit 1
   fi
-  cp "$src" "$BINDIR/"
-  chmod +x "$BINDIR/$bin_name"
+  cp "$src" "$BINDIR/$dest_name"
+  chmod +x "$BINDIR/$dest_name"
 }
 
-install_binary "gat-cli"
+install_binary "gat-cli" "gat"
 install_binary "gat-gui"
 
 echo "Installed gat-cli and gat-gui to $BINDIR"

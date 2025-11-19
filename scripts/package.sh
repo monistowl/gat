@@ -18,7 +18,8 @@ cargo build --workspace --release
 rm -rf "$DIST_DIR"
 mkdir -p "$PKG_DIR/bin"
 
-cp "$ROOT_DIR/target/release/gat-cli" "$PKG_DIR/bin/"
+cp "$ROOT_DIR/target/release/gat-cli" "$PKG_DIR/bin/gat-cli"
+cp "$ROOT_DIR/target/release/gat-cli" "$PKG_DIR/bin/gat"
 cp "$ROOT_DIR/target/release/gat-gui" "$PKG_DIR/bin/"
 
 cp README.md "$PKG_DIR"

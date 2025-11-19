@@ -7,3 +7,7 @@ edition = "2021"
 gat-core = { path = "../gat-core" }
 gat-viz = { path = "../gat-viz" }
 anyhow = "1.0"
+
+[[bin]]
+name = "gat-gui"
+path = "src/bin/main.rs"
