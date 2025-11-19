@@ -1,8 +1,15 @@
 use anyhow::Result;
 use chrono::Local;
-use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use crossterm::event::{
+    KeyEvent as CKeyEvent, KeyEventKind as CKeyEventKind, KeyEventState as CKeyEventState,
+    KeyModifiers as CKeyModifiers,
+};
 use gat_core::{Branch, BranchId, Bus, BusId, Edge as CoreEdge, Network, Node as CoreNode};
 use gat_viz::layout::layout_network;
+use ratatui::crossterm::event::{
+    self, Event as RtEvent, KeyCode as RtKeyCode, KeyEvent as RtKeyEvent,
+    KeyModifiers as RtKeyModifiers,
+};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::Marker;
@@ -223,6 +230,7 @@ pub struct App {
     active_preset: usize,
     custom_override: bool,
     config_snapshot: ConfigSnapshot,
+    /// Inlined explorer to traverse config files without leaving the TUI control panel.
     config_explorer: FileExplorer,
     config_explorer_active: bool,
     live_run_handle: Option<LiveRunHandle>,
@@ -235,7 +243,7 @@ pub struct App {
 
 pub trait EventSource {
     fn poll(&mut self, timeout: Duration) -> io::Result<bool>;
-    fn read(&mut self) -> io::Result<Event>;
+    fn read(&mut self) -> io::Result<RtEvent>;
 }
 
 pub struct CrosstermEventSource;
@@ -245,7 +253,7 @@ impl EventSource for CrosstermEventSource {
         event::poll(timeout)
     }
 
-    fn read(&mut self) -> io::Result<Event> {
+    fn read(&mut self) -> io::Result<RtEvent> {
         event::read()
     }
 }
@@ -519,6 +527,7 @@ impl App {
     }
 
     fn toggle_help(&mut self) {
+        // The help drawer is purely UI guidance and does not change persisted state.
         self.show_help = !self.show_help;
         self.push_log(if self.show_help {
             "Help drawer opened"
@@ -528,6 +537,7 @@ impl App {
     }
 
     fn toggle_config_explorer(&mut self) {
+        // Flip the explorer flag so the key handler knows to route input to the tree.
         self.config_explorer_active = !self.config_explorer_active;
         self.push_log(if self.config_explorer_active {
             "Config explorer active (Use Enter to load selection)"
@@ -574,6 +584,7 @@ impl App {
     }
 
     fn open_command_editor(&mut self) {
+        // Reset the editor buffer from the current command string so edits start fresh.
         let text = self.control.command.join(" ");
         self.command_editor.set_content(&text);
         self.command_editor_visible = true;
@@ -620,6 +631,7 @@ where
 {
     let mut last_tick = Instant::now();
     loop {
+        // Keep the live-run output pumping before every draw so logs stream in fast.
         app.poll_live_run();
         terminal.draw(|f| draw_ui(f, app))?;
         let tick_rate = Duration::from_secs(app.control.poll_secs.max(1));
@@ -628,68 +640,60 @@ where
             .unwrap_or_else(|| Duration::from_secs(0));
         if event_source.poll(timeout)? {
             let event = event_source.read()?;
-            if let Event::Key(key) = event {
-                let cloned_event = Event::Key(key.clone());
+            if let RtEvent::Key(key) = event {
+                let cloned_event = RtEvent::Key(key.clone());
                 let input_event = Input::from(&cloned_event);
+                // Command editor has priority; route keys strictly there while visible.
                 if app.command_editor_visible {
                     match key.code {
-                        KeyCode::Esc => {
-                            app.cancel_command_editor();
-                        }
-                        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        RtKeyCode::Esc => app.cancel_command_editor(),
+                        RtKeyCode::Char('s') if key.modifiers.contains(RtKeyModifiers::CONTROL) => {
                             app.apply_command_editor();
                         }
                         _ => {
                             if let Some(area) = app.command_editor_area {
-                                let _ = app.command_editor.input(key, &area);
+                                let key_event = to_crossterm_key_event(&key);
+                                let _ = app.command_editor.input(key_event, &area);
                             }
                         }
                     }
                     continue;
                 }
+                // Config explorer consumes navigation keys until it is closed.
                 if app.config_explorer_active {
                     if let Err(err) = app.config_explorer.handle(input_event) {
                         app.push_log(&format!("Explorer error: {}", err));
                     }
-                    if key.code == KeyCode::Enter {
+                    if key.code == RtKeyCode::Enter {
                         let current = app.config_explorer.current();
                         if !current.is_dir() {
                             let path = current.path().to_path_buf();
-                            match app.reload_config(Some(path.clone())) {
-                                Ok(_) => app.push_log(&format!(
-                                    "Loaded config {}",
-                                    path.display()
-                                )),
-                                Err(err) => app.push_log(&format!(
-                                    "Failed to load config {}: {}",
-                                    path.display(),
-                                    err
-                                )),
-                            }
+                            app.reload_config(Some(path.clone()));
+                            app.push_log(&format!("Loading config {}", path.display()));
                             app.toggle_config_explorer();
                         }
                     }
-                    if key.code == KeyCode::Esc {
+                    if key.code == RtKeyCode::Esc {
                         app.toggle_config_explorer();
                     }
                     continue;
                 }
                 match key.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Down => app.next(),
-                    KeyCode::Up => app.previous(),
-                    KeyCode::Char('l') => app.push_log("Manual refresh triggered."),
-                    KeyCode::Char('[') => app.adjust_poll_rate(-1),
-                    KeyCode::Char(']') => app.adjust_poll_rate(1),
-                    KeyCode::Char('s') => app.cycle_solver(),
-                    KeyCode::Char('v') => app.toggle_verbose(),
-                    KeyCode::Char('r') => app.start_live_run(),
-                    KeyCode::Char('p') => app.cycle_preset(true),
-                    KeyCode::Char('P') => app.cycle_preset(false),
-                    KeyCode::Char('h') => app.toggle_help(),
-                    KeyCode::Char('L') => app.reload_config(None),
-                    KeyCode::Char('c') => app.open_command_editor(),
-                    KeyCode::Char('e') => app.toggle_config_explorer(),
+                    RtKeyCode::Char('q') => break,
+                    RtKeyCode::Down => app.next(),
+                    RtKeyCode::Up => app.previous(),
+                    RtKeyCode::Char('l') => app.push_log("Manual refresh triggered."),
+                    RtKeyCode::Char('[') => app.adjust_poll_rate(-1),
+                    RtKeyCode::Char(']') => app.adjust_poll_rate(1),
+                    RtKeyCode::Char('s') => app.cycle_solver(),
+                    RtKeyCode::Char('v') => app.toggle_verbose(),
+                    RtKeyCode::Char('r') => app.start_live_run(),
+                    RtKeyCode::Char('p') => app.cycle_preset(true),
+                    RtKeyCode::Char('P') => app.cycle_preset(false),
+                    RtKeyCode::Char('h') => app.toggle_help(),
+                    RtKeyCode::Char('L') => app.reload_config(None),
+                    RtKeyCode::Char('c') => app.open_command_editor(),
+                    RtKeyCode::Char('e') => app.toggle_config_explorer(),
                     _ => {}
                 }
             }
@@ -1033,6 +1037,7 @@ fn render_config_preview(f: &mut Frame, area: Rect, app: &App) {
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(6), Constraint::Min(6)])
         .split(area);
+    // Top chunk shows parsed key/value lines, bottom chunk renders the file explorer widget.
     let mut lines = Vec::new();
     lines.push(Line::from(vec![
         Span::styled(
@@ -1174,6 +1179,16 @@ fn render_command_editor_overlay(f: &mut Frame, app: &mut App) {
     };
     f.render_widget(&app.command_editor, inner);
     app.command_editor_area = Some(inner);
+}
+
+fn to_crossterm_key_event(key: &RtKeyEvent) -> CKeyEvent {
+    // The editor expects the older crossterm event types, so transmute the fields carefully.
+    CKeyEvent {
+        code: unsafe { std::mem::transmute(key.code) },
+        modifiers: CKeyModifiers::from_bits_truncate(key.modifiers.bits()),
+        kind: CKeyEventKind::Press,
+        state: CKeyEventState::empty(),
+    }
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
