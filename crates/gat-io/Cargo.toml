@@ -3,11 +3,18 @@ name = "gat-io"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["minimal"]
+minimal = []
+parquet = ["polars/parquet"]
+ipc = ["polars/ipc"]
+full = ["parquet", "ipc"]
+
 [dependencies]
 anyhow = "1.0"
 caseformat = "0.1"
 gat-core = { path = "../gat-core" }
-polars = { version = "0.35", features = ["lazy", "parquet", "ipc"] }
+polars = { version = "0.35", default-features = false, features = ["lazy", "csv"] }
 power_flow_data = "0.1"
 quick-xml = "0.31"
 serde = { version = "1.0", features = ["derive"] }

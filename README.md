@@ -68,6 +68,12 @@ cargo build --package gat-cli
 
 GAT produces a `gat` binary under `target/debug/`.
 
+For fast iteration that skips the heavier IO/Polars features, run:
+
+```bash
+cargo check -p gat-cli --no-default-features --features minimal-io
+```
+
 ### 4. Package and install
 
 ```bash

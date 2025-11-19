@@ -3,6 +3,11 @@ name = "gat-cli"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["full-io"]
+minimal-io = ["gat-io/minimal", "gat-ts/minimal"]
+full-io = ["gat-io/full", "gat-ts/full"]
+
 [dependencies]
 gat-core = { path = "../gat-core" }
 gat-io = { path = "../gat-io" }

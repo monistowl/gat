@@ -25,3 +25,11 @@ jobs:
       run: cargo clippy -- -D warnings
     - name: Run fmt
       run: cargo fmt --check
+
+  minimal:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check minimal IO configuration
+      run: cargo check -p gat-cli --no-default-features --features minimal-io
