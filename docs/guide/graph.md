@@ -29,3 +29,11 @@ Converts the graph into Graphviz (DOT) or other supported formats. When you pass
 ```
 gat graph export grid.arrow --format graphviz --out topology.dot
 ```
+
+## `gat graph visualize <grid.arrow> [--iterations 150] [--out layout.json]`
+
+Runs a force-directed layout (via `fdg-sim`) and emits JSON with node positions/edges. Omitting `--out` prints the JSON to stdout; otherwise it writes to the provided file path. The layout JSON is shared with `gat-tui` to render the same preview.
+
+```
+gat graph visualize test_data/matpower/case9.arrow --iterations 120 --out layout.json
+```

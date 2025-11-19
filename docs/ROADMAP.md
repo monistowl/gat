@@ -60,6 +60,7 @@ This structure mirrors toolkits like ELF: shared libs feed both CLI and GUI, pac
 * Build/clean graphs, compute stats, identify islands and exports.
 * CLI: `gat graph stats`, `gat graph islands`, `gat graph export`.
 * Export command supports `--format graphviz|dot` and `--out <file>` while `--emit` prints the node→island map.
+* CLI: `gat graph visualize` uses `fdg-sim` to layout nodes and emits JSON positions.
 
 ## Milestone 3 — Power flow solvers (M3)
 

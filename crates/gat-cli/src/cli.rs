@@ -137,6 +137,17 @@ pub enum GraphCommands {
         #[arg(short, long)]
         out: Option<String>,
     },
+    /// Compute force-directed layout for visualization
+    Visualize {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Number of simulation iterations
+        #[arg(long, default_value_t = 150)]
+        iterations: usize,
+        /// Optional output file path
+        #[arg(short, long)]
+        out: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

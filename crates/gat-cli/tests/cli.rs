@@ -234,3 +234,45 @@ fn gat_graph_export_writes_file() {
     let contents = fs::read_to_string(&out_file).unwrap();
     assert!(contents.contains("graph"));
 }
+
+#[test]
+fn gat_graph_visualize_writes_file() {
+    let tmp = tempdir().unwrap();
+    let arrow = import_ieee14_arrow(tmp.path());
+    let out = tmp.path().join("layout.json");
+
+    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    cmd.args([
+        "graph",
+        "visualize",
+        arrow.to_str().unwrap(),
+        "--iterations",
+        "20",
+        "--out",
+        out.to_str().unwrap(),
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("Layout written to"));
+    let text = fs::read_to_string(&out).unwrap();
+    assert!(text.contains("\"nodes\""));
+}
+
+#[test]
+fn gat_graph_visualize_prints_json() {
+    let tmp = tempdir().unwrap();
+    let arrow = import_ieee14_arrow(tmp.path());
+
+    let mut cmd = Command::cargo_bin("gat-cli").unwrap();
+    cmd.args([
+        "graph",
+        "visualize",
+        arrow.to_str().unwrap(),
+        "--iterations",
+        "10",
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("\"edges\""))
+    .stdout(predicate::str::contains("\"nodes\""));
+}

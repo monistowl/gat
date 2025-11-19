@@ -13,3 +13,5 @@ anyhow = "1.0"
 chrono = "0.4"
 csv = "1"
 serde = { version = "1.0", features = ["derive"] }
+gat-core = { path = "../gat-core" }
+gat-viz = { path = "../gat-viz" }

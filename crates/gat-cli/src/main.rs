@@ -20,7 +20,9 @@ use gat_cli::{
     },
     manifest,
 };
+use gat_viz::layout::layout_network;
 use manifest::{read_manifest, record_manifest, ManifestEntry};
+use serde_json;
 
 fn configure_threads(spec: &str) {
     let count = if spec.eq_ignore_ascii_case("auto") {
@@ -230,6 +232,28 @@ fn main() {
                         Err(e) => Err(e),
                     }
                 }
+                GraphCommands::Visualize {
+                    grid_file,
+                    iterations,
+                    out,
+                } => (|| -> anyhow::Result<()> {
+                    info!(
+                        "Visualizing graph {} (iterations {})",
+                        grid_file, iterations
+                    );
+                    let network = importers::load_grid_from_arrow(grid_file.as_str())?;
+                    let layout = layout_network(&network, *iterations);
+                    let payload = serde_json::to_string_pretty(&layout)
+                        .map_err(|err| anyhow::anyhow!("serializing layout to JSON: {err}"))?;
+                    if let Some(path) = out {
+                        fs::write(path, &payload)
+                            .map_err(|err| anyhow::anyhow!("writing layout to {}: {err}", path))?;
+                        println!("Layout written to {}", path);
+                    } else {
+                        println!("{payload}");
+                    }
+                    Ok(())
+                })(),
             };
 
             match result {

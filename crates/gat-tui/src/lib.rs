@@ -1,14 +1,18 @@
 use anyhow::Result;
 use chrono::Local;
 use crossterm::event::{self, Event, KeyCode};
+use gat_core::{Branch, BranchId, Bus, BusId, Edge as CoreEdge, Network, Node as CoreNode};
+use gat_viz::layout::layout_network;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::Marker;
 use ratatui::text::{Span, Spans};
+use ratatui::widgets::canvas::{Canvas, Line, Points};
 use ratatui::widgets::{
     Axis, Block, Borders, Cell, Chart, Dataset, Gauge, Paragraph, Row, Table, Wrap,
 };
 use ratatui::{backend::Backend, Frame, Terminal};
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
@@ -28,6 +32,7 @@ pub struct App {
     selected: usize,
     logs: VecDeque<String>,
     demo_stats: DemoStats,
+    layout_preview: LayoutPreview,
 }
 
 pub trait EventSource {
@@ -78,11 +83,13 @@ impl App {
         ];
         let mut logs = VecDeque::with_capacity(5);
         logs.push_back("gat-tui ready → q to quit, arrows to explore".into());
+        let layout_preview = LayoutPreview::from_network(build_demo_network());
         Self {
             workflows,
             selected: 0,
             logs,
             demo_stats: DemoStats::load_default(),
+            layout_preview,
         }
     }
 
@@ -211,18 +218,20 @@ fn draw_ui<B: ratatui::backend::Backend>(f: &mut Frame<B>, app: &App) {
         .constraints([
             Constraint::Length(6),
             Constraint::Length(3),
+            Constraint::Length(8),
             Constraint::Length(9),
             Constraint::Min(6),
         ])
         .split(body_chunks[1]);
     render_demo_snapshot(f, right_chunks[0], app);
     render_demo_summary(f, right_chunks[1], app);
-    render_demo_chart(f, right_chunks[2], app);
+    render_layout_canvas(f, right_chunks[2], &app.layout_preview);
+    render_demo_chart(f, right_chunks[3], app);
 
     let bottom_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(right_chunks[3]);
+        .split(right_chunks[4]);
     render_stage_graph(f, bottom_chunks[0], app);
     render_stage_gauges(f, bottom_chunks[1], app);
 
@@ -309,6 +318,40 @@ fn render_demo_summary<B: Backend>(f: &mut Frame<B>, area: Rect, app: &App) {
     f.render_widget(summary, area);
 }
 
+fn render_layout_canvas<B: Backend>(f: &mut Frame<B>, area: Rect, layout: &LayoutPreview) {
+    if area.width < 2 || area.height < 2 {
+        return;
+    }
+    let (x_bounds, y_bounds) = layout.bounds();
+    let canvas = Canvas::default()
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Layout preview"),
+        )
+        .x_bounds(x_bounds)
+        .y_bounds(y_bounds)
+        .paint(|ctx| {
+            for ((x1, y1), (x2, y2)) in layout.edge_lines() {
+                ctx.draw(&Line {
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    color: Color::White,
+                });
+            }
+            let points: Vec<(f64, f64)> = layout.points();
+            if !points.is_empty() {
+                ctx.draw(&Points {
+                    coords: &points,
+                    color: Color::LightGreen,
+                });
+            }
+        });
+    f.render_widget(canvas, area);
+}
+
 fn render_demo_chart<B: Backend>(f: &mut Frame<B>, area: Rect, app: &App) {
     let (price_points, eens_points) = app.demo_stats.chart_points();
     let x_min = price_points.first().map(|(x, _)| *x).unwrap_or(0.0);
@@ -378,4 +421,95 @@ fn render_logs<B: Backend>(f: &mut Frame<B>, area: Rect, app: &App) {
         .block(Block::default().borders(Borders::ALL).title("Logs"))
         .wrap(Wrap { trim: true });
     f.render_widget(logs, area);
+}
+
+struct LayoutPreview {
+    nodes: Vec<(f64, f64, String)>,
+    edges: Vec<((f64, f64), (f64, f64))>,
+}
+
+impl LayoutPreview {
+    fn from_network(network: Network) -> Self {
+        let layout = layout_network(&network, 160);
+        let mut coord_map = HashMap::new();
+        let nodes = layout
+            .nodes
+            .iter()
+            .map(|node| {
+                let coords = (node.x as f64, node.y as f64);
+                coord_map.insert(node.id, coords);
+                (coords.0, coords.1, node.label.clone())
+            })
+            .collect::<Vec<_>>();
+        let edges = layout
+            .edges
+            .iter()
+            .filter_map(|edge| {
+                if let (Some(from), Some(to)) = (coord_map.get(&edge.from), coord_map.get(&edge.to))
+                {
+                    Some((*from, *to))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        LayoutPreview { nodes, edges }
+    }
+
+    fn points(&self) -> Vec<(f64, f64)> {
+        self.nodes.iter().map(|(x, y, _)| (*x, *y)).collect()
+    }
+
+    fn edge_lines(&self) -> Vec<((f64, f64), (f64, f64))> {
+        self.edges.clone()
+    }
+
+    fn bounds(&self) -> ([f64; 2], [f64; 2]) {
+        let margin = 5.0;
+        if self.nodes.is_empty() {
+            return ([-10.0, 10.0], [-10.0, 10.0]);
+        }
+        let xs: Vec<f64> = self.nodes.iter().map(|(x, _, _)| *x).collect();
+        let ys: Vec<f64> = self.nodes.iter().map(|(_, y, _)| *y).collect();
+        let min_x = xs.iter().cloned().fold(f64::INFINITY, f64::min) - margin;
+        let max_x = xs.iter().cloned().fold(f64::NEG_INFINITY, f64::max) + margin;
+        let min_y = ys.iter().cloned().fold(f64::INFINITY, f64::min) - margin;
+        let max_y = ys.iter().cloned().fold(f64::NEG_INFINITY, f64::max) + margin;
+        ([min_x, max_x], [min_y, max_y])
+    }
+}
+
+fn build_demo_network() -> Network {
+    let mut network = Network::new();
+    let labels = ["North", "East", "South", "West", "Center"];
+    let mut nodes = Vec::new();
+    for (idx, name) in labels.iter().enumerate() {
+        let bus_id = BusId::new(idx);
+        let node = network.graph.add_node(CoreNode::Bus(Bus {
+            id: bus_id,
+            name: name.to_string(),
+            voltage_kv: 120.0,
+        }));
+        nodes.push((bus_id, node));
+    }
+    let mut branch_id = 0usize;
+    let connections = &[(0, 1), (1, 2), (2, 3), (3, 0), (0, 4), (2, 4)];
+    for &(from_idx, to_idx) in connections {
+        let (from_bus, from_node) = nodes[from_idx];
+        let (to_bus, to_node) = nodes[to_idx];
+        network.graph.add_edge(
+            from_node,
+            to_node,
+            CoreEdge::Branch(Branch {
+                id: BranchId::new(branch_id),
+                name: format!("{}-{}", labels[from_idx], labels[to_idx]),
+                from_bus,
+                to_bus,
+                resistance: 0.02,
+                reactance: 0.1,
+            }),
+        );
+        branch_id += 1;
+    }
+    network
 }

@@ -296,4 +296,13 @@ Future demos/examples in the backlog:
 
 ## Terminal dashboard
 
-`gat-tui` is a Ratatui-based visualizer (see [awesome-ratatui](https://github.com/ratatui/awesome-ratatui) for inspiration) that lives in `crates/gat-tui`. It keeps workflows, statuses, and logs in one terminal screen so newcomers can picture the pipeline before opening a browser or GUI. Run it with `cargo run -p gat-tui --release`.
+`gat-tui` is a Ratatui-based visualizer (see [awesome-ratatui](https://github.com/ratatui/awesome-ratatui) for inspiration) that lives in `crates/gat-tui`. It keeps workflows, statuses, logs, and layout previews in one terminal screen so newcomers can picture the pipeline before opening a browser or GUI. Run it with `cargo run -p gat-tui --release`.
+
+The UI pulls its demo metrics from `out/demos/cournot/cournot_results.csv` (run `test_data/demos/storage_cournot.sh` to refresh) and renders:
+
+* A workflow table plus log ticks describing each stage.
+* Gauges/summary pulled from the shared `DemoStats` model (avg price, EENS, storage profits, consumer surplus).
+* A force-directed layout preview powered by `gat graph visualize`/`fdg-sim` so the terminal view and the CLI `graph visualize` formatter use the same coordinates.
+* A demo chart and workflow graph providing quick snapshots without leaving the terminal.
+
+Controls: `↑`/`↓` to change the highlighted workflow, `l` adds a log entry, and `q` quits.
