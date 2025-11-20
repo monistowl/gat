@@ -2,10 +2,12 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use serde_json::{json, to_string_pretty};
 use std::fs;
+#[cfg(feature = "full-io")]
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 use uuid::Uuid;
 
+#[cfg(feature = "full-io")]
 fn repo_path(relative: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -15,6 +17,7 @@ fn repo_path(relative: &str) -> PathBuf {
         .join(relative)
 }
 
+#[cfg(feature = "full-io")]
 fn import_ieee14_arrow(tmp: &Path) -> PathBuf {
     let arrow_path = tmp.join("case.arrow");
     let case_file = repo_path("test_data/matpower/ieee14.case");
@@ -34,6 +37,7 @@ fn import_ieee14_arrow(tmp: &Path) -> PathBuf {
     arrow_path
 }
 
+#[cfg(feature = "full-io")]
 #[test]
 fn gat_ts_resample_runs() {
     let out_dir = tempdir().unwrap();
@@ -55,6 +59,7 @@ fn gat_ts_resample_runs() {
     assert!(out.exists());
 }
 
+#[cfg(feature = "full-io")]
 #[test]
 fn gat_ts_agg_runs() {
     let out_dir = tempdir().unwrap();
@@ -80,6 +85,7 @@ fn gat_ts_agg_runs() {
     assert!(out.exists());
 }
 
+#[cfg(feature = "full-io")]
 #[test]
 fn gat_import_and_pf_dc_runs() {
     let tmp = tempdir().unwrap();
@@ -116,6 +122,7 @@ fn gat_import_and_pf_dc_runs() {
     assert!(pf_out.exists());
 }
 
+#[cfg(feature = "full-io")]
 #[test]
 fn gat_analytics_ptdf_runs() {
     let tmp = tempdir().unwrap();
@@ -297,6 +304,7 @@ fn gat_dataset_public_describe_outputs_metadata() {
         .stdout(predicate::str::contains("Tags: time-series, tutorial"));
 }
 
+#[cfg(feature = "full-io")]
 #[test]
 fn gat_graph_stats_runs() {
     let tmp = tempdir().unwrap();
@@ -310,6 +318,7 @@ fn gat_graph_stats_runs() {
         .stdout(predicate::str::contains("Nodes"));
 }
 
+#[cfg(feature = "full-io")]
 #[test]
 fn gat_graph_islands_runs() {
     let tmp = tempdir().unwrap();
@@ -332,6 +341,7 @@ fn gat_completions_outputs_script() {
         .stdout(predicate::str::contains("_gat()"));
 }
 
+#[cfg(feature = "full-io")]
 #[test]
 fn gat_graph_export_writes_file() {
     let tmp = tempdir().unwrap();
@@ -355,6 +365,7 @@ fn gat_graph_export_writes_file() {
     assert!(contents.contains("graph"));
 }
 
+#[cfg(all(feature = "full-io", feature = "viz"))]
 #[test]
 fn gat_graph_visualize_writes_file() {
     let tmp = tempdir().unwrap();
@@ -378,6 +389,7 @@ fn gat_graph_visualize_writes_file() {
     assert!(text.contains("\"nodes\""));
 }
 
+#[cfg(all(feature = "full-io", feature = "viz"))]
 #[test]
 fn gat_graph_visualize_prints_json() {
     let tmp = tempdir().unwrap();
