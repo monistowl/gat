@@ -16,9 +16,9 @@ jobs:
           - matrix-name: minimal
             features: minimal
           - matrix-name: full-io
-            features: full-io
+            features: minimal,full-io
           - matrix-name: full-io+viz
-            features: full-io,viz
+            features: minimal,full-io,viz
           - matrix-name: all-backends
             features: all-backends
     steps:
