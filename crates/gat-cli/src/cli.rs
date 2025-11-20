@@ -69,6 +69,21 @@ pub enum Commands {
         #[command(subcommand)]
         command: SeCommands,
     },
+    /// Distribution workflows
+    Dist {
+        #[command(subcommand)]
+        command: DistCommands,
+    },
+    /// DERMS portfolio analytics
+    Derms {
+        #[command(subcommand)]
+        command: DermsCommands,
+    },
+    /// ADMS reliability and restoration workflows
+    Adms {
+        #[command(subcommand)]
+        command: AdmsCommands,
+    },
     /// Visualization helpers
     Viz {
         #[command(subcommand)]
@@ -599,6 +614,167 @@ pub enum SeCommands {
         /// Slack bus ID (defaults to lowest bus ID)
         #[arg(long)]
         slack_bus: Option<usize>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DistCommands {
+    /// Import MATPOWER into distribution tables
+    Import {
+        /// MATPOWER case (.m or directory/zip)
+        #[arg(long)]
+        m: String,
+        /// Output dist_nodes Parquet path
+        #[arg(long)]
+        nodes_out: String,
+        /// Output dist_branches Parquet path
+        #[arg(long)]
+        branches_out: String,
+        /// Optional feeder label
+        #[arg(long)]
+        feeder: Option<String>,
+    },
+    /// Summarize a distribution PF using the simplified feeder tables
+    Pf {
+        /// dist_nodes.parquet path
+        #[arg(long)]
+        nodes: String,
+        /// dist_branches.parquet path
+        #[arg(long)]
+        branches: String,
+        /// Output summary Parquet path
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Summarize a distribution OPF placeholder
+    Opf {
+        /// dist_nodes.parquet path
+        #[arg(long)]
+        nodes: String,
+        /// dist_branches.parquet path
+        #[arg(long)]
+        branches: String,
+        /// Output summary Parquet path
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Sweep hosting capacity levels for candidate nodes
+    Hostcap {
+        /// dist_nodes.parquet path
+        #[arg(long)]
+        nodes: String,
+        /// dist_branches.parquet path
+        #[arg(long)]
+        branches: String,
+        /// Comma-separated list of node_ids to probe (defaults to all nodes)
+        #[arg(long)]
+        targets: Option<String>,
+        /// Maximum MW injection to test
+        #[arg(long, default_value_t = 5.0)]
+        max_mw: f64,
+        /// MW step per iteration
+        #[arg(long, default_value_t = 0.5)]
+        step_mw: f64,
+        /// Summary Parquet output path
+        #[arg(long)]
+        summary_out: String,
+        /// Detailed per-step Parquet output path
+        #[arg(long)]
+        detail_out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DermsCommands {
+    /// Validate DER asset tables
+    ValidateAssets {
+        /// Path to der_assets.parquet
+        assets: String,
+    },
+    /// Compute P-Q flexibility envelopes
+    Envelope {
+        /// Path to der_assets.parquet
+        assets: String,
+        /// Optional grouping column
+        #[arg(long)]
+        group_by: Option<String>,
+        /// Output Parquet path
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Create a simple multi-period DER schedule
+    Schedule {
+        /// Path to der_assets.parquet
+        assets: String,
+        /// Number of timesteps
+        #[arg(long, default_value_t = 24)]
+        horizon: usize,
+        /// Minutes per timestep
+        #[arg(long, default_value_t = 60)]
+        timestep_mins: u32,
+        /// Output schedule Parquet path
+        #[arg(short, long)]
+        out: String,
+        /// Optional summary output Parquet path
+        #[arg(long)]
+        summary_out: Option<String>,
+    },
+    /// Run repeated randomized stress tests
+    StressTest {
+        /// Path to der_assets.parquet
+        assets: String,
+        /// Number of random runs
+        #[arg(long, default_value_t = 10)]
+        runs: usize,
+        /// Output Parquet path
+        #[arg(short, long)]
+        out: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AdmsCommands {
+    /// Validate reliability metadata
+    ValidateReliability {
+        /// Path to reliability.parquet
+        reliability: String,
+    },
+    /// Run a simple FLISR simulation loop
+    FlisrSim {
+        /// Path to reliability.parquet
+        reliability: String,
+        /// Output Parquet path
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Monte Carlo outage sampling
+    OutageMc {
+        /// Path to reliability.parquet
+        reliability: String,
+        /// Number of samples
+        #[arg(long, default_value_t = 50)]
+        samples: usize,
+        /// Output Parquet path
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Volt/VAR planning wrapper
+    VvoPlan {
+        /// Path to dist_nodes.parquet
+        #[arg(long)]
+        nodes: String,
+        /// Path to dist_branches.parquet
+        #[arg(long)]
+        branches: String,
+        /// Output Parquet path
+        #[arg(short, long)]
+        out: String,
+    },
+    /// Stub for distribution state-estimation-assisted workflow
+    StateEstimation {
+        /// Output Parquet path
+        #[arg(short, long)]
+        out: String,
     },
 }
 

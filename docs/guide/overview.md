@@ -16,6 +16,12 @@ Topology commands (`gat graph stats`, `gat graph islands`, `gat graph export`) a
 
 `gat pf {dc,ac}` is documented in `docs/guide/pf.md`; the CLI supports solver selection, threading hints, tolerances, and Parquet output that lives under `pf-dc/` or `pf-ac/` for manifest-driven automation.
 
+## Distribution, DERMS, and ADMS namespaces
+
+- Distribution-focused helpers live under `gat dist` (see `docs/guide/dist.md`) and provide feeder table schemas, PF/OPF summaries, and hosting-capacity sweeps.
+- DER portfolio tooling lives under `gat derms` (`docs/guide/derms.md`) with asset validation, P–Q envelopes, scheduling, and stress tests.
+- Reliability and Volt/VAR planning wrappers live under `gat adms` (`docs/guide/adms.md`), including FLISR simulations and outage Monte Carlo stubs.
+
 ## Outputs and partitions
 
 Every heavy command writes into a stage-named directory (for example `pf-dc`, `opf-dc`, `nminus1-dc`, or `se-wls`) so dashboards and artifact stores can tell where work was produced. Use `--out-partitions <comma-separated-columns>` to split the Parquet output inside that stage directory by column values (e.g., `--out-partitions run_id,date/contingency` writes `stage/run_id=.../date=.../part-0000.parquet`). The stage-aware helper also respects the `run.json`/manifest layout so `gat runs resume` and downstream tools can follow the same tree.

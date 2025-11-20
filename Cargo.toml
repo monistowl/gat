@@ -9,7 +9,7 @@ members = [
     "crates/gat-gui",
     "crates/gat-tui",
     "xtask",
-    "crates/gat-mcp-docs",
+    "crates/gat-mcp-docs", "crates/gat-dist", "crates/gat-derms", "crates/gat-adms",
 ]
 resolver = "2" # See https://doc.rust-lang.org/cargo/reference/workspaces.html#the-resolver-field
 

@@ -1,0 +1,10 @@
+[package]
+name = "gat-dist"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+gat-core = { path = "../gat-core" }
+gat-io = { path = "../gat-io" }
+polars = { version = "0.38", features = ["lazy", "parquet"] }

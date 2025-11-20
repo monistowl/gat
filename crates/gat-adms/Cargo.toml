@@ -1,0 +1,9 @@
+[package]
+name = "gat-adms"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+polars = { version = "0.38", features = ["lazy", "parquet"] }
+rand = "0.8"

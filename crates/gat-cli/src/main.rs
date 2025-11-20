@@ -1,8 +1,13 @@
 use clap::Parser;
 use clap_complete::{generate, Shell};
 use dirs::config_dir;
+use gat_adms::{flisr_sim, outage_mc, state_estimation_stub, validate_reliability, vvo_plan};
 use gat_algo::{power_flow, LpSolverKind};
 use gat_core::{graph_utils, solver::SolverKind};
+use gat_derms::{envelope, schedule, stress_test, validate_assets};
+use gat_dist::{
+    hosting_capacity_scan, import_matpower_as_dist, load_network, summarize_opf, summarize_pf,
+};
 use gat_io::{importers, validate};
 use rayon::ThreadPoolBuilder;
 use std::env;
@@ -19,10 +24,10 @@ mod runs;
 use dataset::*;
 use gat_cli::{
     cli::{
-        build_cli_command, AnalyticsCommands, Cli, Commands, DatasetCommands, GraphCommands,
-        GuiCommands, HirenCommands, ImportCommands, Nminus1Commands, OpfCommands,
-        PowerFlowCommands, PublicDatasetCommands, RtsGmlcCommands, RunFormat, RunsCommands,
-        SeCommands, Sup3rccCommands, TsCommands, TuiCommands, VizCommands,
+        build_cli_command, AdmsCommands, AnalyticsCommands, Cli, Commands, DatasetCommands,
+        DermsCommands, DistCommands, GraphCommands, GuiCommands, HirenCommands, ImportCommands,
+        Nminus1Commands, OpfCommands, PowerFlowCommands, PublicDatasetCommands, RtsGmlcCommands,
+        RunFormat, RunsCommands, SeCommands, Sup3rccCommands, TsCommands, TuiCommands, VizCommands,
     },
     manifest,
 };
@@ -671,6 +676,194 @@ fn main() {
             match result {
                 Ok(_) => info!("State estimation command successful!"),
                 Err(e) => error!("State estimation command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Dist { command }) => {
+            let result = match command {
+                DistCommands::Import {
+                    m,
+                    nodes_out,
+                    branches_out,
+                    feeder,
+                } => {
+                    info!("Importing distribution tables from {}", m);
+                    (|| -> anyhow::Result<()> {
+                        import_matpower_as_dist(
+                            m,
+                            Path::new(nodes_out),
+                            Path::new(branches_out),
+                            feeder.as_deref(),
+                        )?;
+                        Ok(())
+                    })()
+                }
+                DistCommands::Pf {
+                    nodes,
+                    branches,
+                    out,
+                } => {
+                    info!(
+                        "Summarizing dist PF for {} + {} -> {}",
+                        nodes, branches, out
+                    );
+                    (|| -> anyhow::Result<()> {
+                        let network = load_network(Path::new(nodes), Path::new(branches))?;
+                        let mut df = summarize_pf(&network)?;
+                        let mut file = std::fs::File::create(out)?;
+                        polars::prelude::ParquetWriter::new(&mut file).finish(&mut df)?;
+                        Ok(())
+                    })()
+                }
+                DistCommands::Opf {
+                    nodes,
+                    branches,
+                    out,
+                } => {
+                    info!(
+                        "Summarizing dist OPF for {} + {} -> {}",
+                        nodes, branches, out
+                    );
+                    (|| -> anyhow::Result<()> {
+                        let network = load_network(Path::new(nodes), Path::new(branches))?;
+                        let mut df = summarize_opf(&network)?;
+                        let mut file = std::fs::File::create(out)?;
+                        polars::prelude::ParquetWriter::new(&mut file).finish(&mut df)?;
+                        Ok(())
+                    })()
+                }
+                DistCommands::Hostcap {
+                    nodes,
+                    branches,
+                    targets,
+                    max_mw,
+                    step_mw,
+                    summary_out,
+                    detail_out,
+                } => {
+                    info!("Running hosting capacity sweep up to {} MW", max_mw);
+                    (|| -> anyhow::Result<()> {
+                        let network = load_network(Path::new(nodes), Path::new(branches))?;
+                        let target_list: Vec<String> = targets
+                            .as_deref()
+                            .unwrap_or("")
+                            .split(',')
+                            .filter(|s| !s.trim().is_empty())
+                            .map(|s| s.trim().to_string())
+                            .collect();
+                        let (mut summary, mut detail) =
+                            hosting_capacity_scan(&network, &target_list, max_mw, step_mw)?;
+                        let mut summary_file = std::fs::File::create(summary_out)?;
+                        polars::prelude::ParquetWriter::new(&mut summary_file)
+                            .finish(&mut summary)?;
+                        let mut detail_file = std::fs::File::create(detail_out)?;
+                        polars::prelude::ParquetWriter::new(&mut detail_file)
+                            .finish(&mut detail)?;
+                        Ok(())
+                    })()
+                }
+            };
+
+            match result {
+                Ok(_) => info!("Distribution command successful!"),
+                Err(e) => error!("Distribution command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Derms { command }) => {
+            let result = match command {
+                DermsCommands::ValidateAssets { assets } => {
+                    info!("Validating DER assets {}", assets);
+                    validate_assets(Path::new(assets)).map(|_| ())
+                }
+                DermsCommands::Envelope {
+                    assets,
+                    group_by,
+                    out,
+                } => {
+                    info!("Building DER envelopes from {} -> {}", assets, out);
+                    (|| -> anyhow::Result<()> {
+                        let assets_df = validate_assets(Path::new(assets))?;
+                        envelope(Path::new(out), &assets_df, group_by.as_deref())?;
+                        Ok(())
+                    })()
+                }
+                DermsCommands::Schedule {
+                    assets,
+                    horizon,
+                    timestep_mins,
+                    out,
+                    summary_out,
+                } => {
+                    info!("Scheduling DERs from {} -> {}", assets, out);
+                    (|| -> anyhow::Result<()> {
+                        let assets_df = validate_assets(Path::new(assets))?;
+                        schedule(
+                            &assets_df,
+                            *horizon,
+                            *timestep_mins,
+                            Path::new(out),
+                            summary_out.as_deref().map(Path::new),
+                        )?;
+                        Ok(())
+                    })()
+                }
+                DermsCommands::StressTest { assets, runs, out } => {
+                    info!("Running DER stress test {} runs", runs);
+                    (|| -> anyhow::Result<()> {
+                        let assets_df = validate_assets(Path::new(assets))?;
+                        stress_test(&assets_df, *runs, Path::new(out))?;
+                        Ok(())
+                    })()
+                }
+            };
+
+            match result {
+                Ok(_) => info!("DERMS command successful!"),
+                Err(e) => error!("DERMS command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Adms { command }) => {
+            let result = match command {
+                AdmsCommands::ValidateReliability { reliability } => {
+                    info!("Validating reliability table {}", reliability);
+                    validate_reliability(Path::new(reliability)).map(|_| ())
+                }
+                AdmsCommands::FlisrSim { reliability, out } => {
+                    info!("Running FLISR simulation -> {}", out);
+                    (|| -> anyhow::Result<()> {
+                        let df = validate_reliability(Path::new(reliability))?;
+                        flisr_sim(&df, Path::new(out))?;
+                        Ok(())
+                    })()
+                }
+                AdmsCommands::OutageMc {
+                    reliability,
+                    samples,
+                    out,
+                } => {
+                    info!("Running outage MC with {} samples -> {}", samples, out);
+                    (|| -> anyhow::Result<()> {
+                        let df = validate_reliability(Path::new(reliability))?;
+                        outage_mc(&df, *samples, Path::new(out))?;
+                        Ok(())
+                    })()
+                }
+                AdmsCommands::VvoPlan {
+                    nodes,
+                    branches,
+                    out,
+                } => {
+                    info!("Building VVO plan from {} + {}", nodes, branches);
+                    vvo_plan(Path::new(nodes), Path::new(branches), Path::new(out))
+                }
+                AdmsCommands::StateEstimation { out } => {
+                    info!("Writing stub SE output to {}", out);
+                    state_estimation_stub(Path::new(out))
+                }
+            };
+
+            match result {
+                Ok(_) => info!("ADMS command successful!"),
+                Err(e) => error!("ADMS command failed: {:?}", e),
             }
         }
         Some(Commands::Viz { command }) => {
