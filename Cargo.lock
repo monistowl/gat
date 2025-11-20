@@ -709,7 +709,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d602045cd2e7ad02608a71492af94357f493a6f3c934ce854c03bf10fddc5780"
 dependencies = [
  "coin_cbc_sys",
- "lazy_static",
 ]
 
 [[package]]
@@ -1684,6 +1683,7 @@ dependencies = [
  "gat-gui",
  "gat-io",
  "gat-ts",
+ "gat-tui",
  "gat-viz",
  "num_cpus",
  "predicates",

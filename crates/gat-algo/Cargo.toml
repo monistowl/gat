@@ -7,11 +7,31 @@ edition = "2021"
 anyhow = "1.0"
 csv = "1.4"
 gat-core = { path = "../gat-core" }
-good_lp = { version = "1.14", features = ["clarabel", "coin_cbc", "highs"] }
+good_lp = { version = "1.14", default-features = false }
 num-complex = "0.4"
-polars = { version = "0.35", features = ["lazy", "parquet", "ipc"] }
+polars = { version = "0.35", default-features = false }
 rayon = "1.7"
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 tempfile = "3"
+
+[features]
+default = [
+    "solver-clarabel",
+    "polars-lazy",
+    "polars-parquet",
+    "polars-ipc",
+]
+
+all-solvers = ["solver-clarabel", "solver-coin_cbc", "solver-highs"]
+all-polars = ["polars-lazy", "polars-parquet", "polars-ipc"]
+full = ["all-solvers", "all-polars"]
+
+solver-clarabel = ["good_lp/clarabel"]
+solver-coin_cbc = ["good_lp/coin_cbc"]
+solver-highs = ["good_lp/highs"]
+
+polars-lazy = ["polars/lazy"]
+polars-parquet = ["polars/parquet"]
+polars-ipc = ["polars/ipc"]

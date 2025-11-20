@@ -1,7 +1,9 @@
 use std::{fs::File, path::Path};
 
 use anyhow::{anyhow, bail, Context, Result};
-use polars::prelude::{CsvReader, DataFrame, ParquetReader, SerReader};
+#[cfg(feature = "parquet")]
+use polars::prelude::ParquetReader;
+use polars::prelude::{CsvReader, DataFrame, SerReader};
 use serde::Deserialize;
 use serde_json;
 
@@ -67,10 +69,15 @@ fn read_dataframe(path: &Path) -> Result<DataFrame> {
     let mut file =
         File::open(path).with_context(|| format!("opening dataset '{}'", path.display()))?;
     match extension.as_str() {
+        #[cfg(feature = "parquet")]
         "parquet" => {
             let reader = ParquetReader::new(&mut file);
             reader.finish().context("reading Parquet dataset")
         }
+        #[cfg(not(feature = "parquet"))]
+        "parquet" => Err(anyhow!(
+            "parquet support is disabled; rebuild with the 'parquet' feature"
+        )),
         "csv" => {
             let reader = CsvReader::new(&mut file);
             reader.finish().context("reading CSV dataset")
@@ -92,7 +99,7 @@ fn strip_mod(dtype: &str) -> &str {
     dtype.split('_').next().unwrap_or(dtype)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "parquet"))]
 mod tests {
     use super::*;
     use polars::prelude::*;

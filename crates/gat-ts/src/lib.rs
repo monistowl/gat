@@ -5,9 +5,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use polars::datatypes::IdxSize;
 use polars::frame::group_by::GroupsIndicator;
 use polars::prelude::*;
+#[cfg(feature = "parquet")]
+use polars::prelude::{ParquetReader, ParquetWriter};
 
 pub fn resample_timeseries(
     input_path: &str,
@@ -141,10 +144,15 @@ fn read_frame(path: &str) -> Result<DataFrame> {
     let mut file = File::open(path).with_context(|| format!("opening {}", path.display()))?;
 
     match extension.as_str() {
+        #[cfg(feature = "parquet")]
         "parquet" => {
             let reader = ParquetReader::new(&mut file);
             reader.finish().context("reading Parquet file")
         }
+        #[cfg(not(feature = "parquet"))]
+        "parquet" => Err(anyhow!(
+            "parquet support is disabled; rebuild with the 'parquet' feature"
+        )),
         "csv" => {
             let reader = CsvReader::new(&mut file);
             reader.has_header(true).finish().context("reading CSV file")
@@ -164,6 +172,10 @@ fn write_frame_staged(
 ) -> Result<()> {
     let output = Path::new(path);
     let staged = staged_output_path(output, stage);
+    if !partitions.is_empty() && !cfg!(feature = "parquet") {
+        bail!("partitioned output requires parquet support; rebuild with the 'parquet' feature");
+    }
+
     if partitions.is_empty() {
         if let Some(parent) = staged.parent() {
             fs::create_dir_all(parent)?;
@@ -175,10 +187,15 @@ fn write_frame_staged(
             .and_then(|ext| ext.to_str())
             .map(|s| s.to_lowercase())
         {
+            #[cfg(feature = "parquet")]
             Some(ext) if ext == "parquet" => ParquetWriter::new(&mut file)
                 .finish(df)
                 .map(|_| ())
                 .context("writing Parquet file"),
+            #[cfg(not(feature = "parquet"))]
+            Some(ext) if ext == "parquet" => Err(anyhow!(
+                "parquet support is disabled; rebuild with the 'parquet' feature"
+            )),
             Some(ext) if ext == "csv" => CsvWriter::new(&mut file)
                 .finish(df)
                 .context("writing CSV file"),
@@ -222,6 +239,7 @@ fn write_partitions(df: &DataFrame, output: &Path, partitions: &[String]) -> Res
     Ok(())
 }
 
+#[cfg(feature = "parquet")]
 fn write_partition_file(df: &mut DataFrame, dir: &Path, index: usize) -> Result<()> {
     fs::create_dir_all(dir)?;
     let file_path = dir.join(format!("part-{index:04}.parquet"));
@@ -230,6 +248,11 @@ fn write_partition_file(df: &mut DataFrame, dir: &Path, index: usize) -> Result<
         .finish(df)
         .map(|_| ())
         .context("writing partition file")
+}
+
+#[cfg(not(feature = "parquet"))]
+fn write_partition_file(_df: &mut DataFrame, _dir: &Path, _index: usize) -> Result<()> {
+    bail!("parquet support is disabled; rebuild with the 'parquet' feature to write partitions")
 }
 
 fn partition_dir(
@@ -297,7 +320,7 @@ impl Default for BucketStats {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "parquet"))]
 mod tests {
     use super::*;
     use polars::prelude::{CsvWriter, ParquetWriter};
