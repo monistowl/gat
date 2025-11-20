@@ -27,6 +27,12 @@ If you’re comfortable running simple CLI commands and want to start doing *rea
 **Why Rust?**
 Because Rust gives you C-like execution speed without unsafe foot-guns. For grid models with thousands of buses/branches, that matters. Even on a laptop.
 
+GAT scales with you:
+
+* Two lines for a DC power flow.
+* A thousand AC-OPF scenarios on 20 machines when you need throughput.
+* All without Conda, Jupyter, or heavyweight clusters.
+
 ---
 
 # 📦 Installation
@@ -369,21 +375,7 @@ See `docs/ROADMAP.md` for the authoritative project plan with milestones, phases
 
 ---
 
-# 🧩 Final Notes
-
-GAT scales with you:
-
-* Two lines for a DC power flow.
-* A thousand AC-OPF scenarios on 20 machines when you need throughput.
-* All without Conda, Jupyter, or heavyweight clusters.
-
-Future demos/examples in the backlog:
-
-1. A beginner tutorial (“Your first week with GAT”).
-2. A sample notebook using DuckDB + Polars to explore outputs.
-3. A cluster-fanout cheat sheet for students and undergrads.
-
-## Terminal dashboard
+# 🎛️ Terminal dashboard
 
 `gat-tui` is a Ratatui-based visualizer (see [awesome-ratatui](https://github.com/ratatui/awesome-ratatui) for inspiration) that lives in `crates/gat-tui`. It keeps workflows, statuses, logs, and layout previews in one terminal screen so newcomers can picture the pipeline before opening a browser or GUI. Run it with `cargo run -p gat-tui --release`.
 
