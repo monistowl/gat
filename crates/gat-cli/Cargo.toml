@@ -8,8 +8,9 @@ gat-core = { path = "../gat-core" }
 gat-io = { path = "../gat-io" }
 gat-algo = { path = "../gat-algo", default-features = false }
 gat-ts = { path = "../gat-ts" }
-gat-viz = { path = "../gat-viz" }
-gat-gui = { path = "../gat-gui" }
+gat-viz = { path = "../gat-viz", optional = true }
+gat-gui = { path = "../gat-gui", optional = true }
+gat-tui = { path = "../gat-tui", optional = true }
 dirs = "4"
 clap = { version = "4.0", features = ["derive"] }
 tracing = "0.1"
@@ -28,6 +29,12 @@ tabwriter = "1.2"
 clap_complete = "4"
 ureq = "2"
 zip = "0.6"
+
+[features]
+default = []
+gui = ["dep:gat-gui"]
+tui = ["dep:gat-tui"]
+viz = ["dep:gat-viz"]
 
 [dev-dependencies]
 assert_cmd = "2"

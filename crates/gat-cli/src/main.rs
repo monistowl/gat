@@ -1,6 +1,5 @@
 use clap::Parser;
 use clap_complete::{generate, Shell};
-use dirs::config_dir;
 use gat_algo::{power_flow, LpSolverKind};
 use gat_core::{graph_utils, solver::SolverKind};
 use gat_io::{importers, validate};
@@ -8,7 +7,9 @@ use rayon::ThreadPoolBuilder;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(feature = "tui")]
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 use tabwriter::TabWriter;
@@ -17,15 +18,24 @@ use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
 mod runs;
 use dataset::*;
+#[cfg(feature = "tui")]
+use dirs::config_dir;
+#[cfg(feature = "gui")]
+use gat_cli::cli::GuiCommands;
+#[cfg(feature = "tui")]
+use gat_cli::cli::TuiCommands;
+#[cfg(feature = "viz")]
+use gat_cli::cli::VizCommands;
 use gat_cli::{
     cli::{
         build_cli_command, AnalyticsCommands, Cli, Commands, DatasetCommands, GraphCommands,
-        GuiCommands, HirenCommands, ImportCommands, Nminus1Commands, OpfCommands,
-        PowerFlowCommands, PublicDatasetCommands, RtsGmlcCommands, RunFormat, RunsCommands,
-        SeCommands, Sup3rccCommands, TsCommands, TuiCommands, VizCommands,
+        HirenCommands, ImportCommands, Nminus1Commands, OpfCommands, PowerFlowCommands,
+        PublicDatasetCommands, RtsGmlcCommands, RunFormat, RunsCommands, SeCommands,
+        Sup3rccCommands, TsCommands,
     },
     manifest,
 };
+#[cfg(feature = "viz")]
 use gat_viz::layout::layout_network;
 use manifest::{record_manifest, ManifestEntry};
 use runs::{discover_runs, resolve_manifest, summaries, RunRecord};
@@ -166,6 +176,7 @@ fn generate_completions(shell: Shell, out: Option<&Path>) -> anyhow::Result<()> 
     Ok(())
 }
 
+#[cfg(feature = "tui")]
 const TUI_CONFIG_TEMPLATE: &str = "\
 poll_secs=1
 solver=gauss
@@ -173,10 +184,12 @@ verbose=false
 command=cargo run -p gat-cli -- --help
 ";
 
+#[cfg(feature = "tui")]
 fn default_tui_config_path() -> Option<PathBuf> {
     config_dir().map(|dir| dir.join("gat-tui").join("config.toml"))
 }
 
+#[cfg(feature = "tui")]
 fn write_tui_config(out: Option<&str>) -> anyhow::Result<PathBuf> {
     let target = out
         .map(PathBuf::from)
@@ -312,6 +325,7 @@ fn main() {
                         Err(e) => Err(e),
                     }
                 }
+                #[cfg(feature = "viz")]
                 GraphCommands::Visualize {
                     grid_file,
                     iterations,
@@ -673,6 +687,7 @@ fn main() {
                 Err(e) => error!("State estimation command failed: {:?}", e),
             }
         }
+        #[cfg(feature = "viz")]
         Some(Commands::Viz { command }) => {
             let result = match command {
                 VizCommands::Plot { grid_file, output } => {
@@ -696,6 +711,7 @@ fn main() {
                 Err(e) => error!("Viz command failed: {:?}", e),
             }
         }
+        #[cfg(feature = "gui")]
         Some(Commands::Gui { command }) => {
             let result = match command {
                 GuiCommands::Run { grid_file, output } => {
@@ -980,6 +996,7 @@ fn main() {
                 Err(e) => error!("OPF command failed: {:?}", e),
             }
         }
+        #[cfg(feature = "tui")]
         Some(Commands::Tui { command }) => match command {
             TuiCommands::Config { out } => match write_tui_config(out.as_deref()) {
                 Ok(path) => info!("gat-tui config written to {}", path.display()),
