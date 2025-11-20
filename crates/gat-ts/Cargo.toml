@@ -3,10 +3,17 @@ name = "gat-ts"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["minimal"]
+minimal = []
+parquet = ["polars/parquet"]
+temporal = ["polars/temporal"]
+full = ["parquet", "temporal"]
+
 [dependencies]
 gat-core = { path = "../gat-core" }
 anyhow = "1.0"
-polars = { version = "0.35", features = ["parquet", "csv", "temporal"] }
+polars = { version = "0.35", default-features = false, features = ["lazy", "csv"] }
 
 [dev-dependencies]
 tempfile = "3"
