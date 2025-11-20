@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 gat-core = { path = "../gat-core" }
 gat-io = { path = "../gat-io" }
-gat-algo = { path = "../gat-algo" }
+gat-algo = { path = "../gat-algo", default-features = false }
 gat-ts = { path = "../gat-ts" }
 gat-viz = { path = "../gat-viz" }
 gat-gui = { path = "../gat-gui" }
@@ -33,3 +33,29 @@ zip = "0.6"
 assert_cmd = "2"
 predicates = "3"
 tempfile = "3"
+
+[features]
+default = [
+    "solver-clarabel",
+    "polars-lazy",
+    "polars-parquet",
+    "polars-ipc",
+]
+
+all-backends = [
+    "solver-clarabel",
+    "solver-coin_cbc",
+    "solver-highs",
+    "polars-lazy",
+    "polars-parquet",
+    "polars-ipc",
+]
+
+minimal = ["solver-clarabel", "polars-lazy", "polars-parquet", "polars-ipc"]
+
+solver-clarabel = ["gat-algo/solver-clarabel"]
+solver-coin_cbc = ["gat-algo/solver-coin_cbc"]
+solver-highs = ["gat-algo/solver-highs"]
+polars-lazy = ["gat-algo/polars-lazy"]
+polars-parquet = ["gat-algo/polars-parquet"]
+polars-ipc = ["gat-algo/polars-ipc"]

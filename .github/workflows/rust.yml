@@ -10,18 +10,47 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  stable:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: default
+            feature-args: ""
+          - name: minimal
+            feature-args: "--no-default-features --features minimal"
 
+    name: stable-${{ matrix.name }}
     steps:
     - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
     - name: Generate docs
       run: cargo xtask doc:all
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --package gat-cli --verbose ${{ matrix.feature-args }}
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --package gat-cli --verbose ${{ matrix.feature-args }}
     - name: Run clippy
-      run: cargo clippy -- -D warnings
+      run: cargo clippy --package gat-cli ${{ matrix.feature-args }} -- -D warnings
+    - name: Run fmt
+      run: cargo fmt --check
+
+  nightly-all-backends:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@nightly
+      with:
+        components: clippy, rustfmt
+    - name: Generate docs
+      run: cargo xtask doc:all
+    - name: Build (all backends)
+      run: cargo build --package gat-cli --verbose --no-default-features --features all-backends
+    - name: Run tests (all backends)
+      run: cargo test --package gat-cli --verbose --no-default-features --features all-backends
+    - name: Run clippy (all backends)
+      run: cargo clippy --package gat-cli --no-default-features --features all-backends -- -D warnings
     - name: Run fmt
       run: cargo fmt --check
