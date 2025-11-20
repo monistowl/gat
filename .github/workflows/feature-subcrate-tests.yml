@@ -28,6 +28,8 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev
       - name: Run gat-cli tests for ${{ matrix.matrix-name }}
         run: |
           set -euo pipefail
@@ -62,6 +64,8 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev
       - name: Run tests for ${{ matrix.matrix-name }}
         run: |
           set -euo pipefail
