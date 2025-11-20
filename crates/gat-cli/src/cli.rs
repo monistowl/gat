@@ -59,6 +59,21 @@ pub enum Commands {
         #[command(subcommand)]
         command: TsCommands,
     },
+    /// Distribution modeling helpers
+    Dist {
+        #[command(subcommand)]
+        command: DistCommands,
+    },
+    /// DERMS analytics
+    Derms {
+        #[command(subcommand)]
+        command: DermsCommands,
+    },
+    /// ADMS reliability workflows
+    Adms {
+        #[command(subcommand)]
+        command: AdmsCommands,
+    },
     /// Optimal power flow
     Opf {
         #[command(subcommand)]
@@ -309,6 +324,219 @@ pub enum TsCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DistCommands {
+    /// Import MATPOWER into distribution tables
+    Import {
+        /// Source MATPOWER case file
+        #[arg(long)]
+        m: String,
+        /// Output directory for dist tables
+        #[arg(long)]
+        output_dir: String,
+        /// Optional feeder identifier to annotate the tables
+        #[arg(long)]
+        feeder_id: Option<String>,
+    },
+    /// Run a distribution AC power flow
+    Pf {
+        /// Grid file (Arrow format)
+        #[arg(long)]
+        grid_file: String,
+        /// Output Parquet path
+        #[arg(long)]
+        out: String,
+        /// Solver (`gauss`, `clarabel`, `highs`)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum iterations
+        #[arg(long, default_value = "20")]
+        max_iter: u32,
+    },
+    /// Run a simple hosting-capacity OPF for distribution feeders
+    Opf {
+        /// Grid file (Arrow format)
+        #[arg(long)]
+        grid_file: String,
+        /// Output Parquet path
+        #[arg(long)]
+        out: String,
+        /// Objective descriptor
+        #[arg(long, default_value = "loss")]
+        objective: String,
+        /// Solver to use
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum iterations
+        #[arg(long, default_value = "20")]
+        max_iter: u32,
+    },
+    /// Sweep hosting capacity over selected buses
+    Hostcap {
+        /// Grid file (Arrow format)
+        #[arg(long)]
+        grid_file: String,
+        /// Output directory for artifacts
+        #[arg(long)]
+        out_dir: String,
+        /// Bus IDs to target (comma-separated or repeated)
+        #[arg(long, value_delimiter = ',')]
+        bus: Vec<usize>,
+        /// Maximum injection per bus
+        #[arg(long, default_value = "2.0")]
+        max_injection: f64,
+        /// Number of steps per bus
+        #[arg(long, default_value = "8")]
+        steps: usize,
+        /// Solver to use
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DermsCommands {
+    /// Build DER flexibility envelopes
+    Envelope {
+        /// Grid Arrow file
+        #[arg(long)]
+        grid_file: String,
+        /// DER asset Parquet
+        #[arg(long)]
+        assets: String,
+        /// Output Parquet path
+        #[arg(short, long)]
+        out: String,
+        /// Grouping key (agg_id or bus)
+        #[arg(long)]
+        group_by: Option<String>,
+    },
+    /// Produce a scheduling recommendation
+    Schedule {
+        /// DER asset Parquet
+        #[arg(long)]
+        assets: String,
+        /// Price series Parquet
+        #[arg(long)]
+        price_series: String,
+        /// Output Parquet path
+        #[arg(short, long)]
+        out: String,
+        /// Objective name (for logging)
+        #[arg(long, default_value = "median-price")]
+        objective: String,
+    },
+    /// Run a stress-test over randomized price perturbations
+    StressTest {
+        /// DER asset Parquet
+        #[arg(long)]
+        assets: String,
+        /// Price series Parquet
+        #[arg(long)]
+        price_series: String,
+        /// Output directory for scans
+        #[arg(long)]
+        output_dir: String,
+        /// Number of scenarios to sample
+        #[arg(long, default_value = "16")]
+        scenarios: usize,
+        /// Optional RNG seed
+        #[arg(long)]
+        seed: Option<u64>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AdmsCommands {
+    /// Run FLISR reliability sampling
+    FlisrSim {
+        /// Grid file (Arrow)
+        #[arg(long)]
+        grid_file: String,
+        /// Reliability catalog Parquet
+        #[arg(long)]
+        reliability: String,
+        /// Output directory for FLISR artifacts
+        #[arg(long)]
+        output_dir: String,
+        /// Number of scenarios to sample
+        #[arg(long, default_value = "3")]
+        scenarios: usize,
+        /// Solver to use
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum iterations
+        #[arg(long, default_value = "20")]
+        max_iter: u32,
+    },
+    /// Volt/VAR planning runs
+    VvoPlan {
+        /// Grid file (Arrow)
+        #[arg(long)]
+        grid_file: String,
+        /// Output directory for day-type artifacts
+        #[arg(long)]
+        output_dir: String,
+        /// Day types (comma-separated)
+        #[arg(long, default_value = "low,high")]
+        day_types: String,
+        /// Solver to use
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum iterations
+        #[arg(long, default_value = "20")]
+        max_iter: u32,
+    },
+    /// Monte Carlo outage evaluation
+    OutageMc {
+        /// Reliability catalog Parquet
+        #[arg(long)]
+        reliability: String,
+        /// Output directory
+        #[arg(long)]
+        output_dir: String,
+        /// Sample count
+        #[arg(long, default_value = "20")]
+        samples: usize,
+        /// Optional RNG seed
+        #[arg(long)]
+        seed: Option<u64>,
+    },
+    /// State estimation checks
+    StateEstimation {
+        /// Grid file (Arrow)
+        #[arg(long)]
+        grid_file: String,
+        /// Measurements CSV
+        #[arg(long)]
+        measurements: String,
+        /// Output Parquet for measurement residuals
+        #[arg(long)]
+        out: String,
+        /// Optional output for estimated state
+        #[arg(long)]
+        state_out: Option<String>,
+        /// Solver to use
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Slack bus override
+        #[arg(long)]
+        slack_bus: Option<usize>,
     },
 }
 

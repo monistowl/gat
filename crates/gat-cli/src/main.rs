@@ -20,6 +20,7 @@ mod runs;
 use dataset::*;
 #[cfg(feature = "tui")]
 use dirs::config_dir;
+use gat_adms::{flisr_sim, outage_mc, state_estimation, vvo_plan};
 #[cfg(feature = "gui")]
 use gat_cli::cli::GuiCommands;
 #[cfg(feature = "tui")]
@@ -28,13 +29,15 @@ use gat_cli::cli::TuiCommands;
 use gat_cli::cli::VizCommands;
 use gat_cli::{
     cli::{
-        build_cli_command, AnalyticsCommands, Cli, Commands, DatasetCommands, GraphCommands,
-        HirenCommands, ImportCommands, Nminus1Commands, OpfCommands, PowerFlowCommands,
-        PublicDatasetCommands, RtsGmlcCommands, RunFormat, RunsCommands, SeCommands,
-        Sup3rccCommands, TsCommands,
+        build_cli_command, AdmsCommands, AnalyticsCommands, Cli, Commands, DatasetCommands,
+        DermsCommands, DistCommands, GraphCommands, HirenCommands, ImportCommands,
+        Nminus1Commands, OpfCommands, PowerFlowCommands, PublicDatasetCommands,
+        RtsGmlcCommands, RunFormat, RunsCommands, SeCommands, Sup3rccCommands, TsCommands,
     },
     manifest,
 };
+use gat_derms::{envelope, schedule, stress_test};
+use gat_dist::{hostcap_sweep, import_matpower_case, run_optimal_power_flow, run_power_flow};
 #[cfg(feature = "viz")]
 use gat_viz::layout::layout_network;
 use manifest::{record_manifest, ManifestEntry};
@@ -620,6 +623,416 @@ fn main() {
             match result {
                 Ok(_) => info!("Timeseries command successful!"),
                 Err(e) => error!("Timeseries command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Dist { command }) => {
+            let result = match command {
+                DistCommands::Import {
+                    m,
+                    output_dir,
+                    feeder_id,
+                } => {
+                    info!("Importing MATPOWER {} into {}", m, output_dir);
+                    let target = Path::new(&output_dir);
+                    let res = import_matpower_case(m, target, feeder_id.as_deref());
+                    if res.is_ok() {
+                        record_run(
+                            &output_dir,
+                            "dist import matpower",
+                            &[
+                                ("matpower", m.as_str()),
+                                ("output_dir", output_dir.as_str()),
+                                ("feeder_id", feeder_id.as_deref().unwrap_or("default")),
+                            ],
+                        );
+                    }
+                    res
+                }
+                DistCommands::Pf {
+                    grid_file,
+                    out,
+                    solver,
+                    tol,
+                    max_iter,
+                } => {
+                    let res = (|| -> anyhow::Result<()> {
+                        let solver_kind = solver.parse::<SolverKind>()?;
+                        info!(
+                            "Running dist pf {} -> {} ({})",
+                            grid_file,
+                            out,
+                            solver_kind.as_str()
+                        );
+                        run_power_flow(
+                            Path::new(&grid_file),
+                            Path::new(&out),
+                            solver_kind,
+                            *tol,
+                            *max_iter,
+                        )
+                    })();
+                    if res.is_ok() {
+                        let tol_str = tol.to_string();
+                        let max_iter_str = max_iter.to_string();
+                        record_run(
+                            &out,
+                            "dist pf",
+                            &[
+                                ("grid_file", grid_file.as_str()),
+                                ("solver", solver.as_str()),
+                                ("tol", tol_str.as_str()),
+                                ("max_iter", max_iter_str.as_str()),
+                            ],
+                        );
+                    }
+                    res
+                }
+                DistCommands::Opf {
+                    grid_file,
+                    out,
+                    objective,
+                    solver,
+                    tol,
+                    max_iter,
+                } => {
+                    let res = (|| -> anyhow::Result<()> {
+                        let solver_kind = solver.parse::<SolverKind>()?;
+                        info!(
+                            "Running dist opf {} -> {} (objective {})",
+                            grid_file, out, objective
+                        );
+                        run_optimal_power_flow(
+                            Path::new(&grid_file),
+                            Path::new(&out),
+                            solver_kind,
+                            *tol,
+                            *max_iter,
+                            objective.as_str(),
+                        )
+                    })();
+                    if res.is_ok() {
+                        let tol_str = tol.to_string();
+                        let max_iter_str = max_iter.to_string();
+                        record_run(
+                            &out,
+                            "dist opf",
+                            &[
+                                ("grid_file", grid_file.as_str()),
+                                ("objective", objective.as_str()),
+                                ("solver", solver.as_str()),
+                                ("tol", tol_str.as_str()),
+                                ("max_iter", max_iter_str.as_str()),
+                            ],
+                        );
+                    }
+                    res
+                }
+                DistCommands::Hostcap {
+                    grid_file,
+                    out_dir,
+                    bus,
+                    max_injection,
+                    steps,
+                    solver,
+                } => {
+                    let res = (|| -> anyhow::Result<()> {
+                        let solver_kind = solver.parse::<SolverKind>()?;
+                        info!("Running hostcap sweep on {} -> {}", grid_file, out_dir);
+                        hostcap_sweep(
+                            Path::new(&grid_file),
+                            bus,
+                            *max_injection,
+                            *steps,
+                            Path::new(&out_dir),
+                            solver_kind,
+                        )
+                    })();
+                    if res.is_ok() {
+                        let max_injection_str = max_injection.to_string();
+                        let steps_str = steps.to_string();
+                        let buses = bus
+                            .iter()
+                            .map(|id| id.to_string())
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        record_run(
+                            &out_dir,
+                            "dist hostcap",
+                            &[
+                                ("grid_file", grid_file.as_str()),
+                                ("buses", buses.as_str()),
+                                ("max_injection", max_injection_str.as_str()),
+                                ("steps", steps_str.as_str()),
+                                ("solver", solver.as_str()),
+                            ],
+                        );
+                    }
+                    res
+                }
+            };
+            match result {
+                Ok(_) => info!("Dist command successful!"),
+                Err(e) => error!("Dist command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Derms { command }) => {
+            let result = match command {
+                DermsCommands::Envelope {
+                    grid_file,
+                    assets,
+                    out,
+                    group_by,
+                } => {
+                    info!("Building DERMS envelope {} -> {}", assets, out);
+                    let res = envelope(
+                        Path::new(&grid_file),
+                        Path::new(&assets),
+                        Path::new(&out),
+                        group_by.as_deref(),
+                    );
+                    if res.is_ok() {
+                        record_run(
+                            &out,
+                            "derms envelope",
+                            &[
+                                ("grid_file", grid_file.as_str()),
+                                ("assets", assets.as_str()),
+                                ("out", out.as_str()),
+                                ("group_by", group_by.as_deref().unwrap_or("agg_id")),
+                            ],
+                        );
+                    }
+                    res
+                }
+                DermsCommands::Schedule {
+                    assets,
+                    price_series,
+                    out,
+                    objective,
+                } => {
+                    let res = (|| -> anyhow::Result<()> {
+                        let curtailment = schedule(
+                            Path::new(&assets),
+                            Path::new(&price_series),
+                            Path::new(&out),
+                            objective.as_str(),
+                        )?;
+                        info!(
+                            "DERMS schedule wrote {} with curtailment {:.3}",
+                            out, curtailment
+                        );
+                        Ok(())
+                    })();
+                    if res.is_ok() {
+                        record_run(
+                            &out,
+                            "derms schedule",
+                            &[
+                                ("assets", assets.as_str()),
+                                ("price_series", price_series.as_str()),
+                                ("out", out.as_str()),
+                                ("objective", objective.as_str()),
+                            ],
+                        );
+                    }
+                    res
+                }
+                DermsCommands::StressTest {
+                    assets,
+                    price_series,
+                    output_dir,
+                    scenarios,
+                    seed,
+                } => {
+                    info!(
+                        "Running DERMS stress-test ({scenarios} scenarios) -> {}",
+                        output_dir
+                    );
+                    let res = stress_test(
+                        Path::new(&assets),
+                        Path::new(&price_series),
+                        Path::new(&output_dir),
+                        *scenarios,
+                        *seed,
+                    );
+                    if res.is_ok() {
+                        let scenarios_str = scenarios.to_string();
+                        let seed_str = seed.map(|v| v.to_string());
+                        record_run(
+                            &output_dir,
+                            "derms stress-test",
+                            &[
+                                ("assets", assets.as_str()),
+                                ("price_series", price_series.as_str()),
+                                ("output_dir", output_dir.as_str()),
+                                ("scenarios", scenarios_str.as_str()),
+                                ("seed", seed_str.as_deref().unwrap_or("none")),
+                            ],
+                        );
+                    }
+                    res
+                }
+            };
+            match result {
+                Ok(_) => info!("DERMS command successful!"),
+                Err(e) => error!("DERMS command failed: {:?}", e),
+            }
+        }
+        Some(Commands::Adms { command }) => {
+            let result = match command {
+                AdmsCommands::FlisrSim {
+                    grid_file,
+                    reliability,
+                    output_dir,
+                    scenarios,
+                    solver,
+                    tol,
+                    max_iter,
+                } => {
+                    let res = (|| -> anyhow::Result<()> {
+                        let solver_kind = solver.parse::<SolverKind>()?;
+                        flisr_sim(
+                            Path::new(&grid_file),
+                            Some(Path::new(&reliability)),
+                            Path::new(&output_dir),
+                            *scenarios,
+                            solver_kind,
+                            *tol,
+                            *max_iter,
+                        )
+                    })();
+                    if res.is_ok() {
+                        let scenarios_str = scenarios.to_string();
+                        let tol_str = tol.to_string();
+                        let max_iter_str = max_iter.to_string();
+                        record_run(
+                            &output_dir,
+                            "adms flisr-sim",
+                            &[
+                                ("grid_file", grid_file.as_str()),
+                                ("reliability", reliability.as_str()),
+                                ("output_dir", output_dir.as_str()),
+                                ("scenarios", scenarios_str.as_str()),
+                                ("solver", solver.as_str()),
+                                ("tol", tol_str.as_str()),
+                                ("max_iter", max_iter_str.as_str()),
+                            ],
+                        );
+                    }
+                    res
+                }
+                AdmsCommands::VvoPlan {
+                    grid_file,
+                    output_dir,
+                    day_types,
+                    solver,
+                    tol,
+                    max_iter,
+                } => {
+                    let res = (|| -> anyhow::Result<()> {
+                        let solver_kind = solver.parse::<SolverKind>()?;
+                        let parsed_days = day_types
+                            .split(',')
+                            .map(|day| day.trim().to_string())
+                            .filter(|day| !day.is_empty())
+                            .collect::<Vec<_>>();
+                        vvo_plan(
+                            Path::new(&grid_file),
+                            Path::new(&output_dir),
+                            &parsed_days,
+                            solver_kind,
+                            *tol,
+                            *max_iter,
+                        )
+                    })();
+                    if res.is_ok() {
+                        let tol_str = tol.to_string();
+                        let max_iter_str = max_iter.to_string();
+                        record_run(
+                            &output_dir,
+                            "adms vvo-plan",
+                            &[
+                                ("grid_file", grid_file.as_str()),
+                                ("output_dir", output_dir.as_str()),
+                                ("day_types", day_types.as_str()),
+                                ("solver", solver.as_str()),
+                                ("tol", tol_str.as_str()),
+                                ("max_iter", max_iter_str.as_str()),
+                            ],
+                        );
+                    }
+                    res
+                }
+                AdmsCommands::OutageMc {
+                    reliability,
+                    output_dir,
+                    samples,
+                    seed,
+                } => {
+                    let res = outage_mc(
+                        Path::new(&reliability),
+                        Path::new(&output_dir),
+                        *samples,
+                        *seed,
+                    );
+                    if res.is_ok() {
+                        let samples_str = samples.to_string();
+                        let seed_str = seed.map(|v| v.to_string());
+                        record_run(
+                            &output_dir,
+                            "adms outage-mc",
+                            &[
+                                ("reliability", reliability.as_str()),
+                                ("output_dir", output_dir.as_str()),
+                                ("samples", samples_str.as_str()),
+                                ("seed", seed_str.as_deref().unwrap_or("none")),
+                            ],
+                        );
+                    }
+                    res
+                }
+                AdmsCommands::StateEstimation {
+                    grid_file,
+                    measurements,
+                    out,
+                    state_out,
+                    solver,
+                    slack_bus,
+                } => {
+                    let res = (|| -> anyhow::Result<()> {
+                        let solver_kind = solver.parse::<SolverKind>()?;
+                        state_estimation(
+                            Path::new(&grid_file),
+                            Path::new(&measurements),
+                            Path::new(&out),
+                            state_out.as_deref().map(Path::new),
+                            solver_kind,
+                            1e-6,
+                            20,
+                            *slack_bus,
+                        )
+                    })();
+                    if res.is_ok() {
+                        let slack_spec = slack_bus.map(|id| id.to_string());
+                        record_run(
+                            &out,
+                            "adms state-estimation",
+                            &[
+                                ("grid_file", grid_file.as_str()),
+                                ("measurements", measurements.as_str()),
+                                ("out", out.as_str()),
+                                ("state_out", state_out.as_deref().unwrap_or("not requested")),
+                                ("solver", solver.as_str()),
+                                ("slack_bus", slack_spec.as_deref().unwrap_or("auto")),
+                            ],
+                        );
+                    }
+                    res
+                }
+            };
+            match result {
+                Ok(_) => info!("ADMS command successful!"),
+                Err(e) => error!("ADMS command failed: {:?}", e),
             }
         }
         Some(Commands::Se { command }) => {

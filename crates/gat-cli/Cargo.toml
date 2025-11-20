@@ -32,6 +32,10 @@ gat-core = { path = "../gat-core" }
 gat-io = { path = "../gat-io" }
 gat-algo = { path = "../gat-algo", default-features = false }
 gat-ts = { path = "../gat-ts" }
+gat-dist = { path = "../gat-dist" }
+gat-derms = { path = "../gat-derms" }
+gat-adms = { path = "../gat-adms" }
+gat-schemas = { path = "../gat-schemas" }
 gat-viz = { path = "../gat-viz", optional = true }
 gat-gui = { path = "../gat-gui", optional = true }
 gat-tui = { path = "../gat-tui", optional = true }

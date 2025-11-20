@@ -8,6 +8,10 @@ members = [
     "crates/gat-cli",
     "crates/gat-gui",
     "crates/gat-tui",
+    "crates/gat-dist",
+    "crates/gat-derms",
+    "crates/gat-adms",
+    "crates/gat-schemas",
     "xtask",
     "crates/gat-mcp-docs",
 ]
@@ -18,6 +22,10 @@ default-members = [
     "crates/gat-ts",
     "crates/gat-viz",
     "crates/gat-cli",
+    "crates/gat-dist",
+    "crates/gat-derms",
+    "crates/gat-adms",
+    "crates/gat-schemas",
     "xtask",
     "crates/gat-mcp-docs",
 ]
