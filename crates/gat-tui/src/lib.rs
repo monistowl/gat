@@ -40,7 +40,7 @@ use demo_stats::DemoStats;
 mod layout;
 mod navigation;
 use layout::{render_detail_panel, render_tab_bar};
-use navigation::{NavigationController, Pane, TabId};
+use navigation::{MenuAction, NavigationController, Pane, TabId};
 
 /// Represents one of the key GAT workflow stages shown by the UI.
 struct Workflow {
@@ -404,6 +404,25 @@ impl App {
             self.navigation.prev_tab();
         }
         self.refresh_tab_detail();
+    }
+
+    fn handle_menu_action(&mut self, key: char) -> bool {
+        if let Some(action) = self.navigation.action_for_key(key) {
+            let action = action.clone();
+            let command_parts = action
+                .command
+                .iter()
+                .map(|part| part.to_string())
+                .collect::<Vec<_>>();
+            let detail_body = format!("{}\n\ncmd: {}", action.detail, action.command.join(" "));
+            self.navigation
+                .set_detail(Some(action.label.to_string()), Some(detail_body));
+            self.push_log(&format!("Triggered action [{}] {}", key, action.label));
+            let summary = format!("{} action", action.label);
+            self.spawn_command(command_parts, summary);
+            return true;
+        }
+        false
     }
 
     fn tick(&mut self) {
@@ -855,6 +874,11 @@ where
                     }
                     continue;
                 }
+                if let RtKeyCode::Char(c) = key.code {
+                    if app.handle_menu_action(c) {
+                        continue;
+                    }
+                }
                 match key.code {
                     RtKeyCode::Char('q') => break,
                     RtKeyCode::Tab => app.cycle_tab(true),
@@ -940,7 +964,7 @@ fn render_active_tab_content(f: &mut Frame, area: Rect, app: &App) {
         TabId::Workflow => render_workflow_tab(f, area, app),
         TabId::Derms | TabId::Adms => {
             let pane = app.navigation.active_pane();
-            render_tab_placeholder(f, area, &pane, app.navigation.active_menu_items(), &[]);
+            render_tab_placeholder(f, area, &pane, app.navigation.active_actions(), &[]);
         }
         TabId::Config => {
             let pane = app.navigation.active_pane();
@@ -948,7 +972,7 @@ fn render_active_tab_content(f: &mut Frame, area: Rect, app: &App) {
                 format!("Source: {}", app.config_snapshot.source),
                 format!("Status: {}", app.config_snapshot.status),
             ];
-            render_tab_placeholder(f, area, &pane, app.navigation.active_menu_items(), &extras);
+            render_tab_placeholder(f, area, &pane, app.navigation.active_actions(), &extras);
         }
     }
 }
@@ -956,27 +980,23 @@ fn render_active_tab_content(f: &mut Frame, area: Rect, app: &App) {
 fn render_workflow_tab(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(10),
-            Constraint::Length(6),
-            Constraint::Min(12),
-        ])
+        .constraints([Constraint::Min(12), Constraint::Min(6), Constraint::Min(18)])
         .split(area);
     render_workflow_table(f, chunks[0], app);
     render_stage_section(f, chunks[1], app);
     let columns = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
         .split(chunks[2]);
     let left = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(5), Constraint::Min(5)])
+        .constraints([Constraint::Length(6), Constraint::Min(7)])
         .split(columns[0]);
     render_demo_snapshot(f, left[0], app);
     render_demo_summary(f, left[1], app);
     let right = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(6), Constraint::Min(6)])
+        .constraints([Constraint::Min(10), Constraint::Min(10)])
         .split(columns[1]);
     render_layout_canvas(f, right[0], &app.layout_preview);
     render_demo_chart(f, right[1], app);
@@ -986,7 +1006,7 @@ fn render_tab_placeholder(
     f: &mut Frame,
     area: Rect,
     pane: &Pane,
-    menu_items: &[&'static str],
+    menu_actions: &[MenuAction],
     extra_lines: &[String],
 ) {
     let mut lines = Vec::new();
@@ -994,8 +1014,15 @@ fn render_tab_placeholder(
     for extra in extra_lines {
         lines.push(extra.clone());
     }
-    if !menu_items.is_empty() {
-        lines.push(format!("Actions: {}", menu_items.join(" • ")));
+    if !menu_actions.is_empty() {
+        lines.push("Actions:".into());
+        for action in menu_actions {
+            lines.push(format!(
+                "[{}] {} — {}",
+                action.key, action.label, action.detail
+            ));
+            lines.push(format!("cmd: {}", action.command.join(" ")));
+        }
     }
     let paragraph = Paragraph::new(lines.join("\n\n"))
         .block(
@@ -1429,6 +1456,9 @@ fn render_key_help(f: &mut Frame, area: Rect) {
         )),
         Line::from(Span::raw(
             "Analytics: t run PTDF, </> change source, () change sink, +/- change transfer",
+        )),
+        Line::from(Span::raw(
+            "Tabs: press digits displayed in the active pane to trigger CLI actions",
         )),
     ];
     let block = Paragraph::new(Text::from(lines))
