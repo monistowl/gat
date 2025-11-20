@@ -81,6 +81,19 @@ For fast iteration that skips the heavier IO/Polars features, run:
 ```bash
 cargo check -p gat-cli --no-default-features --features minimal-io
 ```
+**Feature flags (optional):**
+
+* Default builds use the lightweight Clarabel backend. Enable other `good_lp` solvers with:
+
+  ```bash
+  cargo build --package gat-cli --no-default-features --features "all-backends"
+  ```
+
+* To keep dependencies lean while still supporting Parquet/IPC I/O, use the minimal feature set:
+
+  ```bash
+  cargo build --package gat-cli --no-default-features --features "minimal"
+  ```
 
 ### 4. Package and install
 

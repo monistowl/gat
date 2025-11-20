@@ -13,10 +13,11 @@ use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
 use gat_core::solver::SolverBackend;
 use gat_core::{Edge, Network, Node};
-use good_lp::solvers::{
-    clarabel::clarabel as clarabel_solver, coin_cbc::coin_cbc as coin_cbc_solver,
-    highs::highs as highs_solver,
-};
+use good_lp::solvers::clarabel::clarabel as clarabel_solver;
+#[cfg(feature = "solver-coin_cbc")]
+use good_lp::solvers::coin_cbc::coin_cbc as coin_cbc_solver;
+#[cfg(feature = "solver-highs")]
+use good_lp::solvers::highs::highs as highs_solver;
 use good_lp::{
     constraint, variable, variables, Expression, ProblemVariables, Solution, SolverModel, Variable,
 };
@@ -78,36 +79,72 @@ fn default_weight() -> f64 {
 pub enum LpSolverKind {
     #[default]
     Clarabel,
+    #[cfg(feature = "solver-coin_cbc")]
     CoinCbc,
+    #[cfg(feature = "solver-highs")]
     Highs,
 }
 
 impl LpSolverKind {
     pub fn available() -> &'static [&'static str] {
-        &["clarabel", "coin_cbc", "highs"]
+        AVAILABLE_LP_SOLVERS
     }
 
     pub fn as_str(&self) -> &'static str {
         match self {
             LpSolverKind::Clarabel => "clarabel",
+            #[cfg(feature = "solver-coin_cbc")]
             LpSolverKind::CoinCbc => "coin_cbc",
+            #[cfg(feature = "solver-highs")]
             LpSolverKind::Highs => "highs",
         }
     }
+}
+
+const AVAILABLE_LP_SOLVERS: &[&str] = &[
+    "clarabel",
+    #[cfg(feature = "solver-coin_cbc")]
+    "coin_cbc",
+    #[cfg(feature = "solver-highs")]
+    "highs",
+];
+
+fn unknown_solver_error(label: &str) -> anyhow::Error {
+    anyhow!(
+        "unknown lp solver '{}'; supported values: {}",
+        label,
+        LpSolverKind::available().join(", ")
+    )
 }
 
 impl FromStr for LpSolverKind {
     type Err = anyhow::Error;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value.to_ascii_lowercase().as_str() {
+        let normalized = value.to_ascii_lowercase();
+        match normalized.as_str() {
             "clarabel" => Ok(LpSolverKind::Clarabel),
-            "coin_cbc" | "cbc" => Ok(LpSolverKind::CoinCbc),
-            "highs" => Ok(LpSolverKind::Highs),
-            other => Err(anyhow!(
-                "unknown lp solver '{}'; supported values: clarabel, coin_cbc, highs",
-                other
-            )),
+            "coin_cbc" | "cbc" => {
+                #[cfg(feature = "solver-coin_cbc")]
+                {
+                    Ok(LpSolverKind::CoinCbc)
+                }
+                #[cfg(not(feature = "solver-coin_cbc"))]
+                {
+                    Err(unknown_solver_error(&normalized))
+                }
+            }
+            "highs" => {
+                #[cfg(feature = "solver-highs")]
+                {
+                    Ok(LpSolverKind::Highs)
+                }
+                #[cfg(not(feature = "solver-highs"))]
+                {
+                    Err(unknown_solver_error(&normalized))
+                }
+            }
+            other => Err(unknown_solver_error(other)),
         }
     }
 }
@@ -306,6 +343,7 @@ pub fn dc_optimal_power_flow(
             );
             Box::new(problem.solve()?)
         }
+        #[cfg(feature = "solver-coin_cbc")]
         LpSolverKind::CoinCbc => {
             let problem = problem_builder
                 .take()
@@ -319,6 +357,7 @@ pub fn dc_optimal_power_flow(
             );
             Box::new(problem.solve()?)
         }
+        #[cfg(feature = "solver-highs")]
         LpSolverKind::Highs => {
             let problem = problem_builder
                 .take()
@@ -1597,6 +1636,7 @@ mod tests {
         assert_eq!(df.height(), 1);
     }
 
+    #[cfg(feature = "solver-coin_cbc")]
     #[test]
     fn dc_opf_coin_cbc_available() {
         let network = build_simple_network();
@@ -1623,6 +1663,7 @@ mod tests {
         assert_eq!(df.height(), 1);
     }
 
+    #[cfg(feature = "solver-highs")]
     #[test]
     fn dc_opf_highs_available() {
         let network = build_simple_network();
