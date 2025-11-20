@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["full-io", "minimal"]
+default = ["full-io", "minimal", "viz"]
 docs = ["schemars", "clap-markdown", "clap_mangen"]
 minimal-io = ["gat-io/minimal", "gat-ts/minimal"]
 full-io = ["gat-io/full", "gat-ts/full"]

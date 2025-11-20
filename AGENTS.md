@@ -1,7 +1,3 @@
-## Project Onboarding
-
-- **Before anything else** run `bd onboard` and follow the instructions from AGENT onboarding. (This should be removed after completion.)
-
 ## Issue Tracking with bd (beads)
 
 **IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
