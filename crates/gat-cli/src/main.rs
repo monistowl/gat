@@ -306,9 +306,7 @@ fn main() {
                             Ok(dot) => {
                                 if let Some(path) = out {
                                     if let Err(e) = fs::write(path, &dot) {
-                                        Err(anyhow::anyhow!(
-                                            "writing graph export to {path}: {e}"
-                                        ))
+                                        Err(anyhow::anyhow!("writing graph export to {path}: {e}"))
                                     } else {
                                         println!("Graph exported to {path}");
                                         Ok(())
@@ -339,7 +337,7 @@ fn main() {
                         .map_err(|err| anyhow::anyhow!("serializing layout to JSON: {err}"))?;
                     if let Some(path) = out {
                         fs::write(path, &payload)
-                        .map_err(|err| anyhow::anyhow!("writing layout to {path}: {err}"))?;
+                            .map_err(|err| anyhow::anyhow!("writing layout to {path}: {err}"))?;
                         println!("Layout written to {path}");
                     } else {
                         println!("{payload}");

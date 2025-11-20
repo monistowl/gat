@@ -58,7 +58,7 @@ pub fn fetch_hiren(case: &str, out: &Path) -> Result<()> {
     fs::create_dir_all(out)?;
     let dst = out.join(src.file_name().unwrap());
     fs::copy(&src, &dst)?;
-       println!("HIREN case {case} copied to {}", dst.display());
+    println!("HIREN case {case} copied to {}", dst.display());
     Ok(())
 }
 
