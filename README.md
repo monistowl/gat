@@ -62,8 +62,16 @@ source <(gat completions bash)
 
 ### 3. Build GAT
 
+Headless (no GUI/TUI) builds keep the dependency footprint small:
+
 ```bash
-cargo build --package gat-cli
+cargo build -p gat-cli --no-default-features
+```
+
+Enable the optional UI helpers when you need them:
+
+```bash
+cargo build -p gat-cli --features "viz gui tui"
 ```
 
 GAT produces a `gat` binary under `target/debug/`.
