@@ -60,7 +60,27 @@ Alternatively source them on the fly:
 source <(gat completions bash)
 ```
 
-### 3. Build GAT
+### 3. Binary-first install (recommended)
+
+The installer fetches the right tarball for your OS/arch and only compiles from source when no binary is available.
+
+```bash
+# Headless: CLI + core (defaults)
+scripts/install.sh --variant headless
+
+# Full: GUI + TUI + docs
+scripts/install.sh --variant full
+```
+
+Environment knobs:
+
+* `GAT_RELEASE_BASE` — override the release bucket (default: `https://releases.gat.dev/gat`).
+* `GAT_VERSION` — pin a specific version; `latest` fetches `latest.txt` from the bucket.
+* `GAT_PREFIX` — change the install location (defaults to `~/.local`).
+
+If your platform is not covered by prebuilt binaries, the installer falls back to a cargo build with the appropriate feature set for the variant you requested.
+
+### 4. Build GAT from source (fallback)
 
 Headless (no GUI/TUI) builds keep the dependency footprint small:
 
@@ -95,14 +115,16 @@ cargo check -p gat-cli --no-default-features --features minimal-io
   cargo build --package gat-cli --no-default-features --features "minimal"
   ```
 
-### 4. Package and install
+### 5. Package artifacts locally
 
 ```bash
 scripts/package.sh
-scripts/install.sh
 ```
 
-The scripts create release tarballs (`dist/gat-<version>-<os>-<arch>.tar.gz`) and install `gat-cli`/`gat-gui` into `~/.local/bin` by default.
+This produces both variants under `dist/`:
+
+* `gat-<version>-<os>-<arch>-headless.tar.gz` (CLI + core)
+* `gat-<version>-<os>-<arch>-full.tar.gz` (CLI + GUI + TUI + docs)
 
 ---
 
