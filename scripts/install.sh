@@ -1,32 +1,201 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -gt 1 ]]; then
-  echo "Usage: $(basename "$0") [install_prefix]"
-  exit 1
-fi
+usage() {
+  cat <<'USAGE'
+Usage: install.sh [--prefix DIR] [--variant headless|full] [--version VERSION]
 
-PREFIX="${1:-$HOME/.local}"
-BINDIR="$PREFIX/bin"
-
-mkdir -p "$BINDIR"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PACKAGE_DIR="$ROOT_DIR/dist"
-
-install_binary() {
-  local src_name="$1"
-  local dest_name="${2:-$1}"
-  local src="$PACKAGE_DIR/bin/$src_name"
-  if [[ ! -x "$src" ]]; then
-    echo "Missing built binary: $src"
-    exit 1
-  fi
-  cp "$src" "$BINDIR/$dest_name"
-  chmod +x "$BINDIR/$dest_name"
+Environment variables:
+  GAT_PREFIX        Install prefix (defaults to ~/.local)
+  GAT_VARIANT       Variant to install (headless or full)
+  GAT_VERSION       Version to install (defaults to latest release)
+  GAT_RELEASE_BASE  Base URL for release artifacts
+USAGE
 }
 
-install_binary "gat-cli" "gat"
-install_binary "gat-gui"
+PREFIX="${GAT_PREFIX:-$HOME/.local}"
+VARIANT="${GAT_VARIANT:-headless}"
+VERSION="${GAT_VERSION:-latest}"
+RELEASE_BASE="${GAT_RELEASE_BASE:-https://releases.gat.dev/gat}"
 
-echo "Installed gat-cli and gat-gui to $BINDIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+trim_variant() {
+  VARIANT="$(echo "$VARIANT" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$VARIANT" != "headless" && "$VARIANT" != "full" ]]; then
+    echo "Invalid variant: $VARIANT (expected headless or full)" >&2
+    exit 1
+  fi
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --prefix)
+        PREFIX="$2"
+        shift 2
+        ;;
+      --variant)
+        VARIANT="$2"
+        shift 2
+        ;;
+      --headless)
+        VARIANT="headless"
+        shift
+        ;;
+      --full)
+        VARIANT="full"
+        shift
+        ;;
+      --version)
+        VERSION="$2"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        PREFIX="$1"
+        shift
+        ;;
+    esac
+  done
+}
+
+detect_os() {
+  case "$(uname -s)" in
+    Linux) echo "linux" ;;
+    Darwin) echo "macos" ;;
+    *) echo "" ;;
+  esac
+}
+
+detect_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) echo "x86_64" ;;
+    arm64|aarch64) echo "arm64" ;;
+    *) echo "" ;;
+  esac
+}
+
+resolve_version() {
+  if [[ "$VERSION" != "latest" ]]; then
+    return
+  fi
+
+  local latest_url="$RELEASE_BASE/latest.txt"
+  if VERSION_CONTENTS=$(curl -fsSL "$latest_url" 2>/dev/null); then
+    VERSION="$VERSION_CONTENTS"
+    return
+  fi
+
+  VERSION=""
+}
+
+install_binary() {
+  local src="$1"
+  local dest_name="$2"
+  if [[ -x "$src" ]]; then
+    cp "$src" "$BINDIR/$dest_name"
+    chmod +x "$BINDIR/$dest_name"
+  fi
+}
+
+install_from_dir() {
+  local dir="$1"
+  local bin_dir="$dir/bin"
+  if [[ ! -d "$bin_dir" ]]; then
+    echo "Expected bin/ directory in $dir" >&2
+    return 1
+  fi
+
+  if [[ ! -x "$bin_dir/gat-cli" ]]; then
+    echo "Missing gat-cli binary in $bin_dir" >&2
+    return 1
+  fi
+
+  install_binary "$bin_dir/gat-cli" "gat-cli"
+  install_binary "$bin_dir/gat" "gat"
+
+  if [[ "$VARIANT" == "full" ]]; then
+    install_binary "$bin_dir/gat-gui" "gat-gui"
+    install_binary "$bin_dir/gat-tui" "gat-tui"
+  fi
+}
+
+build_from_source() {
+  echo "Falling back to building from source ($VARIANT)..."
+  pushd "$ROOT_DIR" >/dev/null
+  if [[ "$VARIANT" == "headless" ]]; then
+    cargo build --workspace --exclude gat-gui --exclude gat-tui --release
+  else
+    cargo build --workspace --all-features --release
+  fi
+  popd >/dev/null
+
+  mkdir -p "$BINDIR"
+  install_binary "$ROOT_DIR/target/release/gat-cli" "gat-cli"
+  install_binary "$ROOT_DIR/target/release/gat-cli" "gat"
+  if [[ "$VARIANT" == "full" ]]; then
+    install_binary "$ROOT_DIR/target/release/gat-gui" "gat-gui"
+    install_binary "$ROOT_DIR/target/release/gat-tui" "gat-tui"
+  fi
+}
+
+download_and_install() {
+  local os arch tarball_name url tmpdir extracted_root
+
+  os="$(detect_os)"
+  arch="$(detect_arch)"
+
+  if [[ -z "$os" || -z "$arch" ]]; then
+    echo "Unsupported platform for binary install (os=$(uname -s), arch=$(uname -m))."
+    return 1
+  fi
+
+  if [[ -z "$VERSION" ]]; then
+    echo "No binary version found; skipping download."
+    return 1
+  fi
+
+  tarball_name="gat-${VERSION}-${os}-${arch}-${VARIANT}.tar.gz"
+  url="$RELEASE_BASE/$VERSION/$tarball_name"
+  tmpdir="$(mktemp -d)"
+
+  echo "Attempting to download $url"
+  if ! curl -fL "$url" -o "$tmpdir/$tarball_name"; then
+    echo "Download failed; falling back to source build."
+    rm -rf "$tmpdir"
+    return 1
+  fi
+
+  extracted_root=$(tar -tzf "$tmpdir/$tarball_name" | head -1 | cut -d/ -f1)
+  tar -xzf "$tmpdir/$tarball_name" -C "$tmpdir"
+  mkdir -p "$BINDIR"
+  if ! install_from_dir "$tmpdir/$extracted_root"; then
+    rm -rf "$tmpdir"
+    return 1
+  fi
+
+  rm -rf "$tmpdir"
+  return 0
+}
+
+main() {
+  parse_args "$@"
+  trim_variant
+  BINDIR="$PREFIX/bin"
+  resolve_version
+
+  if download_and_install; then
+    echo "Installed GAT ($VARIANT) binaries to $BINDIR"
+    exit 0
+  fi
+
+  build_from_source
+  echo "Installed GAT ($VARIANT) from source to $BINDIR"
+}
+
+main "$@"
