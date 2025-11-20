@@ -1,7 +1,12 @@
+#[cfg(not(feature = "docs"))]
+use anyhow::bail;
 use anyhow::Result;
+#[cfg(feature = "docs")]
 use chrono::Utc;
 use clap::{Parser, Subcommand};
+#[cfg(feature = "docs")]
 use serde::Serialize;
+#[cfg(feature = "docs")]
 use serde_json::json;
 use std::fs;
 use std::path::Path;
@@ -61,56 +66,39 @@ fn main() -> Result<()> {
 }
 
 fn doc_all() -> Result<()> {
-    doc_cli()?;
-    doc_schemas()?;
-    doc_site()?;
-    write_docs_index()?;
-    Ok(())
+    #[cfg(feature = "docs")]
+    {
+        docgen::write_all_docs()
+    }
+
+    #[cfg(not(feature = "docs"))]
+    {
+        missing_docs_feature("doc:all")
+    }
 }
 
 fn doc_cli() -> Result<()> {
-    let markdown = clap_markdown::help_markdown::<gat_cli::cli::Cli>();
-    let cli_md = Path::new("docs/cli/gat.md");
-    ensure_parent(cli_md)?;
-    fs::write(cli_md, markdown)?;
+    #[cfg(feature = "docs")]
+    {
+        docgen::write_cli_docs()
+    }
 
-    let command = gat_cli::build_cli_command();
-    let mut man_buf = Vec::new();
-    clap_mangen::Man::new(command.clone()).render(&mut man_buf)?;
-    let man_path = Path::new("docs/man/gat.1");
-    ensure_parent(man_path)?;
-    fs::write(man_path, man_buf)?;
-
-    Ok(())
+    #[cfg(not(feature = "docs"))]
+    {
+        missing_docs_feature("doc:cli")
+    }
 }
 
 fn doc_schemas() -> Result<()> {
-    let manifest_schema = gat_cli::manifest::manifest_json_schema();
-    let manifest_path = Path::new("docs/schemas/manifest.schema.json");
-    ensure_parent(manifest_path)?;
-    fs::write(
-        manifest_path,
-        serde_json::to_string_pretty(&manifest_schema)?,
-    )?;
+    #[cfg(feature = "docs")]
+    {
+        docgen::write_schemas()
+    }
 
-    let flows_schema = json!({
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Branch flows",
-        "type": "object",
-        "properties": {
-            "branch_id": { "type": "integer" },
-            "from_bus": { "type": "integer" },
-            "to_bus": { "type": "integer" },
-            "flow_mw": { "type": "number" }
-        },
-        "required": ["branch_id", "from_bus", "to_bus", "flow_mw"],
-        "additionalProperties": false
-    });
-    let flows_path = Path::new("docs/schemas/flows.schema.json");
-    ensure_parent(flows_path)?;
-    fs::write(flows_path, serde_json::to_string_pretty(&flows_schema)?)?;
-
-    Ok(())
+    #[cfg(not(feature = "docs"))]
+    {
+        missing_docs_feature("doc:schemas")
+    }
 }
 
 fn doc_site() -> Result<()> {
@@ -137,6 +125,7 @@ This book indexes the auto-generated docs that the MCC server exposes.
     Ok(())
 }
 
+#[cfg(feature = "docs")]
 #[derive(Serialize)]
 struct DocIndex {
     default: String,
@@ -144,6 +133,7 @@ struct DocIndex {
     versions: Vec<DocVersion>,
 }
 
+#[cfg(feature = "docs")]
 #[derive(Serialize)]
 struct DocVersion {
     name: String,
@@ -151,6 +141,7 @@ struct DocVersion {
     generated_at: String,
 }
 
+#[cfg(feature = "docs")]
 fn write_docs_index() -> Result<()> {
     let generated_at = Utc::now().to_rfc3339();
     let mut versions = vec![DocVersion {
@@ -180,9 +171,82 @@ fn write_docs_index() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "docs")]
 fn ensure_parent(path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
     Ok(())
+}
+
+#[cfg(not(feature = "docs"))]
+fn missing_docs_feature(task: &str) -> Result<()> {
+    bail!(
+        "{task} requires building xtask with `--features docs` (e.g. `cargo run -p xtask --features docs -- {task}`)",
+        task = task
+    )
+}
+
+#[cfg(feature = "docs")]
+mod docgen {
+    use super::*;
+    use gat_cli::docs::{generate_doc_artifacts, CliDocs, DocArtifacts};
+
+    pub fn write_all_docs() -> Result<()> {
+        let artifacts = generate_doc_artifacts();
+        write_cli_files(&artifacts.cli)?;
+        write_schema_files(&artifacts)?;
+        super::doc_site()?;
+        super::write_docs_index()
+    }
+
+    pub fn write_cli_docs() -> Result<()> {
+        let artifacts = generate_doc_artifacts();
+        write_cli_files(&artifacts.cli)
+    }
+
+    pub fn write_schemas() -> Result<()> {
+        let artifacts = generate_doc_artifacts();
+        write_schema_files(&artifacts)
+    }
+
+    fn write_cli_files(cli_docs: &CliDocs) -> Result<()> {
+        let cli_md = Path::new("docs/cli/gat.md");
+        ensure_parent(cli_md)?;
+        fs::write(cli_md, &cli_docs.markdown)?;
+
+        let man_path = Path::new("docs/man/gat.1");
+        ensure_parent(man_path)?;
+        fs::write(man_path, &cli_docs.manpage)?;
+
+        Ok(())
+    }
+
+    fn write_schema_files(artifacts: &DocArtifacts) -> Result<()> {
+        let manifest_path = Path::new("docs/schemas/manifest.schema.json");
+        ensure_parent(manifest_path)?;
+        fs::write(
+            manifest_path,
+            serde_json::to_string_pretty(&artifacts.manifest_schema)?,
+        )?;
+
+        let flows_schema = json!({
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "Branch flows",
+            "type": "object",
+            "properties": {
+                "branch_id": { "type": "integer" },
+                "from_bus": { "type": "integer" },
+                "to_bus": { "type": "integer" },
+                "flow_mw": { "type": "number" }
+            },
+            "required": ["branch_id", "from_bus", "to_bus", "flow_mw"],
+            "additionalProperties": false
+        });
+        let flows_path = Path::new("docs/schemas/flows.schema.json");
+        ensure_parent(flows_path)?;
+        fs::write(flows_path, serde_json::to_string_pretty(&flows_schema)?)?;
+
+        Ok(())
+    }
 }

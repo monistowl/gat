@@ -15,8 +15,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Generate docs
-      run: cargo xtask doc:all
+    - name: Fast check (no doc features)
+      run: cargo check -p gat-cli --no-default-features
     - name: Build
       run: cargo build --verbose
     - name: Run tests
