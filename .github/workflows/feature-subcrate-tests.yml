@@ -23,8 +23,8 @@ jobs:
             features: all-backends
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        uses: actions/setup-rust@v1
+      - name: Set up Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
@@ -57,8 +57,8 @@ jobs:
             features: ""
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        uses: actions/setup-rust@v1
+      - name: Set up Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
