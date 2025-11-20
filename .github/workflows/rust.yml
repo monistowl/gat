@@ -12,7 +12,15 @@ env:
 jobs:
   headless:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: default
+            feature-args: ""
+          - name: minimal
+            feature-args: "--no-default-features --features minimal"
 
+    name: stable-${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
       - name: Install system dependencies
