@@ -1,0 +1,26 @@
+name: Nightly Full Build
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev jq
+      - name: Package release artifacts
+        run: scripts/package.sh
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-binaries
+          path: dist
+          retention-days: 14
+          if-no-files-found: error

@@ -1,0 +1,72 @@
+name: Feature & Subcrate Manual Tests
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  feature-suite:
+    name: CLI feature matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - matrix-name: minimal
+            features: minimal
+          - matrix-name: full-io
+            features: full-io
+          - matrix-name: full-io+viz
+            features: full-io,viz
+          - matrix-name: all-backends
+            features: all-backends
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions/setup-rust@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - name: Run gat-cli tests for ${{ matrix.matrix-name }}
+        run: |
+          set -euo pipefail
+          cargo test -p gat-cli --locked --no-default-features --features "${{ matrix.features }}" -- --nocapture
+
+  subcrate-suite:
+    name: Subcrate smoke tests
+    runs-on: ubuntu-latest
+    needs: feature-suite
+    strategy:
+      matrix:
+        include:
+          - matrix-name: gat-core
+            args: "-p gat-core"
+            features: ""
+          - matrix-name: gat-io-full
+            args: "-p gat-io"
+            features: full
+          - matrix-name: gat-algo-full
+            args: "-p gat-algo"
+            features: full
+          - matrix-name: gat-ts-full
+            args: "-p gat-ts"
+            features: full
+          - matrix-name: gat-viz
+            args: "-p gat-viz"
+            features: ""
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions/setup-rust@v1
+        with:
+          profile: minimal
+          toolchain: stable
+      - name: Run tests for ${{ matrix.matrix-name }}
+        run: |
+          set -euo pipefail
+          features_flag=""
+          if [[ -n "${{ matrix.features }}" ]]; then
+            features_flag="--features ${{ matrix.features }}"
+          fi
+          cargo test ${{ matrix.args }} --locked $features_flag -- --nocapture
