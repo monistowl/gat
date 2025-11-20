@@ -1,3 +1,9 @@
 .gemini/
 gha-creds-*.json
 .beads/
+
+# Rust/Cargo build output and artifacts
+/target/
+
+# Virtualenvs and user caches
+.venv/

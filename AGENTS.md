@@ -11,6 +11,8 @@
 
 ### Quick Start
 
+> **Note:** This repository already contains a local `.beads/` database. Always run `bd` commands from the repo root so they operate on that local data, and do not delete or relocate the `.beads/` directory.
+
 **Check for ready work:**
 ```bash
 bd ready --json

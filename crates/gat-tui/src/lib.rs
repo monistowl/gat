@@ -37,6 +37,10 @@ mod catalog;
 use catalog::{catalog, DatasetEntry};
 mod demo_stats;
 use demo_stats::DemoStats;
+mod layout;
+mod navigation;
+use layout::{render_detail_panel, render_tab_bar};
+use navigation::{NavigationController, Pane, TabId};
 
 /// Represents one of the key GAT workflow stages shown by the UI.
 struct Workflow {
@@ -246,6 +250,7 @@ pub struct App {
     analytics_source: usize,
     analytics_sink: usize,
     analytics_transfer: f64,
+    navigation: NavigationController,
 }
 
 pub trait EventSource {
@@ -345,8 +350,10 @@ impl App {
             analytics_source: 1,
             analytics_sink: 2,
             analytics_transfer: 1.0,
+            navigation: NavigationController::new(),
         };
         app.reload_config(None);
+        app.refresh_tab_detail();
         app
     }
 
@@ -354,6 +361,7 @@ impl App {
         if self.selected + 1 < self.workflows.len() {
             self.selected += 1;
             self.push_log("Moved selection down");
+            self.refresh_tab_detail();
         }
     }
 
@@ -361,7 +369,41 @@ impl App {
         if self.selected > 0 {
             self.selected -= 1;
             self.push_log("Moved selection up");
+            self.refresh_tab_detail();
         }
+    }
+
+    fn update_detail_from_selection(&mut self) {
+        if let Some(workflow) = self.workflows.get(self.selected) {
+            let body = format!(
+                "Stage: {} | Status: {}\nDetails: {}",
+                workflow.stage, workflow.status, workflow.detail
+            );
+            self.navigation
+                .set_detail(Some(workflow.name.to_string()), Some(body));
+        } else {
+            self.navigation.set_detail(None, None);
+        }
+    }
+
+    fn refresh_tab_detail(&mut self) {
+        match self.navigation.active_tab_id() {
+            TabId::Workflow => self.update_detail_from_selection(),
+            _ => {
+                let pane = self.navigation.active_pane();
+                self.navigation
+                    .set_detail(Some(pane.title.clone()), Some(pane.description.clone()));
+            }
+        }
+    }
+
+    fn cycle_tab(&mut self, forward: bool) {
+        if forward {
+            self.navigation.next_tab();
+        } else {
+            self.navigation.prev_tab();
+        }
+        self.refresh_tab_detail();
     }
 
     fn tick(&mut self) {
@@ -815,6 +857,8 @@ where
                 }
                 match key.code {
                     RtKeyCode::Char('q') => break,
+                    RtKeyCode::Tab => app.cycle_tab(true),
+                    RtKeyCode::BackTab => app.cycle_tab(false),
                     RtKeyCode::Down => app.next(),
                     RtKeyCode::Up => app.previous(),
                     RtKeyCode::Char('l') => app.push_log("Manual refresh triggered."),
@@ -858,62 +902,29 @@ fn draw_ui(f: &mut Frame, app: &mut App) {
         .margin(1)
         .constraints([
             Constraint::Length(3),
-            Constraint::Min(12),
+            Constraint::Length(3),
+            Constraint::Min(14),
             Constraint::Length(3),
         ])
         .split(f.area());
 
     render_header(f, chunks[0]);
+    render_tab_bar(
+        f,
+        chunks[1],
+        app.navigation.tabs(),
+        app.navigation.active_index(),
+    );
 
     let body_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(45),
-            Constraint::Percentage(35),
-            Constraint::Percentage(20),
-        ])
-        .split(chunks[1]);
+        .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
+        .split(chunks[2]);
 
-    let workflow_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(12), Constraint::Length(7)])
-        .split(body_chunks[0]);
-    render_workflow_table(f, workflow_chunks[0], app);
-    render_stage_section(f, workflow_chunks[1], app);
+    render_active_tab_content(f, body_chunks[0], app);
+    render_detail_panel(f, body_chunks[1], app.navigation.detail());
 
-    let mid_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(6),
-            Constraint::Length(3),
-            Constraint::Length(8),
-            Constraint::Length(9),
-        ])
-        .split(body_chunks[1]);
-    render_demo_snapshot(f, mid_chunks[0], app);
-    render_demo_summary(f, mid_chunks[1], app);
-    render_layout_canvas(f, mid_chunks[2], &app.layout_preview);
-    render_demo_chart(f, mid_chunks[3], app);
-
-    let right_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(7),
-            Constraint::Length(8),
-            Constraint::Length(6),
-            Constraint::Length(6),
-            Constraint::Length(5),
-            Constraint::Min(6),
-        ])
-        .split(body_chunks[2]);
-    render_control_panel(f, right_chunks[0], app);
-    render_dataset_panel(f, right_chunks[1], app);
-    render_analytics_panel(f, right_chunks[2], app);
-    render_config_preview(f, right_chunks[3], app);
-    render_live_run_status(f, right_chunks[4], app);
-    render_key_help(f, right_chunks[5]);
-
-    render_logs(f, chunks[2], app);
+    render_logs(f, chunks[3], app);
 
     if app.show_help {
         render_help_overlay(f, f.area(), app);
@@ -922,6 +933,78 @@ fn draw_ui(f: &mut Frame, app: &mut App) {
     if app.command_editor_visible {
         render_command_editor_overlay(f, app);
     }
+}
+
+fn render_active_tab_content(f: &mut Frame, area: Rect, app: &App) {
+    match app.navigation.active_tab_id() {
+        TabId::Workflow => render_workflow_tab(f, area, app),
+        TabId::Derms | TabId::Adms => {
+            let pane = app.navigation.active_pane();
+            render_tab_placeholder(f, area, &pane, app.navigation.active_menu_items(), &[]);
+        }
+        TabId::Config => {
+            let pane = app.navigation.active_pane();
+            let extras = vec![
+                format!("Source: {}", app.config_snapshot.source),
+                format!("Status: {}", app.config_snapshot.status),
+            ];
+            render_tab_placeholder(f, area, &pane, app.navigation.active_menu_items(), &extras);
+        }
+    }
+}
+
+fn render_workflow_tab(f: &mut Frame, area: Rect, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(10),
+            Constraint::Length(6),
+            Constraint::Min(12),
+        ])
+        .split(area);
+    render_workflow_table(f, chunks[0], app);
+    render_stage_section(f, chunks[1], app);
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(chunks[2]);
+    let left = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(5), Constraint::Min(5)])
+        .split(columns[0]);
+    render_demo_snapshot(f, left[0], app);
+    render_demo_summary(f, left[1], app);
+    let right = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(6), Constraint::Min(6)])
+        .split(columns[1]);
+    render_layout_canvas(f, right[0], &app.layout_preview);
+    render_demo_chart(f, right[1], app);
+}
+
+fn render_tab_placeholder(
+    f: &mut Frame,
+    area: Rect,
+    pane: &Pane,
+    menu_items: &[&'static str],
+    extra_lines: &[String],
+) {
+    let mut lines = Vec::new();
+    lines.push(pane.description.clone());
+    for extra in extra_lines {
+        lines.push(extra.clone());
+    }
+    if !menu_items.is_empty() {
+        lines.push(format!("Actions: {}", menu_items.join(" • ")));
+    }
+    let paragraph = Paragraph::new(lines.join("\n\n"))
+        .block(
+            Block::default()
+                .title(format!("{} panel", pane.title))
+                .borders(Borders::ALL),
+        )
+        .wrap(Wrap { trim: true });
+    f.render_widget(paragraph, area);
 }
 
 fn render_header(f: &mut Frame, area: Rect) {
@@ -1077,6 +1160,7 @@ fn render_demo_chart(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(chart, area);
 }
 
+#[allow(dead_code)]
 fn render_dataset_panel(f: &mut Frame, area: Rect, app: &App) {
     let entries = app.dataset_entries();
     if entries.is_empty() {
@@ -1124,6 +1208,7 @@ fn render_dataset_panel(f: &mut Frame, area: Rect, app: &App) {
     }
 }
 
+#[allow(dead_code)]
 fn render_analytics_panel(f: &mut Frame, area: Rect, app: &App) {
     // Show the configured PTDF params and key hints so users can tweak them before running the command.
     let lines = vec![
@@ -1199,6 +1284,7 @@ fn render_stage_section(f: &mut Frame, area: Rect, app: &App) {
     render_stage_gauges(f, chunks[1], app);
 }
 
+#[allow(dead_code)]
 fn render_control_panel(f: &mut Frame, area: Rect, app: &App) {
     let mut lines = Vec::new();
     lines.push(Line::from(vec![
@@ -1253,6 +1339,7 @@ fn render_control_panel(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(panel, area);
 }
 
+#[allow(dead_code)]
 fn render_config_preview(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -1305,6 +1392,7 @@ fn render_config_preview(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(&app.config_explorer.widget(), chunks[1]);
 }
 
+#[allow(dead_code)]
 fn render_live_run_status(f: &mut Frame, area: Rect, app: &App) {
     let lines = vec![
         Line::from(vec![
@@ -1327,6 +1415,7 @@ fn render_live_run_status(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(block, area);
 }
 
+#[allow(dead_code)]
 fn render_key_help(f: &mut Frame, area: Rect) {
     let lines = vec![
         Line::from(Span::raw(
