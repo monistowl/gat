@@ -2,12 +2,12 @@ use std::{env, fs, io::Read, path::Path};
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+#[cfg_attr(feature = "docs", derive(schemars::JsonSchema))]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ManifestEntry {
     pub run_id: String,
     pub command: String,
@@ -22,20 +22,23 @@ pub struct ManifestEntry {
     pub chunk_map: Vec<ChunkState>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+#[cfg_attr(feature = "docs", derive(schemars::JsonSchema))]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InputArtifact {
     pub path: String,
     pub hash: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+#[cfg_attr(feature = "docs", derive(schemars::JsonSchema))]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChunkState {
     pub id: String,
     pub status: String,
     pub completed_at: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug)]
+#[cfg_attr(feature = "docs", derive(schemars::JsonSchema))]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Param {
     pub name: String,
     pub value: String,
@@ -85,6 +88,7 @@ pub fn read_manifest(path: &Path) -> Result<ManifestEntry> {
     Ok(manifest)
 }
 
+#[cfg(feature = "docs")]
 pub fn manifest_json_schema() -> serde_json::Value {
     let schema = schemars::schema_for!(ManifestEntry);
     serde_json::to_value(&schema).expect("failed to serialize manifest schema")

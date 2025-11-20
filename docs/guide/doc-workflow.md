@@ -10,8 +10,9 @@ This project treats documentation updates and issue tracking as linked operation
    * Pull content into `docs/guide/` or the generated folders (`docs/cli`, `docs/schemas`, etc.).
    * Keep ephemeral design notes (plans, designs, tests) under `history/` so the repository root stays clean.
 3. **Regenerate the auto-docs**
-   * Run `cargo xtask doc all` to refresh CLI references, schemas, Arrow dumps, and the guide that `gat-mcp-docs` serves.
-   * Optionally run `cargo xtask doc site` before releasing the built `site/book/` bundle.
+   * Run `cargo xtask --features docs doc all` (or the shorthand `cargo xtask --features docs doc:all`) to refresh CLI references, schemas, Arrow dumps, and the guide that `gat-mcp-docs` serves.
+   * The `docs` feature pulls in the heavier CLI/doc dependencies; leave it disabled for fast checks and only enable it when you need to regenerate outputs.
+   * Optionally run `cargo xtask --features docs doc site` before releasing the built `site/book/` bundle.
    * Confirm that `docs/index.md`, `docs/README.md`, and the new guide files sync with your changes.
 4. **Preview the docs**
    * Start the MCP docs server with `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` to inspect the generated tree and ensure agents can access it.
