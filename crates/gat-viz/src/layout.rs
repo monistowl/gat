@@ -21,19 +21,10 @@ pub struct LayoutEdge {
     pub to: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct LayoutResult {
     pub nodes: Vec<LayoutNode>,
     pub edges: Vec<LayoutEdge>,
-}
-
-impl Default for LayoutResult {
-    fn default() -> Self {
-        Self {
-            nodes: Vec::new(),
-            edges: Vec::new(),
-        }
-    }
 }
 
 /// Runs a force-directed layout on the provided `Network`.

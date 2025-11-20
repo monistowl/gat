@@ -74,7 +74,7 @@ pub fn record_manifest(output: &Path, command: &str, params: &[(&str, &str)]) ->
         chunk_map: Vec::new(),
     };
     let json = serde_json::to_string_pretty(&manifest)?;
-    let path = dir.join(format!("run-{}.json", run_id));
+    let path = dir.join(format!("run-{run_id}.json"));
     fs::write(&path, &json).with_context(|| format!("writing {}", path.display()))?;
     let canonical = dir.join("run.json");
     fs::write(&canonical, &json).with_context(|| format!("writing {}", canonical.display()))?;

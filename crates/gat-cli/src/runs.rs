@@ -43,7 +43,7 @@ pub fn discover_runs(root: &Path) -> Result<Vec<RunRecord>> {
     for entry in WalkDir::new(root)
         .follow_links(false)
         .into_iter()
-        .filter_entry(|entry| should_enter(entry))
+        .filter_entry(should_enter)
     {
         let entry = entry?;
         if !entry.file_type().is_file() {
@@ -81,12 +81,12 @@ pub fn resolve_manifest(root: &Path, target: &str) -> Result<RunRecord> {
 
     if let Some(record) = runs
         .iter()
-        .find(|record| record.path.file_stem().map_or(false, |stem| stem == target))
+        .find(|record| record.path.file_stem().is_some_and(|stem| stem == target))
     {
         return Ok(record.clone());
     }
 
-    Err(anyhow!("run manifest not found for '{}'", target))
+    Err(anyhow!("run manifest not found for '{target}'"))
 }
 
 pub fn summaries(records: &[RunRecord]) -> Vec<RunSummary> {

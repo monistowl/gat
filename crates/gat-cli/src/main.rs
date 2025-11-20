@@ -39,7 +39,6 @@ use gat_cli::{
 use gat_viz::layout::layout_network;
 use manifest::{record_manifest, ManifestEntry};
 use runs::{discover_runs, resolve_manifest, summaries, RunRecord};
-use serde_json;
 
 fn configure_threads(spec: &str) {
     let count = if spec.eq_ignore_ascii_case("auto") {
@@ -74,7 +73,7 @@ fn resume_manifest(manifest: &ManifestEntry) -> anyhow::Result<()> {
     let exe = env::current_exe()?;
     let status = Command::new(exe).args(&args).status()?;
     if !status.success() {
-        return Err(anyhow::anyhow!("resumed run failed with {}", status));
+        return Err(anyhow::anyhow!("resumed run failed with {status}"));
     }
     Ok(())
 }
@@ -94,7 +93,7 @@ fn describe_manifest(manifest: &ManifestEntry) {
         manifest.run_id, manifest.command, manifest.version, manifest.timestamp
     );
     if let Some(seed) = &manifest.seed {
-        println!("Seed: {}", seed);
+        println!("Seed: {seed}");
     }
     if !manifest.params.is_empty() {
         println!("Parameters:");
@@ -112,7 +111,7 @@ fn describe_manifest(manifest: &ManifestEntry) {
     if !manifest.outputs.is_empty() {
         println!("Outputs:");
         for output in &manifest.outputs {
-            println!("  {}", output);
+            println!("  {output}");
         }
     }
     if manifest.chunk_map.is_empty() {
@@ -308,15 +307,14 @@ fn main() {
                                 if let Some(path) = out {
                                     if let Err(e) = fs::write(path, &dot) {
                                         Err(anyhow::anyhow!(
-                                            "writing graph export to {}: {e}",
-                                            path
+                                            "writing graph export to {path}: {e}"
                                         ))
                                     } else {
-                                        println!("Graph exported to {}", path);
+                                        println!("Graph exported to {path}");
                                         Ok(())
                                     }
                                 } else {
-                                    println!("{}", dot);
+                                    println!("{dot}");
                                     Ok(())
                                 }
                             }
@@ -341,8 +339,8 @@ fn main() {
                         .map_err(|err| anyhow::anyhow!("serializing layout to JSON: {err}"))?;
                     if let Some(path) = out {
                         fs::write(path, &payload)
-                            .map_err(|err| anyhow::anyhow!("writing layout to {}: {err}", path))?;
-                        println!("Layout written to {}", path);
+                        .map_err(|err| anyhow::anyhow!("writing layout to {path}: {err}"))?;
+                        println!("Layout written to {path}");
                     } else {
                         println!("{payload}");
                     }
@@ -748,7 +746,7 @@ fn main() {
                     HirenCommands::List => {
                         let cases = list_hiren().unwrap_or_default();
                         for case in &cases {
-                            println!("{}", case);
+                            println!("{case}");
                         }
                         Ok(())
                     }

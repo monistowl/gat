@@ -121,7 +121,7 @@ pub fn find_islands(network: &Network) -> Result<IslandAnalysis> {
 pub fn export_graph(network: &Network, format: &str) -> Result<String> {
     match format.to_ascii_lowercase().as_str() {
         "graphviz" | "dot" => Ok(render_dot(network)),
-        other => Err(anyhow!("unsupported graph export format '{}'", other)),
+        other => Err(anyhow!("unsupported graph export format '{other}'")),
     }
 }
 
@@ -135,7 +135,7 @@ fn render_dot(network: &Network) -> String {
     for edge in network.graph.edge_references() {
         let source = edge.source().index();
         let target = edge.target().index();
-        buffer.push_str(&format!("  n{} -- n{};\n", source, target));
+        buffer.push_str(&format!("  n{source} -- n{target};\n"));
     }
     buffer.push('}');
     buffer

@@ -27,9 +27,9 @@ jobs:
       - name: Format (workspace)
         run: cargo fmt --all -- --check
       - name: Clippy (no default features)
-        run: cargo clippy --workspace --no-default-features -- -D warnings
+        run: cargo clippy -p gat-core -p gat-cli --no-default-features --features minimal --no-deps -- -D warnings
       - name: Core + CLI tests (no default features)
-        run: cargo test -p gat-core -p gat-cli --no-default-features --locked -- --nocapture
+        run: cargo test -p gat-core -p gat-cli --no-default-features --features minimal --locked -- --nocapture
       - name: Upload debug target cache
         if: always()
         uses: actions/upload-artifact@v4

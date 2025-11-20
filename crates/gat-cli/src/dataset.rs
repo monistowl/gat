@@ -53,12 +53,12 @@ pub fn fetch_hiren(case: &str, out: &Path) -> Result<()> {
         .join("hiren")
         .join(format!("{case}.matpower"));
     if !src.exists() {
-        return Err(anyhow!("HIREN case {} not found", case));
+        return Err(anyhow!("HIREN case {case} not found"));
     }
     fs::create_dir_all(out)?;
     let dst = out.join(src.file_name().unwrap());
     fs::copy(&src, &dst)?;
-    println!("HIREN case {} copied to {}", case, dst.display());
+       println!("HIREN case {case} copied to {}", dst.display());
     Ok(())
 }
 
@@ -114,18 +114,10 @@ struct PublicDataset {
     extract: bool,
 }
 
+#[derive(Default)]
 pub struct PublicDatasetFilter {
     pub tag: Option<String>,
     pub query: Option<String>,
-}
-
-impl Default for PublicDatasetFilter {
-    fn default() -> Self {
-        Self {
-            tag: None,
-            query: None,
-        }
-    }
 }
 
 const PUBLIC_DATASETS: &[PublicDataset] = &[
@@ -208,11 +200,7 @@ pub fn describe_public_dataset(id: &str) -> Result<()> {
             .map(|d| d.id)
             .collect::<Vec<_>>()
             .join(", ");
-        anyhow!(
-            "Unknown dataset \"{id}\". Available ids: {available}",
-            id = id,
-            available = available,
-        )
+        anyhow!("Unknown dataset \"{id}\". Available ids: {available}")
     })?;
     println!("Dataset: {}", dataset.id);
     println!("Description: {}", dataset.description);
@@ -250,11 +238,7 @@ pub fn fetch_public_dataset(
             .map(|d| d.id)
             .collect::<Vec<_>>()
             .join(", ");
-        anyhow!(
-            "Unknown dataset \"{id}\". Available ids: {available}",
-            id = id,
-            available = available,
-        )
+        anyhow!("Unknown dataset \"{id}\". Available ids: {available}")
     })?;
     let staging = out_dir
         .map(|path| path.to_path_buf())
@@ -301,7 +285,7 @@ pub fn fetch_public_dataset(
 fn download_to_path(url: &str, dest: &Path) -> Result<()> {
     let response = ureq::get(url)
         .call()
-        .with_context(|| format!("requesting {}", url))?;
+        .with_context(|| format!("requesting {url}"))?;
     if response.status() >= 400 {
         bail!("failed to download {}: HTTP {}", url, response.status());
     }
