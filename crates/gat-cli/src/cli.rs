@@ -70,6 +70,7 @@ pub enum Commands {
         command: SeCommands,
     },
     /// Visualization helpers
+    #[cfg(feature = "viz")]
     Viz {
         #[command(subcommand)]
         command: VizCommands,
@@ -80,6 +81,7 @@ pub enum Commands {
         command: AnalyticsCommands,
     },
     /// GUI dashboard
+    #[cfg(feature = "gui")]
     Gui {
         #[command(subcommand)]
         command: GuiCommands,
@@ -95,6 +97,7 @@ pub enum Commands {
         command: DatasetCommands,
     },
     /// Helpers for the terminal dashboard
+    #[cfg(feature = "tui")]
     Tui {
         #[command(subcommand)]
         command: TuiCommands,
@@ -158,6 +161,7 @@ pub enum GraphCommands {
         #[arg(short, long)]
         out: Option<String>,
     },
+    #[cfg(feature = "viz")]
     /// Compute force-directed layout for visualization
     Visualize {
         /// Path to the grid data file (Arrow format)
@@ -375,6 +379,7 @@ pub enum AnalyticsCommands {
 }
 
 #[derive(Subcommand, Debug)]
+#[cfg(feature = "tui")]
 pub enum TuiCommands {
     /// Write a default gat-tui config file
     Config {
@@ -490,6 +495,7 @@ pub enum PublicDatasetCommands {
 }
 
 #[derive(Subcommand, Debug)]
+#[cfg(feature = "viz")]
 pub enum VizCommands {
     /// Emit a basic visualization summary (placeholder)
     Plot {
@@ -502,6 +508,7 @@ pub enum VizCommands {
 }
 
 #[derive(Subcommand, Debug)]
+#[cfg(feature = "gui")]
 pub enum GuiCommands {
     /// Launch the GUI dashboard (placeholder)
     Run {

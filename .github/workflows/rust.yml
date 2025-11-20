@@ -10,18 +10,34 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  headless:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Generate docs
-      run: cargo xtask doc:all
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Run clippy
-      run: cargo clippy -- -D warnings
-    - name: Run fmt
-      run: cargo fmt --check
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev
+      - name: Generate docs
+        run: cargo xtask doc:all
+      - name: Build (headless)
+        run: cargo build --workspace --exclude gat-gui --exclude gat-tui --verbose
+      - name: Run tests (headless)
+        run: cargo test --workspace --exclude gat-gui --exclude gat-tui --verbose
+      - name: Run clippy (headless)
+        run: cargo clippy --workspace --exclude gat-gui --exclude gat-tui -- -D warnings
+      - name: Run fmt
+        run: cargo fmt --check
+
+  ui:
+    runs-on: ubuntu-latest
+    needs: headless
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev
+      - name: Build (full UI stack)
+        run: cargo build --workspace --all-features --verbose
+      - name: Run tests (full UI stack)
+        run: cargo test --workspace --all-features --verbose

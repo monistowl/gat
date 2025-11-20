@@ -1682,6 +1682,7 @@ dependencies = [
  "gat-gui",
  "gat-io",
  "gat-ts",
+ "gat-tui",
  "gat-viz",
  "num_cpus",
  "predicates",
