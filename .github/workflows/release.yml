@@ -48,7 +48,9 @@ jobs:
 
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
-        run: brew install coinor-tools jq
+        run: |
+          brew tap coin-or-tools/coinor
+          brew install coin-or-tools/coinor/cbc pkg-config jq
 
       - name: Package release artifacts
         run: scripts/package.sh
