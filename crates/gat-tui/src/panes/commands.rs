@@ -49,6 +49,7 @@ impl CommandsPane {
             wide_threshold: 88,
             tall_threshold: 24,
             expand_visuals_on_wide: false,
+            collapse_secondary_first: true,
         })
     }
 }

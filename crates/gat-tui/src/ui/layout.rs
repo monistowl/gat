@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use super::Pane;
+use super::{Pane, THEME};
 
 #[derive(Clone, Debug)]
 pub struct Sidebar {
@@ -29,13 +29,13 @@ impl Sidebar {
     }
 
     fn render_into(&self, output: &mut String, indent: usize) {
-        let pad = " ".repeat(indent * 2);
+        let pad = THEME.indent(indent);
         if self.collapsed {
-            let _ = writeln!(output, "{}▍ {} (collapsed)", pad, self.title);
+            let _ = writeln!(output, "{}{} {} (collapsed)", pad, THEME.accent, self.title);
             return;
         }
 
-        let _ = writeln!(output, "{}▍ {}", pad, self.title);
+        let _ = writeln!(output, "{}{} {}", pad, THEME.accent, self.title);
         for line in &self.lines {
             let _ = writeln!(output, "{}  {}", pad, line);
         }
@@ -99,6 +99,7 @@ pub struct ResponsiveRules {
     pub wide_threshold: u16,
     pub tall_threshold: u16,
     pub expand_visuals_on_wide: bool,
+    pub collapse_secondary_first: bool,
 }
 
 impl Default for ResponsiveRules {
@@ -107,6 +108,7 @@ impl Default for ResponsiveRules {
             wide_threshold: 100,
             tall_threshold: 30,
             expand_visuals_on_wide: true,
+            collapse_secondary_first: true,
         }
     }
 }
@@ -114,6 +116,15 @@ impl Default for ResponsiveRules {
 impl ResponsiveRules {
     pub fn should_expand(&self, width: u16, height: u16) -> bool {
         width >= self.wide_threshold || height >= self.tall_threshold
+    }
+
+    pub fn expansion_state(&self, width: u16, height: u16) -> (bool, bool) {
+        let is_spacious = self.should_expand(width, height);
+        let primary_expanded =
+            is_spacious || (self.collapse_secondary_first && width + 8 >= self.wide_threshold);
+        let secondary_expanded =
+            is_spacious && !(self.collapse_secondary_first && width < self.wide_threshold);
+        (primary_expanded, secondary_expanded)
     }
 }
 
@@ -160,18 +171,20 @@ impl PaneLayout {
     pub fn render_into(&self, output: &mut String, width: u16, height: u16) {
         let expand_visuals =
             self.responsive.expand_visuals_on_wide && self.responsive.should_expand(width, height);
+        let (expand_primary, expand_secondary) = self.responsive.expansion_state(width, height);
 
         if let Some(subtabs) = &self.subtabs {
             let compact = !expand_visuals;
             let _ = writeln!(output, "Subtabs: {}", subtabs.render_for_view(compact));
         }
 
-        self.primary.render_into(output, 0, expand_visuals);
+        self.primary
+            .render_into(output, 0, expand_visuals || expand_primary);
 
         if let Some(secondary) = &self.secondary {
             let _ = writeln!(output, "");
             let _ = writeln!(output, "⇄ Secondary pane (swapped when menu changes)");
-            secondary.render_into(output, 1, expand_visuals);
+            secondary.render_into(output, 1, expand_visuals && expand_secondary);
         }
 
         if let Some(sidebar) = &self.sidebar {
