@@ -782,6 +782,34 @@ pub enum AnalyticsCommands {
         #[arg(long)]
         out_partitions: Option<String>,
     },
+    /// Reliability metrics (LOLE, EUE, thermal violations) from batch outputs
+    ///
+    /// Computes Loss of Load Expectation (LOLE), Energy Unserved (EUE), and thermal violation
+    /// counts from batch PF/OPF results. Used for resource adequacy assessment and KPI prediction.
+    /// See doi:10.1109/TPWRS.2012.2187686 for reliability metrics in power systems.
+    Reliability {
+        /// Batch manifest JSON from `gat batch` (alternative to --flows)
+        #[arg(long)]
+        batch_manifest: Option<String>,
+        /// Parquet file with branch flows (alternative to --batch-manifest)
+        #[arg(long)]
+        flows: Option<String>,
+        /// CSV file with branch thermal limits (branch_id, flow_limit)
+        #[arg(long)]
+        branch_limits: Option<String>,
+        /// CSV file with scenario weights/probabilities (scenario_id, weight)
+        #[arg(long)]
+        scenario_weights: Option<String>,
+        /// Output file path for reliability metrics table (Parquet)
+        #[arg(short, long)]
+        out: String,
+        /// Minimum unserved load to count as LOLE event (MW, default 0.1)
+        #[arg(long, default_value_t = 0.1)]
+        unserved_threshold: f64,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

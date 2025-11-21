@@ -17,6 +17,7 @@ pub enum OutputStage {
     SeWls,
     AnalyticsPtdf,
     AnalyticsDs,
+    AnalyticsReliability,
 }
 
 impl OutputStage {
@@ -30,6 +31,7 @@ impl OutputStage {
             OutputStage::SeWls => "se-wls",
             OutputStage::AnalyticsPtdf => "analytics-ptdf",
             OutputStage::AnalyticsDs => "analytics-ds",
+            OutputStage::AnalyticsReliability => "analytics-reliability",
         }
     }
 }
