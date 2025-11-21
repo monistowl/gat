@@ -1,0 +1,96 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  package:
+    name: Package and upload release artifacts (${{
+      matrix.os
+    }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: metadata
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+      - name: Determine OS/arch
+        id: osinfo
+        run: |
+          case "$(uname -s)" in
+            Linux) os=linux ;;
+            Darwin) os=macos ;;
+            *) os=$(uname -s | tr '[:upper:]' '[:lower:]') ;;
+          esac
+          case "$(uname -m)" in
+            x86_64 | amd64) arch=x86_64 ;;
+            arm64 | aarch64) arch=arm64 ;;
+            *) arch=$(uname -m) ;;
+          esac
+          echo "os=$os" >> $GITHUB_OUTPUT
+          echo "arch=$arch" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev jq
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install coinor-tools jq
+
+      - name: Package release artifacts
+        run: scripts/package.sh
+
+      - name: Create GitHub release
+        id: release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Gat ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload headless artifact
+        uses: actions/upload-release-asset@v4
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          asset_path: dist/gat-${{ steps.metadata.outputs.version }}-${{
+            steps.osinfo.outputs.os
+          }}-${{
+            steps.osinfo.outputs.arch
+          }}-headless.tar.gz
+          asset_name: gat-${{ steps.metadata.outputs.version }}-${{
+            steps.osinfo.outputs.os
+          }}-${{
+            steps.osinfo.outputs.arch
+          }}-headless.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload full artifact
+        uses: actions/upload-release-asset@v4
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          asset_path: dist/gat-${{ steps.metadata.outputs.version }}-${{
+            steps.osinfo.outputs.os
+          }}-${{
+            steps.osinfo.outputs.arch
+          }}-full.tar.gz
+          asset_name: gat-${{ steps.metadata.outputs.version }}-${{
+            steps.osinfo.outputs.os
+          }}-${{
+            steps.osinfo.outputs.arch
+          }}-full.tar.gz
+          asset_content_type: application/gzip
