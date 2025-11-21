@@ -280,6 +280,24 @@ Use `gat --help` and `gat <command> --help` for detailed flags and device-specif
 
 ---
 
+# ### **Scenario definitions & materialization**
+
+Use `gat scenarios` to validate, expand, and materialize what-if cases before batch execution:
+
+```bash
+gat scenarios validate --spec examples/scenarios/rts_nminus1.yaml
+gat scenarios materialize \
+  --spec examples/scenarios/rts_nminus1.yaml \
+  --grid-file test_data/matpower/ieee14.arrow \
+  --out-dir runs/scenarios/rts_nminus1
+```
+
+Each run writes per-scenario `grid.arrow` files under `runs/scenarios/rts_nminus1/<scenario_id>/grid.arrow`, plus a `scenario_manifest.json` that catalogs `scenario_id`, `time_slices`, scaling factors, and tags so downstream `gat batch`/`gat analytics` commands know which artifacts to consume. Manifest metadata mirrors canonical contingency analysis conventions (`N-1` reliability per IEEE 1551/TPWRS DOI:10.1109/TPWRS.2007.901018) and is recorded in `run.json` for reproducibility.
+
+Use `gat runs list` to inspect the most recent scenario materialization and then feed `runs/scenarios/rts_nminus1/scenario_manifest.json` into your batch/analytics pipelines.
+
+---
+
 # 🔬 Specialized domain workflows
 
 Need more than the core CLI? These specialized crates back the higher-level workflows that handle reliability, DER, and distribution planning:

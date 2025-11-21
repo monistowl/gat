@@ -198,3 +198,74 @@ fn parse_time_slices(values: &[String]) -> Result<Vec<DateTime<Utc>>> {
     }
     Ok(slices)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    fn minimal_spec() -> ScenarioSet {
+        ScenarioSet {
+            version: Some(1),
+            grid_file: Some("grid.arrow".into()),
+            defaults: ScenarioDefaults {
+                time_slices: vec!["2025-01-01T00:00:00Z".into()],
+                ..Default::default()
+            },
+            scenarios: vec![ScenarioSpec {
+                scenario_id: "base".into(),
+                description: Some("base case".into()),
+                tags: None,
+                outages: Vec::new(),
+                dispatch_overrides: None,
+                load_scale: None,
+                renewable_scale: None,
+                time_slices: None,
+                weight: None,
+                metadata: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn resolve_fills_defaults_and_parses_time() {
+        let spec = minimal_spec();
+        let resolved = resolve_scenarios(&spec).expect("should resolve");
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(
+            resolved[0].time_slices[0].to_rfc3339(),
+            "2025-01-01T00:00:00+00:00"
+        );
+    }
+
+    #[test]
+    fn duplicates_are_rejected() {
+        let mut spec = minimal_spec();
+        let duplicate = ScenarioSpec {
+            scenario_id: "base".into(),
+            description: None,
+            tags: None,
+            outages: Vec::new(),
+            dispatch_overrides: None,
+            load_scale: None,
+            renewable_scale: None,
+            time_slices: None,
+            weight: None,
+            metadata: None,
+        };
+        spec.scenarios.push(duplicate);
+        assert!(resolve_scenarios(&spec).is_err());
+    }
+
+    #[test]
+    fn load_spec_from_path_roundtrips() {
+        let spec = minimal_spec();
+        let temp = NamedTempFile::new().unwrap();
+        let yaml = serde_yaml::to_string(&spec).unwrap();
+        fs::write(temp.path(), yaml).unwrap();
+        let reloaded = load_spec_from_path(temp.path()).unwrap();
+        assert_eq!(reloaded.scenarios.len(), 1);
+        assert_eq!(reloaded.defaults.time_slices.len(), 1);
+    }
+}

@@ -1,0 +1,20 @@
+version: 1
+grid_file: "test_data/matpower/ieee14.arrow"
+defaults:
+  load_scale: 1.0
+  renewable_scale: 1.0
+  time_slices:
+    - "2025-01-01T12:00:00Z"
+  weight: 1.0
+  metadata:
+    study: "rts-nminus1"
+scenarios:
+  - scenario_id: "base"
+    description: "Base operating point"
+  - scenario_id: "n-1_branch_5_6"
+    description: "Outage of branch 5-6"
+    outages:
+      - type: branch
+        id: "branch_5_6"
+    tags:
+      - "n-1"

@@ -86,3 +86,31 @@ fn sanitize_name(value: &str) -> String {
         filtered
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json;
+    use std::fs;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn writes_and_reads_manifest() {
+        let artifact = ScenarioArtifact {
+            scenario_id: "test".into(),
+            description: Some("desc".into()),
+            grid_file: "grid.arrow".into(),
+            time_slices: vec!["2025-01-01T00:00:00Z".parse().unwrap()],
+            load_scale: 1.0,
+            renewable_scale: 1.0,
+            weight: 1.0,
+            tags: vec!["foo".into()],
+            metadata: HashMap::new(),
+        };
+        let tmp = NamedTempFile::new().unwrap();
+        write_manifest(tmp.path(), &[artifact.clone()]).unwrap();
+        let text = fs::read_to_string(tmp.path()).unwrap();
+        let parsed: Vec<ScenarioArtifact> = serde_json::from_str(&text).unwrap();
+        assert_eq!(parsed.first().unwrap().scenario_id, "test");
+    }
+}
