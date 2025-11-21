@@ -36,3 +36,6 @@ opt-level = 1
 
 [profile.release]
 opt-level = 3
+
+[workspace.metadata.release]
+version = "0.1.2"

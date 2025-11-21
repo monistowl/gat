@@ -9,7 +9,11 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.metadata.release.version')"
+if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
+  echo "workspace.metadata.release.version is not set in Cargo.toml" >&2
+  exit 1
+fi
 
 case "$(uname -s)" in
   Linux) OS="linux" ;;
@@ -40,7 +44,15 @@ install_deps() {
       ;;
     Darwin)
       if command -v brew >/dev/null 2>&1; then
-        brew install coinor-tools jq || true
+        brew tap coin-or-tools/coinor
+        brew install coin-or-tools/coinor/cbc pkg-config jq || true
+        cbc_prefix=$(brew --prefix coin-or-tools/coinor/cbc 2>/dev/null || true)
+        if [[ -n "$cbc_prefix" ]]; then
+          export PATH="$cbc_prefix/bin:$PATH"
+          export LDFLAGS="${LDFLAGS:-} -L$cbc_prefix/lib"
+          export CPPFLAGS="${CPPFLAGS:-} -I$cbc_prefix/include"
+          export PKG_CONFIG_PATH="$cbc_prefix/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+        fi
       fi
       ;;
   esac

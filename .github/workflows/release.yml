@@ -27,7 +27,11 @@ jobs:
       - name: Determine version
         id: metadata
         run: |
-          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.metadata.release.version')
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "workspace_metadata.release.version is not defined" >&2
+            exit 1
+          fi
           echo "version=${version}" >> $GITHUB_OUTPUT
 
       - name: Determine OS/arch
