@@ -1,10 +1,8 @@
 use std::path::Path;
 use std::time::Instant;
 
-use anyhow::Result;
-use tracing::info;
-
 use crate::commands::telemetry::record_run_timed;
+use anyhow::Result;
 use gat_algo::power_flow;
 use gat_cli::cli::PowerFlowCommands;
 use gat_core::solver::SolverKind;
@@ -26,7 +24,6 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                 let solver_impl = solver_kind.build_solver();
                 let _ = lp_solver;
                 let partitions = crate::parse_partitions(out_partitions.as_ref());
-                let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
                 let out_path = Path::new(out);
                 match importers::load_grid_from_arrow(grid_file.as_str()) {
                     Ok(network) => power_flow::dc_power_flow(
@@ -70,7 +67,6 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                 let solver_impl = solver_kind.build_solver();
                 let _ = lp_solver;
                 let partitions = crate::parse_partitions(out_partitions.as_ref());
-                let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
                 let out_path = Path::new(out);
                 match importers::load_grid_from_arrow(grid_file.as_str()) {
                     Ok(network) => power_flow::ac_power_flow(
@@ -94,7 +90,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                     ("out", out),
                     ("tol", &tol.to_string()),
                     ("max_iter", &max_iter.to_string()),
-                    ("solver", solver.parse::<SolverKind>()?.as_str()),
+                    ("solver", solver_name),
                     ("out_partitions", out_partitions.as_deref().unwrap_or("")),
                 ],
                 start,
