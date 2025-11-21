@@ -839,6 +839,29 @@ pub enum FeaturizeCommands {
         #[arg(long, default_value_t = true)]
         group_by_time: bool,
     },
+    /// Generate KPI training/evaluation feature tables for ML prediction models
+    ///
+    /// Aggregates batch PF/OPF outputs and reliability metrics into wide feature tables suitable
+    /// for training probabilistic KPI predictors (TabNet, NGBoost, gradient boosting, etc.).
+    /// Outputs are keyed by (scenario_id, time, zone) and include system stress indicators,
+    /// policy flags, and reliability metrics. The "X" features for predicting reliability KPIs.
+    Kpi {
+        /// Root directory containing batch PF/OPF outputs (flows, LMPs, violations)
+        #[arg(long, value_hint = ValueHint::DirPath)]
+        batch_root: String,
+        /// Optional reliability metrics file (output from `gat analytics reliability`)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        reliability: Option<String>,
+        /// Optional scenario metadata file (YAML/JSON with policy flags, weather, etc.)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        scenario_meta: Option<String>,
+        /// Output file path for KPI features (Parquet format)
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Partition columns (comma separated, e.g., "scenario_id,time")
+        #[arg(long)]
+        out_partitions: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

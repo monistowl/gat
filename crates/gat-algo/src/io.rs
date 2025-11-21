@@ -18,6 +18,8 @@ pub enum OutputStage {
     AnalyticsPtdf,
     AnalyticsDs,
     AnalyticsReliability,
+    FeaturizeGnn,
+    FeaturizeKpi,
 }
 
 impl OutputStage {
@@ -32,6 +34,8 @@ impl OutputStage {
             OutputStage::AnalyticsPtdf => "analytics-ptdf",
             OutputStage::AnalyticsDs => "analytics-ds",
             OutputStage::AnalyticsReliability => "analytics-reliability",
+            OutputStage::FeaturizeGnn => "featurize-gnn",
+            OutputStage::FeaturizeKpi => "featurize-kpi",
         }
     }
 }
