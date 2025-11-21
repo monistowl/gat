@@ -21,6 +21,7 @@ GITHUB_LATEST_API="${GAT_GITHUB_LATEST_API:-https://api.github.com/repos/monisto
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+source "$SCRIPT_DIR/release-utils.sh"
 
 trim_variant() {
   VARIANT="$(echo "$VARIANT" | tr '[:upper:]' '[:lower:]')"
@@ -63,24 +64,6 @@ parse_args() {
         ;;
     esac
   done
-}
-
-detect_os() {
-  # Normalize `uname` output to match the release archive naming convention.
-  case "$(uname -s)" in
-    Linux) echo "linux" ;;
-    Darwin) echo "macos" ;;
-    *) echo "" ;;
-  esac
-}
-
-detect_arch() {
-  # Standardize architecture labels so downloads hit the right tarball.
-  case "$(uname -m)" in
-    x86_64|amd64) echo "x86_64" ;;
-    arm64|aarch64) echo "arm64" ;;
-    *) echo "" ;;
-  esac
 }
 
 resolve_version() {
@@ -169,7 +152,7 @@ build_from_source() {
 }
 
 download_and_install() {
-  local os arch tarball_name url tmpdir extracted_root
+  local os arch tarball_name url tmpdir extracted_root canonical_version
 
   os="$(detect_os)"
   arch="$(detect_arch)"
@@ -183,8 +166,12 @@ download_and_install() {
     echo "No binary version found; skipping download."
     return 1
   fi
+  canonical_version="$VERSION"
+  if [[ "$canonical_version" == v* ]]; then
+    canonical_version="${canonical_version#v}"
+  fi
 
-  tarball_name="gat-${VERSION}-${os}-${arch}-${VARIANT}.tar.gz"
+  tarball_name="$(release_tarball_name "$VARIANT" "$canonical_version" "$os" "$arch")"
   url="$RELEASE_BASE/$VERSION/$tarball_name"
   tmpdir="$(mktemp -d)"
 

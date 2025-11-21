@@ -4,28 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required to package releases" >&2
-  exit 1
-fi
+source "$ROOT_DIR/scripts/release-utils.sh"
 
-VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.metadata.release.version')"
-if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
-  echo "workspace.metadata.release.version is not set in Cargo.toml" >&2
-  exit 1
-fi
+VERSION="$(release_version)"
 
-case "$(uname -s)" in
-  Linux) OS="linux" ;;
-  Darwin) OS="macos" ;;
-  *) OS="$(uname -s | tr '[:upper:]' '[:lower:]')" ;;
-esac
-
-case "$(uname -m)" in
-  x86_64|amd64) ARCH="x86_64" ;;
-  arm64|aarch64) ARCH="arm64" ;;
-  *) ARCH="$(uname -m)" ;;
-esac
+OS="$(detect_os)"
+ARCH="$(detect_arch)"
 DIST_DIR="$ROOT_DIR/dist"
 
 pkg_dir() {

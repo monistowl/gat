@@ -27,7 +27,8 @@ jobs:
       - name: Determine version
         id: metadata
         run: |
-          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.metadata.release.version')
+          source scripts/release-utils.sh
+          version=$(release_version)
           if [[ -z "$version" || "$version" == "null" ]]; then
             echo "workspace_metadata.release.version is not defined" >&2
             exit 1
@@ -37,16 +38,9 @@ jobs:
       - name: Determine OS/arch
         id: osinfo
         run: |
-          case "$(uname -s)" in
-            Linux) os=linux ;;
-            Darwin) os=macos ;;
-            *) os=$(uname -s | tr '[:upper:]' '[:lower:]') ;;
-          esac
-          case "$(uname -m)" in
-            x86_64 | amd64) arch=x86_64 ;;
-            arm64 | aarch64) arch=arm64 ;;
-            *) arch=$(uname -m) ;;
-          esac
+          source scripts/release-utils.sh
+          os=$(detect_os)
+          arch=$(detect_arch)
           echo "os=$os" >> $GITHUB_OUTPUT
           echo "arch=$arch" >> $GITHUB_OUTPUT
 
