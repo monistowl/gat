@@ -133,3 +133,33 @@ release_download_url() {
 
   printf '%s/%s/%s' "$resolved_base" "$tag" "$tarball"
 }
+
+prepend_library_path() {
+  local candidate="$1"
+  if [[ ! -d "$candidate" ]]; then
+    return
+  fi
+
+  local current="${LIBRARY_PATH:-}"
+  if [[ ":$current:" == *":$candidate:"* ]]; then
+    return
+  fi
+
+  if [[ -z "$current" ]]; then
+    LIBRARY_PATH="$candidate"
+  else
+    LIBRARY_PATH="$candidate:$current"
+  fi
+
+  export LIBRARY_PATH
+}
+
+ensure_linux_library_paths() {
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    return
+  fi
+
+  for dir in /usr/lib/x86_64-linux-gnu /usr/lib64 /usr/lib; do
+    prepend_library_path "$dir"
+  done
+}

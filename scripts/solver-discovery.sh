@@ -16,7 +16,7 @@ install_solver_deps() {
     Linux)
       if command -v apt-get >/dev/null 2>&1; then
         sudo apt-get update
-        sudo apt-get install -y coinor-cbc jq cmake ninja-build build-essential
+        sudo apt-get install -y coinor-cbc coinor-libcbc-dev jq cmake ninja-build build-essential
       fi
       install_highs_from_source
       ;;

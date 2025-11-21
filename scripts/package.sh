@@ -7,6 +7,8 @@ cd "$ROOT_DIR"
 source "$ROOT_DIR/scripts/release-utils.sh"
 source "$ROOT_DIR/scripts/solver-discovery.sh"
 
+ensure_linux_library_paths
+
 VERSION="$(release_version)"
 
 OS="$(detect_os)"

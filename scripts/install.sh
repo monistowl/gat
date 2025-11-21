@@ -24,6 +24,8 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/release-utils.sh"
 source "$SCRIPT_DIR/solver-discovery.sh"
 
+ensure_linux_library_paths
+
 trim_variant() {
   VARIANT="$(echo "$VARIANT" | tr '[:upper:]' '[:lower:]')"
   if [[ "$VARIANT" != "headless" && "$VARIANT" != "full" ]]; then
