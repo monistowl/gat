@@ -429,6 +429,31 @@ impl App {
         false
     }
 
+    fn append_detail_info(&mut self, info: String) {
+        let title = self
+            .navigation
+            .detail()
+            .title
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| "Details".to_string());
+        let mut body = self
+            .navigation
+            .detail()
+            .body
+            .as_ref()
+            .cloned()
+            .unwrap_or_default();
+        if body.contains(&info) {
+            return;
+        }
+        if !body.is_empty() {
+            body.push_str("\n\n");
+        }
+        body.push_str(&info);
+        self.navigation.set_detail(Some(title), Some(body));
+    }
+
     fn tick(&mut self) {
         if self.logs.len() == 5 {
             self.logs.pop_front();
@@ -601,7 +626,8 @@ impl App {
             let (lines, finished) = handle.poll();
             for line in lines {
                 self.push_log(&line);
-                self.live_run_status = Some(line);
+                self.live_run_status = Some(line.clone());
+                self.update_state_est_detail(&line);
             }
             if finished {
                 self.live_run_handle = None;
@@ -609,6 +635,52 @@ impl App {
                     self.live_run_status = Some("Live run complete".into());
                 }
             }
+        }
+    }
+
+    fn update_state_est_detail(&mut self, line: &str) {
+        const PREFIX: &str = "State estimation (WLS):";
+        if !line.starts_with(PREFIX) {
+            return;
+        }
+        let rest = line[PREFIX.len()..].trim();
+        let mut measurements = None;
+        let mut states = None;
+        let mut chi2 = None;
+        let mut persisted = None;
+        for part in rest.split(',') {
+            let token = part.trim();
+            if token.ends_with("measurements") {
+                measurements = token
+                    .split_whitespace()
+                    .next()
+                    .and_then(|value| value.parse::<usize>().ok());
+            } else if token.contains("state") {
+                states = token
+                    .split_whitespace()
+                    .next()
+                    .and_then(|value| value.parse::<usize>().ok());
+            } else if token.starts_with("chi2") {
+                chi2 = token
+                    .split_whitespace()
+                    .nth(1)
+                    .and_then(|value| value.parse::<f64>().ok());
+            } else if token.starts_with("persisted to") {
+                persisted = Some(token["persisted to".len()..].trim().to_string());
+            }
+        }
+        if let (Some(meas), Some(state), Some(chi)) = (measurements, states, chi2) {
+            let info = format!(
+                "State estimation summary: {} measurements, {} states, χ² {:.3}{}",
+                meas,
+                state,
+                chi,
+                persisted
+                    .as_ref()
+                    .map(|p| format!(", persisted to {p}"))
+                    .unwrap_or_default()
+            );
+            self.append_detail_info(info);
         }
     }
 
@@ -959,9 +1031,12 @@ fn draw_ui(f: &mut Frame, app: &mut App) {
     if app.navigation.active_tab_id() == TabId::Workflow {
         render_layout_canvas(f, detail_column[1], &app.layout_preview);
     } else {
-        // placeholder for layout preview when not on workflow tab
-        let placeholder = Paragraph::new("Layout preview available on Workflow tab.")
-            .block(Block::default().borders(Borders::ALL).title("Layout preview"));
+        let placeholder =
+            Paragraph::new("Layout preview is available when the Workflow tab is active.").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Layout preview"),
+            );
         f.render_widget(placeholder, detail_column[1]);
     }
 
@@ -1011,12 +1086,8 @@ fn render_workflow_tab(f: &mut Frame, area: Rect, app: &App) {
         .split(columns[0]);
     render_demo_snapshot(f, left[0], app);
     render_demo_summary(f, left[1], app);
-    let right = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(10), Constraint::Min(10)])
-        .split(columns[1]);
-    render_layout_canvas(f, right[0], &app.layout_preview);
-    render_demo_chart(f, right[1], app);
+    let right = columns[1];
+    render_demo_chart(f, right, app);
 }
 
 fn render_tab_placeholder(
