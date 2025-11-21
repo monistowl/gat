@@ -5,7 +5,7 @@ mod command_runner;
 pub mod panes;
 pub mod ui;
 
-use panes::dashboard::DashboardPane;
+use panes::{dashboard::DashboardPane, pipeline::PipelinePane};
 use ui::{
     AppShell, CommandModal, ContextButton, ExecutionMode, MenuItem, NavMenu, Pane, PaneLayout,
     ResponsiveRules, Sidebar, SubTabs, TableView, Tabs, Tooltip,
@@ -19,6 +19,7 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let dashboard_layout = DashboardPane::layout();
+        let pipeline_layout = PipelinePane::layout();
 
         let workflow_table = TableView::new(["Workflow", "Status", "Updated"])
             .add_row(["Ingest", "Ready", "just now"])
@@ -122,7 +123,15 @@ impl App {
                     ContextButton::new('f', "[f] Fetch dataset"),
                     ContextButton::new('i', "[i] Inspect schema"),
                 ]),
-                MenuItem::new("commands", "Commands", '4', commands_layout)
+                MenuItem::new("pipeline", "Pipeline", '4', pipeline_layout).with_context_buttons([
+                    ContextButton::new('a', "[a] Add step — inserts under the focused transform"),
+                    ContextButton::new(
+                        'o',
+                        "[o] Reorder — move step while preserving dependencies",
+                    ),
+                    ContextButton::new('r', "[r] Run pipeline — mirrors the [Ctrl+R] control"),
+                ]),
+                MenuItem::new("commands", "Commands", '5', commands_layout)
                     .with_context_buttons([ContextButton::new('r', "[r] Run custom…")]),
             ],
             0,
