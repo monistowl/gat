@@ -73,6 +73,7 @@ impl PipelinePane {
             wide_threshold: 92,
             tall_threshold: 26,
             expand_visuals_on_wide: true,
+            collapse_secondary_first: true,
         })
     }
 }

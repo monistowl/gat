@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::command_runner::{spawn_command, CommandHandle};
 
-use super::{TableView, Tooltip};
+use super::{EmptyState, TableView, Tooltip, THEME};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExecutionMode {
@@ -99,9 +99,9 @@ impl CommandModal {
         let mut output = String::new();
 
         let _ = writeln!(&mut output, "[{}]", self.title);
-        let _ = writeln!(&mut output, "{}", self.prompt);
+        let _ = writeln!(&mut output, "{} {}", THEME.accent, self.prompt);
 
-        let _ = writeln!(&mut output, "\nCommand text (multiline):");
+        let _ = writeln!(&mut output, "\n{} Command text (multiline):", THEME.muted);
         for line in &self.command_text {
             let _ = writeln!(&mut output, "│ {}", line);
         }
@@ -132,7 +132,7 @@ impl CommandModal {
             "  gat-cli derms envelope --grid-file case33bw.arrow --out envelope.parquet"
         );
 
-        let _ = writeln!(&mut output, "\nOutput (scroll to review):");
+        let _ = writeln!(&mut output, "\n{} Output (scroll to review):", THEME.muted);
         for line in self.render_output_table() {
             let _ = writeln!(&mut output, "{}", line);
         }
@@ -172,7 +172,13 @@ impl CommandModal {
     }
 
     fn render_output_table(&self) -> Vec<String> {
-        let mut table = TableView::new(["#", "Stream"]);
+        let mut table = TableView::new(["#", "Stream"]).with_empty_state(EmptyState::new(
+            "No output yet",
+            [
+                "Submit a dry-run to preview the invocation.",
+                "Full runs will stream logs into this table.",
+            ],
+        ));
         let take = self.output.len().saturating_sub(self.max_output_rows);
         let start = if take > 0 { take } else { 0 };
 

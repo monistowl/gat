@@ -81,9 +81,10 @@ impl DashboardPane {
         .with_sidebar(sidebar)
         .with_subtabs(subtabs)
         .with_responsive_rules(ResponsiveRules {
-            wide_threshold: 100,
+            wide_threshold: 96,
             tall_threshold: 28,
             expand_visuals_on_wide: true,
+            collapse_secondary_first: true,
         })
     }
 }

@@ -4,12 +4,14 @@ mod layout;
 mod modal;
 mod navigation;
 mod registry;
+mod theme;
 
 /// The root container for the terminal experience.
 pub use layout::{PaneLayout, ResponsiveRules, Sidebar, SubTabs};
 pub use modal::{CommandModal, ExecutionMode};
 pub use navigation::{ContextButton, MenuItem, NavMenu};
 pub use registry::{PaneContext, PaneView, PanelRegistry};
+pub use theme::{EmptyState, Theme, THEME};
 
 pub struct AppShell {
     pub title: String,
@@ -55,7 +57,7 @@ impl AppShell {
 
     pub fn render_with_size(&self, width: u16, height: u16) -> String {
         let mut output = String::new();
-        let _ = writeln!(&mut output, "┏━━━━━━━━ {} ━━━━━━━━┓", self.title);
+        let _ = writeln!(&mut output, "{}", THEME.frame_title(&self.title));
         let _ = writeln!(&mut output, "{}", self.menu.render_menu_bar());
         self.menu
             .render_active_layout_into(&mut output, width, height);
@@ -84,6 +86,7 @@ pub struct Pane {
     pub table: Option<TableView>,
     pub collapsible: Option<Collapsible>,
     pub visual: bool,
+    pub empty: Option<EmptyState>,
 }
 
 impl Pane {
@@ -96,6 +99,7 @@ impl Pane {
             table: None,
             collapsible: None,
             visual: false,
+            empty: None,
         }
     }
 
@@ -129,8 +133,13 @@ impl Pane {
         self
     }
 
+    pub fn with_empty_state(mut self, empty: EmptyState) -> Self {
+        self.empty = Some(empty);
+        self
+    }
+
     fn render_into(&self, output: &mut String, indent: usize, expanded: bool) {
-        let pad = " ".repeat(indent * 2);
+        let pad = THEME.indent(indent);
         let visual_label = if self.visual && expanded {
             " (expanded)"
         } else if self.visual {
@@ -146,8 +155,19 @@ impl Pane {
             let _ = writeln!(output, "{}  {}", pad, collapsible.render());
         }
 
-        for line in &self.body {
-            let _ = writeln!(output, "{}  {}", pad, line);
+        if self.body.is_empty()
+            && self.children.is_empty()
+            && self.table.as_ref().map_or(true, |table| !table.has_rows())
+        {
+            if let Some(empty) = &self.empty {
+                for line in empty.render_lines(&THEME) {
+                    let _ = writeln!(output, "{}  {}", pad, line);
+                }
+            }
+        } else {
+            for line in &self.body {
+                let _ = writeln!(output, "{}  {}", pad, line);
+            }
         }
 
         if let Some(tabs) = &self.tabs {
@@ -234,6 +254,7 @@ impl Tabs {
 pub struct TableView {
     pub headers: Vec<String>,
     pub rows: Vec<Vec<String>>,
+    pub empty: Option<EmptyState>,
 }
 
 impl TableView {
@@ -241,6 +262,7 @@ impl TableView {
         Self {
             headers: headers.into_iter().map(|h| h.into()).collect(),
             rows: Vec::new(),
+            empty: None,
         }
     }
 
@@ -249,20 +271,35 @@ impl TableView {
         self
     }
 
+    pub fn with_empty_state(mut self, empty: EmptyState) -> Self {
+        self.empty = Some(empty);
+        self
+    }
+
+    pub fn has_rows(&self) -> bool {
+        !self.rows.is_empty()
+    }
+
     pub fn render_lines(&self) -> Vec<String> {
         let mut lines = Vec::new();
+        if self.rows.is_empty() {
+            if let Some(empty) = &self.empty {
+                return empty.render_lines(&THEME);
+            }
+        }
+
         if !self.headers.is_empty() {
-            lines.push(self.headers.join(" | "));
+            lines.push(self.headers.join(THEME.table_gap));
             lines.push(
                 self.headers
                     .iter()
-                    .map(|h| "-".repeat(h.len()))
+                    .map(|h| THEME.divider(h.len()))
                     .collect::<Vec<_>>()
-                    .join("-+-"),
+                    .join(THEME.table_gap),
             );
         }
         for row in &self.rows {
-            lines.push(row.join(" | "));
+            lines.push(row.join(THEME.table_gap));
         }
         lines
     }
