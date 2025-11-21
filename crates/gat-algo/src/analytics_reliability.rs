@@ -398,23 +398,22 @@ fn load_flows_from_manifest(manifest_path: &Path) -> Result<DataFrame> {
             let file = File::open(&job.output)
                 .with_context(|| format!("opening job output '{}'", job.output))?;
             let reader = ParquetReader::new(file);
-            let df = reader
+            let mut current_df = reader
                 .finish()
                 .with_context(|| format!("reading job output '{}'", job.output))?;
 
-            // Add scenario_id and time columns if not present
-            let mut df = df;
-            let col_names = df.get_column_names();
-            if !col_names.iter().any(|c| *c == "scenario_id") {
-                df = df.with_column(Series::new("scenario_id", vec![job.scenario_id.clone(); df.height()]))?;
-            }
-            let col_names = df.get_column_names();
-            if !col_names.iter().any(|c| *c == "time") {
-                let time_str = job.time.as_deref().map(|s| s.to_string());
-                df = df.with_column(Series::new("time", vec![time_str; df.height()]))?;
+            // Add scenario_id column if not present
+            if !current_df.get_column_names().iter().any(|c| *c == "scenario_id") {
+                current_df.with_column(Series::new("scenario_id", vec![job.scenario_id.clone(); current_df.height()]))?;
             }
 
-            all_dfs.push(df);
+            // Add time column if not present
+            if !current_df.get_column_names().iter().any(|c| *c == "time") {
+                let time_str = job.time.as_deref().map(|s| s.to_string());
+                current_df.with_column(Series::new("time", vec![time_str; current_df.height()]))?;
+            }
+
+            all_dfs.push(current_df);
         }
     }
 

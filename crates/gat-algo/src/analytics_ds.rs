@@ -475,11 +475,7 @@ fn collect_bus_ids(network: &Network) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gat_core::{Bus, BusId, Edge, EdgeIndex, Network};
-    use gat_core::{Graph, Node};
     use polars::prelude::Series;
-    use std::fs::File;
-    use tempfile::NamedTempFile;
 
     #[test]
     fn branch_bound_helpers_handle_limiting_flows() {
@@ -490,7 +486,8 @@ mod tests {
     #[test]
     fn column_to_string_handles_nulls() {
         let series = Series::new("scenario_id", &[Some("base"), None]);
-        assert_eq!(column_to_string(Some(&series), 0).unwrap(), Some("base".into()));
+        // Polars stringifies strings with quotes, so we expect "\"base\""
+        assert_eq!(column_to_string(Some(&series), 0).unwrap(), Some("\"base\"".into()));
         assert!(column_to_string(Some(&series), 1).unwrap().is_none());
     }
 }

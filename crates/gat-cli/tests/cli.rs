@@ -389,6 +389,35 @@ fn gat_graph_visualize_writes_file() {
     assert!(text.contains("\"nodes\""));
 }
 
+#[cfg(feature = "full-io")]
+#[test]
+fn gat_scenarios_validate_runs() {
+    let tmp = tempdir().unwrap();
+    let spec_path = tmp.path().join("scenario.yaml");
+    let scenario_content = r#"
+version: 1
+grid_file: "grid.arrow"
+defaults:
+  time_slices:
+    - "2025-01-01T00:00:00Z"
+scenarios:
+  - scenario_id: "base"
+    description: "base case"
+"#;
+    fs::write(&spec_path, scenario_content).unwrap();
+
+    let mut cmd = cargo_bin_cmd!("gat-cli");
+    cmd.args([
+        "scenarios",
+        "validate",
+        "--spec",
+        spec_path.to_str().unwrap(),
+    ])
+    .assert()
+    .success()
+    .stdout(predicate::str::contains("Scenario spec validated successfully"));
+}
+
 #[cfg(all(feature = "full-io", feature = "viz"))]
 #[test]
 fn gat_graph_visualize_prints_json() {
