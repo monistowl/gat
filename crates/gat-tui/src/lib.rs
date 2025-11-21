@@ -1,13 +1,14 @@
 use anyhow::Result;
 use iocraft::terminal::Terminal;
 
+mod command_runner;
 pub mod panes;
 pub mod ui;
 
 use panes::dashboard::DashboardPane;
 use ui::{
-    AppShell, ContextButton, MenuItem, Modal, NavMenu, Pane, PaneLayout, ResponsiveRules, Sidebar,
-    SubTabs, TableView, Tabs, Tooltip,
+    AppShell, CommandModal, ContextButton, ExecutionMode, MenuItem, NavMenu, Pane, PaneLayout,
+    ResponsiveRules, Sidebar, SubTabs, TableView, Tabs, Tooltip,
 };
 
 /// High-level application state for the terminal UI.
@@ -61,6 +62,50 @@ impl App {
             expand_visuals_on_wide: true,
         });
 
+        let commands_layout = PaneLayout::new(
+            Pane::new("Commands workspace")
+                .body([
+                    "Author gat-cli commands, stack them as multi-line snippets, and run with a hotkey.",
+                    "Dry-runs print the normalized invocation; full runs stream into the modal output.",
+                ])
+                .with_table(
+                    TableView::new(["Snippet", "Purpose"])
+                        .add_row([
+                            "gat-cli datasets list --limit 5",
+                            "Verify dataset catalogue connectivity",
+                        ])
+                        .add_row([
+                            "gat-cli derms envelope --grid-file <case>",
+                            "Preview flexibility envelope inputs",
+                        ])
+                        .add_row([
+                            "gat-cli dist import matpower --m <file>",
+                            "Convert MATPOWER test cases before ADMS runs",
+                        ]),
+                )
+                .with_child(
+                    Pane::new("Hotkeys")
+                        .body([
+                            "[r] Run custom… opens the modal",
+                            "[d] Toggle dry-run vs full execution",
+                            "[esc] Close modal after reviewing output",
+                        ])
+                        .mark_visual(),
+                ),
+        )
+        .with_sidebar(
+            Sidebar::new("Recent command results", false).lines([
+                "✔ dry-run datasets list (5 rows)",
+                "✔ envelope preview (synthetic)",
+                "… output scrollable inside modal",
+            ]),
+        )
+        .with_responsive_rules(ResponsiveRules {
+            wide_threshold: 88,
+            tall_threshold: 24,
+            expand_visuals_on_wide: false,
+        });
+
         let nav_menu = NavMenu::new(
             vec![
                 MenuItem::new("dashboard", "Dashboard", '1', dashboard_layout)
@@ -77,16 +122,29 @@ impl App {
                     ContextButton::new('f', "[f] Fetch dataset"),
                     ContextButton::new('i', "[i] Inspect schema"),
                 ]),
+                MenuItem::new("commands", "Commands", '4', commands_layout)
+                    .with_context_buttons([ContextButton::new('r', "[r] Run custom…")]),
             ],
             0,
         );
 
         let tooltip =
             Tooltip::new("Use menu hotkeys to change focus; layouts swap with selection.");
-        let modal = Modal::new(
-            "Prototype shell",
-            "Menu-driven panes, responsive defaults, and contextual actions are active.",
-        );
+        let mut modal = CommandModal::new(
+            "Run custom gat-cli command",
+            "Paste multi-line gat-cli snippets, switch between dry-run/full, then stream output below.",
+            'r',
+        )
+        .with_help(Tooltip::new(
+            "Syntax: gat-cli <domain> <verb> [flags]. Use new lines for long arguments and include sample files from test_data/.",
+        ))
+        .with_command_text([
+            "gat-cli datasets list --format table",
+            "--limit 5",
+        ])
+        .with_mode(ExecutionMode::DryRun);
+
+        let _ = modal.submit();
 
         let shell = AppShell::new("GAT Terminal UI", nav_menu)
             .with_tooltip(tooltip)
