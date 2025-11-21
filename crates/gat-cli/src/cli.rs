@@ -111,6 +111,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: DatasetCommands,
     },
+    /// Release version helpers
+    Version {
+        #[command(subcommand)]
+        command: VersionCommands,
+    },
     /// Helpers for the terminal dashboard
     #[cfg(feature = "tui")]
     Tui {
@@ -719,6 +724,19 @@ pub enum PublicDatasetCommands {
         /// Try to extract the dataset if it's a zip archive
         #[arg(long)]
         extract: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum VersionCommands {
+    /// Sync release metadata
+    Sync {
+        /// Tag name to validate (leading `v` is stripped)
+        #[arg(long)]
+        tag: Option<String>,
+        /// Write manifest JSON describing the resolved version/tag
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        manifest: Option<PathBuf>,
     },
 }
 

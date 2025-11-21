@@ -1,6 +1,4 @@
-#[cfg(not(feature = "docs"))]
-use anyhow::bail;
-use anyhow::Result;
+use anyhow::{bail, Result};
 #[cfg(feature = "docs")]
 use chrono::Utc;
 use clap::{Parser, Subcommand};
@@ -10,6 +8,7 @@ use serde::Serialize;
 use serde_json::json;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 
 #[derive(Parser)]
 #[command(author, version, about = "Utility tasks for docs automation", long_about = None)]
@@ -35,6 +34,22 @@ enum Task {
     /// `xtask doc:site`
     #[command(name = "doc:site")]
     DocSite,
+    /// Release helpers that rely on the canonical metadata
+    #[command(subcommand)]
+    Release(ReleaseCommand),
+}
+
+#[derive(Subcommand)]
+enum ReleaseCommand {
+    /// Print release metadata such as os/arch/version/tarball
+    Info {
+        /// Variant to describe (`headless` or `full`)
+        #[arg(long, default_value = "headless")]
+        variant: String,
+        /// Optional version override (defaults to workspace release version)
+        #[arg(long)]
+        version: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -62,6 +77,11 @@ fn main() -> Result<()> {
         Task::DocCli => doc_cli(),
         Task::DocSchemas => doc_schemas(),
         Task::DocSite => doc_site(),
+        Task::Release(cmd) => match cmd {
+            ReleaseCommand::Info { variant, version } => {
+                run_release_info(&variant, version.as_deref())
+            }
+        },
     }
 }
 
@@ -185,6 +205,21 @@ fn missing_docs_feature(task: &str) -> Result<()> {
         "{task} requires building xtask with `--features docs` (e.g. `cargo run -p xtask --features docs -- {task}`)",
         task = task
     )
+}
+
+fn run_release_info(variant: &str, version: Option<&str>) -> Result<()> {
+    let mut cmd = Command::new("bash");
+    cmd.arg("scripts/platform-info.sh")
+        .arg("--variant")
+        .arg(variant);
+    if let Some(version) = version {
+        cmd.arg("--version").arg(version);
+    }
+    let status = cmd.status()?.success();
+    if !status {
+        bail!("platform-info.sh failed");
+    }
+    Ok(())
 }
 
 #[cfg(feature = "docs")]

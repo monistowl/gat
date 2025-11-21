@@ -3,9 +3,10 @@ use std::time::Instant;
 use anyhow::Result;
 use gat_cli::cli::TsCommands;
 use gat_ts::{aggregate_timeseries, join_timeseries, resample_timeseries};
+use tracing::info;
 
 use crate::commands::telemetry::record_run_timed;
-use crate::parse_partitions;
+use crate::commands::util::parse_partitions;
 
 pub fn handle(command: &TsCommands) -> Result<()> {
     match command {
@@ -17,6 +18,7 @@ pub fn handle(command: &TsCommands) -> Result<()> {
             out,
             out_partitions,
         } => {
+            info!("Resampling {} → {}", input, out);
             let start = Instant::now();
             let partitions = parse_partitions(out_partitions.as_ref());
             let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
@@ -71,6 +73,7 @@ pub fn handle(command: &TsCommands) -> Result<()> {
             out,
             out_partitions,
         } => {
+            info!("Aggregating {} → {}", input, out);
             let start = Instant::now();
             let partitions = parse_partitions(out_partitions.as_ref());
             let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();

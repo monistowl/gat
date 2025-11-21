@@ -22,6 +22,7 @@ GITHUB_LATEST_API="${GAT_GITHUB_LATEST_API:-https://api.github.com/repos/monisto
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/release-utils.sh"
+source "$SCRIPT_DIR/solver-discovery.sh"
 
 trim_variant() {
   VARIANT="$(echo "$VARIANT" | tr '[:upper:]' '[:lower:]')"
@@ -134,6 +135,13 @@ install_from_dir() {
 
 build_from_source() {
   echo "Falling back to building from source ($VARIANT)..."
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    setup_brew_solver_env
+  fi
+  if ! ensure_solvers_available; then
+    echo "Required solver binaries (cbc/highs) missing; install them to build from source." >&2
+    return 1
+  fi
   pushd "$ROOT_DIR" >/dev/null
   if [[ "$VARIANT" == "headless" ]]; then
     cargo build --workspace --exclude gat-gui --exclude gat-tui --release

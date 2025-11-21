@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::path::{Path, PathBuf};
 use walkdir::{DirEntry, WalkDir};
 
-use crate::manifest::{self, ManifestEntry};
+use gat_cli::manifest::{self, ManifestEntry};
 
 #[derive(Clone, Debug)]
 pub struct RunRecord {

@@ -1,4 +1,4 @@
-use crate::manifest::{record_manifest, ManifestTelemetry, Param};
+use gat_cli::manifest::{record_manifest, ManifestTelemetry, Param};
 use std::{env, path::Path, time::Instant};
 
 const TELEMETRY_ENV_KEYS: &[&str] = &[

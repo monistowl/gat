@@ -50,15 +50,12 @@ jobs:
           echo "${arch}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Install dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev jq
-
-      - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-latest'
+      - name: Ensure solver discovery
         run: |
-          brew tap coin-or-tools/coinor
-          brew install coin-or-tools/coinor/cbc pkg-config jq
+          source scripts/release-utils.sh
+          source scripts/solver-discovery.sh
+          install_solver_deps
+          ensure_solvers_available
 
       - name: Package release artifacts
         run: scripts/package.sh

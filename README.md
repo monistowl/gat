@@ -86,6 +86,8 @@ Environment knobs:
 
 If your platform is not covered by prebuilt binaries, the installer falls back to a cargo build with the appropriate feature set for the variant you requested.
 
+Use `scripts/check-install-fallback.sh` to exercise that path: the script points the installer at a non-existent release URL so the download always fails and the `Falling back to building from source ...` branch runs, producing headless binaries into a temporary prefix and proving the fallback path still logs/behaves as expected.
+
 ### 4. Build GAT from source (fallback)
 
 Headless (no GUI/TUI) builds keep the dependency footprint small:
@@ -286,6 +288,12 @@ Need more than the core CLI? These specialized crates back the higher-level work
 - **`gat-derms`** — DER envelope aggregation, pricing-based scheduling, and stress-test runners. The crate README at `crates/gat-derms/README.md` plus `docs/guide/derms.md` explain how to source assets/prices and ingest the results.
 - **`gat-dist`** — MATPOWER import, AC flows, OPF, and hosting-capacity sweeps for distribution cases; see `crates/gat-dist/README.md` and the PF/OPF guides in `docs/guide/pf.md`, `docs/guide/opf.md`, and `docs/guide/scaling.md` for detail.
 - **`gat-schemas`** — Schema helpers placing Arrow/Parquet expectations; read `crates/gat-schemas/README.md` plus the generated schema artifacts under `docs/schemas/`.
+
+### CLI feature matrix workflow
+
+Every push or PR to `main` triggers `.github/workflows/cli-feature-matrix.yml`, which runs `cargo test -p gat-cli --locked --no-default-features` under four feature combinations: `minimal`, `minimal+full-io`, `minimal+full-io+viz`, and `all-backends`. Each job installs `coinor-libcbc-dev` (via `apt` on Ubuntu) before the tests run, matching the solver coverage documented in `gat`’s LP-solver flags, and you can re-run the matrix manually via `workflow_dispatch` from the Actions tab when you need to validate a new feature combo.
+
+For more detail about the matrix strategy and solver dependencies, see `docs/guide/feature-matrix.md`.
 
 ---
 

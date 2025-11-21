@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 source "$ROOT_DIR/scripts/release-utils.sh"
+source "$ROOT_DIR/scripts/solver-discovery.sh"
 
 VERSION="$(release_version)"
 
@@ -17,32 +18,8 @@ pkg_dir() {
   echo "$DIST_DIR/gat-${VERSION}-${OS}-${ARCH}-${variant}"
 }
 
-install_deps() {
-  # Install only the required packaging dependencies for each runner OS.
-  case "$(uname -s)" in
-    Linux)
-      if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update
-        sudo apt-get install -y coinor-libcbc-dev jq
-      fi
-      ;;
-    Darwin)
-      if command -v brew >/dev/null 2>&1; then
-        brew tap coin-or-tools/coinor
-        brew install coin-or-tools/coinor/cbc pkg-config jq || true
-        cbc_prefix=$(brew --prefix coin-or-tools/coinor/cbc 2>/dev/null || true)
-        if [[ -n "$cbc_prefix" ]]; then
-          export PATH="$cbc_prefix/bin:$PATH"
-          export LDFLAGS="${LDFLAGS:-} -L$cbc_prefix/lib"
-          export CPPFLAGS="${CPPFLAGS:-} -I$cbc_prefix/include"
-          export PKG_CONFIG_PATH="$cbc_prefix/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-          export LIBRARY_PATH="$cbc_prefix/lib:${LIBRARY_PATH:-}"
-          export DYLD_LIBRARY_PATH="$cbc_prefix/lib:${DYLD_LIBRARY_PATH:-}"
-        fi
-      fi
-      ;;
-  esac
-}
+install_solver_deps
+ensure_solvers_available
 
 clean_dist() {
   rm -rf "$DIST_DIR"
@@ -53,6 +30,7 @@ copy_common_files() {
   local dest="$1"
   cp README.md "$dest"
   cp scripts/install.sh "$dest/"
+  cp LICENSE.txt "$dest/"
 }
 
 package_headless() {
@@ -91,7 +69,8 @@ package_full() {
   tar -czf "$dest.tar.gz" -C "$DIST_DIR" "$(basename "$dest")"
 }
 
-install_deps
+install_solver_deps
+ensure_solvers_available
 clean_dist
 package_headless
 package_full

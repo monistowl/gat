@@ -12,5 +12,5 @@ pub use cli::VizCommands;
 pub use cli::{
     build_cli_command, Cli, Commands, DatasetCommands, GraphCommands, HirenCommands,
     ImportCommands, Nminus1Commands, OpfCommands, PowerFlowCommands, RunsCommands, SeCommands,
-    Sup3rccCommands, TsCommands,
+    Sup3rccCommands, TsCommands, VersionCommands,
 };

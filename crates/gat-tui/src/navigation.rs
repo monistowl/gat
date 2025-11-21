@@ -266,14 +266,17 @@ impl Tab {
     }
 }
 
+/// State-machine for the tab/pane navigation. Maintains the list of tabs, the
+/// active tab index, the current detail payload, and a small backstack that
+/// preserves the previous tab/pane positions. All tab switches just mutate
+/// `active` and `detail`, so the renderer can stay lean while each namespace
+/// provides its own panes/actions.
 pub struct NavigationController {
     tabs: Vec<Tab>,
     active: usize,
     detail: DetailPayload,
     backstack: Vec<(TabId, usize)>,
 }
-
-// NavigationController manages tabs + panes so each namespace can own its detail stack
 impl NavigationController {
     pub fn new() -> Self {
         let tabs = vec![
@@ -287,34 +290,34 @@ impl NavigationController {
                 TabId::Derms,
                 "DERMS",
                 vec![
-            MenuAction::new(
-                '0',
-                "Import MATPOWER",
-                "Generate case33bw.arrow so DERMS/ADMS commands have a grid",
-                CMD_DIST_IMPORT_MATPOWER,
-                ART_DIST_IMPORT,
-            ),
-            MenuAction::new(
-                '1',
-                "DERMS envelope",
-                "Summarize P/Q/S flexibility for each aggregator (Baran & Wu envelope DOI:10.1109/TPWRD.1989.4303454)",
-                CMD_DERMS_ENVELOPE,
-                ART_DERMS_ENVELOPE,
-            ),
-                    MenuAction::new(
-                        '2',
-                        "DERMS schedule",
-                        "Heuristic dispatch schedule + curtailment metrics",
-                        CMD_DERMS_SCHEDULE,
-                        ART_DERMS_SCHEDULE,
-                    ),
-                    MenuAction::new(
-                        '3',
-                        "DERMS stress-test",
-                        "Run Monte Carlo price perturbations to validate robustness",
-                        CMD_DERMS_STRESS,
-                        ART_DERMS_STRESS,
-                    ),
+        MenuAction::new(
+            '0',
+            "Import MATPOWER",
+            "Generate case33bw.arrow so DERMS/ADMS commands have a grid",
+            CMD_DIST_IMPORT_MATPOWER,
+            ART_DIST_IMPORT,
+        ),
+        MenuAction::new(
+            '1',
+            "DERMS envelope",
+            "Summarize P/Q/S flexibility per aggregator (Baran & Wu envelope, DOI 10.1109/TPWRD.1989.4303454)",
+            CMD_DERMS_ENVELOPE,
+            ART_DERMS_ENVELOPE,
+        ),
+        MenuAction::new(
+            '2',
+            "DERMS schedule",
+            "Heuristic dispatch + curtailment metrics (pricing-based schedule)",
+            CMD_DERMS_SCHEDULE,
+            ART_DERMS_SCHEDULE,
+        ),
+        MenuAction::new(
+            '3',
+            "DERMS stress-test",
+            "Monte Carlo price perturbations protecing flexibility envelopes",
+            CMD_DERMS_STRESS,
+            ART_DERMS_STRESS,
+        ),
                 ],
                 Pane::new("DERMS queue", "Pending DERMS workflows"),
             ),
@@ -325,31 +328,31 @@ impl NavigationController {
             MenuAction::new(
                 '1',
                 "ADMS FLISR sim",
-                "Simulate reliability sampling with SAIDI/SAIFI/CAIDI (FLISR DOI:10.1109/PESGM.2009.5285954)",
+                "Sample reliability scenarios (SAIDI/SAIFI/CAIDI, DOI 10.1109/PESGM.2009.5285954)",
                 CMD_ADMS_FLISR,
                 ART_ADMS_FLISR,
             ),
             MenuAction::new(
                 '2',
                 "ADMS VVO plan",
-                "Produce tap/VAR day-type summaries (VVO DOI:10.1109/TPWRS.2015.2426432)",
+                "Produce tap/VAR day-type summaries (VVO DOI 10.1109/TPWRS.2015.2426432)",
                 CMD_ADMS_VVO,
-                        ART_ADMS_VVO,
-                    ),
-                    MenuAction::new(
-                        '3',
-                        "ADMS outage MC",
-                        "Monte Carlo outage stats referencing the reliability catalog",
-                        CMD_ADMS_OUTAGE,
-                        ART_ADMS_OUTAGE,
-                    ),
-                    MenuAction::new(
-                        '4',
-                        "ADMS state-estimation",
-                        "Run WLS state estimation and materialize state artifacts",
-                        CMD_ADMS_STATE_EST,
-                        ART_ADMS_STATE_EST,
-                    ),
+                ART_ADMS_VVO,
+            ),
+            MenuAction::new(
+                '3',
+                "ADMS outage MC",
+                "Monte Carlo outage stats referencing the reliability catalog",
+                CMD_ADMS_OUTAGE,
+                ART_ADMS_OUTAGE,
+            ),
+            MenuAction::new(
+                '4',
+                "ADMS state-estimation",
+                "Run WLS state estimation and persist state artifacts",
+                CMD_ADMS_STATE_EST,
+                ART_ADMS_STATE_EST,
+            ),
                 ],
                 Pane::new("ADMS command center", "Co-sim insights and tooling"),
             ),
@@ -444,5 +447,46 @@ impl NavigationController {
 
     pub fn active_pane(&self) -> &Pane {
         self.tabs[self.active].panes.active_pane()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tabs_cycle_forward_and_backward() {
+        let mut nav = NavigationController::new();
+        let tab_count = nav.tabs().len();
+        assert_eq!(nav.active_index(), 0);
+        nav.next_tab();
+        assert_eq!(nav.active_index(), 1);
+        nav.prev_tab();
+        assert_eq!(nav.active_index(), 0);
+        for _ in 0..tab_count {
+            nav.next_tab();
+        }
+        assert_eq!(nav.active_index(), 0);
+        nav.prev_tab();
+        assert_eq!(nav.active_index(), tab_count - 1);
+    }
+
+    #[test]
+    fn action_for_key_returns_menu_action() {
+        let mut nav = NavigationController::new();
+        nav.next_tab(); // DERMS
+        nav.next_tab(); // ADMS
+        let action = nav.action_for_key('2');
+        assert!(action.is_some());
+        assert_eq!(action.unwrap().label, "ADMS VVO plan");
+    }
+
+    #[test]
+    fn detail_payload_updates() {
+        let mut nav = NavigationController::new();
+        nav.set_detail(Some("Foobar".into()), Some("Details".into()));
+        let detail = nav.detail();
+        assert_eq!(detail.title.as_deref(), Some("Foobar"));
+        assert_eq!(detail.body.as_deref(), Some("Details"));
     }
 }
