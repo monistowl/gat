@@ -12,6 +12,7 @@ members = [
     "crates/gat-derms",
     "crates/gat-adms",
     "crates/gat-schemas",
+    "crates/iocraft",
     "xtask",
     "crates/gat-mcp-docs",
 ]

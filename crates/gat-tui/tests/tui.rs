@@ -1,41 +1,9 @@
-use gat_tui::{run_tui, App, EventSource};
-use ratatui::backend::TestBackend;
-use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use ratatui::Terminal;
-use std::collections::VecDeque;
-use std::io;
-use std::time::Duration;
-
-struct MockInput {
-    events: VecDeque<Event>,
-}
-
-impl MockInput {
-    fn new(events: Vec<Event>) -> Self {
-        Self {
-            events: events.into_iter().collect(),
-        }
-    }
-}
-
-impl EventSource for MockInput {
-    fn poll(&mut self, _timeout: Duration) -> io::Result<bool> {
-        Ok(!self.events.is_empty())
-    }
-
-    fn read(&mut self) -> io::Result<Event> {
-        Ok(self.events.pop_front().unwrap())
-    }
-}
+use gat_tui::App;
 
 #[test]
-fn run_tui_quits_on_q() {
-    let backend = TestBackend::new(80, 24);
-    let mut terminal = Terminal::new(backend).unwrap();
-    let mut input = MockInput::new(vec![Event::Key(KeyEvent::new(
-        KeyCode::Char('q'),
-        KeyModifiers::NONE,
-    ))]);
-    let mut app = App::new();
-    run_tui(&mut terminal, &mut input, &mut app).unwrap();
+fn app_renders_preview_shell() {
+    let app = App::new();
+    let output = app.render();
+    assert!(output.contains("GAT Terminal UI"));
+    assert!(output.contains("Overview"));
 }

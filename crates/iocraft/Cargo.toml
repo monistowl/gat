@@ -1,0 +1,9 @@
+[package]
+name = "iocraft"
+version = "0.1.0"
+edition = "2021"
+authors = ["Grid Team <grid@example.com>"]
+description = "Lightweight terminal and input utilities for gat-tui"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
