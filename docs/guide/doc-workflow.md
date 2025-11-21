@@ -16,6 +16,7 @@ This project treats documentation updates and issue tracking as linked operation
    * Confirm that `docs/index.md`, `docs/README.md`, and the new guide files sync with your changes.
 4. **Preview the docs**
    * Run `scripts/mcp-onboard.sh` (or `cargo xtask --features docs doc all` followed by `gat-mcp-docs --docs docs --addr 127.0.0.1:4321`) so the regenerated tree is served via MCP.
+   * Open `docs/mcp/manifest.json` after the server starts to review the curated commands, datasets, and guide links that are available to every agent.
 5. **Wrap up with `bd`**
    * Update the issue: `bd update <id> --status review --json` or `--status completed` when merged.
    * Close the issue with `bd close <id> --reason "Completed" --json` once everything lands.

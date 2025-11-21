@@ -349,6 +349,7 @@ Add `--force` to refresh a cached copy and `--extract` to unpack a ZIP file if a
 All curated docs now live under `docs/guide/` and the generated assets live under `docs/cli`, `docs/schemas`, `docs/arrow`, and `site/book/`. Key references:
 
 * `docs/guide/doc-workflow.md` lays out the `bd` issue workflow plus the `cargo xtask doc all` steps that keep helpful docs in sync.
+* `docs/guide/mcp-onboarding.md` explains how to run `scripts/mcp-onboard.sh`, read `docs/mcp/manifest.json`, and use those curated commands as your MCP reference flow.
 * `docs/guide/adms.md`, `docs/guide/derms.md`, and `docs/guide/pf.md` describe the new ADMS/DERMS/distribution workflows (FLISR/VVO, DER scheduling, PTDF/power-flow recipes) that the workspace now covers via `gat-adms`, `gat-derms`, and `gat-dist`.
 * `docs/guide/datasets.md`, `docs/guide/opf.md`, `docs/guide/se.md`, `docs/guide/ts.md`, `docs/guide/gui.md`, `docs/guide/viz.md`, `docs/guide/packaging.md`, and `docs/guide/scaling.md` capture curated workflows and scaling guidance.
 * `docs/README.md` explains the auto-doc targets and how `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` exposes the tree for agents.

@@ -90,6 +90,8 @@ Then use `mcp__beads__*` functions instead of CLI commands.
 
 If the machine has a full GAT install, `scripts/mcp-onboard.sh` regenerates the docs and starts `gat-mcp-docs --docs docs --addr 127.0.0.1:4321`, so drop that command in your onboarding line and the MCP tree will be ready for tooling.
 
+Use `docs/mcp/manifest.json` as the curated command list and `docs/guide/mcp-onboarding.md` for the onboarding narrative so any agent can open the manifest, copy a command, and run it as soon as MCP is up.
+
 ### Managing AI-Generated Planning Documents
 
 AI assistants often create planning and design documents during development:

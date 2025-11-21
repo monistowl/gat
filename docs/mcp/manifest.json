@@ -1,0 +1,67 @@
+{
+  "manifest_version": 1,
+  "description": "Core GAT commands and datasets curated for MCP onboarding and scripting.",
+  "onboarding": [
+    {
+      "name": "Refresh docs & start MCP server",
+      "command": "scripts/mcp-onboard.sh",
+      "details": "Regenerates every docs target and immediately runs `gat-mcp-docs --docs docs --addr 127.0.0.1:4321`."
+    }
+  ],
+  "commands": [
+    {
+      "name": "DC power flow",
+      "command": "gat pf dc test_data/matpower/case9.arrow --out out/dc-flows.parquet",
+      "description": "Solve the linear DC approximation quickly to inspect branch flows from a MATPOWER case."
+    },
+    {
+      "name": "AC optimal power flow",
+      "command": "gat pf ac test_data/matpower/case9.arrow --solver highs --tol 1e-6 --max-iter 20 --out out/ac-opf.parquet",
+      "description": "Run a nonlinear AC solve with the Highs backend, suitable for verifying solver setup and outputs."
+    },
+    {
+      "name": "DER envelope aggregation",
+      "command": "gat ts resample test_data/ts/sample.arrow --freq 15m --out out/ts-resampled.arrow",
+      "description": "Resample telemetry before feeding it into the DERMS scheduling helpers documented under `docs/guide/derms.md`."
+    },
+    {
+      "name": "PTDF analytics",
+      "command": "gat analytics ptdf test_data/matpower/case9.arrow --source 1 --sink 3 --out out/ptdf.parquet",
+      "description": "Calculate PTDF sensitivities so the new `gat-dist` and `gat-adms` helpers can be verified against line scenarios."
+    },
+    {
+      "name": "Resumable runs",
+      "command": "gat runs resume run.json --execute",
+      "description": "Reproduce a prior run from the saved manifest that contains arguments, env, and outputs."
+    }
+  ],
+  "datasets": [
+    {
+      "id": "opsd-time-series-2020",
+      "command": "gat dataset public fetch opsd-time-series-2020 --out data/public/opsd",
+      "description": "Fetch the curated OPSD dataset for experimenting with time-series joins and DER scheduling."
+    },
+    {
+      "id": "airtravel",
+      "command": "gat dataset public fetch airtravel --out data/public/airtravel",
+      "description": "A compact sequence to test the `gat ts agg` and `gat ts join` commands."
+    }
+  ],
+  "guides": [
+    {
+      "title": "ADMS workflows",
+      "path": "docs/guide/adms.md",
+      "description": "FLISR, VVO, and outage heuristics driven by the `gat-adms` crate."
+    },
+    {
+      "title": "DERMS workflows",
+      "path": "docs/guide/derms.md",
+      "description": "Schedules, envelopes, and stress-tests powered by `gat-derms`."
+    },
+    {
+      "title": "Distribution & power-flow notes",
+      "path": "docs/guide/pf.md",
+      "description": "Power-flow and hosting-capacity guidance that `gat-dist` installers can reuse."
+    }
+  ]
+}
