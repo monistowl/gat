@@ -8,11 +8,45 @@ use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
-/// Import a MATPOWER case and emit dist-specific node/branch tables as Parquet.
+/// Import a MATPOWER case and emit distribution-specific node/branch tables as Parquet.
 ///
-/// The radial distribution dataset mirrors the Baran/Wu branch-flow formulation for radial
-/// networks (doi:10.1109/TPWRD.1989.4303454), so we expose feeder-level node/branch files that
-/// tie into the downstream workflows.
+/// **Purpose:** Convert MATPOWER format (designed for transmission systems) into distribution-
+/// friendly tables suitable for feeder-level analysis, hosting capacity studies, and DER integration.
+///
+/// **Distribution vs. Transmission:**
+/// Distribution systems differ from transmission networks in several key ways:
+/// - **Radial topology**: Tree-like structure (vs. meshed transmission grids)
+/// - **Lower voltage**: Typically 4-35 kV (vs. 115+ kV for transmission)
+/// - **R/X ratio**: Higher resistance relative to reactance (resistive losses dominate)
+/// - **Unbalanced loads**: Three-phase imbalances are common (vs. balanced transmission)
+/// - **DER-heavy**: High penetration of distributed energy resources (solar PV, storage)
+///
+/// **Baran/Wu Branch-Flow Formulation:**
+/// The output tables support the classic distribution power flow model from Baran & Wu (1989),
+/// which is well-suited for radial networks:
+/// - Forward sweep: compute branch currents from leaf nodes toward root (substation)
+/// - Backward sweep: compute voltages from root toward leaves using Kirchhoff's voltage law
+/// - See doi:10.1109/TPWRD.1989.4303454 for the original branch-flow equations
+///
+/// **Algorithm:**
+/// 1. Import MATPOWER case (may be transmission or distribution format)
+/// 2. Extract bus data (nodes): buses, loads, generators, voltage limits
+/// 3. Extract branch data: lines/transformers with impedance (R, X) and limits
+/// 4. Classify nodes as "source" (has generation) or "load" (consumption only)
+/// 5. Aggregate multi-phase loads if present (simplify to single-phase equivalent for now)
+/// 6. Output dist_nodes.parquet (bus_id, phase, load_p_mw, load_q_mvar, v_min, v_max)
+/// 7. Output dist_branches.parquet (branch_id, from_node, to_node, r, x, thermal_limit)
+///
+/// **Use Cases:**
+/// - Hosting capacity analysis (how much DER can be added before voltage violations?)
+/// - Volt-VAR optimization (coordinated control of capacitors, regulators, inverters)
+/// - Feeder upgrades (identify bottleneck branches for reconductoring)
+/// - DER integration studies (impact of solar/storage on feeder voltages)
+///
+/// **Pedagogical Note for Grad Students:**
+/// MATPOWER was designed for economic dispatch and OPF on large transmission grids. Distribution
+/// systems need different modeling: radial topology assumptions enable faster branch-flow solvers,
+/// and voltage drop (not congestion) is the primary constraint. This function bridges formats.
 pub fn import_matpower_case(matpower: &str, out_dir: &Path, feeder_id: Option<&str>) -> Result<()> {
     fs::create_dir_all(out_dir).with_context(|| {
         format!(
@@ -39,10 +73,48 @@ pub fn import_matpower_case(matpower: &str, out_dir: &Path, feeder_id: Option<&s
     Ok(())
 }
 
-/// Run a distribution-aware AC power flow and persist its Parquet trace.
+/// Run distribution-aware AC power flow and persist results as Parquet.
 ///
-/// The solver here retains the Newton-Raphson flavor from the canonical DOI:10.1109/TPWRS.2012.2187686
-/// while keeping the CLI semantics aligned with the upstream `gat pf ac` command.
+/// **Purpose:** Solve the non-linear power flow equations for distribution feeders to find bus
+/// voltages and branch currents given injections (loads, DER generation) and network impedances.
+///
+/// **AC Power Flow Equations:**
+/// For each bus i, the power balance equations are:
+/// ```
+/// P_i = V_i ∑_j V_j (G_ij cos(θ_i - θ_j) + B_ij sin(θ_i - θ_j))
+/// Q_i = V_i ∑_j V_j (G_ij sin(θ_i - θ_j) - B_ij cos(θ_i - θ_j))
+/// ```
+/// where V_i is voltage magnitude, θ_i is angle, G_ij + jB_ij are admittance matrix elements.
+/// See doi:10.1109/TPWRS.2012.2187686 for the classic Newton-Raphson formulation.
+///
+/// **Newton-Raphson Method:**
+/// The solver iteratively refines voltage estimates using the Jacobian matrix:
+/// 1. Initialize: V = 1.0 p.u., θ = 0 for all buses (flat start)
+/// 2. Compute power mismatches: ΔP = P_calculated - P_scheduled, ΔQ similar
+/// 3. Build Jacobian J (partial derivatives ∂P/∂θ, ∂P/∂V, ∂Q/∂θ, ∂Q/∂V)
+/// 4. Solve linear system: J · [Δθ, ΔV] = [ΔP, ΔQ]
+/// 5. Update voltages: V += ΔV, θ += Δθ
+/// 6. Repeat until mismatches < tolerance (typically 1e-6 p.u.)
+///
+/// **Distribution Characteristics:**
+/// - **High R/X ratio**: Resistance dominates in distribution (vs. X >> R in transmission)
+///   → Voltage drop is primarily due to resistive losses (I²R), not inductive reactance
+/// - **Radial topology**: Enables specialized solvers (forward-backward sweep) but we use
+///   Newton-Raphson for consistency with transmission tools
+/// - **Voltage constraints**: ANSI C84.1 requires 0.95 ≤ V ≤ 1.05 p.u. at customer meters
+///   → DER integration must respect these tight voltage bounds
+///
+/// **Use Cases:**
+/// - Baseline analysis: What are steady-state voltages/currents before DER additions?
+/// - Voltage violation detection: Which buses fall outside ANSI C84.1 limits?
+/// - Loss calculation: How much power is lost in distribution feeders (I²R losses)?
+/// - Time-series studies: Run PF for every hour to assess DER impact on daily voltage profiles
+///
+/// **Pedagogical Note for Grad Students:**
+/// Power flow is the "Hello World" of power systems. It assumes all injections (P, Q) are known
+/// (not optimized) and solves for voltages. In contrast, OPF *optimizes* injections subject to
+/// constraints. PF answers "what happens?", OPF answers "what's optimal?". For distribution,
+/// voltage limits are the binding constraint, not transmission congestion.
 pub fn run_power_flow(
     grid_file: &Path,
     out_file: &Path,
@@ -77,8 +149,66 @@ pub fn run_optimal_power_flow(
 
 /// Sweep DER injections at selected buses to approximate hosting capacity boundaries.
 ///
-/// This heuristic mirrors historical hosting-capacity sweeps (doi:10.1109/TDEI.2016.7729825) by
-/// deploying incremental injections and checking feasibility via the existing AC OPF.
+/// **Purpose:** Determine how much distributed generation (solar PV, storage discharge) can be
+/// added at each bus before violating voltage or thermal limits. This quantifies "hosting capacity"—
+/// the maximum DER penetration the feeder can safely accommodate without upgrades.
+///
+/// **Hosting Capacity Concept:**
+/// Hosting capacity (HC) is the amount of DER (MW) that can be interconnected without:
+/// 1. **Overvoltage**: DER reverse power flow causes voltage rise beyond 1.05 p.u. (ANSI C84.1)
+/// 2. **Thermal overload**: Branch currents exceed conductor ampacity (thermal limits)
+/// 3. **Protection miscoordination**: DER trips protective devices (not modeled here)
+/// 4. **Transformer overload**: Substation or distribution transformers exceed ratings
+///
+/// **Historical Context:**
+/// As rooftop solar penetration grew in the 2010s, utilities needed methods to assess "how much
+/// solar can we add before the grid breaks?" HC analysis became standard practice. California
+/// Rule 21 and IEEE 1547-2018 mandate HC studies for interconnection. See doi:10.1109/TDEI.2016.7729825
+/// for the EPRI-developed stochastic HC method.
+///
+/// **Algorithm (Deterministic Sweep):**
+/// 1. Select target buses (candidate DER locations, or sweep all buses)
+/// 2. For each bus, incrementally add DER injection: 0 MW → max_injection MW (in `steps` increments)
+/// 3. At each step, run AC OPF to find feasible dispatch (respects voltage/thermal constraints)
+/// 4. Record whether OPF converges (success = feasible, failure = limit violated)
+/// 5. Hosting capacity = largest injection_mw where OPF succeeds
+/// 6. Output: Per-bus HC curves (injection_mw vs. feasibility) as Parquet
+///
+/// **Why OPF (not PF)?**
+/// We use OPF (Optimal Power Flow) instead of plain PF (Power Flow) because OPF can:
+/// - Adjust other generators to maintain voltage support (models coordinated control)
+/// - Respect all constraints (voltage limits, branch thermal limits)
+/// - Find feasible operating point if one exists (PF may diverge if base case is infeasible)
+///
+/// **Interpreting Results:**
+/// - **Success = true**: Feeder can accommodate this DER injection level
+/// - **Success = false**: Voltage or thermal limits violated, HC is below this level
+/// - **HC value**: Maximum injection_mw before first failure (linear interpolation between steps)
+/// - **Bottleneck identification**: If HC is low, check which constraint binds (voltage or thermal)
+///
+/// **Limitations (Deterministic HC):**
+/// - **Static analysis**: Doesn't model time-varying solar/load (use time-series PF for that)
+/// - **Single-bus injection**: Doesn't assess simultaneous DER at multiple buses (combinatorial)
+/// - **No stochasticity**: Doesn't account for DER/load uncertainty (EPRI method uses Monte Carlo)
+/// - **No advanced controls**: Assumes fixed power factor (real HC: smart inverters can help)
+///
+/// **Extensions:**
+/// - **Stochastic HC**: Monte Carlo over load/generation scenarios (captures variability)
+/// - **Multi-bus HC**: Optimize DER portfolio across buses (integer programming or heuristics)
+/// - **Smart inverter HC**: Model volt-VAR, volt-Watt curves (IEEE 1547-2018 functions)
+/// - **Upgrade alternatives**: If HC is low, compare cost of DER curtailment vs. feeder reconductoring
+///
+/// **Pedagogical Note for Grad Students:**
+/// Hosting capacity is a grid integration metric, not a physics quantity. It's policy-driven:
+/// utilities define acceptable voltage ranges, and HC is the DER level that respects those ranges.
+/// Different jurisdictions have different rules (e.g., 0.95-1.05 p.u. in US, 0.90-1.10 in some EU).
+/// HC studies inform interconnection queues, grid modernization planning, and rate design.
+///
+/// **Real-World Example:**
+/// A California utility found HC = 2 MW/feeder on average, but varies 0.5-5 MW depending on:
+/// - Feeder length (longer = higher impedance = worse voltage drop/rise)
+/// - Substation voltage regulator settings (can compensate for some DER-induced voltage rise)
+/// - Load density (heavier loads absorb more DER locally, reducing backfeed to substation)
 pub fn hostcap_sweep(
     grid_file: &Path,
     target_buses: &[usize],
