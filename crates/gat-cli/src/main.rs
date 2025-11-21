@@ -8,6 +8,7 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
+use std::time::Instant;
 #[cfg(feature = "tui")]
 use std::path::PathBuf;
 use std::process::Command;
@@ -40,7 +41,7 @@ use gat_derms::{envelope, schedule, stress_test};
 use gat_dist::{hostcap_sweep, import_matpower_case, run_optimal_power_flow, run_power_flow};
 #[cfg(feature = "viz")]
 use gat_viz::layout::layout_network;
-use manifest::{record_manifest, ManifestEntry};
+use manifest::{record_manifest, ManifestEntry, ManifestTelemetry, Param};
 use runs::{discover_runs, resolve_manifest, summaries, RunRecord};
 
 fn configure_threads(spec: &str) {
@@ -52,10 +53,65 @@ fn configure_threads(spec: &str) {
     let _ = ThreadPoolBuilder::new().num_threads(count).build_global();
 }
 
+const TELEMETRY_ENV_KEYS: &[&str] = &[
+    "GAT_VARIANT",
+    "GAT_ENV",
+    "GAT_RELEASE_VERSION",
+    "GITHUB_RUN_ID",
+    "GITHUB_WORKFLOW",
+    "GITHUB_JOB",
+    "GITHUB_REF",
+    "GITHUB_SHA",
+];
+
+fn collect_telemetry_env() -> Vec<Param> {
+    TELEMETRY_ENV_KEYS
+        .iter()
+        .filter_map(|key| env::var(key).ok().map(|value| Param {
+            name: key.to_string(),
+            value,
+        }))
+        .collect()
+}
+
+fn correlation_id() -> Option<String> {
+    env::var("GAT_CORRELATION_ID")
+        .or_else(|_| env::var("GITHUB_RUN_ID"))
+        .ok()
+}
+
 fn record_run(out: &str, command: &str, params: &[(&str, &str)]) {
-    if let Err(err) = record_manifest(Path::new(out), command, params) {
+    record_run_with_status(out, command, params, "success", None);
+}
+
+fn record_run_with_status(
+    out: &str,
+    command: &str,
+    params: &[(&str, &str)],
+    status: &str,
+    duration_ms: Option<u128>,
+) {
+    let telemetry = ManifestTelemetry {
+        status: status.to_string(),
+        duration_ms,
+        env: collect_telemetry_env(),
+        correlation_id: correlation_id(),
+    };
+    if let Err(err) = record_manifest(Path::new(out), command, params, telemetry) {
         eprintln!("Failed to record run manifest: {err}");
     }
+}
+
+fn record_run_timed(
+    out: &str,
+    command: &str,
+    params: &[(&str, &str)],
+    start: Instant,
+    result: &anyhow::Result<()>,
+) {
+    let duration_ms = start.elapsed().as_millis();
+    let status = if result.is_ok() { "success" } else { "failure" };
+    record_run_with_status(out, command, params, status, Some(duration_ms));
 }
 
 fn resume_manifest(manifest: &ManifestEntry) -> anyhow::Result<()> {
@@ -536,6 +592,7 @@ fn main() {
                     );
                     let partitions = parse_partitions(out_partitions.as_ref());
                     let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                    let start = Instant::now();
                     let res = gat_ts::resample_timeseries(
                         input,
                         timestamp,
@@ -544,20 +601,20 @@ fn main() {
                         out,
                         &partitions,
                     );
-                    if res.is_ok() {
-                        record_run(
-                            out,
-                            "ts resample",
-                            &[
-                                ("input", input),
-                                ("timestamp", timestamp),
-                                ("value", value),
-                                ("rule", rule),
-                                ("out", out),
-                                ("out_partitions", partition_spec.as_str()),
-                            ],
-                        );
-                    }
+                    record_run_timed(
+                        out,
+                        "ts resample",
+                        &[
+                            ("input", input),
+                            ("timestamp", timestamp),
+                            ("value", value),
+                            ("rule", rule),
+                            ("out", out),
+                            ("out_partitions", partition_spec.as_str()),
+                        ],
+                        start,
+                        &res,
+                    );
                     res
                 }
                 TsCommands::Join {
@@ -570,20 +627,21 @@ fn main() {
                     info!("Joining {} and {} on {} -> {}", left, right, on, out);
                     let partitions = parse_partitions(out_partitions.as_ref());
                     let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                    let start = Instant::now();
                     let res = gat_ts::join_timeseries(left, right, on, out, &partitions);
-                    if res.is_ok() {
-                        record_run(
-                            out,
-                            "ts join",
-                            &[
-                                ("left", left),
-                                ("right", right),
-                                ("on", on),
-                                ("out", out),
-                                ("out_partitions", partition_spec.as_str()),
-                            ],
-                        );
-                    }
+                    record_run_timed(
+                        out,
+                        "ts join",
+                        &[
+                            ("left", left),
+                            ("right", right),
+                            ("on", on),
+                            ("out", out),
+                            ("out_partitions", partition_spec.as_str()),
+                        ],
+                        start,
+                        &res,
+                    );
                     res
                 }
                 TsCommands::Agg {
@@ -600,22 +658,23 @@ fn main() {
                     );
                     let partitions = parse_partitions(out_partitions.as_ref());
                     let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
+                    let start = Instant::now();
                     let res =
                         gat_ts::aggregate_timeseries(input, group, value, agg, out, &partitions);
-                    if res.is_ok() {
-                        record_run(
-                            out.as_str(),
-                            "ts agg",
-                            &[
-                                ("input", input),
-                                ("group", group),
-                                ("value", value),
-                                ("agg", agg),
-                                ("out", out),
-                                ("out_partitions", partition_spec.as_str()),
-                            ],
-                        );
-                    }
+                    record_run_timed(
+                        out.as_str(),
+                        "ts agg",
+                        &[
+                            ("input", input),
+                            ("group", group),
+                            ("value", value),
+                            ("agg", agg),
+                            ("out", out),
+                            ("out_partitions", partition_spec.as_str()),
+                        ],
+                        start,
+                        &res,
+                    );
                     res
                 }
             };

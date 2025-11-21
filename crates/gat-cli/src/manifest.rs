@@ -19,6 +19,8 @@ pub struct ManifestEntry {
     pub outputs: Vec<String>,
     pub params: Vec<Param>,
     #[serde(default)]
+    pub telemetry: ManifestTelemetry,
+    #[serde(default)]
     pub chunk_map: Vec<ChunkState>,
 }
 
@@ -44,7 +46,24 @@ pub struct Param {
     pub value: String,
 }
 
-pub fn record_manifest(output: &Path, command: &str, params: &[(&str, &str)]) -> Result<()> {
+#[cfg_attr(feature = "docs", derive(schemars::JsonSchema))]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ManifestTelemetry {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u128>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub env: Vec<Param>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub correlation_id: Option<String>,
+}
+
+pub fn record_manifest(
+    output: &Path,
+    command: &str,
+    params: &[(&str, &str)],
+    telemetry: ManifestTelemetry,
+) -> Result<()> {
     let run_id = Uuid::new_v4().to_string();
     let dir = output
         .parent()
@@ -71,6 +90,7 @@ pub fn record_manifest(output: &Path, command: &str, params: &[(&str, &str)]) ->
         inputs,
         outputs: vec![output.display().to_string()],
         params: params_vec,
+        telemetry,
         chunk_map: Vec::new(),
     };
     let json = serde_json::to_string_pretty(&manifest)?;
