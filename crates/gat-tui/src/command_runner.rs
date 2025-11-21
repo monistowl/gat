@@ -29,7 +29,7 @@ pub fn spawn_command(cmd: Vec<String>) -> Result<CommandHandle> {
         }
         if let Ok(mut child) = c.stdout(Stdio::piped()).spawn() {
             let stdout = child.stdout.take();
-            if let Some(mut reader) = stdout {
+            if let Some(reader) = stdout {
                 use std::io::{BufRead, BufReader};
                 let buf = BufReader::new(reader);
                 for line in buf.lines().flatten() {

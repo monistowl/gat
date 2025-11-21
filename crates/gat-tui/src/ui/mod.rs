@@ -1,17 +1,19 @@
 use std::fmt::Write;
 
 mod layout;
+mod modal;
 mod navigation;
 
 /// The root container for the terminal experience.
 pub use layout::{PaneLayout, ResponsiveRules, Sidebar, SubTabs};
+pub use modal::{CommandModal, ExecutionMode};
 pub use navigation::{ContextButton, MenuItem, NavMenu};
 
 pub struct AppShell {
     pub title: String,
     pub menu: NavMenu,
     pub tooltip: Option<Tooltip>,
-    pub modal: Option<Modal>,
+    pub modal: Option<CommandModal>,
     viewport: (u16, u16),
 }
 
@@ -31,7 +33,7 @@ impl AppShell {
         self
     }
 
-    pub fn with_modal(mut self, modal: Modal) -> Self {
+    pub fn with_modal(mut self, modal: CommandModal) -> Self {
         self.modal = Some(modal);
         self
     }
@@ -274,25 +276,5 @@ impl Tooltip {
 
     pub fn render(&self) -> String {
         format!("💡 {}", self.message)
-    }
-}
-
-/// Modal overlay that highlights blocking information.
-#[derive(Clone, Debug)]
-pub struct Modal {
-    pub title: String,
-    pub body: String,
-}
-
-impl Modal {
-    pub fn new(title: impl Into<String>, body: impl Into<String>) -> Self {
-        Self {
-            title: title.into(),
-            body: body.into(),
-        }
-    }
-
-    pub fn render(&self) -> String {
-        format!("[{}]\n{}", self.title, self.body)
     }
 }
