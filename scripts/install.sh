@@ -90,13 +90,14 @@ resolve_version() {
 
   # Prefer GitHub release metadata when using the GitHub releases base URL.
   if [[ "$RELEASE_BASE" == *github.com* ]]; then
-    if latest_json=$(curl -fsSL "$GITHUB_LATEST_API" 2>/dev/null); then
-      VERSION="$(python3 - <<'PY'
+    if latest_json=$(curl -fsSL "$GITHUB_LATEST_API" 2>/dev/null) && [[ -n "$latest_json" ]]; then
+      VERSION="$(
+        python3 - <<'PY'
 import json, sys
 data = json.load(sys.stdin)
 print(data.get("tag_name", "").strip())
 PY
-)"
+      )"
       VERSION="${VERSION:-}"
       if [[ -n "$VERSION" ]]; then
         return
