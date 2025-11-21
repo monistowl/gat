@@ -46,6 +46,7 @@ impl Sidebar {
 pub struct SubTabs {
     pub labels: Vec<String>,
     pub active: usize,
+    pub compact_active: Option<usize>,
 }
 
 impl SubTabs {
@@ -53,16 +54,36 @@ impl SubTabs {
         Self {
             labels: labels.into_iter().map(|l| l.into()).collect(),
             active,
+            compact_active: None,
         }
     }
 
+    pub fn with_compact_active(mut self, active: usize) -> Self {
+        self.compact_active = Some(active);
+        self
+    }
+
     pub fn render(&self) -> String {
+        self.render_for_view(false)
+    }
+
+    pub fn render_for_view(&self, compact: bool) -> String {
+        let active = if compact {
+            self.compact_active.unwrap_or(self.active)
+        } else {
+            self.active
+        };
+        self.render_labels(active)
+    }
+
+    fn render_labels(&self, active: usize) -> String {
+        let active = active.min(self.labels.len().saturating_sub(1));
         let rendered: Vec<String> = self
             .labels
             .iter()
             .enumerate()
             .map(|(idx, label)| {
-                if idx == self.active {
+                if idx == active {
                     format!("[{}]", label)
                 } else {
                     label.to_string()
@@ -141,7 +162,8 @@ impl PaneLayout {
             self.responsive.expand_visuals_on_wide && self.responsive.should_expand(width, height);
 
         if let Some(subtabs) = &self.subtabs {
-            let _ = writeln!(output, "Subtabs: {}", subtabs.render());
+            let compact = !expand_visuals;
+            let _ = writeln!(output, "Subtabs: {}", subtabs.render_for_view(compact));
         }
 
         self.primary.render_into(output, 0, expand_visuals);

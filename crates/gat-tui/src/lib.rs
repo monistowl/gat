@@ -1,11 +1,13 @@
 use anyhow::Result;
 use iocraft::terminal::Terminal;
 
+pub mod panes;
 pub mod ui;
 
+use panes::dashboard::DashboardPane;
 use ui::{
-    AppShell, Collapsible, ContextButton, MenuItem, Modal, NavMenu, Pane, PaneLayout,
-    ResponsiveRules, Sidebar, SubTabs, TableView, Tabs, Tooltip,
+    AppShell, ContextButton, MenuItem, Modal, NavMenu, Pane, PaneLayout, ResponsiveRules, Sidebar,
+    SubTabs, TableView, Tabs, Tooltip,
 };
 
 /// High-level application state for the terminal UI.
@@ -15,49 +17,12 @@ pub struct App {
 
 impl App {
     pub fn new() -> Self {
+        let dashboard_layout = DashboardPane::layout();
+
         let workflow_table = TableView::new(["Workflow", "Status", "Updated"])
             .add_row(["Ingest", "Ready", "just now"])
             .add_row(["Transform", "Idle", "1m ago"])
             .add_row(["Solve", "Pending", "3m ago"]);
-
-        let details = Collapsible::new("Solver settings", true).content([
-            "Solver: Gauss",
-            "Poll: 1s",
-            "Verbose: false",
-        ]);
-
-        let subtabs = SubTabs::new(["Runs", "Datasets", "Config"], 1);
-
-        let overview_layout = PaneLayout::new(
-            Pane::new("Overview")
-                .body([
-                    "Minimal terminal shell built on iocraft primitives.",
-                    "Replace this placeholder data with live workflow state as needed.",
-                ])
-                .with_tabs(Tabs::new(["Overview", "Runs", "Config"], 0))
-                .with_table(workflow_table.clone())
-                .with_collapsible(details.clone())
-                .with_child(
-                    Pane::new("Recent activity")
-                        .body(["No live events captured; connect gat-core to stream updates."]),
-                ),
-        )
-        .with_secondary(
-            Pane::new("Workflow detail")
-                .body(["Focus on the active run and linked artifacts."])
-                .mark_visual(),
-        )
-        .with_sidebar(Sidebar::new("Pinned filters", false).lines([
-            "Filter: ready",
-            "Assignee: you",
-            "Sorting: updated",
-        ]))
-        .with_subtabs(subtabs.clone())
-        .with_responsive_rules(ResponsiveRules {
-            wide_threshold: 96,
-            tall_threshold: 28,
-            expand_visuals_on_wide: true,
-        });
 
         let operations_layout = PaneLayout::new(
             Pane::new("Operations")
@@ -98,18 +63,19 @@ impl App {
 
         let nav_menu = NavMenu::new(
             vec![
-                MenuItem::new("overview", "Overview", '1', overview_layout).with_context_buttons([
-                    ContextButton::new('r', "Refresh runs"),
-                    ContextButton::new('o', "Open selected workflow"),
-                ]),
+                MenuItem::new("dashboard", "Dashboard", '1', dashboard_layout)
+                    .with_context_buttons([
+                        ContextButton::new('g', "[g] Go to quick actions"),
+                        ContextButton::new('v', "[v] Show layout visualizer"),
+                    ]),
                 MenuItem::new("operations", "Operations", '2', operations_layout)
                     .with_context_buttons([
-                        ContextButton::new('d', "Dispatch action"),
-                        ContextButton::new('s', "Schedule study"),
+                        ContextButton::new('d', "[d] Dispatch action"),
+                        ContextButton::new('s', "[s] Schedule study"),
                     ]),
                 MenuItem::new("datasets", "Datasets", '3', datasets_layout).with_context_buttons([
-                    ContextButton::new('f', "Fetch dataset"),
-                    ContextButton::new('i', "Inspect schema"),
+                    ContextButton::new('f', "[f] Fetch dataset"),
+                    ContextButton::new('i', "[i] Inspect schema"),
                 ]),
             ],
             0,
