@@ -1,5 +1,6 @@
 pub mod adms;
 pub mod analytics;
+pub mod batch;
 pub mod completions;
 pub mod datasets;
 pub mod derms;

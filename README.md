@@ -298,6 +298,32 @@ Use `gat runs list` to inspect the most recent scenario materialization and then
 
 ---
 
+### **Batch runs (`gat batch`)**
+
+With the scenario manifest ready, `gat batch` fans out the desired solver (DC/AC PF or OPF) and writes one job per scenario plus a `batch_manifest.json` summary. The layout and counts follow IEEE-standard `N-1` enumeration practices (doi:10.1109/TPWRS.2007.899019).
+
+```bash
+gat batch pf \
+  --mode dc \
+  --manifest runs/scenarios/rts_nminus1/scenario_manifest.json \
+  --out runs/batch/rts_pf \
+  --threads auto \
+  --max-jobs 4
+
+gat batch opf \
+  --mode dc \
+  --manifest runs/scenarios/rts_nminus1/scenario_manifest.json \
+  --out runs/batch/rts_opf \
+  --cost examples/opf/costs.csv \
+  --limits examples/opf/limits.csv \
+  --branch-limits examples/opf/branch_limits.csv \
+  --lp-solver clarabel
+```
+
+Each run emits `runs/batch/<name>/<job-id>/result.parquet` plus a `runs/batch/<name>/batch_manifest.json` that records job-level status, errors, and output paths; downstream tools can read this manifest instead of wrestling with raw directories.
+
+---
+
 # 🔬 Specialized domain workflows
 
 Need more than the core CLI? These specialized crates back the higher-level workflows that handle reliability, DER, and distribution planning:

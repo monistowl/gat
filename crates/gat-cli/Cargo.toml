@@ -37,6 +37,7 @@ gat-dist = { path = "../gat-dist" }
 gat-derms = { path = "../gat-derms" }
 gat-adms = { path = "../gat-adms" }
 gat-schemas = { path = "../gat-schemas" }
+gat-batch = { path = "../gat-batch" }
 gat-viz = { path = "../gat-viz", optional = true }
 gat-gui = { path = "../gat-gui", optional = true }
 gat-tui = { path = "../gat-tui", optional = true }

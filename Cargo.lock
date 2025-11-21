@@ -1486,6 +1486,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "gat-batch"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "gat-algo",
+ "gat-core",
+ "gat-io",
+ "gat-scenarios",
+ "num_cpus",
+ "rayon",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "gat-cli"
 version = "0.1.3"
 dependencies = [
@@ -1499,6 +1516,7 @@ dependencies = [
  "dirs",
  "gat-adms",
  "gat-algo",
+ "gat-batch",
  "gat-core",
  "gat-derms",
  "gat-dist",
