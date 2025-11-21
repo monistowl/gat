@@ -90,7 +90,7 @@ Then use `mcp__beads__*` functions instead of CLI commands.
 
 If the machine has a full GAT install, `scripts/mcp-onboard.sh` regenerates the docs and starts `gat-mcp-docs --docs docs --addr 127.0.0.1:4321`, so drop that command in your onboarding line and the MCP tree will be ready for tooling.
 
-Use `docs/mcp/manifest.json` as the curated command list and `docs/guide/mcp-onboarding.md` for the onboarding narrative so any agent can open the manifest, copy a command, and run it as soon as MCP is up.
+Use `docs/mcp/manifest.json` as the curated command list and `docs/guide/mcp-onboarding.md` for the onboarding narrative so any agent can open the manifest, copy a command, and run it as soon as MCP is up. `scripts/mcp-manifest-run.sh commands` executes the manifest’s command list (add `--dry-run` or a filter substring when you want to limit the invocations) while `scripts/mcp-manifest-run.sh datasets` fetches the curated datasets first.
 
 ### Managing AI-Generated Planning Documents
 

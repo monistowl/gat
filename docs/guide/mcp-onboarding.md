@@ -34,3 +34,7 @@ These commands can run in parallel/automation contexts:
 * `gat dataset public fetch` tasks that download telemetry/datasets before analytic runs.
 
 Use `parallel` or `xargs -P` with the manifest entries to fan-out workloads right from the MCP tree.
+
+## Running manifest commands
+
+Once MCP has started, the manifest entries become the canonical list of starter commands. Use `scripts/mcp-manifest-run.sh commands` to execute every command sequentially (or `scripts/mcp-manifest-run.sh datasets` to fetch the curated datasets). Pass an optional filter substring to run only the entries whose name matches (e.g., `scripts/mcp-manifest-run.sh commands ptpf`), add `--dry-run` to preview the commands, or pipe the manifest into parallel job runners if you want multiple hosts to share the same workload map.
