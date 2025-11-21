@@ -7,16 +7,6 @@ description = "Terminal UI for inspecting GAT workflows"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-ratatui = { version = "0.29", features = ["crossterm"] }
-crossterm = "0.29"
 anyhow = "1.0"
-chrono = "0.4"
-csv = "1"
-serde = { version = "1.0", features = ["derive"] }
 atty = "0.2"
-gat-core = { path = "../gat-core" }
-gat-viz = { path = "../gat-viz" }
-dirs = "4"
-ratatui-code-editor = "0.0.1"
-shlex = "1.1.0"
-ratatui-explorer = "0.2.1"
+iocraft = { path = "../iocraft" }
