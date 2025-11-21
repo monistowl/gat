@@ -88,6 +88,8 @@ Add to MCP config (e.g., `~/.config/claude/config.json`):
 
 Then use `mcp__beads__*` functions instead of CLI commands.
 
+If the machine has a full GAT install, `scripts/mcp-onboard.sh` regenerates the docs and starts `gat-mcp-docs --docs docs --addr 127.0.0.1:4321`, so drop that command in your onboarding line and the MCP tree will be ready for tooling.
+
 ### Managing AI-Generated Planning Documents
 
 AI assistants often create planning and design documents during development:

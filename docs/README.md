@@ -9,6 +9,8 @@ The `docs/` tree combines auto-generated content (`docs/cli`, `docs/schemas`, `d
 - `cargo xtask doc site`: rebuild the minimal `site/book/` bundle that references the generated Markdown.
 - `cargo xtask doc all`: run every doc target and refresh the guide overlays that `gat-mcp-docs` publishes.
 
+Or just run `scripts/mcp-onboard.sh` to regenerate every doc target and start `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` in one shot.
+
 Use `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` to preview the generated tree and expose it as MCP resources for agents.
 
 ## Guide highlights
