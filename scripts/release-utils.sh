@@ -85,3 +85,51 @@ release_tarball_name() {
   base="$(release_asset_base_name "$@")"
   printf '%s.tar.gz' "$base"
 }
+
+release_tag_to_version() {
+  local tag="${1:-}"
+  if [[ -z "$tag" ]]; then
+    printf '%s' "$(release_version)"
+    return 0
+  fi
+
+  if [[ "$tag" == v* ]]; then
+    printf '%s' "${tag#v}"
+  else
+    printf '%s' "$tag"
+  fi
+}
+
+release_base_url() {
+  local base="${1:-${RELEASE_BASE:-https://github.com/monistowl/gat/releases/download}}"
+  printf '%s' "${base%/}"
+}
+
+release_download_url() {
+  local variant="${1:?}"
+  local tag="${2:-}"
+  local base_url="${3:-}"
+  local os="${4:-}"
+  local arch="${5:-}"
+
+  if [[ -z "$tag" ]]; then
+    tag=$(release_version)
+  fi
+  if [[ -z "$os" ]]; then
+    os=$(detect_os)
+  fi
+  if [[ -z "$arch" ]]; then
+    arch=$(detect_arch)
+  fi
+
+  local canonical_version
+  canonical_version="$(release_tag_to_version "$tag")"
+
+  local resolved_base
+  resolved_base="$(release_base_url "$base_url")"
+
+  local tarball
+  tarball="$(release_tarball_name "$variant" "$canonical_version" "$os" "$arch")"
+
+  printf '%s/%s/%s' "$resolved_base" "$tag" "$tarball"
+}

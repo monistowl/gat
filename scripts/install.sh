@@ -166,13 +166,10 @@ download_and_install() {
     echo "No binary version found; skipping download."
     return 1
   fi
-  canonical_version="$VERSION"
-  if [[ "$canonical_version" == v* ]]; then
-    canonical_version="${canonical_version#v}"
-  fi
 
+  canonical_version="$(release_tag_to_version "$VERSION")"
   tarball_name="$(release_tarball_name "$VARIANT" "$canonical_version" "$os" "$arch")"
-  url="$RELEASE_BASE/$VERSION/$tarball_name"
+  url="$(release_download_url "$VARIANT" "$VERSION" "$RELEASE_BASE" "$os" "$arch")"
   tmpdir="$(mktemp -d)"
 
   echo "Attempting to download $url"

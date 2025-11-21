@@ -33,7 +33,9 @@ jobs:
             echo "workspace_metadata.release.version is not defined" >&2
             exit 1
           fi
-          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "version<<EOF" >> $GITHUB_OUTPUT
+          echo "${version}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Determine OS/arch
         id: osinfo
@@ -41,8 +43,12 @@ jobs:
           source scripts/release-utils.sh
           os=$(detect_os)
           arch=$(detect_arch)
-          echo "os=$os" >> $GITHUB_OUTPUT
-          echo "arch=$arch" >> $GITHUB_OUTPUT
+          echo "os<<EOF" >> $GITHUB_OUTPUT
+          echo "${os}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "arch<<EOF" >> $GITHUB_OUTPUT
+          echo "${arch}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
