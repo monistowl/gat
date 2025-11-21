@@ -66,6 +66,7 @@ parse_args() {
 }
 
 detect_os() {
+  # Normalize `uname` output to match the release archive naming convention.
   case "$(uname -s)" in
     Linux) echo "linux" ;;
     Darwin) echo "macos" ;;
@@ -74,6 +75,7 @@ detect_os() {
 }
 
 detect_arch() {
+  # Standardize architecture labels so downloads hit the right tarball.
   case "$(uname -m)" in
     x86_64|amd64) echo "x86_64" ;;
     arm64|aarch64) echo "arm64" ;;
@@ -86,6 +88,7 @@ resolve_version() {
     return
   fi
 
+  # Prefer GitHub release metadata when using the GitHub releases base URL.
   if [[ "$RELEASE_BASE" == *github.com* ]]; then
     if latest_json=$(curl -fsSL "$GITHUB_LATEST_API" 2>/dev/null); then
       VERSION="$(python3 - <<'PY'
@@ -101,6 +104,7 @@ PY
     fi
   fi
 
+  # Fallback to the legacy `latest.txt` when GitHub metadata can't be retrieved.
   local latest_url="$RELEASE_BASE/latest.txt"
   if VERSION_CONTENTS=$(curl -fsSL "$latest_url" 2>/dev/null); then
     VERSION="$VERSION_CONTENTS"

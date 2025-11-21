@@ -273,6 +273,7 @@ pub struct NavigationController {
     backstack: Vec<(TabId, usize)>,
 }
 
+// NavigationController manages tabs + panes so each namespace can own its detail stack
 impl NavigationController {
     pub fn new() -> Self {
         let tabs = vec![
@@ -286,20 +287,20 @@ impl NavigationController {
                 TabId::Derms,
                 "DERMS",
                 vec![
-                    MenuAction::new(
-                        '0',
-                        "Import MATPOWER",
-                        "Generate case33bw.arrow so DERMS/ADMS commands have a grid",
-                        CMD_DIST_IMPORT_MATPOWER,
-                        ART_DIST_IMPORT,
-                    ),
-                    MenuAction::new(
-                        '1',
-                        "DERMS envelope",
-                        "Summarize P/Q/S flexibility for each aggregator",
-                        CMD_DERMS_ENVELOPE,
-                        ART_DERMS_ENVELOPE,
-                    ),
+            MenuAction::new(
+                '0',
+                "Import MATPOWER",
+                "Generate case33bw.arrow so DERMS/ADMS commands have a grid",
+                CMD_DIST_IMPORT_MATPOWER,
+                ART_DIST_IMPORT,
+            ),
+            MenuAction::new(
+                '1',
+                "DERMS envelope",
+                "Summarize P/Q/S flexibility for each aggregator (Baran & Wu envelope DOI:10.1109/TPWRD.1989.4303454)",
+                CMD_DERMS_ENVELOPE,
+                ART_DERMS_ENVELOPE,
+            ),
                     MenuAction::new(
                         '2',
                         "DERMS schedule",
@@ -321,18 +322,18 @@ impl NavigationController {
                 TabId::Adms,
                 "ADMS",
                 vec![
-                    MenuAction::new(
-                        '1',
-                        "ADMS FLISR sim",
-                        "Simulate reliability runs and capture SAIDI/SAIFI/CAIDI",
-                        CMD_ADMS_FLISR,
-                        ART_ADMS_FLISR,
-                    ),
-                    MenuAction::new(
-                        '2',
-                        "ADMS VVO plan",
-                        "Produce tap/VAR recommendations for low/high day types",
-                        CMD_ADMS_VVO,
+            MenuAction::new(
+                '1',
+                "ADMS FLISR sim",
+                "Simulate reliability sampling with SAIDI/SAIFI/CAIDI (FLISR DOI:10.1109/PESGM.2009.5285954)",
+                CMD_ADMS_FLISR,
+                ART_ADMS_FLISR,
+            ),
+            MenuAction::new(
+                '2',
+                "ADMS VVO plan",
+                "Produce tap/VAR day-type summaries (VVO DOI:10.1109/TPWRS.2015.2426432)",
+                CMD_ADMS_VVO,
                         ART_ADMS_VVO,
                     ),
                     MenuAction::new(

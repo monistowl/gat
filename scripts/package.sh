@@ -30,6 +30,7 @@ pkg_dir() {
 }
 
 install_deps() {
+  # Install only the required packaging dependencies for each runner OS.
   case "$(uname -s)" in
     Linux)
       if command -v apt-get >/dev/null 2>&1; then

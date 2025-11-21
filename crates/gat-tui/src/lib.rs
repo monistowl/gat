@@ -406,6 +406,7 @@ impl App {
         self.refresh_tab_detail();
     }
 
+    /// Launches the menu command, updates the detail pane, and tracks the spawned process.
     fn handle_menu_action(&mut self, key: char) -> bool {
         if let Some(action) = self.navigation.action_for_key(key) {
             let action = action.clone();
@@ -638,6 +639,7 @@ impl App {
         }
     }
 
+    // Parse canonical WLS state estimation output (DOI 10.1109/PWRS.2003.1307674).
     fn update_state_est_detail(&mut self, line: &str) {
         const PREFIX: &str = "State estimation (WLS):";
         if !line.starts_with(PREFIX) {
@@ -1051,6 +1053,7 @@ fn draw_ui(f: &mut Frame, app: &mut App) {
     }
 }
 
+/// Draws the current tab’s body while the right column renders the detail + layout preview stack.
 fn render_active_tab_content(f: &mut Frame, area: Rect, app: &App) {
     match app.navigation.active_tab_id() {
         TabId::Workflow => render_workflow_tab(f, area, app),
