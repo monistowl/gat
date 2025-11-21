@@ -16,7 +16,8 @@ USAGE
 PREFIX="${GAT_PREFIX:-$HOME/.local}"
 VARIANT="${GAT_VARIANT:-headless}"
 VERSION="${GAT_VERSION:-latest}"
-RELEASE_BASE="${GAT_RELEASE_BASE:-https://releases.gat.dev/gat}"
+RELEASE_BASE="${GAT_RELEASE_BASE:-https://github.com/monistowl/gat/releases/download}"
+GITHUB_LATEST_API="${GAT_GITHUB_LATEST_API:-https://api.github.com/repos/monistowl/gat/releases/latest}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -83,6 +84,21 @@ detect_arch() {
 resolve_version() {
   if [[ "$VERSION" != "latest" ]]; then
     return
+  fi
+
+  if [[ "$RELEASE_BASE" == *github.com* ]]; then
+    if latest_json=$(curl -fsSL "$GITHUB_LATEST_API" 2>/dev/null); then
+      VERSION="$(python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+print(data.get("tag_name", "").strip())
+PY
+)"
+      VERSION="${VERSION:-}"
+      if [[ -n "$VERSION" ]]; then
+        return
+      fi
+    fi
   fi
 
   local latest_url="$RELEASE_BASE/latest.txt"

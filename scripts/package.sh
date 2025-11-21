@@ -29,6 +29,22 @@ pkg_dir() {
   echo "$DIST_DIR/gat-${VERSION}-${OS}-${ARCH}-${variant}"
 }
 
+install_deps() {
+  case "$(uname -s)" in
+    Linux)
+      if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update
+        sudo apt-get install -y coinor-libcbc-dev jq
+      fi
+      ;;
+    Darwin)
+      if command -v brew >/dev/null 2>&1; then
+        brew install coinor-tools jq || true
+      fi
+      ;;
+  esac
+}
+
 clean_dist() {
   rm -rf "$DIST_DIR"
   mkdir -p "$DIST_DIR"
@@ -76,6 +92,7 @@ package_full() {
   tar -czf "$dest.tar.gz" -C "$DIST_DIR" "$(basename "$dest")"
 }
 
+install_deps
 clean_dist
 package_headless
 package_full
