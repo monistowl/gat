@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::time::Instant;
 
 use anyhow::Result;
@@ -5,6 +6,7 @@ use gat_cli::cli::AllocCommands;
 
 use crate::commands::telemetry::record_run_timed;
 use crate::commands::util::parse_partitions;
+use gat_algo::alloc_kpi::compute_kpi_contributions;
 
 /// Handle `gat alloc kpi` command: simple contribution analysis for KPI changes.
 ///
@@ -68,18 +70,22 @@ pub fn handle(command: &AllocCommands) -> Result<()> {
     let start = Instant::now();
 
     let res = (|| -> Result<()> {
-        // TODO: Implement KPI contribution analysis
-        // - Load KPI results (scenario_id, lole, eue, violations)
-        // - Load scenario metadata (scenario_id, control flags)
-        // - Compute contribution deltas
-        // - Rank by impact
-        // - Output contribution table
+        // Compute KPI contribution analysis using finite differences
+        let summary = compute_kpi_contributions(
+            Path::new(kpi_results),
+            Path::new(scenario_meta),
+            None, // baseline_scenario_id (auto-detect)
+            Path::new(out),
+            &partitions,
+        )?;
 
+        // Print summary statistics
         println!(
-            "Warning: gat alloc kpi is not yet implemented (stub). Inputs provided:"
+            "KPI contribution analysis: {} KPIs × {} controls = {} contributions",
+            summary.num_kpis,
+            summary.num_controls,
+            summary.num_kpis * summary.num_controls
         );
-        println!("  KPI results: {}", kpi_results);
-        println!("  Scenario metadata: {}", scenario_meta);
         println!("  Output: {}", out);
 
         Ok(())
