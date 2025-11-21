@@ -92,7 +92,7 @@ resolve_version() {
   if [[ "$RELEASE_BASE" == *github.com* ]]; then
     if latest_json=$(curl -fsSL "$GITHUB_LATEST_API" 2>/dev/null) && [[ -n "$latest_json" ]]; then
       VERSION="$(
-        python3 - <<'PY'
+        printf '%s' "$latest_json" | python3 - <<'PY'
 import json, sys
 data = json.load(sys.stdin)
 print(data.get("tag_name", "").strip())
