@@ -1,0 +1,13 @@
+[package]
+name = "gat-adms"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+gat-algo = { path = "../gat-algo" }
+gat-core = { path = "../gat-core" }
+gat-io = { path = "../gat-io" }
+gat-dist = { path = "../gat-dist" }
+polars = { version = "0.35.4", features = ["parquet"] }
+rand = "0.8"
