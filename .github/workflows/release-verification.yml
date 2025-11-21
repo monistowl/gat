@@ -1,0 +1,30 @@
+name: Release Verification
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  package:
+    name: "Verify release packaging (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run release packaging script
+        run: scripts/package.sh
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-verification-dist-${{ matrix.os }}-${{ github.run_id }}
+          path: dist
+          retention-days: 5
+          if-no-files-found: error
