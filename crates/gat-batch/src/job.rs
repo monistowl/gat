@@ -3,12 +3,20 @@ use gat_scenarios::manifest::ScenarioArtifact;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Batch task categories mirror the PF/OPF stages so downstream analytics keep the DOI:10.1109/TPWRS.2007.899019 naming conventions.
+/// Task types for batch execution: DC/AC power flow or optimal power flow.
+///
+/// These mirror the standard PF/OPF stages used in reliability assessment workflows.
+/// See doi:10.1109/TPWRS.2007.899019 for DC power flow and doi:10.1109/TPWRS.2014.2363333
+/// for LP-based DC OPF formulations.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TaskKind {
+    /// DC power flow (linearized, B'θ = P)
     PfDc,
+    /// AC power flow (nonlinear, iterative)
     PfAc,
+    /// DC optimal power flow (linear program)
     OpfDc,
+    /// AC optimal power flow (nonlinear program)
     OpfAc,
 }
 
@@ -43,13 +51,23 @@ pub struct BatchJobRecord {
     pub output: String,
 }
 
+/// Convert scenario artifacts (from `gat scenarios materialize`) into batch jobs.
+///
+/// **Purpose:** Each scenario artifact represents a materialized grid snapshot with
+/// outages/scaling applied. This function creates one batch job per artifact, which
+/// will run PF/OPF on that scenario's grid.
+///
+/// **Job ID format:** `{task}:{scenario_id}` (e.g., "pf-dc:nminus1_branch_5")
+///
+/// **Note:** Currently uses the first time slice from each artifact. Future versions
+/// may expand to scenario × time combinations for time-series analysis.
 pub fn jobs_from_artifacts(artifacts: &[ScenarioArtifact], task: TaskKind) -> Vec<BatchJob> {
     artifacts
         .iter()
         .map(|artifact| BatchJob {
             job_id: format!("{}:{}", task.as_str(), artifact.scenario_id),
             scenario_id: artifact.scenario_id.clone(),
-            time: artifact.time_slices.first().cloned(),
+            time: artifact.time_slices.first().cloned(), // Use first time slice in v0
             grid_file: PathBuf::from(&artifact.grid_file),
             tags: artifact.tags.clone(),
             weight: artifact.weight,

@@ -18,7 +18,9 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         out_partitions,
         threads,
         solver,
-    } = command;
+    } = command else {
+        unreachable!();
+    };
 
     configure_threads(threads);
     let start = Instant::now();

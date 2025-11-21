@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
 use std::path::Path;
 
 use crate::apply::apply_scenario_to_network;
@@ -26,6 +27,24 @@ pub struct ScenarioArtifact {
     pub metadata: HashMap<String, String>,
 }
 
+/// Materialize scenarios by applying them to a base grid and saving per-scenario artifacts.
+///
+/// **Algorithm:**
+/// 1. For each resolved scenario, load the base grid.
+/// 2. Apply scenario modifications (outages, scaling) to create a scenario-specific grid.
+/// 3. Save the modified grid as `out_dir/<scenario_id>/grid.arrow`.
+/// 4. Collect metadata into `ScenarioArtifact` records.
+/// 5. Write a manifest JSON file listing all artifacts.
+///
+/// **Output structure:**
+/// ```
+/// out_dir/
+///   scenario_manifest.json          # Summary of all scenarios
+///   <scenario_id>/
+///     grid.arrow                    # Scenario-specific grid snapshot
+/// ```
+///
+/// This manifest can be consumed by `gat batch` to run PF/OPF across all scenarios.
 pub fn materialize_scenarios(
     grid_file: &Path,
     out_dir: &Path,
@@ -73,6 +92,13 @@ pub fn write_manifest(path: &Path, artifacts: &[ScenarioArtifact]) -> Result<()>
     serde_json::to_writer_pretty(file, artifacts)
         .with_context(|| format!("writing scenario manifest '{}'", path.display()))?;
     Ok(())
+}
+
+pub fn load_manifest(path: &Path) -> Result<Vec<ScenarioArtifact>> {
+    let file = File::open(path)
+        .with_context(|| format!("opening scenario manifest '{}'", path.display()))?;
+    serde_json::from_reader(file)
+        .with_context(|| format!("parsing scenario manifest '{}'", path.display()))
 }
 
 fn sanitize_name(value: &str) -> String {

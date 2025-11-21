@@ -149,19 +149,40 @@ impl FromStr for LpSolverKind {
     }
 }
 
+/// Run DC (direct current) power flow: linearized approximation of AC flow.
+///
+/// **Algorithm:** Solves the linearized DC power flow equation B'θ = P where:
+/// - B' is the bus susceptance matrix (imaginary part of admittance)
+/// - θ is the vector of bus voltage angles
+/// - P is the vector of net active power injections (generation - load)
+///
+/// **Assumptions:** Linearizes AC equations by assuming:
+/// - Small voltage angle differences (sin θ ≈ θ, cos θ ≈ 1)
+/// - Voltage magnitudes ≈ 1.0 per unit (V ≈ 1.0)
+/// - Negligible losses (resistances ignored, only reactances used)
+///
+/// This yields branch flows f = B_branch × (θ_from - θ_to) where B_branch is branch susceptance.
+/// See doi:10.1109/TPWRS.2007.899019 for the canonical DC flow formulation.
+///
+/// **Use cases:** Fast screening, contingency analysis, OPF initialization. Not suitable when
+/// reactive power, voltage limits, or losses are critical.
 pub fn dc_power_flow(
     network: &Network,
     solver: &dyn SolverBackend,
     output_file: &Path,
     partitions: &[String],
 ) -> Result<()> {
-    // The DC power flow linearizes the AC equations by assuming small voltage angle differences and
-    // ignoring losses, so we solve B' θ = P to get branch flows quickly. This is the same classical
-    // model described in doi:10.1109/TPWRS.2007.899019.
+    // Extract net injections (generation - load) for each bus
     let injections = default_pf_injections(network);
+    
+    // Solve DC power flow: B'θ = P → compute branch flows from bus angles
+    // This is a single linear solve (no iteration needed)
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC power flow")?;
+    
+    // Persist branch flow results to Parquet
     persist_dataframe(&mut df, output_file, partitions, OutputStage::PfDc.as_str())?;
+    
     println!(
         "DC power flow summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
         df.height(),
@@ -172,7 +193,19 @@ pub fn dc_power_flow(
     Ok(())
 }
 
-/// Run a PTDF analysis for a single source→sink transfer and emit branch sensitivities (doi:10.1109/TPWRS.2008.916398).
+/// Compute Power Transfer Distribution Factors (PTDF) for a source→sink transfer.
+///
+/// **PTDF Definition:** PTDF_ℓ measures the change in flow on branch ℓ per 1 MW transfer
+/// from source bus to sink bus. It quantifies how power flows redistribute when generation
+/// is shifted between buses (see doi:10.1109/TPWRS.2008.916398).
+///
+/// **Algorithm:**
+/// 1. Inject +transfer_mw at source bus, withdraw -transfer_mw at sink bus
+/// 2. Solve DC power flow: B'θ = P to get branch flows
+/// 3. Normalize flows by transfer_mw: PTDF_ℓ = flow_ℓ / transfer_mw
+///
+/// **Use cases:** Congestion analysis, deliverability scoring, transmission capacity assessment.
+/// PTDFs enable fast sensitivity analysis without re-solving power flow for each transfer.
 pub fn ptdf_analysis(
     network: &Network,
     solver: &dyn SolverBackend,
@@ -182,6 +215,7 @@ pub fn ptdf_analysis(
     output_file: &Path,
     partitions: &[String],
 ) -> Result<()> {
+    // Validate inputs: source and sink must differ, transfer must be non-zero
     if source_bus == sink_bus {
         return Err(anyhow!(
             "source and sink buses must differ for PTDF analysis"
@@ -191,6 +225,7 @@ pub fn ptdf_analysis(
         return Err(anyhow!("transfer magnitude must be non-zero"));
     }
 
+    // Verify both buses exist in the network topology
     let (bus_ids, _, _) = build_bus_susceptance(network, None);
     if !bus_ids.contains(&source_bus) {
         return Err(anyhow!("source bus {} not found in network", source_bus));
@@ -199,13 +234,18 @@ pub fn ptdf_analysis(
         return Err(anyhow!("sink bus {} not found in network", sink_bus));
     }
 
+    // Create injection pattern: +transfer_mw at source, -transfer_mw at sink
+    // This models a power transfer from source to sink
     let mut injections = HashMap::new();
     injections.insert(source_bus, transfer_mw);
     injections.insert(sink_bus, -transfer_mw);
 
+    // Solve DC power flow with this injection pattern to get branch flows
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for PTDF analysis")?;
 
+    // Normalize flows by transfer size to get PTDF coefficients
+    // PTDF_ℓ = flow_ℓ / transfer_mw (flow per 1 MW transfer)
     let ptdf_values: Vec<f64> = df
         .column("flow_mw")?
         .f64()?
@@ -247,6 +287,17 @@ pub fn ptdf_analysis(
     Ok(())
 }
 
+/// Run AC (alternating current) power flow using Newton-Raphson iteration.
+///
+/// **Algorithm:** Solves the full nonlinear AC power flow equations:
+/// - P = V²G + VV'(G cos θ + B sin θ)
+/// - Q = -V²B + VV'(G sin θ - B cos θ)
+///
+/// Uses Newton-Raphson method to iteratively solve for bus voltage magnitudes and angles
+/// until convergence (see doi:10.1109/TPWRS.2007.899019 for AC power flow fundamentals).
+///
+/// **Convergence:** Iterates until |ΔP|, |ΔQ| < `tol` or `max_iter` iterations reached.
+/// AC flow captures reactive power, voltage limits, and losses that DC flow ignores.
 pub fn ac_power_flow(
     network: &Network,
     solver: &dyn SolverBackend,
@@ -255,11 +306,20 @@ pub fn ac_power_flow(
     output_file: &Path,
     partitions: &[String],
 ) -> Result<()> {
+    // Extract net injections (generation - load) for each bus
     let injections = default_pf_injections(network);
+    
+    // Solve AC power flow: compute branch flows from bus injections
+    // This internally uses Newton-Raphson iteration to solve the nonlinear equations
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for AC power flow")?;
+    
+    // Persist branch flow results to Parquet
     persist_dataframe(&mut df, output_file, partitions, OutputStage::PfAc.as_str())?;
+    
+    // Build bus-level results (voltages, angles) for reporting
     let bus_df = bus_result_dataframe(network).context("building bus table for AC power flow")?;
+    
     println!(
         "AC power flow summary: tol={} max_iter={} -> {} buses, branch flow range [{:.3}, {:.3}] MW, persisted to {}",
         tol,
@@ -861,7 +921,7 @@ pub fn state_estimation_wls(
     Ok(())
 }
 
-fn branch_flow_dataframe(
+pub(crate) fn branch_flow_dataframe(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
@@ -872,7 +932,7 @@ fn branch_flow_dataframe(
     branch_flow_dataframe_with_angles(network, &angles, skip_branch).map_err(|err| anyhow!(err))
 }
 
-fn branch_flow_dataframe_with_angles(
+pub(crate) fn branch_flow_dataframe_with_angles(
     network: &Network,
     angles: &HashMap<usize, f64>,
     skip_branch: Option<i64>,

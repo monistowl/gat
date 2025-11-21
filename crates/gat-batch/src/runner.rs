@@ -39,12 +39,15 @@ pub struct BatchSummary {
 }
 
 pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
+    // Create output directory structure
     fs::create_dir_all(&config.output_root).with_context(|| {
         format!(
             "creating batch output root '{}'",
             config.output_root.display()
         )
     })?;
+    
+    // Configure thread pool: auto-detect CPU count if threads=0, otherwise use specified count
     let thread_count = if config.threads == 0 {
         num_cpus::get()
     } else {
@@ -54,6 +57,9 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
         .num_threads(thread_count)
         .build()
         .context("building Rayon thread pool for batch runs")?;
+    
+    // Execute all jobs in parallel using Rayon's parallel iterator
+    // Each job runs PF/OPF on a scenario-specific grid snapshot
     let job_records: Vec<BatchJobRecord> = pool.install(|| {
         config
             .jobs
@@ -61,11 +67,15 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
             .map(|job| run_job(job, config))
             .collect()
     });
+    
+    // Count successes and failures for summary
     let success = job_records
         .iter()
         .filter(|record| record.status == "ok")
         .count();
     let failure = job_records.len() - success;
+    
+    // Write batch manifest JSON for downstream tools (analytics, reporting)
     let manifest = BatchManifest {
         created_at: Utc::now(),
         task: config.task.as_str().to_string(),
@@ -84,8 +94,19 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
     })
 }
 
+/// Execute a single batch job: load scenario grid and run PF/OPF.
+///
+/// **Algorithm:**
+/// 1. Load scenario-specific grid from Arrow file.
+/// 2. Build solver backend (DC: linear solver, AC: iterative solver).
+/// 3. Dispatch to appropriate PF/OPF routine based on task type.
+/// 4. Write results to Parquet with optional partitioning.
+///
+/// **Returns:** BatchJobRecord with status ("ok" or "error") and output path.
 fn run_job(job: &BatchJob, config: &BatchRunnerConfig) -> BatchJobRecord {
     let output_file = config.output_root.join(&job.job_id).join("result.parquet");
+    
+    // Closure that performs the actual computation
     let runner = || -> Result<()> {
         let grid_path = job.grid_file.to_str().ok_or_else(|| {
             anyhow!(
@@ -93,8 +114,12 @@ fn run_job(job: &BatchJob, config: &BatchRunnerConfig) -> BatchJobRecord {
                 job.grid_file.display()
             )
         })?;
+        
+        // Load scenario-specific grid snapshot (from gat scenarios materialize)
         let network = importers::load_grid_from_arrow(grid_path)?;
         let solver_impl = config.solver.build_solver();
+        
+        // Dispatch to appropriate solver routine based on task type
         match config.task {
             TaskKind::PfDc => power_flow::dc_power_flow(
                 &network,

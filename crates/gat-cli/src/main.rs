@@ -16,8 +16,8 @@ use crate::commands::tui;
 #[cfg(feature = "viz")]
 use crate::commands::viz;
 use crate::commands::{
-    adms, analytics, completions, datasets, derms, dist, graph, import, nminus1, opf, pf, se, ts,
-    validate, version,
+    adms, analytics, completions, datasets, derms, dist, featurize, graph, import, nminus1, opf, pf,
+    se, ts, validate, version,
 };
 use gat_cli::cli::{Cli, Commands};
 
@@ -45,6 +45,9 @@ fn main() {
         Some(Commands::Dataset { command }) => run_and_log("dataset", || datasets::handle(command)),
         Some(Commands::Analytics { command }) => {
             run_and_log("analytics", || analytics::handle(command))
+        }
+        Some(Commands::Featurize { command }) => {
+            run_and_log("featurize", || featurize::handle(command))
         }
         Some(Commands::Pf { command }) => run_and_log("pf", || pf::handle(command)),
         Some(Commands::Nminus1 { command }) => run_and_log("nminus1", || nminus1::handle(command)),

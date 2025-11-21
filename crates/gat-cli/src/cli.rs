@@ -100,6 +100,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: AnalyticsCommands,
     },
+    /// Feature extraction for ML models (GNN, KPI predictors, etc.)
+    Featurize {
+        #[command(subcommand)]
+        command: FeaturizeCommands,
+    },
     /// Scenario batch runners for PF/OPF (CANOS-style fan-out)
     Batch {
         #[command(subcommand)]
@@ -743,6 +748,68 @@ pub enum AnalyticsCommands {
         /// Solver to use (gauss, faer, etc.)
         #[arg(long, default_value = "gauss")]
         solver: String,
+    },
+    /// Deliverability Score (DS) computation for resource adequacy accreditation
+    ///
+    /// Computes DC-approximate deliverability scores: the fraction of nameplate capacity
+    /// that can be delivered before branch thermal limits are violated. Used in RA accreditation
+    /// where DS × ELCC determines effective capacity. See doi:10.1109/TPWRS.2007.899019 for DC flow.
+    Ds {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// CSV file with bus capacity limits (bus_id, pmax)
+        #[arg(long)]
+        limits: String,
+        /// CSV file with branch thermal limits (branch_id, flow_limit)
+        #[arg(long)]
+        branch_limits: String,
+        /// Parquet file with branch flows from DC PF/OPF (must have branch_id, flow_mw)
+        #[arg(long)]
+        flows: String,
+        /// Output file path for DS table (Parquet)
+        #[arg(short, long)]
+        out: String,
+        /// Reference/slack bus ID for PTDF computation
+        #[arg(long, default_value_t = 1)]
+        sink_bus: usize,
+        /// Solver to use (gauss, faer, etc.)
+        #[arg(long, default_value = "gauss")]
+        solver: String,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum FeaturizeCommands {
+    /// Export grid topology and flows as GNN-ready graph features
+    ///
+    /// Converts power grid data into graph-structured features for Graph Neural Networks (GNNs).
+    /// Produces node features (buses with static topology + dynamic injections), edge features
+    /// (branches with impedance + flows), and graph metadata. Compatible with PyTorch Geometric,
+    /// DGL, and other GNN frameworks. See doi:10.1109/TPWRS.2020.3041234 for GNNs in power systems.
+    Gnn {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Parquet file with branch flows from PF/OPF (must have branch_id, flow_mw)
+        #[arg(long)]
+        flows: String,
+        /// Output directory root for feature tables (nodes, edges, graphs)
+        #[arg(short, long)]
+        out: String,
+        /// Partition columns (comma separated, e.g., "graph_id,scenario_id")
+        #[arg(long)]
+        out_partitions: Option<String>,
+        /// Group flows by scenario_id (if present in flows)
+        #[arg(long, default_value_t = true)]
+        group_by_scenario: bool,
+        /// Group flows by time (if present in flows)
+        #[arg(long, default_value_t = true)]
+        group_by_time: bool,
     },
 }
 

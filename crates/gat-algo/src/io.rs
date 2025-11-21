@@ -16,6 +16,7 @@ pub enum OutputStage {
     Nminus1Dc,
     SeWls,
     AnalyticsPtdf,
+    AnalyticsDs,
 }
 
 impl OutputStage {
@@ -28,6 +29,7 @@ impl OutputStage {
             OutputStage::Nminus1Dc => "nminus1-dc",
             OutputStage::SeWls => "se-wls",
             OutputStage::AnalyticsPtdf => "analytics-ptdf",
+            OutputStage::AnalyticsDs => "analytics-ds",
         }
     }
 }
