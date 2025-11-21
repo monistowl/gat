@@ -36,6 +36,8 @@ install_deps() {
           export LDFLAGS="${LDFLAGS:-} -L$cbc_prefix/lib"
           export CPPFLAGS="${CPPFLAGS:-} -I$cbc_prefix/include"
           export PKG_CONFIG_PATH="$cbc_prefix/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          export LIBRARY_PATH="$cbc_prefix/lib:${LIBRARY_PATH:-}"
+          export DYLD_LIBRARY_PATH="$cbc_prefix/lib:${DYLD_LIBRARY_PATH:-}"
         fi
       fi
       ;;
