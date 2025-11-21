@@ -278,6 +278,17 @@ Use `gat --help` and `gat <command> --help` for detailed flags and device-specif
 
 ---
 
+# 🔬 Specialized domain workflows
+
+Need more than the core CLI? These specialized crates back the higher-level workflows that handle reliability, DER, and distribution planning:
+
+- **`gat-adms`** — FLISR/VVO/outage helpers for automatic distribution management. See [the crate README](crates/gat-adms/README.md) and `docs/guide/adms.md` for solver setups, reliability table expectations, and how the CLI wraps these routines.
+- **`gat-derms`** — DER envelope aggregation, pricing-based scheduling, and stress-test runners. The crate README at `crates/gat-derms/README.md` plus `docs/guide/derms.md` explain how to source assets/prices and ingest the results.
+- **`gat-dist`** — MATPOWER import, AC flows, OPF, and hosting-capacity sweeps for distribution cases; see `crates/gat-dist/README.md` and the PF/OPF guides in `docs/guide/pf.md`, `docs/guide/opf.md`, and `docs/guide/scaling.md` for detail.
+- **`gat-schemas`** — Schema helpers placing Arrow/Parquet expectations; read `crates/gat-schemas/README.md` plus the generated schema artifacts under `docs/schemas/`.
+
+---
+
 # 📤 Outputs & Formats
 
 All major commands emit **Parquet** because it is fast, columnar, and compatible with Polars, DuckDB, Pandas, Spark, R, etc.
@@ -338,6 +349,7 @@ Add `--force` to refresh a cached copy and `--extract` to unpack a ZIP file if a
 All curated docs now live under `docs/guide/` and the generated assets live under `docs/cli`, `docs/schemas`, `docs/arrow`, and `site/book/`. Key references:
 
 * `docs/guide/doc-workflow.md` lays out the `bd` issue workflow plus the `cargo xtask doc all` steps that keep helpful docs in sync.
+* `docs/guide/adms.md`, `docs/guide/derms.md`, and `docs/guide/pf.md` describe the new ADMS/DERMS/distribution workflows (FLISR/VVO, DER scheduling, PTDF/power-flow recipes) that the workspace now covers via `gat-adms`, `gat-derms`, and `gat-dist`.
 * `docs/guide/datasets.md`, `docs/guide/opf.md`, `docs/guide/se.md`, `docs/guide/ts.md`, `docs/guide/gui.md`, `docs/guide/viz.md`, `docs/guide/packaging.md`, and `docs/guide/scaling.md` capture curated workflows and scaling guidance.
 * `docs/README.md` explains the auto-doc targets and how `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` exposes the tree for agents.
 * `docs/ROADMAP.md` is the canonical plan for the workspace.
