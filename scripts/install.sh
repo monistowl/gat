@@ -94,8 +94,11 @@ resolve_version() {
       VERSION="$(
         printf '%s' "$latest_json" | python3 - <<'PY'
 import json, sys
-data = json.load(sys.stdin)
-print(data.get("tag_name", "").strip())
+try:
+    data = json.load(sys.stdin)
+    print(data.get("tag_name", "").strip())
+except json.JSONDecodeError:
+    pass
 PY
       )"
       VERSION="${VERSION:-}"
