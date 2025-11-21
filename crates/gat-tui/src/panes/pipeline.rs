@@ -1,4 +1,7 @@
-use crate::ui::{Pane, PaneLayout, ResponsiveRules, Sidebar, SubTabs, TableView, Tabs};
+use crate::ui::{
+    ContextButton, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar, SubTabs,
+    TableView, Tabs, Tooltip,
+};
 
 pub struct PipelinePane;
 
@@ -71,5 +74,37 @@ impl PipelinePane {
             tall_threshold: 26,
             expand_visuals_on_wide: true,
         })
+    }
+}
+
+impl PaneView for PipelinePane {
+    fn id(&self) -> &'static str {
+        "pipeline"
+    }
+
+    fn label(&self) -> &'static str {
+        "Pipeline"
+    }
+
+    fn hotkey(&self) -> char {
+        '4'
+    }
+
+    fn layout(&self, _context: &PaneContext) -> PaneLayout {
+        Self::layout()
+    }
+
+    fn tooltip(&self, _context: &PaneContext) -> Option<Tooltip> {
+        Some(Tooltip::new(
+            "Compose, reorder, and run Gat pipelines while keeping controls nearby.",
+        ))
+    }
+
+    fn context_buttons(&self, _context: &PaneContext) -> Vec<ContextButton> {
+        vec![
+            ContextButton::new('a', "[a] Add step — inserts under the focused transform"),
+            ContextButton::new('o', "[o] Reorder — move step while preserving dependencies"),
+            ContextButton::new('r', "[r] Run pipeline — mirrors the [Ctrl+R] control"),
+        ]
     }
 }

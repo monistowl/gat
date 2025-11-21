@@ -1,4 +1,7 @@
-use crate::ui::{Collapsible, Pane, PaneLayout, ResponsiveRules, Sidebar, SubTabs, TableView};
+use crate::ui::{
+    Collapsible, ContextButton, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar,
+    SubTabs, TableView, Tooltip,
+};
 
 pub struct DashboardPane;
 
@@ -82,5 +85,36 @@ impl DashboardPane {
             tall_threshold: 28,
             expand_visuals_on_wide: true,
         })
+    }
+}
+
+impl PaneView for DashboardPane {
+    fn id(&self) -> &'static str {
+        "dashboard"
+    }
+
+    fn label(&self) -> &'static str {
+        "Dashboard"
+    }
+
+    fn hotkey(&self) -> char {
+        '1'
+    }
+
+    fn layout(&self, _context: &PaneContext) -> PaneLayout {
+        Self::layout()
+    }
+
+    fn tooltip(&self, _context: &PaneContext) -> Option<Tooltip> {
+        Some(Tooltip::new(
+            "Track operator health, quick actions, and run history from a single view.",
+        ))
+    }
+
+    fn context_buttons(&self, _context: &PaneContext) -> Vec<ContextButton> {
+        vec![
+            ContextButton::new('g', "[g] Go to quick actions"),
+            ContextButton::new('v', "[v] Show layout visualizer"),
+        ]
     }
 }

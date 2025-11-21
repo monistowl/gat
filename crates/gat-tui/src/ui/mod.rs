@@ -3,11 +3,13 @@ use std::fmt::Write;
 mod layout;
 mod modal;
 mod navigation;
+mod registry;
 
 /// The root container for the terminal experience.
 pub use layout::{PaneLayout, ResponsiveRules, Sidebar, SubTabs};
 pub use modal::{CommandModal, ExecutionMode};
 pub use navigation::{ContextButton, MenuItem, NavMenu};
+pub use registry::{PaneContext, PaneView, PanelRegistry};
 
 pub struct AppShell {
     pub title: String,
@@ -57,7 +59,12 @@ impl AppShell {
         let _ = writeln!(&mut output, "{}", self.menu.render_menu_bar());
         self.menu
             .render_active_layout_into(&mut output, width, height);
-        if let Some(tooltip) = &self.tooltip {
+        let tooltip = self
+            .menu
+            .active_tooltip()
+            .cloned()
+            .or_else(|| self.tooltip.clone());
+        if let Some(tooltip) = tooltip {
             let _ = writeln!(&mut output, "\n{}", tooltip.render());
         }
         if let Some(modal) = &self.modal {
