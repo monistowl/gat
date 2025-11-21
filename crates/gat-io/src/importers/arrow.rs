@@ -23,6 +23,10 @@ pub(super) fn write_network_to_arrow(network: &Network, output_file: &str) -> Re
     Ok(())
 }
 
+pub fn export_network_to_arrow(network: &Network, output_file: &str) -> Result<()> {
+    write_network_to_arrow(network, output_file)
+}
+
 pub fn load_grid_from_arrow(grid_file: &str) -> Result<Network> {
     let file = File::open(grid_file)
         .with_context(|| format!("opening Arrow dataset '{}'; ensure it exists", grid_file))?;

@@ -35,6 +35,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: GraphCommands,
     },
+    /// Scenario definitions and materialization workflows
+    Scenarios {
+        #[command(subcommand)]
+        command: ScenariosCommands,
+    },
     /// Generate shell completion scripts
     Completions {
         /// Shell type
@@ -152,6 +157,52 @@ pub enum ImportCommands {
         /// Output file path (Arrow format)
         #[arg(short, long)]
         output: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ScenariosCommands {
+    /// Validate a scenario specification (YAML/JSON)
+    Validate {
+        /// Path to the scenario spec template
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        spec: String,
+    },
+    /// List normalized scenarios inside a spec
+    List {
+        /// Path to the scenario spec
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        spec: String,
+        /// Output format (table or json)
+        #[arg(long, default_value = "table")]
+        format: String,
+    },
+    /// Expand templated scenarios into fully resolved definitions
+    Expand {
+        /// Path to the scenario spec
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        spec: String,
+        /// Optional base grid file to override the spec
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        grid_file: Option<String>,
+        /// Path for the expanded output (JSON or YAML)
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+    },
+    /// Materialize per-scenario grids and produce a manifest
+    Materialize {
+        /// Path to the scenario spec
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        spec: String,
+        /// Optional base grid file (overrides spec)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        grid_file: Option<String>,
+        /// Directory where scenario grids and manifest are written
+        #[arg(short, long, value_hint = ValueHint::DirPath)]
+        out_dir: String,
+        /// Drop outaged components from the exported grids
+        #[arg(long, default_value_t = true)]
+        drop_outaged: bool,
     },
 }
 

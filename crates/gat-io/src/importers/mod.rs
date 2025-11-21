@@ -9,7 +9,11 @@ pub mod matpower;
 pub mod psse;
 
 #[cfg(feature = "ipc")]
+pub use arrow::export_network_to_arrow;
+#[cfg(feature = "ipc")]
 pub use arrow::load_grid_from_arrow;
+#[cfg(not(feature = "ipc"))]
+pub use arrow_disabled::export_network_to_arrow;
 #[cfg(not(feature = "ipc"))]
 pub use arrow_disabled::load_grid_from_arrow;
 pub use cim::import_cim_rdf;

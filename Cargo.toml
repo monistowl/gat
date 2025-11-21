@@ -12,6 +12,7 @@ members = [
     "crates/gat-derms",
     "crates/gat-adms",
     "crates/gat-schemas",
+    "crates/gat-scenarios",
     "crates/iocraft",
     "xtask",
     "crates/gat-mcp-docs",
@@ -27,6 +28,7 @@ default-members = [
     "crates/gat-derms",
     "crates/gat-adms",
     "crates/gat-schemas",
+    "crates/gat-scenarios",
     "xtask",
     "crates/gat-mcp-docs",
 ]

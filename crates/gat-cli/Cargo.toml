@@ -30,6 +30,7 @@ polars-ipc = ["gat-algo/polars-ipc"]
 [dependencies]
 gat-core = { path = "../gat-core" }
 gat-io = { path = "../gat-io" }
+gat-scenarios = { path = "../gat-scenarios" }
 gat-algo = { path = "../gat-algo", default-features = false }
 gat-ts = { path = "../gat-ts" }
 gat-dist = { path = "../gat-dist" }

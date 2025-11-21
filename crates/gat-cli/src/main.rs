@@ -9,6 +9,7 @@ mod runs;
 #[cfg(feature = "gui")]
 use crate::commands::gui;
 use crate::commands::runs as command_runs;
+use crate::commands::scenarios as command_scenarios;
 #[cfg(feature = "tui")]
 use crate::commands::tui;
 #[cfg(feature = "viz")]
@@ -34,6 +35,9 @@ fn main() {
         Some(Commands::Import { command }) => run_and_log("import", || import::handle(command)),
         Some(Commands::Validate { spec }) => run_and_log("validate", || validate::handle(spec)),
         Some(Commands::Graph { command }) => run_and_log("graph", || graph::handle(command)),
+        Some(Commands::Scenarios { command }) => {
+            run_and_log("scenarios", || command_scenarios::handle(command))
+        }
         Some(Commands::Dataset { command }) => run_and_log("dataset", || datasets::handle(command)),
         Some(Commands::Analytics { command }) => {
             run_and_log("analytics", || analytics::handle(command))

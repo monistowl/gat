@@ -12,6 +12,7 @@ pub mod nminus1;
 pub mod opf;
 pub mod pf;
 pub mod runs;
+pub mod scenarios;
 pub mod se;
 pub mod telemetry;
 pub mod ts;
