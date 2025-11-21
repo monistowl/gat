@@ -15,6 +15,14 @@ impl CommandHandle {
         }
         lines
     }
+
+    pub fn from_messages(lines: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        let (tx, rx) = mpsc::channel();
+        for line in lines {
+            let _ = tx.send(line.into());
+        }
+        Self { receiver: rx }
+    }
 }
 
 pub fn spawn_command(cmd: Vec<String>) -> Result<CommandHandle> {

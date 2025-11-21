@@ -66,6 +66,13 @@ impl CommandModal {
     }
 
     pub fn submit(&mut self) -> Result<()> {
+        self.submit_with_runner(spawn_command)
+    }
+
+    pub fn submit_with_runner<F>(&mut self, runner: F) -> Result<()>
+    where
+        F: Fn(Vec<String>) -> Result<CommandHandle>,
+    {
         let invocation = self.build_invocation();
         self.output.clear();
         self.output.push(format!(
@@ -74,7 +81,7 @@ impl CommandModal {
             invocation.join(" ")
         ));
 
-        match spawn_command(invocation) {
+        match runner(invocation) {
             Ok(handle) => {
                 self.handle = Some(handle);
                 self.capture_output();
