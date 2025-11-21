@@ -8,16 +8,18 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use std::time::Instant;
 #[cfg(feature = "tui")]
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
+use std::time::Instant;
 use tabwriter::TabWriter;
 use tracing::{error, info};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
 mod runs;
+use crate::commands::{dist, pf};
+use crate::commands::telemetry::{record_run, record_run_timed};
 use dataset::*;
 #[cfg(feature = "tui")]
 use dirs::config_dir;
@@ -41,8 +43,9 @@ use gat_derms::{envelope, schedule, stress_test};
 use gat_dist::{hostcap_sweep, import_matpower_case, run_optimal_power_flow, run_power_flow};
 #[cfg(feature = "viz")]
 use gat_viz::layout::layout_network;
-use manifest::{record_manifest, ManifestEntry, ManifestTelemetry, Param};
+use manifest::ManifestEntry;
 use runs::{discover_runs, resolve_manifest, summaries, RunRecord};
+mod commands;
 
 fn configure_threads(spec: &str) {
     let count = if spec.eq_ignore_ascii_case("auto") {
@@ -51,67 +54,6 @@ fn configure_threads(spec: &str) {
         spec.parse().unwrap_or_else(|_| num_cpus::get())
     };
     let _ = ThreadPoolBuilder::new().num_threads(count).build_global();
-}
-
-const TELEMETRY_ENV_KEYS: &[&str] = &[
-    "GAT_VARIANT",
-    "GAT_ENV",
-    "GAT_RELEASE_VERSION",
-    "GITHUB_RUN_ID",
-    "GITHUB_WORKFLOW",
-    "GITHUB_JOB",
-    "GITHUB_REF",
-    "GITHUB_SHA",
-];
-
-fn collect_telemetry_env() -> Vec<Param> {
-    TELEMETRY_ENV_KEYS
-        .iter()
-        .filter_map(|key| env::var(key).ok().map(|value| Param {
-            name: key.to_string(),
-            value,
-        }))
-        .collect()
-}
-
-fn correlation_id() -> Option<String> {
-    env::var("GAT_CORRELATION_ID")
-        .or_else(|_| env::var("GITHUB_RUN_ID"))
-        .ok()
-}
-
-fn record_run(out: &str, command: &str, params: &[(&str, &str)]) {
-    record_run_with_status(out, command, params, "success", None);
-}
-
-fn record_run_with_status(
-    out: &str,
-    command: &str,
-    params: &[(&str, &str)],
-    status: &str,
-    duration_ms: Option<u128>,
-) {
-    let telemetry = ManifestTelemetry {
-        status: status.to_string(),
-        duration_ms,
-        env: collect_telemetry_env(),
-        correlation_id: correlation_id(),
-    };
-    if let Err(err) = record_manifest(Path::new(out), command, params, telemetry) {
-        eprintln!("Failed to record run manifest: {err}");
-    }
-}
-
-fn record_run_timed(
-    out: &str,
-    command: &str,
-    params: &[(&str, &str)],
-    start: Instant,
-    result: &anyhow::Result<()>,
-) {
-    let duration_ms = start.elapsed().as_millis();
-    let status = if result.is_ok() { "success" } else { "failure" };
-    record_run_with_status(out, command, params, status, Some(duration_ms));
 }
 
 fn resume_manifest(manifest: &ManifestEntry) -> anyhow::Result<()> {
@@ -137,7 +79,7 @@ fn resume_manifest(manifest: &ManifestEntry) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn parse_partitions(spec: Option<&String>) -> Vec<String> {
+pub(crate) fn parse_partitions(spec: Option<&String>) -> Vec<String> {
     spec.map_or("", String::as_str)
         .split(',')
         .map(|s| s.trim())
@@ -418,102 +360,7 @@ fn main() {
             }
         }
         Some(Commands::Pf { command }) => {
-            let result = match command {
-                PowerFlowCommands::Dc {
-                    grid_file,
-                    out,
-                    threads,
-                    solver,
-                    lp_solver,
-                    out_partitions,
-                } => {
-                    configure_threads(threads);
-                    info!("Running DC power flow on {} to {}", grid_file, out);
-                    (|| -> anyhow::Result<()> {
-                        let solver_kind = solver.parse::<SolverKind>()?;
-                        let solver_impl = solver_kind.build_solver();
-                        let _ = lp_solver;
-                        let partitions = parse_partitions(out_partitions.as_ref());
-                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
-                        let out_path = Path::new(out);
-                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                            Ok(network) => power_flow::dc_power_flow(
-                                &network,
-                                solver_impl.as_ref(),
-                                out_path,
-                                &partitions,
-                            ),
-                            Err(e) => Err(e),
-                        };
-                        if res.is_ok() {
-                            record_run(
-                                out,
-                                "pf dc",
-                                &[
-                                    ("grid_file", grid_file),
-                                    ("out", out),
-                                    ("threads", threads),
-                                    ("solver", solver_kind.as_str()),
-                                    ("out_partitions", partition_spec.as_str()),
-                                ],
-                            );
-                        }
-                        res
-                    })()
-                }
-                PowerFlowCommands::Ac {
-                    grid_file,
-                    out,
-                    tol,
-                    max_iter,
-                    threads,
-                    solver,
-                    lp_solver,
-                    out_partitions,
-                } => {
-                    configure_threads(threads);
-                    info!(
-                        "Running AC power flow on {} with tol {} and max_iter {}",
-                        grid_file, tol, max_iter
-                    );
-                    (|| -> anyhow::Result<()> {
-                        let solver_kind = solver.parse::<SolverKind>()?;
-                        let solver_impl = solver_kind.build_solver();
-                        let _ = lp_solver;
-                        let partitions = parse_partitions(out_partitions.as_ref());
-                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
-                        let out_path = Path::new(out);
-                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                            Ok(network) => power_flow::ac_power_flow(
-                                &network,
-                                solver_impl.as_ref(),
-                                *tol,
-                                *max_iter,
-                                out_path,
-                                &partitions,
-                            ),
-                            Err(e) => Err(e),
-                        };
-                        if res.is_ok() {
-                            record_run(
-                                out,
-                                "pf ac",
-                                &[
-                                    ("grid_file", grid_file),
-                                    ("threads", threads),
-                                    ("out", out),
-                                    ("tol", &tol.to_string()),
-                                    ("max_iter", &max_iter.to_string()),
-                                    ("solver", solver_kind.as_str()),
-                                    ("out_partitions", partition_spec.as_str()),
-                                ],
-                            );
-                        }
-                        res
-                    })()
-                }
-            };
-
+            let result = pf::handle(command);
             match result {
                 Ok(_) => info!("Power flow command successful!"),
                 Err(e) => error!("Power flow command failed: {:?}", e),
@@ -685,150 +532,7 @@ fn main() {
             }
         }
         Some(Commands::Dist { command }) => {
-            let result = match command {
-                DistCommands::Import {
-                    m,
-                    output_dir,
-                    feeder_id,
-                } => {
-                    info!("Importing MATPOWER {} into {}", m, output_dir);
-                    let target = Path::new(&output_dir);
-                    let res = import_matpower_case(m, target, feeder_id.as_deref());
-                    if res.is_ok() {
-                        record_run(
-                            output_dir.as_str(),
-                            "dist import matpower",
-                            &[
-                                ("matpower", m.as_str()),
-                                ("output_dir", output_dir.as_str()),
-                                ("feeder_id", feeder_id.as_deref().unwrap_or("default")),
-                            ],
-                        );
-                    }
-                    res
-                }
-                DistCommands::Pf {
-                    grid_file,
-                    out,
-                    solver,
-                    tol,
-                    max_iter,
-                } => {
-                    let res = (|| -> anyhow::Result<()> {
-                        let solver_kind = solver.parse::<SolverKind>()?;
-                        info!(
-                            "Running dist pf {} -> {} ({})",
-                            grid_file,
-                            out,
-                            solver_kind.as_str()
-                        );
-                        run_power_flow(
-                            Path::new(&grid_file),
-                            Path::new(&out),
-                            solver_kind,
-                            *tol,
-                            *max_iter,
-                        )
-                    })();
-                    if res.is_ok() {
-                        let tol_str = tol.to_string();
-                        let max_iter_str = max_iter.to_string();
-                        record_run(
-                            out.as_str(),
-                            "dist pf",
-                            &[
-                                ("grid_file", grid_file.as_str()),
-                                ("solver", solver.as_str()),
-                                ("tol", tol_str.as_str()),
-                                ("max_iter", max_iter_str.as_str()),
-                            ],
-                        );
-                    }
-                    res
-                }
-                DistCommands::Opf {
-                    grid_file,
-                    out,
-                    objective,
-                    solver,
-                    tol,
-                    max_iter,
-                } => {
-                    let res = (|| -> anyhow::Result<()> {
-                        let solver_kind = solver.parse::<SolverKind>()?;
-                        info!(
-                            "Running dist opf {} -> {} (objective {})",
-                            grid_file, out, objective
-                        );
-                        run_optimal_power_flow(
-                            Path::new(&grid_file),
-                            Path::new(&out),
-                            solver_kind,
-                            *tol,
-                            *max_iter,
-                            objective.as_str(),
-                        )
-                    })();
-                    if res.is_ok() {
-                        let tol_str = tol.to_string();
-                        let max_iter_str = max_iter.to_string();
-                        record_run(
-                            out.as_str(),
-                            "dist opf",
-                            &[
-                                ("grid_file", grid_file.as_str()),
-                                ("objective", objective.as_str()),
-                                ("solver", solver.as_str()),
-                                ("tol", tol_str.as_str()),
-                                ("max_iter", max_iter_str.as_str()),
-                            ],
-                        );
-                    }
-                    res
-                }
-                DistCommands::Hostcap {
-                    grid_file,
-                    out_dir,
-                    bus,
-                    max_injection,
-                    steps,
-                    solver,
-                } => {
-                    let res = (|| -> anyhow::Result<()> {
-                        let solver_kind = solver.parse::<SolverKind>()?;
-                        info!("Running hostcap sweep on {} -> {}", grid_file, out_dir);
-                        hostcap_sweep(
-                            Path::new(&grid_file),
-                            bus,
-                            *max_injection,
-                            *steps,
-                            Path::new(&out_dir),
-                            solver_kind,
-                        )
-                    })();
-                    if res.is_ok() {
-                        let max_injection_str = max_injection.to_string();
-                        let steps_str = steps.to_string();
-                        let buses = bus
-                            .iter()
-                            .map(|id| id.to_string())
-                            .collect::<Vec<_>>()
-                            .join(",");
-                        record_run(
-                            out_dir.as_str(),
-                            "dist hostcap",
-                            &[
-                                ("grid_file", grid_file.as_str()),
-                                ("buses", buses.as_str()),
-                                ("max_injection", max_injection_str.as_str()),
-                                ("steps", steps_str.as_str()),
-                                ("solver", solver.as_str()),
-                            ],
-                        );
-                    }
-                    res
-                }
-            };
+            let result = dist::handle(command);
             match result {
                 Ok(_) => info!("Dist command successful!"),
                 Err(e) => error!("Dist command failed: {:?}", e),
