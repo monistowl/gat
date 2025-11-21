@@ -130,6 +130,25 @@ const CMD_ADMS_STATE_EST: &[&str] = &[
     "gauss",
 ];
 
+const ART_DIST_IMPORT: &[&str] = &[
+    "test_data/derms/ieee33/case33bw.arrow",
+    "test_data/derms/ieee33/dist_nodes.parquet",
+    "test_data/derms/ieee33/dist_branches.parquet",
+];
+const ART_DERMS_ENVELOPE: &[&str] = &["docs/derms/envelope.parquet"];
+const ART_DERMS_SCHEDULE: &[&str] = &["docs/derms/schedule.parquet"];
+const ART_DERMS_STRESS: &[&str] = &["docs/derms/stress/derms_stress_summary.parquet"];
+const ART_ADMS_FLISR: &[&str] = &[
+    "docs/adms/flisr/flisr_runs.parquet",
+    "docs/adms/flisr/reliability_indices.parquet",
+];
+const ART_ADMS_VVO: &[&str] = &["docs/adms/vvo/vvo_settings.parquet"];
+const ART_ADMS_OUTAGE: &[&str] = &["docs/adms/outage/outage_stats.parquet"];
+const ART_ADMS_STATE_EST: &[&str] = &[
+    "docs/adms/state_est.parquet",
+    "docs/adms/estimated_state.parquet",
+];
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum TabId {
     Workflow,
@@ -207,6 +226,7 @@ pub struct MenuAction {
     pub label: &'static str,
     pub detail: &'static str,
     pub command: &'static [&'static str],
+    pub artifacts: &'static [&'static str],
 }
 
 impl MenuAction {
@@ -215,12 +235,14 @@ impl MenuAction {
         label: &'static str,
         detail: &'static str,
         command: &'static [&'static str],
+        artifacts: &'static [&'static str],
     ) -> Self {
         Self {
             key,
             label,
             detail,
             command,
+            artifacts,
         }
     }
 }
@@ -269,24 +291,28 @@ impl NavigationController {
                         "Import MATPOWER",
                         "Generate case33bw.arrow so DERMS/ADMS commands have a grid",
                         CMD_DIST_IMPORT_MATPOWER,
+                        ART_DIST_IMPORT,
                     ),
                     MenuAction::new(
                         '1',
                         "DERMS envelope",
                         "Summarize P/Q/S flexibility for each aggregator",
                         CMD_DERMS_ENVELOPE,
+                        ART_DERMS_ENVELOPE,
                     ),
                     MenuAction::new(
                         '2',
                         "DERMS schedule",
                         "Heuristic dispatch schedule + curtailment metrics",
                         CMD_DERMS_SCHEDULE,
+                        ART_DERMS_SCHEDULE,
                     ),
                     MenuAction::new(
                         '3',
                         "DERMS stress-test",
                         "Run Monte Carlo price perturbations to validate robustness",
                         CMD_DERMS_STRESS,
+                        ART_DERMS_STRESS,
                     ),
                 ],
                 Pane::new("DERMS queue", "Pending DERMS workflows"),
@@ -300,24 +326,28 @@ impl NavigationController {
                         "ADMS FLISR sim",
                         "Simulate reliability runs and capture SAIDI/SAIFI/CAIDI",
                         CMD_ADMS_FLISR,
+                        ART_ADMS_FLISR,
                     ),
                     MenuAction::new(
                         '2',
                         "ADMS VVO plan",
                         "Produce tap/VAR recommendations for low/high day types",
                         CMD_ADMS_VVO,
+                        ART_ADMS_VVO,
                     ),
                     MenuAction::new(
                         '3',
                         "ADMS outage MC",
                         "Monte Carlo outage stats referencing the reliability catalog",
                         CMD_ADMS_OUTAGE,
+                        ART_ADMS_OUTAGE,
                     ),
                     MenuAction::new(
                         '4',
                         "ADMS state-estimation",
                         "Run WLS state estimation and materialize state artifacts",
                         CMD_ADMS_STATE_EST,
+                        ART_ADMS_STATE_EST,
                     ),
                 ],
                 Pane::new("ADMS command center", "Co-sim insights and tooling"),

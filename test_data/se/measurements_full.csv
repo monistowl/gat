@@ -1,0 +1,5 @@
+measurement_type,branch_id,bus_id,value,weight,label
+flow,0,,1.0,1.0,line-1
+flow,1,,1.0,1.0,line-2
+injection,,1,0.5,1.0,bus-1
+injection,,2,-0.5,1.0,bus-2

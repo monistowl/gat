@@ -30,9 +30,9 @@ use gat_cli::cli::VizCommands;
 use gat_cli::{
     cli::{
         build_cli_command, AdmsCommands, AnalyticsCommands, Cli, Commands, DatasetCommands,
-        DermsCommands, DistCommands, GraphCommands, HirenCommands, ImportCommands,
-        Nminus1Commands, OpfCommands, PowerFlowCommands, PublicDatasetCommands,
-        RtsGmlcCommands, RunFormat, RunsCommands, SeCommands, Sup3rccCommands, TsCommands,
+        DermsCommands, DistCommands, GraphCommands, HirenCommands, ImportCommands, Nminus1Commands,
+        OpfCommands, PowerFlowCommands, PublicDatasetCommands, RtsGmlcCommands, RunFormat,
+        RunsCommands, SeCommands, Sup3rccCommands, TsCommands,
     },
     manifest,
 };

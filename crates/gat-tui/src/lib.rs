@@ -414,7 +414,11 @@ impl App {
                 .iter()
                 .map(|part| part.to_string())
                 .collect::<Vec<_>>();
-            let detail_body = format!("{}\n\ncmd: {}", action.detail, action.command.join(" "));
+            let mut detail_body = format!("{}\n\ncmd: {}", action.detail, action.command.join(" "));
+            if !action.artifacts.is_empty() {
+                detail_body.push_str("\n\nArtifacts:\n");
+                detail_body.push_str(&action.artifacts.join("\n"));
+            }
             self.navigation
                 .set_detail(Some(action.label.to_string()), Some(detail_body));
             self.push_log(&format!("Triggered action [{}] {}", key, action.label));
@@ -1022,6 +1026,9 @@ fn render_tab_placeholder(
                 action.key, action.label, action.detail
             ));
             lines.push(format!("cmd: {}", action.command.join(" ")));
+            if !action.artifacts.is_empty() {
+                lines.push(format!("artifacts: {}", action.artifacts.join(", ")));
+            }
         }
     }
     let paragraph = Paragraph::new(lines.join("\n\n"))
