@@ -1,0 +1,9 @@
+[package]
+name = "gat-derms"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+polars = { version = "0.35.4", features = ["parquet", "temporal"] }
+rand = "0.8"

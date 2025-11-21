@@ -1,0 +1,13 @@
+[package]
+name = "gat-dist"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+gat-algo = { path = "../gat-algo" }
+gat-core = { path = "../gat-core" }
+gat-io = { path = "../gat-io" }
+gat-schemas = { path = "../gat-schemas" }
+polars = { version = "0.35.4", features = ["parquet"] }
+tempfile = "3"
