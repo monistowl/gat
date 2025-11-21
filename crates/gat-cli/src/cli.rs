@@ -105,6 +105,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: FeaturizeCommands,
     },
+    /// Allocation and settlement tools (congestion rents, cost attribution)
+    Alloc {
+        #[command(subcommand)]
+        command: AllocCommands,
+    },
     /// Scenario batch runners for PF/OPF (CANOS-style fan-out)
     Batch {
         #[command(subcommand)]
@@ -807,6 +812,51 @@ pub enum AnalyticsCommands {
         #[arg(long, default_value_t = 0.1)]
         unserved_threshold: f64,
         /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum AllocCommands {
+    /// Compute congestion rents and surplus decomposition from OPF results
+    ///
+    /// Analyzes OPF outputs (LMPs, flows, injections) to decompose system surplus into congestion
+    /// rents, generator revenues, and load payments. Provides the numerical backbone for allocation
+    /// and settlement frameworks. See doi:10.1109/TPWRS.2003.820692 for LMP-based congestion analysis.
+    Rents {
+        /// Parquet file with OPF results (must have: bus_id, lmp, injection_mw, flow_mw)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        opf_results: String,
+        /// Path to the grid topology file (Arrow format, for branch mapping)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        grid_file: String,
+        /// Optional tariff/margin parameters CSV (resource_id, tariff_rate)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        tariffs: Option<String>,
+        /// Output file path for congestion rents table (Parquet)
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Partition columns (comma separated, e.g., "scenario_id,time")
+        #[arg(long)]
+        out_partitions: Option<String>,
+    },
+    /// Simple contribution analysis for KPI changes across scenarios
+    ///
+    /// Approximates the contribution of control actions/portfolios to KPI improvements using
+    /// gradient-based sensitivity or linear approximations. A stepping stone towards full SHAP
+    /// explainability. See doi:10.1038/s42256-019-0138-9 for SHAP and model explanations.
+    Kpi {
+        /// Parquet file with KPI results (must have: scenario_id, kpi_value)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        kpi_results: String,
+        /// Parquet file with scenario metadata (scenario_id, control flags, policy settings)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        scenario_meta: String,
+        /// Output file path for contribution analysis (Parquet)
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Partition columns (comma separated, e.g., "scenario_id")
         #[arg(long)]
         out_partitions: Option<String>,
     },

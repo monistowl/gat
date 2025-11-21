@@ -20,6 +20,8 @@ pub enum OutputStage {
     AnalyticsReliability,
     FeaturizeGnn,
     FeaturizeKpi,
+    AllocRents,
+    AllocKpi,
 }
 
 impl OutputStage {
@@ -36,6 +38,8 @@ impl OutputStage {
             OutputStage::AnalyticsReliability => "analytics-reliability",
             OutputStage::FeaturizeGnn => "featurize-gnn",
             OutputStage::FeaturizeKpi => "featurize-kpi",
+            OutputStage::AllocRents => "alloc-rents",
+            OutputStage::AllocKpi => "alloc-kpi",
         }
     }
 }

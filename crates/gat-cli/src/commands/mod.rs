@@ -1,4 +1,5 @@
 pub mod adms;
+pub mod alloc;
 pub mod analytics;
 pub mod featurize;
 pub mod batch;
