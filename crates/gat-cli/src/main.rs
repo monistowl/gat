@@ -604,7 +604,7 @@ fn main() {
                         gat_ts::aggregate_timeseries(input, group, value, agg, out, &partitions);
                     if res.is_ok() {
                         record_run(
-                            out,
+                            out.as_str(),
                             "ts agg",
                             &[
                                 ("input", input),
@@ -637,7 +637,7 @@ fn main() {
                     let res = import_matpower_case(m, target, feeder_id.as_deref());
                     if res.is_ok() {
                         record_run(
-                            &output_dir,
+                            output_dir.as_str(),
                             "dist import matpower",
                             &[
                                 ("matpower", m.as_str()),
@@ -675,7 +675,7 @@ fn main() {
                         let tol_str = tol.to_string();
                         let max_iter_str = max_iter.to_string();
                         record_run(
-                            &out,
+                            out.as_str(),
                             "dist pf",
                             &[
                                 ("grid_file", grid_file.as_str()),
@@ -714,7 +714,7 @@ fn main() {
                         let tol_str = tol.to_string();
                         let max_iter_str = max_iter.to_string();
                         record_run(
-                            &out,
+                            out.as_str(),
                             "dist opf",
                             &[
                                 ("grid_file", grid_file.as_str()),
@@ -756,7 +756,7 @@ fn main() {
                             .collect::<Vec<_>>()
                             .join(",");
                         record_run(
-                            &out_dir,
+                            out_dir.as_str(),
                             "dist hostcap",
                             &[
                                 ("grid_file", grid_file.as_str()),
@@ -792,7 +792,7 @@ fn main() {
                     );
                     if res.is_ok() {
                         record_run(
-                            &out,
+                            out.as_str(),
                             "derms envelope",
                             &[
                                 ("grid_file", grid_file.as_str()),
@@ -825,7 +825,7 @@ fn main() {
                     })();
                     if res.is_ok() {
                         record_run(
-                            &out,
+                            out.as_str(),
                             "derms schedule",
                             &[
                                 ("assets", assets.as_str()),
@@ -859,7 +859,7 @@ fn main() {
                         let scenarios_str = scenarios.to_string();
                         let seed_str = seed.map(|v| v.to_string());
                         record_run(
-                            &output_dir,
+                            output_dir.as_str(),
                             "derms stress-test",
                             &[
                                 ("assets", assets.as_str()),
@@ -906,7 +906,7 @@ fn main() {
                         let tol_str = tol.to_string();
                         let max_iter_str = max_iter.to_string();
                         record_run(
-                            &output_dir,
+                            output_dir.as_str(),
                             "adms flisr-sim",
                             &[
                                 ("grid_file", grid_file.as_str()),
@@ -949,7 +949,7 @@ fn main() {
                         let tol_str = tol.to_string();
                         let max_iter_str = max_iter.to_string();
                         record_run(
-                            &output_dir,
+                            output_dir.as_str(),
                             "adms vvo-plan",
                             &[
                                 ("grid_file", grid_file.as_str()),
@@ -979,7 +979,7 @@ fn main() {
                         let samples_str = samples.to_string();
                         let seed_str = seed.map(|v| v.to_string());
                         record_run(
-                            &output_dir,
+                            output_dir.as_str(),
                             "adms outage-mc",
                             &[
                                 ("reliability", reliability.as_str()),
@@ -1015,7 +1015,7 @@ fn main() {
                     if res.is_ok() {
                         let slack_spec = slack_bus.map(|id| id.to_string());
                         record_run(
-                            &out,
+                            out.as_str(),
                             "adms state-estimation",
                             &[
                                 ("grid_file", grid_file.as_str()),
