@@ -3,7 +3,6 @@ use clap_complete::{generate, Shell};
 use gat_algo::{power_flow, LpSolverKind};
 use gat_core::{graph_utils, solver::SolverKind};
 use gat_io::{importers, validate};
-use rayon::ThreadPoolBuilder;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -12,14 +11,14 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
-use std::time::Instant;
 use tabwriter::TabWriter;
 use tracing::{error, info};
 use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
 mod runs;
-use crate::commands::telemetry::{record_run, record_run_timed};
-use crate::commands::{adms, derms, dist, pf, se, ts};
+use crate::commands::telemetry::record_run;
+use crate::commands::util::{configure_threads, parse_partitions};
+use crate::commands::{adms, analytics, derms, dist, pf, se, ts};
 use dataset::*;
 #[cfg(feature = "tui")]
 use dirs::config_dir;
@@ -31,9 +30,9 @@ use gat_cli::cli::TuiCommands;
 use gat_cli::cli::VizCommands;
 use gat_cli::{
     cli::{
-        build_cli_command, AnalyticsCommands, Cli, Commands, DatasetCommands, GraphCommands,
-        HirenCommands, ImportCommands, Nminus1Commands, OpfCommands, PublicDatasetCommands,
-        RtsGmlcCommands, RunFormat, RunsCommands, SeCommands, Sup3rccCommands, TsCommands,
+        build_cli_command, Cli, Commands, DatasetCommands, GraphCommands, HirenCommands,
+        ImportCommands, Nminus1Commands, OpfCommands, PublicDatasetCommands, RtsGmlcCommands,
+        RunFormat, RunsCommands, Sup3rccCommands,
     },
     manifest,
 };
@@ -42,15 +41,6 @@ use gat_viz::layout::layout_network;
 use manifest::ManifestEntry;
 use runs::{discover_runs, resolve_manifest, summaries, RunRecord};
 mod commands;
-
-fn configure_threads(spec: &str) {
-    let count = if spec.eq_ignore_ascii_case("auto") {
-        num_cpus::get()
-    } else {
-        spec.parse().unwrap_or_else(|_| num_cpus::get())
-    };
-    let _ = ThreadPoolBuilder::new().num_threads(count).build_global();
-}
 
 fn resume_manifest(manifest: &ManifestEntry) -> anyhow::Result<()> {
     let mut args: Vec<String> = manifest
@@ -73,15 +63,6 @@ fn resume_manifest(manifest: &ManifestEntry) -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("resumed run failed with {status}"));
     }
     Ok(())
-}
-
-pub(crate) fn parse_partitions(spec: Option<&String>) -> Vec<String> {
-    spec.map_or("", String::as_str)
-        .split(',')
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(String::from)
-        .collect()
 }
 
 fn describe_manifest(manifest: &ManifestEntry) {
@@ -556,56 +537,7 @@ fn main() {
             }
         }
         Some(Commands::Analytics { command }) => {
-            let result = match command {
-                AnalyticsCommands::Ptdf {
-                    grid_file,
-                    source,
-                    sink,
-                    transfer,
-                    out,
-                    out_partitions,
-                    threads,
-                    solver,
-                } => {
-                    configure_threads(threads);
-                    info!(
-                        "Running PTDF analysis {}→{} ({:.3} MW) on {}",
-                        source, sink, transfer, grid_file
-                    );
-                    // Wrap the entire PTDF workflow in a closure so we can use `?` and log once.
-                    let res = (|| -> anyhow::Result<()> {
-                        let solver_kind = solver.parse::<SolverKind>()?;
-                        let solver_impl = solver_kind.build_solver();
-                        let partitions = parse_partitions(out_partitions.as_ref());
-                        let partition_spec = out_partitions.as_deref().unwrap_or("");
-                        let network = importers::load_grid_from_arrow(grid_file.as_str())?;
-                        power_flow::ptdf_analysis(
-                            &network,
-                            solver_impl.as_ref(),
-                            *source,
-                            *sink,
-                            *transfer,
-                            Path::new(out),
-                            &partitions,
-                        )?;
-                        record_run(
-                            out,
-                            "analytics ptdf",
-                            &[
-                                ("grid_file", grid_file),
-                                ("source", &source.to_string()),
-                                ("sink", &sink.to_string()),
-                                ("transfer", &transfer.to_string()),
-                                ("solver", solver_kind.as_str()),
-                                ("out_partitions", partition_spec),
-                            ],
-                        );
-                        Ok(())
-                    })();
-                    res
-                }
-            };
-
+            let result = analytics::handle(command);
             match result {
                 Ok(_) => info!("Analytics command successful!"),
                 Err(e) => error!("Analytics command failed: {:?}", e),

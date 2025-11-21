@@ -2,12 +2,13 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::Result;
+use gat_algo::power_flow;
 use gat_cli::cli::SeCommands;
-use gat_dist::power_flow;
+use gat_core::solver::SolverKind;
 use gat_io::importers;
 
 use crate::commands::telemetry::record_run_timed;
-use crate::parse_partitions;
+use crate::commands::util::parse_partitions;
 
 pub fn handle(command: &SeCommands) -> Result<()> {
     match command {
@@ -22,7 +23,7 @@ pub fn handle(command: &SeCommands) -> Result<()> {
             slack_bus,
         } => {
             let start = Instant::now();
-            let solver_kind = solver.parse()?;
+            let solver_kind = solver.parse::<SolverKind>()?;
             let solver_impl = solver_kind.build_solver();
             let partitions = parse_partitions(out_partitions.as_ref());
             let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();

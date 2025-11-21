@@ -2,6 +2,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::commands::telemetry::record_run_timed;
+use crate::commands::util::{configure_threads, parse_partitions};
 use anyhow::Result;
 use gat_algo::power_flow;
 use gat_cli::cli::PowerFlowCommands;
@@ -20,10 +21,11 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
         } => {
             let start = Instant::now();
             let res = (|| -> Result<()> {
+                configure_threads(threads);
                 let solver_kind = solver.parse::<SolverKind>()?;
                 let solver_impl = solver_kind.build_solver();
                 let _ = lp_solver;
-                let partitions = crate::parse_partitions(out_partitions.as_ref());
+                let partitions = parse_partitions(out_partitions.as_ref());
                 let out_path = Path::new(out);
                 match importers::load_grid_from_arrow(grid_file.as_str()) {
                     Ok(network) => power_flow::dc_power_flow(
@@ -63,10 +65,11 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
         } => {
             let start = Instant::now();
             let res = (|| -> Result<()> {
+                configure_threads(threads);
                 let solver_kind = solver.parse::<SolverKind>()?;
                 let solver_impl = solver_kind.build_solver();
                 let _ = lp_solver;
-                let partitions = crate::parse_partitions(out_partitions.as_ref());
+                let partitions = parse_partitions(out_partitions.as_ref());
                 let out_path = Path::new(out);
                 match importers::load_grid_from_arrow(grid_file.as_str()) {
                     Ok(network) => power_flow::ac_power_flow(
