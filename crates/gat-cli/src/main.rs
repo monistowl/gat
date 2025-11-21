@@ -19,7 +19,7 @@ use tracing_subscriber::FmtSubscriber; // Added power_flow
 mod dataset;
 mod runs;
 use crate::commands::telemetry::{record_run, record_run_timed};
-use crate::commands::{adms, derms, dist, pf};
+use crate::commands::{adms, derms, dist, pf, se, ts};
 use dataset::*;
 #[cfg(feature = "tui")]
 use dirs::config_dir;
@@ -420,108 +420,7 @@ fn main() {
             }
         }
         Some(Commands::Ts { command }) => {
-            let result = match command {
-                TsCommands::Resample {
-                    input,
-                    timestamp,
-                    value,
-                    rule,
-                    out,
-                    out_partitions,
-                } => {
-                    info!(
-                        "Resampling {} ({}/{}) every {} -> {}",
-                        input, timestamp, value, rule, out
-                    );
-                    let partitions = parse_partitions(out_partitions.as_ref());
-                    let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
-                    let start = Instant::now();
-                    let res = gat_ts::resample_timeseries(
-                        input,
-                        timestamp,
-                        value,
-                        rule,
-                        out,
-                        &partitions,
-                    );
-                    record_run_timed(
-                        out,
-                        "ts resample",
-                        &[
-                            ("input", input),
-                            ("timestamp", timestamp),
-                            ("value", value),
-                            ("rule", rule),
-                            ("out", out),
-                            ("out_partitions", partition_spec.as_str()),
-                        ],
-                        start,
-                        &res,
-                    );
-                    res
-                }
-                TsCommands::Join {
-                    left,
-                    right,
-                    on,
-                    out,
-                    out_partitions,
-                } => {
-                    info!("Joining {} and {} on {} -> {}", left, right, on, out);
-                    let partitions = parse_partitions(out_partitions.as_ref());
-                    let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
-                    let start = Instant::now();
-                    let res = gat_ts::join_timeseries(left, right, on, out, &partitions);
-                    record_run_timed(
-                        out,
-                        "ts join",
-                        &[
-                            ("left", left),
-                            ("right", right),
-                            ("on", on),
-                            ("out", out),
-                            ("out_partitions", partition_spec.as_str()),
-                        ],
-                        start,
-                        &res,
-                    );
-                    res
-                }
-                TsCommands::Agg {
-                    input,
-                    group,
-                    value,
-                    agg,
-                    out,
-                    out_partitions,
-                } => {
-                    info!(
-                        "Aggregating {} by {} ({}) using {} -> {}",
-                        input, group, value, agg, out
-                    );
-                    let partitions = parse_partitions(out_partitions.as_ref());
-                    let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
-                    let start = Instant::now();
-                    let res =
-                        gat_ts::aggregate_timeseries(input, group, value, agg, out, &partitions);
-                    record_run_timed(
-                        out.as_str(),
-                        "ts agg",
-                        &[
-                            ("input", input),
-                            ("group", group),
-                            ("value", value),
-                            ("agg", agg),
-                            ("out", out),
-                            ("out_partitions", partition_spec.as_str()),
-                        ],
-                        start,
-                        &res,
-                    );
-                    res
-                }
-            };
-
+            let result = ts::handle(command);
             match result {
                 Ok(_) => info!("Timeseries command successful!"),
                 Err(e) => error!("Timeseries command failed: {:?}", e),
@@ -549,67 +448,12 @@ fn main() {
             }
         }
         Some(Commands::Se { command }) => {
-            let result = match command {
-                SeCommands::Wls {
-                    grid_file,
-                    measurements,
-                    out,
-                    state_out,
-                    threads,
-                    solver,
-                    out_partitions,
-                    slack_bus,
-                } => {
-                    configure_threads(threads);
-                    info!(
-                        "Running WLS state estimation on {} using {} -> {}",
-                        grid_file, measurements, out
-                    );
-                    (|| -> anyhow::Result<()> {
-                        let solver_kind = solver.parse::<SolverKind>()?;
-                        let solver_impl = solver_kind.build_solver();
-                        let partitions = parse_partitions(out_partitions.as_ref());
-                        let partition_spec = out_partitions.as_deref().unwrap_or("").to_string();
-                        let out_path = Path::new(out);
-                        let state_path = state_out.as_deref().map(Path::new);
-                        let res = match importers::load_grid_from_arrow(grid_file.as_str()) {
-                            Ok(network) => power_flow::state_estimation_wls(
-                                &network,
-                                solver_impl.as_ref(),
-                                measurements,
-                                out_path,
-                                &partitions,
-                                state_path,
-                                *slack_bus,
-                            ),
-                            Err(e) => Err(e),
-                        };
-                        if res.is_ok() {
-                            let slack_spec = slack_bus.map(|id| id.to_string());
-                            record_run(
-                                out,
-                                "se wls",
-                                &[
-                                    ("grid_file", grid_file),
-                                    ("measurements", measurements.as_str()),
-                                    ("threads", threads),
-                                    ("solver", solver_kind.as_str()),
-                                    ("out_partitions", partition_spec.as_str()),
-                                    ("slack_bus", slack_spec.as_deref().unwrap_or("auto")),
-                                ],
-                            );
-                        }
-                        res
-                    })()
-                }
-            };
-
+            let result = se::handle(command);
             match result {
                 Ok(_) => info!("State estimation command successful!"),
                 Err(e) => error!("State estimation command failed: {:?}", e),
             }
         }
-        #[cfg(feature = "viz")]
         Some(Commands::Viz { command }) => {
             let result = match command {
                 VizCommands::Plot { grid_file, output } => {
