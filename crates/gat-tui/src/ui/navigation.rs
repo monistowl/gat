@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use super::layout::PaneLayout;
+use super::{layout::PaneLayout, Tooltip};
 
 #[derive(Clone, Debug)]
 pub struct ContextButton {
@@ -24,6 +24,7 @@ pub struct MenuItem {
     pub hotkey: char,
     pub layout: PaneLayout,
     pub context_buttons: Vec<ContextButton>,
+    pub tooltip: Option<Tooltip>,
 }
 
 impl MenuItem {
@@ -39,6 +40,7 @@ impl MenuItem {
             hotkey,
             layout,
             context_buttons: Vec::new(),
+            tooltip: None,
         }
     }
 
@@ -47,6 +49,11 @@ impl MenuItem {
         buttons: impl IntoIterator<Item = ContextButton>,
     ) -> Self {
         self.context_buttons = buttons.into_iter().collect();
+        self
+    }
+
+    pub fn with_tooltip(mut self, tooltip: Tooltip) -> Self {
+        self.tooltip = Some(tooltip);
         self
     }
 }
@@ -115,5 +122,9 @@ impl NavMenu {
 
     pub fn active_item(&self) -> Option<&MenuItem> {
         self.items.get(self.active)
+    }
+
+    pub fn active_tooltip(&self) -> Option<&Tooltip> {
+        self.active_item().and_then(|item| item.tooltip.as_ref())
     }
 }

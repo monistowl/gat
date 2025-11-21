@@ -1,4 +1,7 @@
-use crate::ui::{Collapsible, Pane, PaneLayout, ResponsiveRules, Sidebar, TableView};
+use crate::ui::{
+    Collapsible, ContextButton, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar,
+    TableView, Tooltip,
+};
 
 pub struct QuickstartPane;
 
@@ -84,5 +87,36 @@ impl QuickstartPane {
             tall_threshold: 24,
             expand_visuals_on_wide: true,
         })
+    }
+}
+
+impl PaneView for QuickstartPane {
+    fn id(&self) -> &'static str {
+        "quickstart"
+    }
+
+    fn label(&self) -> &'static str {
+        "Help > Quickstart"
+    }
+
+    fn hotkey(&self) -> char {
+        'h'
+    }
+
+    fn layout(&self, _context: &PaneContext) -> PaneLayout {
+        Self::layout()
+    }
+
+    fn tooltip(&self, _context: &PaneContext) -> Option<Tooltip> {
+        Some(Tooltip::new(
+            "Browse setup steps, FAQs, and cheatsheets without leaving the terminal.",
+        ))
+    }
+
+    fn context_buttons(&self, _context: &PaneContext) -> Vec<ContextButton> {
+        vec![ContextButton::new(
+            '?',
+            "[?] Keep tooltips in view for hints",
+        )]
     }
 }
