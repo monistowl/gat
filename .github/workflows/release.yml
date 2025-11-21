@@ -13,13 +13,12 @@ jobs:
   package:
     name: "Package and upload release artifacts (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
 
     env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CARGO_TERM_COLOR: always
 
     steps:
