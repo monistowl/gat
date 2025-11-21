@@ -949,8 +949,21 @@ fn draw_ui(f: &mut Frame, app: &mut App) {
         .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
         .split(chunks[2]);
 
+    let detail_column = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(12), Constraint::Min(10)])
+        .split(body_chunks[1]);
+
     render_active_tab_content(f, body_chunks[0], app);
-    render_detail_panel(f, body_chunks[1], app.navigation.detail());
+    render_detail_panel(f, detail_column[0], app.navigation.detail());
+    if app.navigation.active_tab_id() == TabId::Workflow {
+        render_layout_canvas(f, detail_column[1], &app.layout_preview);
+    } else {
+        // placeholder for layout preview when not on workflow tab
+        let placeholder = Paragraph::new("Layout preview available on Workflow tab.")
+            .block(Block::default().borders(Borders::ALL).title("Layout preview"));
+        f.render_widget(placeholder, detail_column[1]);
+    }
 
     render_logs(f, chunks[3], app);
 
