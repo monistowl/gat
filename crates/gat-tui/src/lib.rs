@@ -2,6 +2,7 @@ use anyhow::Result;
 use iocraft::terminal::Terminal;
 
 mod command_runner;
+pub use command_runner::CommandHandle;
 pub mod panes;
 pub mod ui;
 
@@ -54,6 +55,17 @@ impl App {
 
     pub fn render(&self) -> String {
         self.shell.render()
+    }
+
+    pub fn select_menu_item(&mut self, hotkey: char) {
+        self.shell.select_menu_item(hotkey);
+    }
+
+    pub fn active_menu_label(&self) -> Option<&str> {
+        self.shell
+            .menu
+            .active_item()
+            .map(|item| item.label.as_str())
     }
 
     pub fn run(&self) -> Result<()> {
