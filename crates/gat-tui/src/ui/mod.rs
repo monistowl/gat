@@ -1,20 +1,28 @@
 use std::fmt::Write;
 
+mod layout;
+mod navigation;
+
 /// The root container for the terminal experience.
+pub use layout::{PaneLayout, ResponsiveRules, Sidebar, SubTabs};
+pub use navigation::{ContextButton, MenuItem, NavMenu};
+
 pub struct AppShell {
     pub title: String,
-    pub root: Pane,
+    pub menu: NavMenu,
     pub tooltip: Option<Tooltip>,
     pub modal: Option<Modal>,
+    viewport: (u16, u16),
 }
 
 impl AppShell {
-    pub fn new(title: impl Into<String>, root: Pane) -> Self {
+    pub fn new(title: impl Into<String>, menu: NavMenu) -> Self {
         Self {
             title: title.into(),
-            root,
+            menu,
             tooltip: None,
             modal: None,
+            viewport: (110, 32),
         }
     }
 
@@ -28,10 +36,25 @@ impl AppShell {
         self
     }
 
+    pub fn with_viewport(mut self, width: u16, height: u16) -> Self {
+        self.viewport = (width, height);
+        self
+    }
+
+    pub fn select_menu_item(&mut self, hotkey: char) {
+        self.menu.select_by_hotkey(hotkey);
+    }
+
     pub fn render(&self) -> String {
+        self.render_with_size(self.viewport.0, self.viewport.1)
+    }
+
+    pub fn render_with_size(&self, width: u16, height: u16) -> String {
         let mut output = String::new();
         let _ = writeln!(&mut output, "┏━━━━━━━━ {} ━━━━━━━━┓", self.title);
-        self.root.render_into(&mut output, 0);
+        let _ = writeln!(&mut output, "{}", self.menu.render_menu_bar());
+        self.menu
+            .render_active_layout_into(&mut output, width, height);
         if let Some(tooltip) = &self.tooltip {
             let _ = writeln!(&mut output, "\n{}", tooltip.render());
         }
@@ -43,6 +66,7 @@ impl AppShell {
 }
 
 /// Flexible content container that can hold nested panes.
+#[derive(Clone, Debug)]
 pub struct Pane {
     pub title: String,
     pub body: Vec<String>,
@@ -50,6 +74,7 @@ pub struct Pane {
     pub tabs: Option<Tabs>,
     pub table: Option<TableView>,
     pub collapsible: Option<Collapsible>,
+    pub visual: bool,
 }
 
 impl Pane {
@@ -61,11 +86,17 @@ impl Pane {
             tabs: None,
             table: None,
             collapsible: None,
+            visual: false,
         }
     }
 
     pub fn body(mut self, lines: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.body = lines.into_iter().map(|l| l.into()).collect();
+        self
+    }
+
+    pub fn mark_visual(mut self) -> Self {
+        self.visual = true;
         self
     }
 
@@ -89,9 +120,18 @@ impl Pane {
         self
     }
 
-    fn render_into(&self, output: &mut String, indent: usize) {
+    fn render_into(&self, output: &mut String, indent: usize, expanded: bool) {
         let pad = " ".repeat(indent * 2);
-        let _ = writeln!(output, "{}▶ {}", pad, self.title);
+        let visual_label = if self.visual && expanded {
+            " (expanded)"
+        } else if self.visual {
+            " (visualizer)"
+        } else if expanded {
+            " (wide)"
+        } else {
+            ""
+        };
+        let _ = writeln!(output, "{}▶ {}{}", pad, self.title, visual_label);
 
         if let Some(collapsible) = &self.collapsible {
             let _ = writeln!(output, "{}  {}", pad, collapsible.render());
@@ -112,12 +152,13 @@ impl Pane {
         }
 
         for child in &self.children {
-            child.render_into(output, indent + 1);
+            child.render_into(output, indent + 1, expanded);
         }
     }
 }
 
 /// A simple collapsible text block.
+#[derive(Clone, Debug)]
 pub struct Collapsible {
     pub label: String,
     pub expanded: bool,
@@ -148,6 +189,7 @@ impl Collapsible {
 }
 
 /// Tab collection used to segment content areas.
+#[derive(Clone, Debug)]
 pub struct Tabs {
     pub labels: Vec<String>,
     pub active: usize,
@@ -179,6 +221,7 @@ impl Tabs {
 }
 
 /// A compact table presentation for small datasets.
+#[derive(Clone, Debug)]
 pub struct TableView {
     pub headers: Vec<String>,
     pub rows: Vec<Vec<String>>,
@@ -217,6 +260,7 @@ impl TableView {
 }
 
 /// Inline helper used to annotate controls or data.
+#[derive(Clone, Debug)]
 pub struct Tooltip {
     pub message: String,
 }
@@ -234,6 +278,7 @@ impl Tooltip {
 }
 
 /// Modal overlay that highlights blocking information.
+#[derive(Clone, Debug)]
 pub struct Modal {
     pub title: String,
     pub body: String,
