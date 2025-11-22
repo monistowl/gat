@@ -172,7 +172,17 @@ impl Component<Msg, NoUserEvent> for DashboardPane {
 }
 
 // Operations Component
-pub struct OperationsPane;
+pub struct OperationsPane {
+    selected_index: usize,  // 0-3 for the 4 sections
+}
+
+impl OperationsPane {
+    pub fn new() -> Self {
+        Self {
+            selected_index: 0,
+        }
+    }
+}
 
 impl MockComponent for OperationsPane {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
@@ -186,24 +196,48 @@ impl MockComponent for OperationsPane {
             ])
             .split(area);
 
+        // DERMS section
+        let derms_style = if self.selected_index == 0 {
+            Style::default().fg(Color::Cyan).bold()
+        } else {
+            Style::default().fg(Color::Cyan)
+        };
         let derms = Paragraph::new("DERMS + ADMS\n  2 queued envelopes\n  1 stress-test running")
             .block(Block::default().borders(Borders::ALL).title("DERMS/ADMS Queue"))
-            .style(Style::default().fg(Color::Cyan));
+            .style(derms_style);
         frame.render_widget(derms, chunks[0]);
 
+        // Batch section
+        let batch_style = if self.selected_index == 1 {
+            Style::default().fg(Color::Yellow).bold()
+        } else {
+            Style::default().fg(Color::Yellow)
+        };
         let batch = Paragraph::new("Batch Operations\n  Status: Ready\n  Active jobs: 0/4\n  Last run: scenarios_2024-11-21.json")
             .block(Block::default().borders(Borders::ALL).title("Batch Ops"))
-            .style(Style::default().fg(Color::Yellow));
+            .style(batch_style);
         frame.render_widget(batch, chunks[1]);
 
+        // Allocation section
+        let alloc_style = if self.selected_index == 2 {
+            Style::default().fg(Color::Green).bold()
+        } else {
+            Style::default().fg(Color::Green)
+        };
         let alloc = Paragraph::new("Allocation Analysis\n  Available results:\n  • Congestion rents decomposition\n  • KPI contribution sensitivity")
             .block(Block::default().borders(Borders::ALL).title("Allocation"))
-            .style(Style::default().fg(Color::Green));
+            .style(alloc_style);
         frame.render_widget(alloc, chunks[2]);
 
+        // Summary section
+        let summary_style = if self.selected_index == 3 {
+            Style::default().fg(Color::White).bold()
+        } else {
+            Style::default().fg(Color::White)
+        };
         let summary = Paragraph::new("Summary: 2 DERMS queued, Batch ready, Next: Dispatch")
             .block(Block::default().borders(Borders::ALL).title("Status"))
-            .style(Style::default().fg(Color::White));
+            .style(summary_style);
         frame.render_widget(summary, chunks[3]);
     }
 
@@ -223,8 +257,26 @@ impl MockComponent for OperationsPane {
 }
 
 impl Component<Msg, NoUserEvent> for OperationsPane {
-    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
-        None
+    fn on(&mut self, ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
+        match ev {
+            TuiEvent::Keyboard(KeyEvent {
+                code: Key::Up, ..
+            }) => {
+                if self.selected_index > 0 {
+                    self.selected_index -= 1;
+                }
+                None
+            }
+            TuiEvent::Keyboard(KeyEvent {
+                code: Key::Down, ..
+            }) => {
+                if self.selected_index < 3 {
+                    self.selected_index += 1;
+                }
+                None
+            }
+            _ => None,
+        }
     }
 }
 
@@ -395,7 +447,7 @@ async fn main() -> Result<()> {
 
     // Mount pane components
     app.mount(Id::Dashboard, Box::new(DashboardPane), vec![])?;
-    app.mount(Id::Operations, Box::new(OperationsPane), vec![])?;
+    app.mount(Id::Operations, Box::new(OperationsPane::new()), vec![])?;
     app.mount(Id::Datasets, Box::new(DatasetsPane), vec![])?;
     app.mount(Id::Pipeline, Box::new(PipelinePane), vec![])?;
     app.mount(Id::Commands, Box::new(CommandsPane), vec![])?;
