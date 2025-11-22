@@ -6,6 +6,8 @@ pub mod gat_core_query_builder;
 pub mod command_service;
 pub mod command_validator;
 pub mod command_export;
+pub mod tui_service_layer;
+pub mod gat_core_service_adapter;
 
 #[cfg(test)]
 mod grid_integration_tests;
@@ -18,3 +20,5 @@ pub use gat_core_query_builder::GatCoreQueryBuilder;
 pub use command_service::{CommandService, CommandExecution, CommandError};
 pub use command_validator::{CommandValidator, ValidCommand, ValidationError};
 pub use command_export::{CommandExporter, ExportFormat, CommandStats};
+pub use tui_service_layer::{TuiServiceLayer, AnalyticsType};
+pub use gat_core_service_adapter::{GatCoreCliAdapter, LocalFileAdapter};
