@@ -369,6 +369,7 @@ fn operations_shows_batch_and_allocation() {
         .assert_contains("KPI contribution");
 }
 
+
 // Uncomment to use for manual testing:
 //
 // #[test]
