@@ -11,3 +11,4 @@ anyhow = "1.0"
 iocraft = { path = "../iocraft" }
 termios = "0.3"
 libc = "0.2"
+once_cell = "1.19"

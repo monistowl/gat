@@ -22,6 +22,52 @@ impl Theme {
         }
     }
 
+    /// Get a theme based on terminal capabilities
+    /// Uses UTF-8 if locale supports it, falls back to ASCII
+    pub fn auto() -> Self {
+        if Self::supports_utf8() {
+            Self::new()
+        } else {
+            Self::ascii()
+        }
+    }
+
+    /// ASCII-only theme for terminals without UTF-8 support
+    pub const fn ascii() -> Self {
+        Self {
+            accent: "|",
+            muted: ".",
+            heavy_border: "=",
+            light_border: "-",
+            padding: 2,
+            table_gap: " | ",
+            empty_icon: "o",
+        }
+    }
+
+    fn supports_utf8() -> bool {
+        // Check LANG environment variable
+        if let Ok(lang) = std::env::var("LANG") {
+            if lang.contains("UTF") || lang.contains("utf") {
+                return true;
+            }
+        }
+        // Check LC_ALL
+        if let Ok(lc) = std::env::var("LC_ALL") {
+            if lc.contains("UTF") || lc.contains("utf") {
+                return true;
+            }
+        }
+        // Check LC_CTYPE
+        if let Ok(lc) = std::env::var("LC_CTYPE") {
+            if lc.contains("UTF") || lc.contains("utf") {
+                return true;
+            }
+        }
+        // Default: assume UTF-8 is available
+        true
+    }
+
     pub fn indent(&self, depth: usize) -> String {
         " ".repeat(depth * self.padding)
     }
@@ -63,4 +109,6 @@ impl EmptyState {
     }
 }
 
-pub static THEME: Theme = Theme::new();
+use once_cell::sync::Lazy;
+
+pub static THEME: Lazy<Theme> = Lazy::new(Theme::auto);

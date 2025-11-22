@@ -1645,6 +1645,7 @@ dependencies = [
  "anyhow",
  "iocraft",
  "libc",
+ "once_cell",
  "termios",
 ]
 
