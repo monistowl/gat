@@ -1,4 +1,5 @@
 use crate::DatasetEntry;
+use async_trait::async_trait;
 
 /// Error type for query operations
 #[derive(Debug, Clone)]
@@ -25,6 +26,7 @@ impl std::fmt::Display for QueryError {
 impl std::error::Error for QueryError {}
 
 /// Trait for querying application data
+#[async_trait]
 pub trait QueryBuilder: Send + Sync {
     /// Fetch all available datasets
     async fn get_datasets(&self) -> Result<Vec<DatasetEntry>, QueryError>;
@@ -36,6 +38,7 @@ pub trait QueryBuilder: Send + Sync {
 /// Mock implementation using fixture data
 pub struct MockQueryBuilder;
 
+#[async_trait]
 impl QueryBuilder for MockQueryBuilder {
     async fn get_datasets(&self) -> Result<Vec<DatasetEntry>, QueryError> {
         Ok(crate::create_fixture_datasets())

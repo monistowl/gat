@@ -393,6 +393,33 @@ pub struct PFResult {
     pub loss_mw: f64,
 }
 
+/// A workflow execution record
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Workflow {
+    pub id: String,
+    pub name: String,
+    pub status: WorkflowStatus,
+    pub created_by: String,
+    pub created_at: std::time::SystemTime,
+    pub completed_at: Option<std::time::SystemTime>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum WorkflowStatus {
+    Pending,
+    Running,
+    Succeeded,
+    Failed,
+}
+
+/// System metrics for Dashboard
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SystemMetrics {
+    pub deliverability_score: f64,  // 0-100
+    pub lole_hours_per_year: f64,   // Loss of Load Expectation
+    pub eue_mwh_per_year: f64,      // Expected Unserved Energy
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

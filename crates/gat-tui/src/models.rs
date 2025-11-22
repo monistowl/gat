@@ -1,7 +1,10 @@
 use std::collections::HashMap;
+use std::sync::Arc;
+use crate::{QueryBuilder, QueryError, DatasetEntry};
+use crate::data::{Workflow, SystemMetrics};
 
 /// Global application state
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct AppState {
     pub active_pane: PaneId,
     pub pane_states: HashMap<PaneId, PaneState>,
@@ -14,6 +17,43 @@ pub struct AppState {
     pub terminal_width: u16,
     pub terminal_height: u16,
     pub async_tasks: HashMap<String, AsyncTaskState>,
+
+    // Query service
+    pub query_builder: Arc<dyn QueryBuilder>,
+
+    // Async task tracking
+    pub datasets_loading: bool,
+    pub workflows_loading: bool,
+    pub metrics_loading: bool,
+
+    // Results cache
+    pub datasets: Option<Result<Vec<DatasetEntry>, QueryError>>,
+    pub workflows: Option<Result<Vec<Workflow>, QueryError>>,
+    pub metrics: Option<Result<SystemMetrics, QueryError>>,
+}
+
+impl std::fmt::Debug for AppState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppState")
+            .field("active_pane", &self.active_pane)
+            .field("pane_states", &self.pane_states)
+            .field("command_queue", &self.command_queue)
+            .field("notifications", &self.notifications)
+            .field("settings", &self.settings)
+            .field("error_state", &self.error_state)
+            .field("modal_state", &self.modal_state)
+            .field("should_quit", &self.should_quit)
+            .field("terminal_width", &self.terminal_width)
+            .field("terminal_height", &self.terminal_height)
+            .field("async_tasks", &self.async_tasks)
+            .field("datasets_loading", &self.datasets_loading)
+            .field("workflows_loading", &self.workflows_loading)
+            .field("metrics_loading", &self.metrics_loading)
+            .field("datasets", &self.datasets)
+            .field("workflows", &self.workflows)
+            .field("metrics", &self.metrics)
+            .finish()
+    }
 }
 
 /// Pane identifier
@@ -222,6 +262,8 @@ pub struct InfoState {
 
 impl AppState {
     pub fn new() -> Self {
+        use crate::services::MockQueryBuilder;
+
         let mut pane_states = HashMap::new();
         pane_states.insert(PaneId::Dashboard, PaneState::default());
         pane_states.insert(PaneId::Operations, PaneState::default());
@@ -229,6 +271,8 @@ impl AppState {
         pane_states.insert(PaneId::Pipeline, PaneState::default());
         pane_states.insert(PaneId::Commands, PaneState::default());
         pane_states.insert(PaneId::Help, PaneState::default());
+
+        let query_builder = Arc::new(MockQueryBuilder);
 
         AppState {
             active_pane: PaneId::Dashboard,
@@ -242,6 +286,13 @@ impl AppState {
             terminal_width: 80,
             terminal_height: 24,
             async_tasks: HashMap::new(),
+            query_builder,
+            datasets_loading: false,
+            workflows_loading: false,
+            metrics_loading: false,
+            datasets: None,
+            workflows: None,
+            metrics: None,
         }
     }
 
