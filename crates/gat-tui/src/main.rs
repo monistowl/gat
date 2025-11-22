@@ -22,15 +22,21 @@ async fn main() -> Result<()> {
 
     let mut app = Application::new();
 
-    // Build the UI shell with all panes
-    let context = PaneContext::new().with_modal(CommandModal::new("Command", "Enter command", 'x'));
-    let shell = PanelRegistry::new(context)
-        .register(DashboardPane)
-        .register(OperationsPane)
-        .register(DatasetsPane)
-        .register(PipelinePane)
-        .register(CommandsPane)
-        .into_shell("GAT TUI");
+    // Track previous active pane to detect changes
+    let mut last_pane = app.state().active_pane;
+
+    let render_shell = || {
+        let context = PaneContext::new().with_modal(CommandModal::new("Command", "Enter command", 'x'));
+        PanelRegistry::new(context)
+            .register(DashboardPane)
+            .register(OperationsPane)
+            .register(DatasetsPane)
+            .register(PipelinePane)
+            .register(CommandsPane)
+            .into_shell("GAT TUI")
+    };
+
+    let mut shell = render_shell();
 
     // Render initial screen once
     execute!(
@@ -42,9 +48,8 @@ async fn main() -> Result<()> {
     stdout.write_all(rendered.as_bytes())?;
     stdout.flush()?;
 
-    // Main event loop - only render on state changes
+    // Main event loop - render only on state changes
     loop {
-
         // Handle input events with timeout
         match event::poll(std::time::Duration::from_millis(250)) {
             Ok(true) => {
@@ -109,6 +114,21 @@ async fn main() -> Result<()> {
                 }
             }
             _ => {}
+        }
+
+        // Re-render if state changed (e.g., pane switched)
+        if app.state().active_pane != last_pane {
+            last_pane = app.state().active_pane;
+            // Sync shell menu selection with application state
+            shell.select_menu_item(last_pane.hotkey());
+            execute!(
+                stdout,
+                crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
+                crossterm::cursor::MoveTo(0, 0)
+            )?;
+            let rendered = shell.render();
+            stdout.write_all(rendered.as_bytes())?;
+            stdout.flush()?;
         }
 
         if app.should_quit() {
