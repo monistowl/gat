@@ -303,8 +303,7 @@ fn render_menu_bar(frame: &mut Frame, area: Rect, current_pane: &Id, nav_level: 
 
     frame.render_widget(
         Paragraph::new(menu_text)
-            .style(default_style)
-            .block(Block::default().borders(Borders::BOTTOM)),
+            .style(default_style),
         area,
     );
 }
