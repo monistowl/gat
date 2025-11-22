@@ -1,4 +1,4 @@
-name: Release Build
+name: Release Build and Upload
 
 on:
   push:
@@ -10,90 +10,34 @@ permissions:
   contents: write
 
 jobs:
-  package:
-    name: "Package and upload release artifacts (${{ matrix.os }})"
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+  build-all:
+    name: Build all platforms and variants
+    uses: ./.github/workflows/build-matrix.yml
+    with:
+      verbose_diagnostics: false
+      upload_artifacts: true
 
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      CARGO_TERM_COLOR: always
+  create-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs: build-all
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ensure jq is available
-        run: |
-          if [[ "${RUNNER_OS}" == "Linux" ]]; then
-            sudo apt-get update
-            sudo apt-get install -y jq
-          elif [[ "${RUNNER_OS}" == "macOS" ]]; then
-            brew install jq || true
-          fi
-
       - name: Determine version
-        id: metadata
+        id: version
         run: |
-          source scripts/release-utils.sh
-          version=$(release_version)
-          if [[ -z "$version" || "$version" == "null" ]]; then
-            echo "workspace_metadata.release.version is not defined" >&2
-            exit 1
-          fi
-          echo "version<<EOF" >> $GITHUB_OUTPUT
-          echo "${version}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Determine OS/arch
-        id: osinfo
-        run: |
-          source scripts/release-utils.sh
-          os=$(detect_os)
-          arch=$(detect_arch)
-          echo "os<<EOF" >> $GITHUB_OUTPUT
-          echo "${os}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "arch<<EOF" >> $GITHUB_OUTPUT
-          echo "${arch}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Ensure solver discovery
-        run: |
-          source scripts/release-utils.sh
-          source scripts/solver-discovery.sh
-          install_solver_deps
-          ensure_solvers_available
-
-      - name: Package release artifacts
-        run: scripts/package.sh
+          version="${{ github.ref_name }}"
+          echo "tag=${version}" >> $GITHUB_OUTPUT
 
       - name: Create GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
-        id: release
         uses: actions/create-release@v1
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Gat ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: GAT ${{ steps.version.outputs.tag }}
           draft: false
           prerelease: false
-          auth_token: ${{ env.GITHUB_TOKEN }}
-
-      - name: Upload headless artifact
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: dist/gat-${{ steps.metadata.outputs.version }}-${{ steps.osinfo.outputs.os }}-${{ steps.osinfo.outputs.arch }}-headless.tar.gz
-          asset_name: gat-${{ steps.metadata.outputs.version }}-${{ steps.osinfo.outputs.os }}-${{ steps.osinfo.outputs.arch }}-headless.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload full artifact
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: dist/gat-${{ steps.metadata.outputs.version }}-${{ steps.osinfo.outputs.os }}-${{ steps.osinfo.outputs.arch }}-full.tar.gz
-          asset_name: gat-${{ steps.metadata.outputs.version }}-${{ steps.osinfo.outputs.os }}-${{ steps.osinfo.outputs.arch }}-full.tar.gz
-          asset_content_type: application/gzip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
