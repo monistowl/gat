@@ -23,6 +23,11 @@ If you’re comfortable running simple CLI commands and want to start doing *rea
 * N-1 contingency analysis
 * Time-series resampling, joining, aggregation
 * State estimation (WLS)
+* **Distribution automation** (FLISR/VVO/outage coordination via ADMS)
+* **DER analytics** (envelope aggregation, pricing-based scheduling via DERMS)
+* **Distribution system modeling** (hosting-capacity analysis, AC optimal power flows)
+* **Interactive terminal UI** (TUI) for workflows, datasets, pipelines, and batch jobs
+* **Reliability metrics** (energy unserved, loss-of-load expectation, delivery capability)
 
 **Why Rust?**
 Because Rust gives you C-like execution speed without unsafe foot-guns. For grid models with thousands of buses/branches, that matters. Even on a laptop.
