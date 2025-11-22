@@ -161,6 +161,36 @@ fn handle_datasets(
                 file_path: path,
             });
         }
+        DatasetsMessage::FetchDatasets => {
+            // Spawn async fetch task
+            let task_id = "fetch_datasets".to_string();
+            state.datasets_loading = true;
+            state
+                .async_tasks
+                .insert(task_id.clone(), AsyncTaskState::Running);
+            effects.push(SideEffect::FetchDatasets { task_id });
+        }
+        DatasetsMessage::DatasetsLoaded(result) => {
+            // Handle fetch completion
+            state.datasets = Some(result.clone());
+            state.datasets_loading = false;
+            state.async_tasks.remove("fetch_datasets");
+
+            match result {
+                Ok(datasets) => {
+                    state.add_notification(
+                        &format!("Loaded {} datasets", datasets.len()),
+                        NotificationKind::Success,
+                    );
+                }
+                Err(e) => {
+                    state.add_notification(
+                        &format!("Failed to load datasets: {}", e),
+                        NotificationKind::Error,
+                    );
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -233,6 +263,7 @@ pub enum SideEffect {
     ExecuteCommand { task_id: String, command: String },
     UploadDataset { task_id: String, file_path: String },
     FetchMetrics { task_id: String },
+    FetchDatasets { task_id: String },
     SaveSettings(AppSettings),
     // Add more as needed
 }

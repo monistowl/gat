@@ -54,6 +54,14 @@ impl PaneIntegrator {
                 None
             }
             DatasetsMessage::SelectDataset(_idx) => None, // Local selection only
+            DatasetsMessage::FetchDatasets => {
+                // Fetch datasets from service - handled in update.rs
+                None
+            }
+            DatasetsMessage::DatasetsLoaded(_result) => {
+                // Results handled in update.rs
+                None
+            }
         }
     }
 
