@@ -3,6 +3,7 @@ pub mod models;
 pub mod events;
 pub mod theme;
 pub mod components;
+pub mod pane_components;
 pub mod message;
 pub mod update;
 pub mod navigation;

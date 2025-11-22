@@ -1,123 +1,22 @@
-use anyhow::Result;
-use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use std::io;
-use std::time::Duration;
+/// Tuirealm-based implementations of gat-tui panes
 use tuirealm::{
-    application::PollStrategy,
     command::{Cmd, CmdResult},
-    event::{Key, KeyEvent},
     props::{Color, Style},
     ratatui::layout::{Constraint, Direction, Layout, Rect},
     ratatui::style::Stylize,
     ratatui::widgets::{Block, Borders, Paragraph},
-    terminal::{CrosstermTerminalAdapter, TerminalBridge},
-    Application, AttrValue, Attribute, Component, Event as TuiEvent, EventListenerCfg, Frame,
-    MockComponent, NoUserEvent, Props, State,
+    AttrValue, Attribute, Component, Event as TuiEvent, Frame, MockComponent, NoUserEvent,
+    State,
 };
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub enum Id {
-    Dashboard,
-    Operations,
-    Datasets,
-    Pipeline,
-    Commands,
-}
+// Dummy message type - pane components don't send messages
+#[derive(Debug, Clone, PartialEq)]
+pub struct PaneMsg;
 
-#[derive(Debug, PartialEq)]
-pub enum Msg {
-    AppClose,
-    SwitchPane(Id),
-}
+/// Dashboard Pane - Status overview and quick actions
+pub struct DashboardComponent;
 
-// Header component
-pub struct Header {
-    props: Props,
-}
-
-impl Header {
-    pub fn new(title: &str) -> Self {
-        let mut props = Props::default();
-        props.set(Attribute::Text, AttrValue::String(title.to_string()));
-        Self { props }
-    }
-}
-
-impl MockComponent for Header {
-    fn view(&mut self, frame: &mut Frame, area: Rect) {
-        let text = self
-            .props
-            .get_or(Attribute::Text, AttrValue::String(String::default()))
-            .unwrap_string();
-
-        frame.render_widget(
-            Paragraph::new(text)
-                .style(Style::default().fg(Color::Cyan).bold())
-                .block(Block::default().borders(Borders::BOTTOM)),
-            area,
-        );
-    }
-
-    fn query(&self, attr: Attribute) -> Option<AttrValue> {
-        self.props.get(attr)
-    }
-
-    fn attr(&mut self, attr: Attribute, value: AttrValue) {
-        self.props.set(attr, value);
-    }
-
-    fn state(&self) -> State {
-        State::None
-    }
-
-    fn perform(&mut self, _: Cmd) -> CmdResult {
-        CmdResult::None
-    }
-}
-
-impl Component<Msg, NoUserEvent> for Header {
-    fn on(&mut self, ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
-        match ev {
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Esc, ..
-            }) => Some(Msg::AppClose),
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Char('1'),
-                ..
-            }) => Some(Msg::SwitchPane(Id::Dashboard)),
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Char('2'),
-                ..
-            }) => Some(Msg::SwitchPane(Id::Operations)),
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Char('3'),
-                ..
-            }) => Some(Msg::SwitchPane(Id::Datasets)),
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Char('4'),
-                ..
-            }) => Some(Msg::SwitchPane(Id::Pipeline)),
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Char('5'),
-                ..
-            }) => Some(Msg::SwitchPane(Id::Commands)),
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Char('q'),
-                ..
-            }) => Some(Msg::AppClose),
-            _ => None,
-        }
-    }
-}
-
-// Dashboard Component
-pub struct DashboardPane;
-
-impl MockComponent for DashboardPane {
+impl MockComponent for DashboardComponent {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -129,21 +28,25 @@ impl MockComponent for DashboardPane {
             ])
             .split(area);
 
+        // Status Card
         let status = Paragraph::new("Status\n  Overall: healthy\n  Running: 1 workflow\n  Queued: 2 actions")
             .block(Block::default().borders(Borders::ALL).title("Status"))
             .style(Style::default().fg(Color::Green));
         frame.render_widget(status, chunks[0]);
 
+        // Reliability Metrics
         let metrics = Paragraph::new("Reliability Metrics\n  ✓ Deliverability Score: 85.5%\n  ⚠ LOLE: 9.2 h/yr\n  ⚠ EUE: 15.3 MWh/yr")
             .block(Block::default().borders(Borders::ALL).title("Metrics"))
             .style(Style::default().fg(Color::Cyan));
         frame.render_widget(metrics, chunks[1]);
 
+        // Recent Runs (as text, not table)
         let runs = Paragraph::new("Recent Runs\n  ingest-2304       Succeeded  alice              42s\n  transform-7781    Running    ops                live\n  solve-9912        Pending    svc-derms          queued")
             .block(Block::default().borders(Borders::ALL).title("Recent Activity"))
             .style(Style::default().fg(Color::Yellow));
         frame.render_widget(runs, chunks[2]);
 
+        // Quick Actions
         let actions = Paragraph::new("Quick Actions\n  [Enter] Run highlighted workflow\n  [R] Retry last failed step\n  [E] Edit config before dispatch")
             .block(Block::default().borders(Borders::ALL).title("Actions"))
             .style(Style::default().fg(Color::Magenta));
@@ -165,16 +68,16 @@ impl MockComponent for DashboardPane {
     }
 }
 
-impl Component<Msg, NoUserEvent> for DashboardPane {
-    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
+impl Component<PaneMsg, NoUserEvent> for DashboardComponent {
+    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<PaneMsg> {
         None
     }
 }
 
-// Operations Component
-pub struct OperationsPane;
+/// Operations Pane - DERMS/ADMS/Batch operations
+pub struct OperationsComponent;
 
-impl MockComponent for OperationsPane {
+impl MockComponent for OperationsComponent {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -186,21 +89,25 @@ impl MockComponent for OperationsPane {
             ])
             .split(area);
 
+        // DERMS/ADMS
         let derms = Paragraph::new("DERMS + ADMS\n  2 queued envelopes\n  1 stress-test running")
             .block(Block::default().borders(Borders::ALL).title("DERMS/ADMS Queue"))
             .style(Style::default().fg(Color::Cyan));
         frame.render_widget(derms, chunks[0]);
 
+        // Batch Operations
         let batch = Paragraph::new("Batch Operations\n  Status: Ready\n  Active jobs: 0/4\n  Last run: scenarios_2024-11-21.json")
             .block(Block::default().borders(Borders::ALL).title("Batch Ops"))
             .style(Style::default().fg(Color::Yellow));
         frame.render_widget(batch, chunks[1]);
 
+        // Allocation
         let alloc = Paragraph::new("Allocation Analysis\n  Available results:\n  • Congestion rents decomposition\n  • KPI contribution sensitivity")
             .block(Block::default().borders(Borders::ALL).title("Allocation"))
             .style(Style::default().fg(Color::Green));
         frame.render_widget(alloc, chunks[2]);
 
+        // Summary
         let summary = Paragraph::new("Summary: 2 DERMS queued, Batch ready, Next: Dispatch")
             .block(Block::default().borders(Borders::ALL).title("Status"))
             .style(Style::default().fg(Color::White));
@@ -222,16 +129,16 @@ impl MockComponent for OperationsPane {
     }
 }
 
-impl Component<Msg, NoUserEvent> for OperationsPane {
-    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
+impl Component<PaneMsg, NoUserEvent> for OperationsComponent {
+    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<PaneMsg> {
         None
     }
 }
 
-// Datasets Component
-pub struct DatasetsPane;
+/// Datasets Pane - Data catalog and downloads
+pub struct DatasetsComponent;
 
-impl MockComponent for DatasetsPane {
+impl MockComponent for DatasetsComponent {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -242,16 +149,19 @@ impl MockComponent for DatasetsPane {
             ])
             .split(area);
 
+        // Catalog
         let catalog = Paragraph::new("Data Catalog\n  OPSD snapshot\n  Airtravel tutorial")
             .block(Block::default().borders(Borders::ALL).title("Catalog"))
             .style(Style::default().fg(Color::Green));
         frame.render_widget(catalog, chunks[0]);
 
+        // Workflows (as text)
         let workflows = Paragraph::new("Workflows\n  Ingest       Ready    just now\n  Transform    Idle     1m ago\n  Solve        Pending  3m ago")
             .block(Block::default().borders(Borders::ALL).title("Workflows"))
             .style(Style::default().fg(Color::Yellow));
         frame.render_widget(workflows, chunks[1]);
 
+        // Downloads
         let downloads = Paragraph::new("No downloads queued\nRun a fetch to pull sample data")
             .block(Block::default().borders(Borders::ALL).title("Downloads"))
             .style(Style::default().fg(Color::DarkGray).dim());
@@ -273,16 +183,16 @@ impl MockComponent for DatasetsPane {
     }
 }
 
-impl Component<Msg, NoUserEvent> for DatasetsPane {
-    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
+impl Component<PaneMsg, NoUserEvent> for DatasetsComponent {
+    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<PaneMsg> {
         None
     }
 }
 
-// Pipeline Component
-pub struct PipelinePane;
+/// Pipeline Pane - Pipeline composition and transformation
+pub struct PipelineComponent;
 
-impl MockComponent for PipelinePane {
+impl MockComponent for PipelineComponent {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -293,16 +203,19 @@ impl MockComponent for PipelinePane {
             ])
             .split(area);
 
+        // Source Selection
         let source = Paragraph::new("Source Selection\n  Radio: (•) Live telemetry stream\n  Dropdown: Dataset variant ↴\n  [Day-ahead | Real-time | Sandbox]")
             .block(Block::default().borders(Borders::ALL).title("Source"))
             .style(Style::default().fg(Color::Cyan));
         frame.render_widget(source, chunks[0]);
 
+        // Transforms
         let transforms = Paragraph::new("Transforms\n  Classic: Resample, Gap-fill, Forecast smoothing\n  Scenarios: Template materialization\n  Features: GNN, KPI, Geo features")
             .block(Block::default().borders(Borders::ALL).title("Transforms"))
             .style(Style::default().fg(Color::Magenta));
         frame.render_widget(transforms, chunks[1]);
 
+        // Outputs
         let outputs = Paragraph::new("Outputs: Warehouse table, DERMS feed, Notebook\nDelivery: Single run report or Continuous subscription")
             .block(Block::default().borders(Borders::ALL).title("Outputs"))
             .style(Style::default().fg(Color::Green));
@@ -324,16 +237,16 @@ impl MockComponent for PipelinePane {
     }
 }
 
-impl Component<Msg, NoUserEvent> for PipelinePane {
-    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
+impl Component<PaneMsg, NoUserEvent> for PipelineComponent {
+    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<PaneMsg> {
         None
     }
 }
 
-// Commands Component
-pub struct CommandsPane;
+/// Commands Pane - gat-cli command snippets
+pub struct CommandsComponent;
 
-impl MockComponent for CommandsPane {
+impl MockComponent for CommandsComponent {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -344,16 +257,19 @@ impl MockComponent for CommandsPane {
             ])
             .split(area);
 
+        // Instructions
         let instructions = Paragraph::new("Author gat-cli commands as snippets and run with hotkeys\nDry-runs print invocation; full runs stream output")
             .block(Block::default().borders(Borders::ALL).title("Workspace"))
             .style(Style::default().fg(Color::Yellow));
         frame.render_widget(instructions, chunks[0]);
 
+        // Snippets (as text)
         let snippets = Paragraph::new("Snippets\n  gat-cli datasets list --limit 5                    Verify connectivity\n  gat-cli derms envelope --grid-file <case>         Preview envelope\n  gat-cli dist import matpower --m <file>            Import test case")
             .block(Block::default().borders(Borders::ALL).title("Command Snippets"))
             .style(Style::default().fg(Color::White));
         frame.render_widget(snippets, chunks[1]);
 
+        // Recent Results
         let recent = Paragraph::new("Recent: ✔ datasets list (5 rows), ✔ envelope preview")
             .block(Block::default().borders(Borders::ALL).title("Recent Results"))
             .style(Style::default().fg(Color::Green));
@@ -375,113 +291,8 @@ impl MockComponent for CommandsPane {
     }
 }
 
-impl Component<Msg, NoUserEvent> for CommandsPane {
-    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
+impl Component<PaneMsg, NoUserEvent> for CommandsComponent {
+    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<PaneMsg> {
         None
     }
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    // Setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-
-    // Create tuirealm application
-    let event_listener = EventListenerCfg::default()
-        .crossterm_input_listener(Duration::from_millis(20), 20);
-    let mut app: Application<Id, Msg, NoUserEvent> = Application::init(event_listener);
-
-    // Mount pane components
-    app.mount(Id::Dashboard, Box::new(DashboardPane), vec![])?;
-    app.mount(Id::Operations, Box::new(OperationsPane), vec![])?;
-    app.mount(Id::Datasets, Box::new(DatasetsPane), vec![])?;
-    app.mount(Id::Pipeline, Box::new(PipelinePane), vec![])?;
-    app.mount(Id::Commands, Box::new(CommandsPane), vec![])?;
-
-    app.active(&Id::Dashboard)?;
-
-    // Initialize terminal bridge
-    let mut terminal = TerminalBridge::init(CrosstermTerminalAdapter::new()?)?;
-    let mut current_pane = Id::Dashboard;
-    let mut should_quit = false;
-
-    // Main loop
-    while !should_quit {
-        // Render
-        terminal.draw(|f| {
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(2),
-                    Constraint::Length(1),
-                    Constraint::Min(5),
-                ])
-                .split(f.area());
-
-            // Header
-            let pane_name = match current_pane {
-                Id::Dashboard => "Dashboard - Status overview and quick actions",
-                Id::Operations => "Operations - DERMS/ADMS/Batch operations",
-                Id::Datasets => "Datasets - Data catalog and workflows",
-                Id::Pipeline => "Pipeline - Transformation and composition",
-                Id::Commands => "Commands - gat-cli snippets and execution",
-            };
-            let header_text = format!("GAT TUI - {}", pane_name);
-            f.render_widget(
-                Paragraph::new(header_text)
-                    .style(Style::default().fg(Color::Cyan).bold())
-                    .block(Block::default().borders(Borders::BOTTOM)),
-                chunks[0],
-            );
-
-            // Menu
-            let menu_indicators = [
-                if matches!(current_pane, Id::Dashboard) { "[*1]" } else { "[ 1]" },
-                if matches!(current_pane, Id::Operations) { "[*2]" } else { "[ 2]" },
-                if matches!(current_pane, Id::Datasets) { "[*3]" } else { "[ 3]" },
-                if matches!(current_pane, Id::Pipeline) { "[*4]" } else { "[ 4]" },
-                if matches!(current_pane, Id::Commands) { "[*5]" } else { "[ 5]" },
-            ];
-            let menu_text = format!(
-                "{} Dashboard  {} Operations  {} Datasets  {} Pipeline  {} Commands  |  ESC/Q to quit",
-                menu_indicators[0], menu_indicators[1], menu_indicators[2], menu_indicators[3], menu_indicators[4]
-            );
-            f.render_widget(
-                Paragraph::new(menu_text)
-                    .style(Style::default().fg(Color::White))
-                    .block(Block::default().borders(Borders::BOTTOM)),
-                chunks[1],
-            );
-
-            // Active pane content
-            app.view(&current_pane, f, chunks[2]);
-        })?;
-
-        // Handle events
-        match app.tick(PollStrategy::Once) {
-            Ok(messages) if !messages.is_empty() => {
-                for msg in messages {
-                    match msg {
-                        Msg::AppClose => {
-                            should_quit = true;
-                        }
-                        Msg::SwitchPane(pane) => {
-                            current_pane = pane.clone();
-                            app.active(&pane)?;
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    // Cleanup
-    terminal.restore()?;
-    disable_raw_mode()?;
-    execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
-
-    Ok(())
 }
