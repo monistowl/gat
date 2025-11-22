@@ -345,6 +345,18 @@ fn pilot_step_history_inspection() {
     assert_eq!(pilot.history().len(), 2);
 }
 
+#[test]
+fn pipeline_shows_new_transform_options() {
+    let mut pilot = TuiPilot::new();
+
+    pilot.press('4').screenshot();
+    pilot.assert_active("Pipeline")
+        .assert_contains("Scenario materialization")
+        .assert_contains("Feature engineering")
+        .assert_contains("GNN")
+        .assert_contains("KPI");
+}
+
 // Uncomment to use for manual testing:
 //
 // #[test]

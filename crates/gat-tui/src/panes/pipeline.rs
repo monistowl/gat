@@ -14,14 +14,36 @@ impl PipelinePane {
             "Quick tip: Swap sources without breaking downstream transforms.",
         ]);
 
-        let transform_tabs = Tabs::new(["Normalize", "Enrich", "Validate"], 0);
-        let transforms = Pane::new("Transforms")
+        // Standard transforms
+        let standard_transforms = Pane::new("Standard transforms").body([
+            "Radio: (•) Use template 'Grid cleanup'  |  ( ) Start blank",
+            "Dropdown: Insert transform ↴ [Resample, Gap-fill, Forecast smoothing]",
+            "Quick tip: Add step drops a transform under the highlighted row.",
+            "Quick tip: Reorder keeps dependencies intact and updates previews.",
+        ]);
+
+        // New feature transforms
+        let scenario_transforms = Pane::new("Scenario materialization")
             .body([
-                "Radio: (•) Use template 'Grid cleanup'  |  ( ) Start blank",
-                "Dropdown: Insert transform ↴ [Resample, Gap-fill, Forecast smoothing]",
-                "Quick tip: “Add step” drops a transform under the highlighted row.",
-                "Quick tip: “Reorder” keeps dependencies intact and updates previews.",
-            ])
+                "Materialize templated scenarios into full manifest",
+                "File: scenarios.yaml → Manifest: scenarios_expanded.json",
+                "Status: [Queued] Ready to load template",
+            ]);
+
+        let featurize_transforms = Pane::new("Feature engineering")
+            .body([
+                "Transform grid data into ML-ready features",
+                "Available:",
+                "  • GNN: Export graph topology for neural networks",
+                "  • KPI: Generate training features from batch results",
+                "  • Geo: Spatial-temporal features from geospatial data",
+            ]);
+
+        let transform_tabs = Tabs::new(["Classic", "Scenarios", "Features"], 0);
+        let transforms = Pane::new("Transforms")
+            .with_child(standard_transforms)
+            .with_child(scenario_transforms)
+            .with_child(featurize_transforms)
             .with_tabs(transform_tabs);
 
         let outputs = Pane::new("Outputs").body([
