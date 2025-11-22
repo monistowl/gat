@@ -112,8 +112,44 @@ pub fn update(mut state: AppState, msg: Message) -> (AppState, Vec<SideEffect>) 
     (state, effects)
 }
 
-fn handle_dashboard(_state: &mut AppState, _msg: DashboardMessage, _effects: &mut Vec<SideEffect>) {
-    // TODO: Implement dashboard logic
+fn handle_dashboard(
+    state: &mut AppState,
+    msg: DashboardMessage,
+    effects: &mut Vec<SideEffect>,
+) {
+    match msg {
+        DashboardMessage::RefreshMetrics | DashboardMessage::FetchMetrics => {
+            let task_id = "fetch_metrics".to_string();
+            state.metrics_loading = true;
+            state
+                .async_tasks
+                .insert(task_id.clone(), AsyncTaskState::Running);
+            effects.push(SideEffect::FetchMetrics { task_id });
+        }
+        DashboardMessage::MetricsLoaded(result) => {
+            state.metrics = Some(result.clone());
+            state.metrics_loading = false;
+            state.async_tasks.remove("fetch_metrics");
+
+            match result {
+                Ok(_metrics) => {
+                    state.add_notification(
+                        "Metrics loaded successfully",
+                        NotificationKind::Success,
+                    );
+                }
+                Err(e) => {
+                    state.add_notification(
+                        &format!("Failed to load metrics: {}", e),
+                        NotificationKind::Error,
+                    );
+                }
+            }
+        }
+        DashboardMessage::ClickMetric(_) => {
+            // Local handling - no async
+        }
+    }
 }
 
 fn handle_commands(
@@ -138,6 +174,31 @@ fn handle_commands(
                 .entry(PaneId::Commands)
                 .or_insert_with(PaneState::default);
             pane_state.form_values.insert("search".to_string(), query);
+        }
+        CommandsMessage::FetchCommands => {
+            let task_id = "fetch_commands".to_string();
+            state
+                .async_tasks
+                .insert(task_id.clone(), AsyncTaskState::Running);
+            effects.push(SideEffect::FetchCommands { task_id });
+        }
+        CommandsMessage::CommandsLoaded(result) => {
+            state.async_tasks.remove("fetch_commands");
+
+            match result {
+                Ok(commands) => {
+                    state.add_notification(
+                        &format!("Loaded {} commands", commands.len()),
+                        NotificationKind::Success,
+                    );
+                }
+                Err(e) => {
+                    state.add_notification(
+                        &format!("Failed to load commands: {}", e),
+                        NotificationKind::Error,
+                    );
+                }
+            }
         }
         _ => {
             // Other command messages
@@ -195,12 +256,81 @@ fn handle_datasets(
     }
 }
 
-fn handle_pipeline(_state: &mut AppState, _msg: PipelineMessage, _effects: &mut Vec<SideEffect>) {
-    // TODO: Implement pipeline logic
+fn handle_pipeline(
+    state: &mut AppState,
+    msg: PipelineMessage,
+    effects: &mut Vec<SideEffect>,
+) {
+    match msg {
+        PipelineMessage::FetchPipeline => {
+            let task_id = "fetch_pipeline".to_string();
+            state
+                .async_tasks
+                .insert(task_id.clone(), AsyncTaskState::Running);
+            effects.push(SideEffect::FetchPipeline { task_id });
+        }
+        PipelineMessage::PipelineLoaded(result) => {
+            state.async_tasks.remove("fetch_pipeline");
+
+            match result {
+                Ok(_config) => {
+                    state.add_notification(
+                        "Pipeline configuration loaded",
+                        NotificationKind::Success,
+                    );
+                }
+                Err(e) => {
+                    state.add_notification(
+                        &format!("Failed to load pipeline: {}", e),
+                        NotificationKind::Error,
+                    );
+                }
+            }
+        }
+        _ => {
+            // TODO: Implement other pipeline operations
+        }
+    }
 }
 
-fn handle_operations(_state: &mut AppState, _msg: OperationsMessage, _effects: &mut Vec<SideEffect>) {
-    // TODO: Implement operations logic
+fn handle_operations(
+    state: &mut AppState,
+    msg: OperationsMessage,
+    effects: &mut Vec<SideEffect>,
+) {
+    match msg {
+        OperationsMessage::FetchOperations => {
+            let task_id = "fetch_operations".to_string();
+            state.workflows_loading = true;
+            state
+                .async_tasks
+                .insert(task_id.clone(), AsyncTaskState::Running);
+            effects.push(SideEffect::FetchOperations { task_id });
+        }
+        OperationsMessage::OperationsLoaded(result) => {
+            state.workflows = Some(result.clone());
+            state.workflows_loading = false;
+            state.async_tasks.remove("fetch_operations");
+
+            match result {
+                Ok(workflows) => {
+                    state.add_notification(
+                        &format!("Loaded {} operations", workflows.len()),
+                        NotificationKind::Success,
+                    );
+                }
+                Err(e) => {
+                    state.add_notification(
+                        &format!("Failed to load operations: {}", e),
+                        NotificationKind::Error,
+                    );
+                }
+            }
+        }
+        _ => {
+            // TODO: Implement other operations
+        }
+    }
 }
 
 fn handle_settings(state: &mut AppState, msg: SettingsMessage) {
@@ -264,6 +394,9 @@ pub enum SideEffect {
     UploadDataset { task_id: String, file_path: String },
     FetchMetrics { task_id: String },
     FetchDatasets { task_id: String },
+    FetchOperations { task_id: String },
+    FetchPipeline { task_id: String },
+    FetchCommands { task_id: String },
     SaveSettings(AppSettings),
     // Add more as needed
 }

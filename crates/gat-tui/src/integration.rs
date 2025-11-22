@@ -85,6 +85,10 @@ impl PaneIntegrator {
             PipelineMessage::RemoveTransform(_) => None,
             PipelineMessage::SelectNode(_) => None,
             PipelineMessage::UpdateConfig(_) => None,
+            PipelineMessage::FetchPipeline | PipelineMessage::PipelineLoaded(_) => {
+                // Handled in update.rs
+                None
+            }
         }
     }
 
@@ -131,6 +135,10 @@ impl PaneIntegrator {
                 None
             }
             OperationsMessage::SelectTab(_) => None,
+            OperationsMessage::FetchOperations | OperationsMessage::OperationsLoaded(_) => {
+                // Handled in update.rs
+                None
+            }
         }
     }
 
@@ -142,6 +150,10 @@ impl PaneIntegrator {
             CommandsMessage::SelectCommand(_) => None,
             CommandsMessage::ClearHistory => None,
             CommandsMessage::CancelExecution => None,
+            CommandsMessage::FetchCommands | CommandsMessage::CommandsLoaded(_) => {
+                // Handled in update.rs
+                None
+            }
         }
     }
 }
