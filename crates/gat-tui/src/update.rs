@@ -177,12 +177,15 @@ fn handle_commands(
         }
         CommandsMessage::FetchCommands => {
             let task_id = "fetch_commands".to_string();
+            state.commands_loading = true;
             state
                 .async_tasks
                 .insert(task_id.clone(), AsyncTaskState::Running);
             effects.push(SideEffect::FetchCommands { task_id });
         }
         CommandsMessage::CommandsLoaded(result) => {
+            state.commands = Some(result.clone());
+            state.commands_loading = false;
             state.async_tasks.remove("fetch_commands");
 
             match result {
@@ -264,12 +267,15 @@ fn handle_pipeline(
     match msg {
         PipelineMessage::FetchPipeline => {
             let task_id = "fetch_pipeline".to_string();
+            state.pipeline_loading = true;
             state
                 .async_tasks
                 .insert(task_id.clone(), AsyncTaskState::Running);
             effects.push(SideEffect::FetchPipeline { task_id });
         }
         PipelineMessage::PipelineLoaded(result) => {
+            state.pipeline_config = Some(result.clone());
+            state.pipeline_loading = false;
             state.async_tasks.remove("fetch_pipeline");
 
             match result {
@@ -502,6 +508,181 @@ mod tests {
         assert!(!state2.datasets_loading);
         assert!(state2.datasets.is_some());
         assert!(matches!(&state2.datasets, Some(Ok(_))));
+    }
+
+    // Dashboard async tests
+    #[test]
+    fn test_fetch_metrics_message() {
+        let state = AppState::new();
+        assert!(!state.metrics_loading);
+
+        let msg = Message::Dashboard(DashboardMessage::FetchMetrics);
+        let (new_state, effects) = update(state, msg);
+
+        assert!(new_state.metrics_loading);
+        assert!(!effects.is_empty());
+        match &effects[0] {
+            SideEffect::FetchMetrics { task_id } => {
+                assert_eq!(task_id, "fetch_metrics");
+            }
+            _ => panic!("Expected FetchMetrics side effect"),
+        }
+    }
+
+    #[test]
+    fn test_metrics_loaded_success() {
+        let mut state = AppState::new();
+        state.metrics_loading = true;
+
+        let metrics = crate::data::SystemMetrics {
+            deliverability_score: 85.5,
+            lole_hours_per_year: 9.2,
+            eue_mwh_per_year: 15.3,
+        };
+
+        let msg = Message::Dashboard(DashboardMessage::MetricsLoaded(Ok(metrics.clone())));
+        let (new_state, _effects) = update(state, msg);
+
+        assert!(!new_state.metrics_loading);
+        assert!(new_state.metrics.is_some());
+        match &new_state.metrics {
+            Some(Ok(loaded)) => {
+                assert_eq!(loaded.deliverability_score, 85.5);
+            }
+            _ => panic!("Expected Ok(SystemMetrics)"),
+        }
+        assert!(!new_state.notifications.is_empty());
+    }
+
+    // Operations async tests
+    #[test]
+    fn test_fetch_operations_message() {
+        let state = AppState::new();
+        assert!(!state.workflows_loading);
+
+        let msg = Message::Operations(OperationsMessage::FetchOperations);
+        let (new_state, effects) = update(state, msg);
+
+        assert!(new_state.workflows_loading);
+        assert!(!effects.is_empty());
+        match &effects[0] {
+            SideEffect::FetchOperations { task_id } => {
+                assert_eq!(task_id, "fetch_operations");
+            }
+            _ => panic!("Expected FetchOperations side effect"),
+        }
+    }
+
+    #[test]
+    fn test_operations_loaded_success() {
+        let mut state = AppState::new();
+        state.workflows_loading = true;
+
+        let workflows = vec![];
+        let msg = Message::Operations(OperationsMessage::OperationsLoaded(Ok(workflows)));
+        let (new_state, _effects) = update(state, msg);
+
+        assert!(!new_state.workflows_loading);
+        assert!(new_state.workflows.is_some());
+        assert!(matches!(&new_state.workflows, Some(Ok(_))));
+    }
+
+    // Pipeline async tests
+    #[test]
+    fn test_fetch_pipeline_message() {
+        let state = AppState::new();
+        assert!(!state.pipeline_loading);
+
+        let msg = Message::Pipeline(PipelineMessage::FetchPipeline);
+        let (new_state, effects) = update(state, msg);
+
+        assert!(new_state.pipeline_loading);
+        assert!(!effects.is_empty());
+        match &effects[0] {
+            SideEffect::FetchPipeline { task_id } => {
+                assert_eq!(task_id, "fetch_pipeline");
+            }
+            _ => panic!("Expected FetchPipeline side effect"),
+        }
+    }
+
+    #[test]
+    fn test_pipeline_loaded_success() {
+        let mut state = AppState::new();
+        state.pipeline_loading = true;
+
+        let config = r#"{"name":"test"}"#.to_string();
+        let msg = Message::Pipeline(PipelineMessage::PipelineLoaded(Ok(config)));
+        let (new_state, _effects) = update(state, msg);
+
+        assert!(!new_state.pipeline_loading);
+        assert!(new_state.pipeline_config.is_some());
+        assert!(matches!(&new_state.pipeline_config, Some(Ok(_))));
+    }
+
+    // Commands async tests
+    #[test]
+    fn test_fetch_commands_message() {
+        let state = AppState::new();
+        assert!(!state.commands_loading);
+
+        let msg = Message::Commands(CommandsMessage::FetchCommands);
+        let (new_state, effects) = update(state, msg);
+
+        assert!(new_state.commands_loading);
+        assert!(!effects.is_empty());
+        match &effects[0] {
+            SideEffect::FetchCommands { task_id } => {
+                assert_eq!(task_id, "fetch_commands");
+            }
+            _ => panic!("Expected FetchCommands side effect"),
+        }
+    }
+
+    #[test]
+    fn test_commands_loaded_success() {
+        let mut state = AppState::new();
+        state.commands_loading = true;
+
+        let commands = vec!["cmd1".to_string(), "cmd2".to_string()];
+        let msg = Message::Commands(CommandsMessage::CommandsLoaded(Ok(commands.clone())));
+        let (new_state, _effects) = update(state, msg);
+
+        assert!(!new_state.commands_loading);
+        assert!(new_state.commands.is_some());
+        match &new_state.commands {
+            Some(Ok(loaded)) => {
+                assert_eq!(loaded.len(), 2);
+            }
+            _ => panic!("Expected Ok(Vec<String>)"),
+        }
+    }
+
+    // Concurrent async operations test
+    #[test]
+    fn test_concurrent_pane_fetches() {
+        let state = AppState::new();
+
+        // Trigger all pane fetches
+        let msg1 = Message::Dashboard(DashboardMessage::FetchMetrics);
+        let (state1, effects1) = update(state, msg1);
+        assert!(state1.metrics_loading);
+
+        let msg2 = Message::Datasets(DatasetsMessage::FetchDatasets);
+        let (state2, effects2) = update(state1, msg2);
+        assert!(state2.datasets_loading);
+        assert!(state2.metrics_loading);
+
+        let msg3 = Message::Operations(OperationsMessage::FetchOperations);
+        let (state3, effects3) = update(state2, msg3);
+        assert!(state3.workflows_loading);
+        assert!(state3.datasets_loading);
+        assert!(state3.metrics_loading);
+
+        // All three fetches should have been spawned
+        assert_eq!(effects1.len(), 1);
+        assert_eq!(effects2.len(), 1);
+        assert_eq!(effects3.len(), 1);
     }
 }
 
