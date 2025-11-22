@@ -105,8 +105,19 @@ mod tests {
     #[tokio::test]
     async fn test_mock_get_metrics() {
         let qb = MockQueryBuilder;
-        // We'll test this after expanding QueryBuilder trait
-        // For now, just verify the builder can be created
-        let _ = qb;
+        let result = qb.get_metrics().await;
+        assert!(result.is_ok());
+        let metrics = result.unwrap();
+        assert!(metrics.deliverability_score > 0.0);
+        assert!(metrics.deliverability_score <= 100.0);
+    }
+
+    #[tokio::test]
+    async fn test_mock_get_workflows() {
+        let qb = MockQueryBuilder;
+        let result = qb.get_workflows().await;
+        assert!(result.is_ok());
+        let _workflows = result.unwrap();
+        // Empty for now, but method is available
     }
 }
