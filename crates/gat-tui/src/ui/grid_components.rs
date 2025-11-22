@@ -6,7 +6,6 @@
 /// - Grid info display (stats for current grid)
 
 use crate::data::DatasetEntry;
-use crate::DatasetStatus;
 
 /// Display information about a single loaded grid
 #[derive(Clone, Debug)]

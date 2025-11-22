@@ -27,6 +27,9 @@ pub struct AppState {
     pub gat_core_query_builder: Option<GatCoreQueryBuilder>,
     pub current_grid_id: Option<String>,
 
+    // Workflow tracking (Phase 3)
+    pub executed_workflows: Vec<Workflow>,
+
     // Async task tracking
     pub datasets_loading: bool,
     pub workflows_loading: bool,
@@ -57,6 +60,7 @@ impl std::fmt::Debug for AppState {
             .field("terminal_height", &self.terminal_height)
             .field("async_tasks", &self.async_tasks)
             .field("current_grid_id", &self.current_grid_id)
+            .field("executed_workflows", &self.executed_workflows.len())
             .field("datasets_loading", &self.datasets_loading)
             .field("workflows_loading", &self.workflows_loading)
             .field("metrics_loading", &self.metrics_loading)
@@ -309,6 +313,7 @@ impl AppState {
             grid_service,
             gat_core_query_builder: None,
             current_grid_id: None,
+            executed_workflows: Vec::new(),
             datasets_loading: false,
             workflows_loading: false,
             metrics_loading: false,
@@ -485,6 +490,39 @@ impl AppState {
         self.metrics_loading = false;
         self.pipeline_loading = false;
         self.commands_loading = false;
+    }
+
+    /// Add a workflow execution record (Phase 3)
+    pub fn add_workflow(&mut self, workflow: Workflow) {
+        self.executed_workflows.push(workflow);
+
+        // Keep only the last 100 workflows to manage memory
+        if self.executed_workflows.len() > 100 {
+            self.executed_workflows.remove(0);
+        }
+
+        // Update cache with new workflow list
+        self.workflows = Some(Ok(self.executed_workflows.clone()));
+    }
+
+    /// Get all executed workflows
+    pub fn get_workflows(&self) -> Vec<Workflow> {
+        self.executed_workflows.clone()
+    }
+
+    /// Get workflows filtered by grid (if applicable)
+    pub fn get_workflows_for_grid(&self, grid_id: &str) -> Vec<Workflow> {
+        self.executed_workflows
+            .iter()
+            .filter(|w| w.name.contains(grid_id))
+            .cloned()
+            .collect()
+    }
+
+    /// Clear all workflow history
+    pub fn clear_workflows(&mut self) {
+        self.executed_workflows.clear();
+        self.workflows = Some(Ok(Vec::new()));
     }
 }
 

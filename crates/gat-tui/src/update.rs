@@ -269,7 +269,7 @@ fn handle_datasets(
             });
         }
 
-        DatasetsMessage::UnloadGrid(grid_id) => {
+        DatasetsMessage::UnloadGrid(_grid_id) => {
             // Unload grid and refresh
             match state.unload_current_grid() {
                 Ok(_) => {
@@ -495,6 +495,7 @@ pub enum SideEffect {
 mod tests {
     use super::*;
     use crate::{create_fixture_datasets, QueryError};
+    use crate::data::Workflow;
 
     #[test]
     fn test_fetch_datasets_message() {
@@ -886,6 +887,99 @@ mod tests {
 
         // Both tasks should be tracked
         assert!(state2.async_tasks.len() >= 2);
+    }
+
+    // Workflow tracking tests (Phase 3)
+    #[test]
+    fn test_add_workflow() {
+        use crate::data::WorkflowStatus;
+
+        let mut state = AppState::new();
+        assert_eq!(state.executed_workflows.len(), 0);
+
+        let workflow = Workflow {
+            id: "wf1".to_string(),
+            name: "Test Workflow".to_string(),
+            status: WorkflowStatus::Succeeded,
+            created_by: "test".to_string(),
+            created_at: std::time::SystemTime::now(),
+            completed_at: Some(std::time::SystemTime::now()),
+        };
+
+        state.add_workflow(workflow);
+        assert_eq!(state.executed_workflows.len(), 1);
+        assert!(state.workflows.is_some());
+    }
+
+    #[test]
+    fn test_get_workflows() {
+        use crate::data::WorkflowStatus;
+
+        let mut state = AppState::new();
+
+        for i in 0..3 {
+            let workflow = Workflow {
+                id: format!("wf{}", i),
+                name: format!("Workflow {}", i),
+                status: WorkflowStatus::Succeeded,
+                created_by: "test".to_string(),
+                created_at: std::time::SystemTime::now(),
+                completed_at: Some(std::time::SystemTime::now()),
+            };
+            state.add_workflow(workflow);
+        }
+
+        let workflows = state.get_workflows();
+        assert_eq!(workflows.len(), 3);
+    }
+
+    #[test]
+    fn test_workflow_memory_cleanup() {
+        use crate::data::WorkflowStatus;
+
+        let mut state = AppState::new();
+
+        // Add more than 100 workflows
+        for i in 0..105 {
+            let workflow = Workflow {
+                id: format!("wf{}", i),
+                name: format!("Workflow {}", i),
+                status: WorkflowStatus::Succeeded,
+                created_by: "test".to_string(),
+                created_at: std::time::SystemTime::now(),
+                completed_at: Some(std::time::SystemTime::now()),
+            };
+            state.add_workflow(workflow);
+        }
+
+        // Should keep only last 100
+        assert_eq!(state.executed_workflows.len(), 100);
+
+        // Oldest should be removed
+        assert_eq!(state.executed_workflows[0].id, "wf5");
+        assert_eq!(state.executed_workflows[99].id, "wf104");
+    }
+
+    #[test]
+    fn test_clear_workflows() {
+        use crate::data::WorkflowStatus;
+
+        let mut state = AppState::new();
+
+        let workflow = Workflow {
+            id: "wf1".to_string(),
+            name: "Test".to_string(),
+            status: WorkflowStatus::Succeeded,
+            created_by: "test".to_string(),
+            created_at: std::time::SystemTime::now(),
+            completed_at: None,
+        };
+
+        state.add_workflow(workflow);
+        assert_eq!(state.executed_workflows.len(), 1);
+
+        state.clear_workflows();
+        assert_eq!(state.executed_workflows.len(), 0);
     }
 }
 
