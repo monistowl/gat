@@ -32,18 +32,18 @@ async fn main() -> Result<()> {
         .register(CommandsPane)
         .into_shell("GAT TUI");
 
-    // Main event loop
-    loop {
-        // Clear screen and render UI
-        execute!(
-            stdout,
-            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
-            crossterm::cursor::MoveTo(0, 0)
-        )?;
+    // Render initial screen once
+    execute!(
+        stdout,
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
+        crossterm::cursor::MoveTo(0, 0)
+    )?;
+    let rendered = shell.render();
+    stdout.write_all(rendered.as_bytes())?;
+    stdout.flush()?;
 
-        let rendered = shell.render();
-        stdout.write_all(rendered.as_bytes())?;
-        stdout.flush()?;
+    // Main event loop - only render on state changes
+    loop {
 
         // Handle input events with timeout
         match event::poll(std::time::Duration::from_millis(250)) {
