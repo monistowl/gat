@@ -61,21 +61,37 @@ impl App {
         let (width, height) = get_terminal_size();
         let output = self.shell.render_with_size(width, height);
 
-        // Truncate output to fit terminal height, preserving header and footer
+        // Truncate output to fit terminal dimensions
         let lines: Vec<&str> = output.lines().collect();
-        if lines.len() > height as usize {
-            // Keep header (first line), show content, add scrolling indicator
+
+        // Truncate lines to fit width (leave 1 char margin)
+        let max_width = width.saturating_sub(1) as usize;
+        let truncated_lines: Vec<String> = lines.iter()
+            .map(|line| {
+                if line.len() > max_width {
+                    // Truncate long lines, showing ellipsis
+                    let truncated = line.chars().take(max_width.saturating_sub(3)).collect::<String>();
+                    format!("{}...", truncated)
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect();
+
+        // Truncate height if needed
+        if truncated_lines.len() > height as usize {
+            // Keep content, add scrolling indicator
             let available = height as usize - 2; // Reserve space for header and indicator
-            let truncated = lines.iter()
+            let content = truncated_lines.iter()
                 .take(available)
-                .copied()
+                .cloned()
                 .collect::<Vec<_>>()
                 .join("\n");
             format!("{}\n... ({} more lines, use scroll/pagination to view) ...",
-                    truncated,
-                    lines.len() - available)
+                    content,
+                    truncated_lines.len() - available)
         } else {
-            output
+            truncated_lines.join("\n")
         }
     }
 
