@@ -3,11 +3,11 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: install.sh [--prefix DIR] [--variant headless|full] [--version VERSION]
+Usage: install.sh [--prefix DIR] [--variant headless|analyst|full] [--version VERSION]
 
 Environment variables:
   GAT_PREFIX        Install prefix (defaults to ~/.local)
-  GAT_VARIANT       Variant to install (headless or full)
+  GAT_VARIANT       Variant to install (headless, analyst, or full)
   GAT_VERSION       Version to install (defaults to latest release)
   GAT_RELEASE_BASE  Base URL for release artifacts
 USAGE
@@ -28,8 +28,8 @@ ensure_linux_library_paths
 
 trim_variant() {
   VARIANT="$(echo "$VARIANT" | tr '[:upper:]' '[:lower:]')"
-  if [[ "$VARIANT" != "headless" && "$VARIANT" != "full" ]]; then
-    echo "Invalid variant: $VARIANT (expected headless or full)" >&2
+  if [[ "$VARIANT" != "headless" && "$VARIANT" != "analyst" && "$VARIANT" != "full" ]]; then
+    echo "Invalid variant: $VARIANT (expected headless, analyst, or full)" >&2
     exit 1
   fi
 }
@@ -47,6 +47,10 @@ parse_args() {
         ;;
       --headless)
         VARIANT="headless"
+        shift
+        ;;
+      --analyst)
+        VARIANT="analyst"
         shift
         ;;
       --full)
@@ -144,12 +148,22 @@ build_from_source() {
     echo "Required solver binaries (cbc/highs) missing; install them to build from source." >&2
     return 1
   fi
+
+  local build_flags
+  case "$VARIANT" in
+    headless)
+      build_flags="--no-default-features --features minimal-io"
+      ;;
+    analyst)
+      build_flags="--no-default-features --features minimal-io,adms,derms,dist,analytics,featurize"
+      ;;
+    full)
+      build_flags="--all-features"
+      ;;
+  esac
+
   pushd "$ROOT_DIR" >/dev/null
-  if [[ "$VARIANT" == "headless" ]]; then
-    cargo build --workspace --exclude gat-gui --exclude gat-tui --release
-  else
-    cargo build --workspace --all-features --release
-  fi
+  cargo build -p gat-cli --release $build_flags
   popd >/dev/null
 
   mkdir -p "$BINDIR"
