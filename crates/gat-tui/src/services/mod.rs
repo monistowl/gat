@@ -8,6 +8,8 @@ pub mod command_validator;
 pub mod command_export;
 pub mod tui_service_layer;
 pub mod gat_core_service_adapter;
+pub mod event_dispatcher;
+pub mod async_service_integration;
 
 #[cfg(test)]
 mod grid_integration_tests;
@@ -22,3 +24,5 @@ pub use command_validator::{CommandValidator, ValidCommand, ValidationError};
 pub use command_export::{CommandExporter, ExportFormat, CommandStats};
 pub use tui_service_layer::{TuiServiceLayer, AnalyticsType};
 pub use gat_core_service_adapter::{GatCoreCliAdapter, LocalFileAdapter};
+pub use event_dispatcher::{AsyncEvent, EventResult, EventDispatcher, BackgroundEventProcessor, EventDispatcherConfig, EventHandler};
+pub use async_service_integration::AsyncServiceIntegration;
