@@ -33,6 +33,12 @@ pub enum Msg {
     SwitchPane(Id),
 }
 
+// Pane-specific state
+#[derive(Debug, Clone)]
+pub struct OperationsPaneState {
+    pub selected_index: usize,  // 0-3 for the 4 sections
+}
+
 // Header component
 pub struct Header {
     props: Props,
@@ -170,74 +176,69 @@ impl Component<Msg, NoUserEvent> for DashboardPane {
     }
 }
 
-// Operations Component
-pub struct OperationsPane {
-    selected_index: usize,  // 0-3 for the 4 sections
+// Helper function to render Operations pane with state
+fn render_operations_pane(frame: &mut Frame, area: Rect, state: &OperationsPaneState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(4),
+            Constraint::Length(4),
+            Constraint::Min(1),
+        ])
+        .split(area);
+
+    // DERMS section
+    let derms_style = if state.selected_index == 0 {
+        Style::default().fg(Color::Cyan).bold()
+    } else {
+        Style::default().fg(Color::Cyan)
+    };
+    let derms = Paragraph::new("DERMS + ADMS\n  2 queued envelopes\n  1 stress-test running")
+        .block(Block::default().borders(Borders::ALL).title("DERMS/ADMS Queue"))
+        .style(derms_style);
+    frame.render_widget(derms, chunks[0]);
+
+    // Batch section
+    let batch_style = if state.selected_index == 1 {
+        Style::default().fg(Color::Yellow).bold()
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+    let batch = Paragraph::new("Batch Operations\n  Status: Ready\n  Active jobs: 0/4\n  Last run: scenarios_2024-11-21.json")
+        .block(Block::default().borders(Borders::ALL).title("Batch Ops"))
+        .style(batch_style);
+    frame.render_widget(batch, chunks[1]);
+
+    // Allocation section
+    let alloc_style = if state.selected_index == 2 {
+        Style::default().fg(Color::Green).bold()
+    } else {
+        Style::default().fg(Color::Green)
+    };
+    let alloc = Paragraph::new("Allocation Analysis\n  Available results:\n  • Congestion rents decomposition\n  • KPI contribution sensitivity")
+        .block(Block::default().borders(Borders::ALL).title("Allocation"))
+        .style(alloc_style);
+    frame.render_widget(alloc, chunks[2]);
+
+    // Summary section
+    let summary_style = if state.selected_index == 3 {
+        Style::default().fg(Color::White).bold()
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let summary = Paragraph::new("Summary: 2 DERMS queued, Batch ready, Next: Dispatch")
+        .block(Block::default().borders(Borders::ALL).title("Status"))
+        .style(summary_style);
+    frame.render_widget(summary, chunks[3]);
 }
 
-impl OperationsPane {
-    pub fn new() -> Self {
-        Self {
-            selected_index: 0,
-        }
-    }
-}
+// Operations Component (stateless in tuirealm)
+pub struct OperationsPane;
 
 impl MockComponent for OperationsPane {
-    fn view(&mut self, frame: &mut Frame, area: Rect) {
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3),
-                Constraint::Length(4),
-                Constraint::Length(4),
-                Constraint::Min(1),
-            ])
-            .split(area);
-
-        // DERMS section
-        let derms_style = if self.selected_index == 0 {
-            Style::default().fg(Color::Cyan).bold()
-        } else {
-            Style::default().fg(Color::Cyan)
-        };
-        let derms = Paragraph::new("DERMS + ADMS\n  2 queued envelopes\n  1 stress-test running")
-            .block(Block::default().borders(Borders::ALL).title("DERMS/ADMS Queue"))
-            .style(derms_style);
-        frame.render_widget(derms, chunks[0]);
-
-        // Batch section
-        let batch_style = if self.selected_index == 1 {
-            Style::default().fg(Color::Yellow).bold()
-        } else {
-            Style::default().fg(Color::Yellow)
-        };
-        let batch = Paragraph::new("Batch Operations\n  Status: Ready\n  Active jobs: 0/4\n  Last run: scenarios_2024-11-21.json")
-            .block(Block::default().borders(Borders::ALL).title("Batch Ops"))
-            .style(batch_style);
-        frame.render_widget(batch, chunks[1]);
-
-        // Allocation section
-        let alloc_style = if self.selected_index == 2 {
-            Style::default().fg(Color::Green).bold()
-        } else {
-            Style::default().fg(Color::Green)
-        };
-        let alloc = Paragraph::new("Allocation Analysis\n  Available results:\n  • Congestion rents decomposition\n  • KPI contribution sensitivity")
-            .block(Block::default().borders(Borders::ALL).title("Allocation"))
-            .style(alloc_style);
-        frame.render_widget(alloc, chunks[2]);
-
-        // Summary section
-        let summary_style = if self.selected_index == 3 {
-            Style::default().fg(Color::White).bold()
-        } else {
-            Style::default().fg(Color::White)
-        };
-        let summary = Paragraph::new("Summary: 2 DERMS queued, Batch ready, Next: Dispatch")
-            .block(Block::default().borders(Borders::ALL).title("Status"))
-            .style(summary_style);
-        frame.render_widget(summary, chunks[3]);
+    fn view(&mut self, _frame: &mut Frame, _area: Rect) {
+        // State is managed in main, rendered separately
     }
 
     fn query(&self, _attr: Attribute) -> Option<AttrValue> {
@@ -256,26 +257,8 @@ impl MockComponent for OperationsPane {
 }
 
 impl Component<Msg, NoUserEvent> for OperationsPane {
-    fn on(&mut self, ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
-        match ev {
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Up, ..
-            }) => {
-                if self.selected_index > 0 {
-                    self.selected_index -= 1;
-                }
-                None
-            }
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Down, ..
-            }) => {
-                if self.selected_index < 3 {
-                    self.selected_index += 1;
-                }
-                None
-            }
-            _ => None,
-        }
+    fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
+        None
     }
 }
 
@@ -447,7 +430,7 @@ async fn main() -> Result<()> {
 
     // Mount pane components
     app.mount(Id::Dashboard, Box::new(DashboardPane), vec![])?;
-    app.mount(Id::Operations, Box::new(OperationsPane::new()), vec![])?;
+    app.mount(Id::Operations, Box::new(OperationsPane), vec![])?;
     app.mount(Id::Datasets, Box::new(DatasetsPane), vec![])?;
     app.mount(Id::Pipeline, Box::new(PipelinePane), vec![])?;
     app.mount(Id::Commands, Box::new(CommandsPane), vec![])?;
@@ -458,6 +441,11 @@ async fn main() -> Result<()> {
     let mut terminal = TerminalBridge::init(CrosstermTerminalAdapter::new()?)?;
     let mut current_pane = Id::Dashboard;
     let mut should_quit = false;
+
+    // Pane-specific state
+    let mut operations_state = OperationsPaneState {
+        selected_index: 0,
+    };
 
     // Main loop
     while !should_quit {
@@ -508,7 +496,12 @@ async fn main() -> Result<()> {
             );
 
             // Active pane content
-            app.view(&current_pane, f, chunks[2]);
+            match current_pane {
+                Id::Operations => render_operations_pane(f, chunks[2], &operations_state),
+                _ => {
+                    app.view(&current_pane, f, chunks[2]);
+                }
+            }
         })?;
 
         // Poll for crossterm events
@@ -539,9 +532,27 @@ async fn main() -> Result<()> {
                         current_pane = Id::Commands;
                         app.active(&current_pane)?;
                     }
-                    KeyCode::Up | KeyCode::Down => {
-                        // These are handled by panes internally
-                        // We'll need a different approach for pane-internal navigation
+                    KeyCode::Up => {
+                        // Handle pane-specific up navigation
+                        match current_pane {
+                            Id::Operations => {
+                                if operations_state.selected_index > 0 {
+                                    operations_state.selected_index -= 1;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    KeyCode::Down => {
+                        // Handle pane-specific down navigation
+                        match current_pane {
+                            Id::Operations => {
+                                if operations_state.selected_index < 3 {
+                                    operations_state.selected_index += 1;
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                     _ => {}
                 }
