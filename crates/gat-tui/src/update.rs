@@ -268,3 +268,107 @@ pub enum SideEffect {
     // Add more as needed
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{create_fixture_datasets, QueryError};
+
+    #[test]
+    fn test_fetch_datasets_message() {
+        let mut state = AppState::new();
+        assert!(!state.datasets_loading);
+
+        // Send FetchDatasets message
+        let msg = Message::Datasets(DatasetsMessage::FetchDatasets);
+        let (new_state, effects) = update(state, msg);
+
+        // Verify loading flag is set
+        assert!(new_state.datasets_loading);
+
+        // Verify side effect is created
+        assert!(!effects.is_empty());
+        match &effects[0] {
+            SideEffect::FetchDatasets { task_id } => {
+                assert_eq!(task_id, "fetch_datasets");
+            }
+            _ => panic!("Expected FetchDatasets side effect"),
+        }
+    }
+
+    #[test]
+    fn test_datasets_loaded_success() {
+        let mut state = AppState::new();
+        state.datasets_loading = true;
+
+        // Create fixture datasets
+        let datasets = create_fixture_datasets();
+
+        // Send DatasetsLoaded message with Ok result
+        let msg = Message::Datasets(DatasetsMessage::DatasetsLoaded(Ok(datasets.clone())));
+        let (new_state, _effects) = update(state, msg);
+
+        // Verify results are cached
+        assert!(new_state.datasets.is_some());
+        match &new_state.datasets {
+            Some(Ok(loaded)) => {
+                assert_eq!(loaded.len(), datasets.len());
+            }
+            _ => panic!("Expected Ok(Vec<DatasetEntry>)"),
+        }
+
+        // Verify loading flag is cleared
+        assert!(!new_state.datasets_loading);
+
+        // Verify notification was added
+        assert!(!new_state.notifications.is_empty());
+    }
+
+    #[test]
+    fn test_datasets_loaded_error() {
+        let mut state = AppState::new();
+        state.datasets_loading = true;
+
+        // Send DatasetsLoaded message with Err result
+        let error = QueryError::ConnectionFailed("Network error".to_string());
+        let msg = Message::Datasets(DatasetsMessage::DatasetsLoaded(Err(error.clone())));
+        let (new_state, _effects) = update(state, msg);
+
+        // Verify error is cached
+        assert!(new_state.datasets.is_some());
+        assert!(matches!(
+            &new_state.datasets,
+            Some(Err(QueryError::ConnectionFailed(_)))
+        ));
+
+        // Verify loading flag is cleared
+        assert!(!new_state.datasets_loading);
+
+        // Verify error notification was added
+        assert!(!new_state.notifications.is_empty());
+        let last_notif = new_state.notifications.last().unwrap();
+        assert!(matches!(last_notif.kind, NotificationKind::Error));
+    }
+
+    #[test]
+    fn test_fetch_and_load_flow() {
+        let state = AppState::new();
+
+        // Step 1: Trigger fetch
+        let msg1 = Message::Datasets(DatasetsMessage::FetchDatasets);
+        let (state1, effects1) = update(state, msg1);
+
+        assert!(state1.datasets_loading);
+        assert!(!effects1.is_empty());
+
+        // Step 2: Complete fetch with success
+        let datasets = create_fixture_datasets();
+        let msg2 = Message::Datasets(DatasetsMessage::DatasetsLoaded(Ok(datasets)));
+        let (state2, _effects2) = update(state1, msg2);
+
+        // Verify final state
+        assert!(!state2.datasets_loading);
+        assert!(state2.datasets.is_some());
+        assert!(matches!(&state2.datasets, Some(Ok(_))));
+    }
+}
+
