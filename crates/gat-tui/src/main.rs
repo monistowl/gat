@@ -203,6 +203,46 @@ impl Component<Msg, NoUserEvent> for DashboardPane {
     }
 }
 
+// Helper function to render KPI cards in a row
+fn render_kpi_cards(frame: &mut Frame, area: Rect, is_selected: bool) {
+    let card_style = if is_selected {
+        Style::default().fg(Color::Cyan).bold()
+    } else {
+        Style::default().fg(Color::Cyan)
+    };
+
+    // Create three columns for three KPI cards
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+            Constraint::Percentage(34),
+        ])
+        .split(area);
+
+    // Deliverability Score (DS)
+    let ds_content = "┌────────────────┐\n│ Deliverability │\n│     Score      │\n│    85.5% ✓     │\n└────────────────┘";
+    let ds = Paragraph::new(ds_content)
+        .style(card_style)
+        .alignment(tuirealm::ratatui::layout::Alignment::Center);
+    frame.render_widget(ds, chunks[0]);
+
+    // Loss of Load Expectation (LOLE)
+    let lole_content = "┌────────────────┐\n│     LOLE       │\n│   9.2 h/yr ⚠   │\n│ (Loss of Load) │\n└────────────────┘";
+    let lole = Paragraph::new(lole_content)
+        .style(card_style)
+        .alignment(tuirealm::ratatui::layout::Alignment::Center);
+    frame.render_widget(lole, chunks[1]);
+
+    // Expected Unserved Energy (EUE)
+    let eue_content = "┌────────────────┐\n│      EUE       │\n│ 15.3 MWh/yr ⚠  │\n│ (Unserved En.) │\n└────────────────┘";
+    let eue = Paragraph::new(eue_content)
+        .style(card_style)
+        .alignment(tuirealm::ratatui::layout::Alignment::Center);
+    frame.render_widget(eue, chunks[2]);
+}
+
 // Helper function to render menu bar with pane selection
 fn render_menu_bar(frame: &mut Frame, area: Rect, current_pane: &Id, nav_level: NavigationLevel) {
     let panes = [
@@ -272,16 +312,34 @@ fn render_dashboard_pane(frame: &mut Frame, area: Rect, state: &DashboardPaneSta
         .style(status_style);
     frame.render_widget(status, chunks[0]);
 
-    // Metrics section
-    let metrics_style = if state.selected_index == 1 {
+    // Metrics section with KPI cards
+    let metrics_block_style = if state.selected_index == 1 {
         Style::default().fg(Color::Cyan).bold()
     } else {
         Style::default().fg(Color::Cyan)
     };
-    let metrics = Paragraph::new("Reliability Metrics\n  ✓ Deliverability Score: 85.5%\n  ⚠ LOLE: 9.2 h/yr\n  ⚠ EUE: 15.3 MWh/yr")
-        .block(Block::default().borders(Borders::ALL).title("Metrics"))
-        .style(metrics_style);
-    frame.render_widget(metrics, chunks[1]);
+
+    // Create inner layout for metrics block
+    let metrics_area = chunks[1];
+    let metrics_inner = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(0)])
+        .split(metrics_area);
+
+    // Render the metrics block border and title
+    let metrics_block = Block::default()
+        .borders(Borders::ALL)
+        .title("Reliability Metrics")
+        .style(metrics_block_style);
+    frame.render_widget(metrics_block, metrics_area);
+
+    // Render KPI cards inside the block (with some padding)
+    let inner_padding = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(1)])
+        .split(metrics_inner[1]);
+
+    render_kpi_cards(frame, inner_padding[1], state.selected_index == 1);
 
     // Recent Activity section
     let activity_style = if state.selected_index == 2 {
