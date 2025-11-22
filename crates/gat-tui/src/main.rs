@@ -35,8 +35,28 @@ pub enum Msg {
 
 // Pane-specific state
 #[derive(Debug, Clone)]
+pub struct DashboardPaneState {
+    pub selected_index: usize,  // 0-3 for the 4 sections
+}
+
+#[derive(Debug, Clone)]
 pub struct OperationsPaneState {
     pub selected_index: usize,  // 0-3 for the 4 sections
+}
+
+#[derive(Debug, Clone)]
+pub struct DatasetsPaneState {
+    pub selected_index: usize,  // 0-2 for the 3 sections
+}
+
+#[derive(Debug, Clone)]
+pub struct PipelinePaneState {
+    pub selected_index: usize,  // 0-2 for the 3 sections
+}
+
+#[derive(Debug, Clone)]
+pub struct CommandsPaneState {
+    pub selected_index: usize,  // 0-2 for the 3 sections
 }
 
 // Header component
@@ -176,6 +196,63 @@ impl Component<Msg, NoUserEvent> for DashboardPane {
     }
 }
 
+// Helper function to render Dashboard pane with state
+fn render_dashboard_pane(frame: &mut Frame, area: Rect, state: &DashboardPaneState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(4),
+            Constraint::Length(4),
+            Constraint::Length(7),
+            Constraint::Length(4),
+        ])
+        .split(area);
+
+    // Status section
+    let status_style = if state.selected_index == 0 {
+        Style::default().fg(Color::Green).bold()
+    } else {
+        Style::default().fg(Color::Green)
+    };
+    let status = Paragraph::new("Status\n  Overall: healthy\n  Running: 1 workflow\n  Queued: 2 actions")
+        .block(Block::default().borders(Borders::ALL).title("Status"))
+        .style(status_style);
+    frame.render_widget(status, chunks[0]);
+
+    // Metrics section
+    let metrics_style = if state.selected_index == 1 {
+        Style::default().fg(Color::Cyan).bold()
+    } else {
+        Style::default().fg(Color::Cyan)
+    };
+    let metrics = Paragraph::new("Reliability Metrics\n  ✓ Deliverability Score: 85.5%\n  ⚠ LOLE: 9.2 h/yr\n  ⚠ EUE: 15.3 MWh/yr")
+        .block(Block::default().borders(Borders::ALL).title("Metrics"))
+        .style(metrics_style);
+    frame.render_widget(metrics, chunks[1]);
+
+    // Recent Activity section
+    let activity_style = if state.selected_index == 2 {
+        Style::default().fg(Color::Yellow).bold()
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+    let runs = Paragraph::new("Recent Runs\n  ingest-2304       Succeeded  alice              42s\n  transform-7781    Running    ops                live\n  solve-9912        Pending    svc-derms          queued")
+        .block(Block::default().borders(Borders::ALL).title("Recent Activity"))
+        .style(activity_style);
+    frame.render_widget(runs, chunks[2]);
+
+    // Actions section
+    let actions_style = if state.selected_index == 3 {
+        Style::default().fg(Color::Magenta).bold()
+    } else {
+        Style::default().fg(Color::Magenta)
+    };
+    let actions = Paragraph::new("Quick Actions\n  [Enter] Run highlighted workflow\n  [R] Retry last failed step\n  [E] Edit config before dispatch")
+        .block(Block::default().borders(Borders::ALL).title("Actions"))
+        .style(actions_style);
+    frame.render_widget(actions, chunks[3]);
+}
+
 // Helper function to render Operations pane with state
 fn render_operations_pane(frame: &mut Frame, area: Rect, state: &OperationsPaneState) {
     let chunks = Layout::default()
@@ -231,6 +308,141 @@ fn render_operations_pane(frame: &mut Frame, area: Rect, state: &OperationsPaneS
         .block(Block::default().borders(Borders::ALL).title("Status"))
         .style(summary_style);
     frame.render_widget(summary, chunks[3]);
+}
+
+// Helper function to render Datasets pane with state
+fn render_datasets_pane(frame: &mut Frame, area: Rect, state: &DatasetsPaneState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(5),
+            Constraint::Min(1),
+        ])
+        .split(area);
+
+    // Catalog section
+    let catalog_style = if state.selected_index == 0 {
+        Style::default().fg(Color::Green).bold()
+    } else {
+        Style::default().fg(Color::Green)
+    };
+    let catalog = Paragraph::new("Data Catalog\n  OPSD snapshot\n  Airtravel tutorial")
+        .block(Block::default().borders(Borders::ALL).title("Catalog"))
+        .style(catalog_style);
+    frame.render_widget(catalog, chunks[0]);
+
+    // Workflows section
+    let workflows_style = if state.selected_index == 1 {
+        Style::default().fg(Color::Yellow).bold()
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+    let workflows = Paragraph::new("Workflows\n  Ingest       Ready    just now\n  Transform    Idle     1m ago\n  Solve        Pending   3m ago")
+        .block(Block::default().borders(Borders::ALL).title("Workflows"))
+        .style(workflows_style);
+    frame.render_widget(workflows, chunks[1]);
+
+    // Downloads section
+    let downloads_style = if state.selected_index == 2 {
+        Style::default().fg(Color::DarkGray).bold()
+    } else {
+        Style::default().fg(Color::DarkGray).dim()
+    };
+    let downloads = Paragraph::new("No downloads queued\nRun a fetch to pull sample data")
+        .block(Block::default().borders(Borders::ALL).title("Downloads"))
+        .style(downloads_style);
+    frame.render_widget(downloads, chunks[2]);
+}
+
+// Helper function to render Pipeline pane with state
+fn render_pipeline_pane(frame: &mut Frame, area: Rect, state: &PipelinePaneState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(4),
+            Constraint::Length(5),
+            Constraint::Min(1),
+        ])
+        .split(area);
+
+    // Source section
+    let source_style = if state.selected_index == 0 {
+        Style::default().fg(Color::Cyan).bold()
+    } else {
+        Style::default().fg(Color::Cyan)
+    };
+    let source = Paragraph::new("Source Selection\n  Radio: (•) Live telemetry stream\n  Dropdown: Dataset variant ↴\n  [Day-ahead | Real-time | Sandbox]")
+        .block(Block::default().borders(Borders::ALL).title("Source"))
+        .style(source_style);
+    frame.render_widget(source, chunks[0]);
+
+    // Transforms section
+    let transforms_style = if state.selected_index == 1 {
+        Style::default().fg(Color::Magenta).bold()
+    } else {
+        Style::default().fg(Color::Magenta)
+    };
+    let transforms = Paragraph::new("Transforms\n  Classic: Resample, Gap-fill, Forecast smoothing\n  Scenarios: Template materialization\n  Features: GNN, KPI, Geo features")
+        .block(Block::default().borders(Borders::ALL).title("Transforms"))
+        .style(transforms_style);
+    frame.render_widget(transforms, chunks[1]);
+
+    // Outputs section
+    let outputs_style = if state.selected_index == 2 {
+        Style::default().fg(Color::Green).bold()
+    } else {
+        Style::default().fg(Color::Green)
+    };
+    let outputs = Paragraph::new("Outputs: Warehouse table, DERMS feed, Notebook\nDelivery: Single run report or Continuous subscription")
+        .block(Block::default().borders(Borders::ALL).title("Outputs"))
+        .style(outputs_style);
+    frame.render_widget(outputs, chunks[2]);
+}
+
+// Helper function to render Commands pane with state
+fn render_commands_pane(frame: &mut Frame, area: Rect, state: &CommandsPaneState) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(2),
+            Constraint::Length(6),
+            Constraint::Min(1),
+        ])
+        .split(area);
+
+    // Workspace section
+    let workspace_style = if state.selected_index == 0 {
+        Style::default().fg(Color::Yellow).bold()
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+    let instructions = Paragraph::new("Author gat-cli commands as snippets and run with hotkeys\nDry-runs print invocation; full runs stream output")
+        .block(Block::default().borders(Borders::ALL).title("Workspace"))
+        .style(workspace_style);
+    frame.render_widget(instructions, chunks[0]);
+
+    // Snippets section
+    let snippets_style = if state.selected_index == 1 {
+        Style::default().fg(Color::White).bold()
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let snippets = Paragraph::new("Snippets\n  gat-cli datasets list --limit 5                    Verify connectivity\n  gat-cli derms envelope --grid-file <case>         Preview envelope\n  gat-cli dist import matpower --m <file>            Import test case")
+        .block(Block::default().borders(Borders::ALL).title("Command Snippets"))
+        .style(snippets_style);
+    frame.render_widget(snippets, chunks[1]);
+
+    // Recent Results section
+    let recent_style = if state.selected_index == 2 {
+        Style::default().fg(Color::Green).bold()
+    } else {
+        Style::default().fg(Color::Green)
+    };
+    let recent = Paragraph::new("Recent: ✔ datasets list (5 rows), ✔ envelope preview")
+        .block(Block::default().borders(Borders::ALL).title("Recent Results"))
+        .style(recent_style);
+    frame.render_widget(recent, chunks[2]);
 }
 
 // Operations Component (stateless in tuirealm)
@@ -443,7 +655,19 @@ async fn main() -> Result<()> {
     let mut should_quit = false;
 
     // Pane-specific state
+    let mut dashboard_state = DashboardPaneState {
+        selected_index: 0,
+    };
     let mut operations_state = OperationsPaneState {
+        selected_index: 0,
+    };
+    let mut datasets_state = DatasetsPaneState {
+        selected_index: 0,
+    };
+    let mut pipeline_state = PipelinePaneState {
+        selected_index: 0,
+    };
+    let mut commands_state = CommandsPaneState {
         selected_index: 0,
     };
 
@@ -497,10 +721,11 @@ async fn main() -> Result<()> {
 
             // Active pane content
             match current_pane {
+                Id::Dashboard => render_dashboard_pane(f, chunks[2], &dashboard_state),
                 Id::Operations => render_operations_pane(f, chunks[2], &operations_state),
-                _ => {
-                    app.view(&current_pane, f, chunks[2]);
-                }
+                Id::Datasets => render_datasets_pane(f, chunks[2], &datasets_state),
+                Id::Pipeline => render_pipeline_pane(f, chunks[2], &pipeline_state),
+                Id::Commands => render_commands_pane(f, chunks[2], &commands_state),
             }
         })?;
 
@@ -535,23 +760,61 @@ async fn main() -> Result<()> {
                     KeyCode::Up => {
                         // Handle pane-specific up navigation
                         match current_pane {
+                            Id::Dashboard => {
+                                if dashboard_state.selected_index > 0 {
+                                    dashboard_state.selected_index -= 1;
+                                }
+                            }
                             Id::Operations => {
                                 if operations_state.selected_index > 0 {
                                     operations_state.selected_index -= 1;
                                 }
                             }
-                            _ => {}
+                            Id::Datasets => {
+                                if datasets_state.selected_index > 0 {
+                                    datasets_state.selected_index -= 1;
+                                }
+                            }
+                            Id::Pipeline => {
+                                if pipeline_state.selected_index > 0 {
+                                    pipeline_state.selected_index -= 1;
+                                }
+                            }
+                            Id::Commands => {
+                                if commands_state.selected_index > 0 {
+                                    commands_state.selected_index -= 1;
+                                }
+                            }
                         }
                     }
                     KeyCode::Down => {
                         // Handle pane-specific down navigation
                         match current_pane {
+                            Id::Dashboard => {
+                                if dashboard_state.selected_index < 3 {
+                                    dashboard_state.selected_index += 1;
+                                }
+                            }
                             Id::Operations => {
                                 if operations_state.selected_index < 3 {
                                     operations_state.selected_index += 1;
                                 }
                             }
-                            _ => {}
+                            Id::Datasets => {
+                                if datasets_state.selected_index < 2 {
+                                    datasets_state.selected_index += 1;
+                                }
+                            }
+                            Id::Pipeline => {
+                                if pipeline_state.selected_index < 2 {
+                                    pipeline_state.selected_index += 1;
+                                }
+                            }
+                            Id::Commands => {
+                                if commands_state.selected_index < 2 {
+                                    commands_state.selected_index += 1;
+                                }
+                            }
                         }
                     }
                     _ => {}
