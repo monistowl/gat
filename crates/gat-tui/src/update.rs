@@ -237,13 +237,3 @@ pub enum SideEffect {
     // Add more as needed
 }
 
-/// Extension trait for AppState convenience methods
-impl AppState {
-    pub fn add_notification(&mut self, message: &str, kind: NotificationKind) {
-        self.notifications.push(Notification {
-            message: message.to_string(),
-            kind,
-            timestamp: std::time::SystemTime::now(),
-        });
-    }
-}

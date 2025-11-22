@@ -257,6 +257,46 @@ impl AppState {
             .entry(self.active_pane)
             .or_insert_with(PaneState::default)
     }
+
+    pub fn add_notification(&mut self, message: &str, kind: NotificationKind) {
+        self.notifications.push(Notification {
+            message: message.to_string(),
+            kind,
+            timestamp: std::time::SystemTime::now(),
+        });
+    }
+
+    pub fn is_modal_open(&self) -> bool {
+        !matches!(self.modal_state, Some(ModalState::None) | None)
+    }
+
+    pub fn show_confirmation(&mut self, message: String, yes_label: String, no_label: String) {
+        self.modal_state = Some(ModalState::Confirmation(ConfirmationState {
+            message,
+            yes_label,
+            no_label,
+        }));
+    }
+
+    pub fn show_info(&mut self, title: String, message: String, details: Option<String>) {
+        self.modal_state = Some(ModalState::Info(InfoState {
+            title,
+            message,
+            details,
+        }));
+    }
+
+    pub fn show_command_modal(&mut self, command: String) {
+        self.modal_state = Some(ModalState::CommandExecution(CommandModalState {
+            command_text: command,
+            execution_mode: ExecutionMode::DryRun,
+            output: Vec::new(),
+        }));
+    }
+
+    pub fn close_modal(&mut self) {
+        self.modal_state = Some(ModalState::None);
+    }
 }
 
 impl Default for AppState {
