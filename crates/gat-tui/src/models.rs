@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use crate::{QueryBuilder, QueryError, DatasetEntry};
 use crate::data::{Workflow, SystemMetrics};
+use crate::services::{GridService, GatCoreQueryBuilder};
 
 /// Global application state
 #[derive(Clone)]
@@ -20,6 +21,11 @@ pub struct AppState {
 
     // Query service
     pub query_builder: Arc<dyn QueryBuilder>,
+
+    // Grid management (Phase 2)
+    pub grid_service: GridService,
+    pub gat_core_query_builder: Option<GatCoreQueryBuilder>,
+    pub current_grid_id: Option<String>,
 
     // Async task tracking
     pub datasets_loading: bool,
@@ -50,6 +56,7 @@ impl std::fmt::Debug for AppState {
             .field("terminal_width", &self.terminal_width)
             .field("terminal_height", &self.terminal_height)
             .field("async_tasks", &self.async_tasks)
+            .field("current_grid_id", &self.current_grid_id)
             .field("datasets_loading", &self.datasets_loading)
             .field("workflows_loading", &self.workflows_loading)
             .field("metrics_loading", &self.metrics_loading)
@@ -280,7 +287,11 @@ impl AppState {
         pane_states.insert(PaneId::Commands, PaneState::default());
         pane_states.insert(PaneId::Help, PaneState::default());
 
+        // Initialize with MockQueryBuilder (fixtures) by default
         let query_builder = Arc::new(MockQueryBuilder);
+
+        // Initialize grid service for real data integration (Phase 2)
+        let grid_service = GridService::new();
 
         AppState {
             active_pane: PaneId::Dashboard,
@@ -295,6 +306,9 @@ impl AppState {
             terminal_height: 24,
             async_tasks: HashMap::new(),
             query_builder,
+            grid_service,
+            gat_core_query_builder: None,
+            current_grid_id: None,
             datasets_loading: false,
             workflows_loading: false,
             metrics_loading: false,
@@ -393,6 +407,83 @@ impl AppState {
     pub async fn fetch_commands(&mut self) {
         self.commands_loading = true;
         self.commands = Some(self.query_builder.get_commands().await);
+        self.commands_loading = false;
+    }
+
+    /// Load a grid from an Arrow file and set it as current
+    ///
+    /// Returns the grid ID on success, or error message on failure.
+    /// Invalidates cached results when grid changes.
+    pub fn load_grid(&mut self, file_path: &str) -> Result<String, String> {
+        match self.grid_service.load_grid_from_arrow(file_path) {
+            Ok(grid_id) => {
+                self.set_current_grid(grid_id.clone());
+                Ok(grid_id)
+            }
+            Err(e) => Err(format!("{:?}", e)),
+        }
+    }
+
+    /// Set the current active grid and switch to GatCoreQueryBuilder
+    ///
+    /// Invalidates cached results and updates the active query builder
+    /// to use real data from the grid instead of fixtures.
+    pub fn set_current_grid(&mut self, grid_id: String) {
+        self.current_grid_id = Some(grid_id.clone());
+
+        // Create/update GatCoreQueryBuilder with the new grid
+        let mut gat_core_qb = GatCoreQueryBuilder::new(self.grid_service.clone());
+        gat_core_qb.set_current_grid(grid_id);
+        self.gat_core_query_builder = Some(gat_core_qb);
+
+        // Switch to GatCoreQueryBuilder as the active query builder
+        // In future, this could be made switchable with MockQueryBuilder for testing
+        self.query_builder = Arc::new(
+            self.gat_core_query_builder.clone().unwrap_or_else(|| {
+                GatCoreQueryBuilder::new(self.grid_service.clone())
+            })
+        );
+
+        // Invalidate cached results so they refresh with new grid data
+        self.invalidate_caches();
+    }
+
+    /// Unload the current grid
+    pub fn unload_current_grid(&mut self) -> Result<(), String> {
+        if let Some(grid_id) = &self.current_grid_id {
+            match self.grid_service.unload_grid(grid_id) {
+                Ok(_) => {
+                    self.current_grid_id = None;
+                    self.gat_core_query_builder = None;
+                    self.invalidate_caches();
+                    Ok(())
+                }
+                Err(e) => Err(format!("{:?}", e)),
+            }
+        } else {
+            Err("No grid currently loaded".to_string())
+        }
+    }
+
+    /// Get list of all loaded grid IDs
+    pub fn list_grids(&self) -> Vec<String> {
+        self.grid_service.list_grids()
+    }
+
+    /// Invalidate all cached results
+    ///
+    /// Called when grid changes to force refresh of metrics, datasets, etc.
+    fn invalidate_caches(&mut self) {
+        self.datasets = None;
+        self.workflows = None;
+        self.metrics = None;
+        self.pipeline_config = None;
+        self.commands = None;
+
+        self.datasets_loading = false;
+        self.workflows_loading = false;
+        self.metrics_loading = false;
+        self.pipeline_loading = false;
         self.commands_loading = false;
     }
 }
