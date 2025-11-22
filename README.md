@@ -311,6 +311,46 @@ Use `gat --help` and `gat <command> --help` for detailed flags and examples.
 
 ---
 
+## 🚀 Common Workflows
+
+### Import a grid and run a quick power flow
+
+```bash
+gat import matpower case9.raw --out grid.arrow
+gat pf dc grid.arrow --out flows.parquet
+```
+
+### Explore a grid interactively
+
+```bash
+cargo run -p gat-tui --release
+# Then: Browse datasets, check pipeline status, view reliability metrics
+```
+
+### Run N-1 contingency analysis at scale
+
+```bash
+gat scenarios materialize --spec rts_nminus1.yaml --grid-file grid.arrow --out-dir runs/scenarios
+gat batch opf --manifest runs/scenarios/rts_nminus1/scenario_manifest.json --out runs/batch/rts_opf
+gat runs describe $(gat runs list --root runs --format json | jq -r '.[0].id')
+```
+
+### Analyze DER hosting capacity
+
+```bash
+gat dist hosting --grid grid.arrow --der-file ders.csv --out hosting_curves.parquet
+```
+
+### Extract reliability metrics
+
+```bash
+gat analytics reliability --grid grid.arrow --outages contingencies.yaml --out results.parquet
+```
+
+For more detailed walkthroughs, see `docs/guide/`.
+
+---
+
 # ### **Scenario definitions & materialization**
 
 Use `gat scenarios` to validate, expand, and materialize what-if cases before batch execution:
