@@ -253,37 +253,57 @@ fn render_menu_bar(frame: &mut Frame, area: Rect, current_pane: &Id, nav_level: 
         ("Commands", Id::Commands),
     ];
 
-    let mut menu_text = String::new();
-    for (i, (name, id)) in panes.iter().enumerate() {
+    let mut menu_parts = Vec::new();
+
+    for (_i, (name, id)) in panes.iter().enumerate() {
         let is_current = id == current_pane;
         let is_focused = is_current && nav_level == NavigationLevel::MenuBar;
 
-        let indicator = if is_focused {
-            format!("[*{}]", i + 1)  // Focused pane with indicator
+        // Create styled pane name
+        let pane_text = if is_focused {
+            // Focused: highlighted with full formatting
+            format!("[*] {}", name)
         } else if is_current {
-            format!("[ {}]", i + 1)  // Current pane but not focused
+            // Current but not focused: show it's active
+            format!("[ ] {}", name)
         } else {
-            format!("[ {}]", i + 1)  // Other panes
+            // Other panes: plain
+            format!("   {}", name)
         };
 
+        // Style based on focus state
+        let style = if is_focused {
+            Style::default().fg(Color::Cyan).bold()
+        } else if is_current {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
+        menu_parts.push((pane_text, style));
+    }
+
+    // Build the menu line with separators
+    let mut menu_text = String::new();
+    for (i, (name, _)) in menu_parts.iter().enumerate() {
         if i > 0 {
-            menu_text.push_str("  ");
+            menu_text.push_str("  │  ");
         }
-        menu_text.push_str(&format!("{} {}", indicator, name));
+        menu_text.push_str(name);
     }
 
     // Add help text
-    menu_text.push_str("  |  ↑↓ navigate sections  Enter go in  ESC menu");
+    menu_text.push_str("  |  ↑↓ navigate sections  ↑ go to menu  ESC menu");
 
-    let style = if nav_level == NavigationLevel::MenuBar {
-        Style::default().fg(Color::Cyan).bold()  // Menu bar is highlighted when in focus
+    let default_style = if nav_level == NavigationLevel::MenuBar {
+        Style::default().fg(Color::Cyan).bold()
     } else {
         Style::default().fg(Color::White)
     };
 
     frame.render_widget(
         Paragraph::new(menu_text)
-            .style(style)
+            .style(default_style)
             .block(Block::default().borders(Borders::BOTTOM)),
         area,
     );
@@ -876,31 +896,45 @@ async fn main() -> Result<()> {
                                 should_quit = true;
                             }
                             KeyCode::Up => {
-                                // Navigate up within pane
-                                match current_pane {
-                                    Id::Dashboard => {
-                                        if dashboard_state.selected_index > 0 {
-                                            dashboard_state.selected_index -= 1;
+                                // Navigate up within pane, or go to menu bar if at top
+                                let at_top = match current_pane {
+                                    Id::Dashboard => dashboard_state.selected_index == 0,
+                                    Id::Operations => operations_state.selected_index == 0,
+                                    Id::Datasets => datasets_state.selected_index == 0,
+                                    Id::Pipeline => pipeline_state.selected_index == 0,
+                                    Id::Commands => commands_state.selected_index == 0,
+                                };
+
+                                if at_top {
+                                    // At top of pane, go to menu bar
+                                    nav_level = NavigationLevel::MenuBar;
+                                } else {
+                                    // Navigate up within pane
+                                    match current_pane {
+                                        Id::Dashboard => {
+                                            if dashboard_state.selected_index > 0 {
+                                                dashboard_state.selected_index -= 1;
+                                            }
                                         }
-                                    }
-                                    Id::Operations => {
-                                        if operations_state.selected_index > 0 {
-                                            operations_state.selected_index -= 1;
+                                        Id::Operations => {
+                                            if operations_state.selected_index > 0 {
+                                                operations_state.selected_index -= 1;
+                                            }
                                         }
-                                    }
-                                    Id::Datasets => {
-                                        if datasets_state.selected_index > 0 {
-                                            datasets_state.selected_index -= 1;
+                                        Id::Datasets => {
+                                            if datasets_state.selected_index > 0 {
+                                                datasets_state.selected_index -= 1;
+                                            }
                                         }
-                                    }
-                                    Id::Pipeline => {
-                                        if pipeline_state.selected_index > 0 {
-                                            pipeline_state.selected_index -= 1;
+                                        Id::Pipeline => {
+                                            if pipeline_state.selected_index > 0 {
+                                                pipeline_state.selected_index -= 1;
+                                            }
                                         }
-                                    }
-                                    Id::Commands => {
-                                        if commands_state.selected_index > 0 {
-                                            commands_state.selected_index -= 1;
+                                        Id::Commands => {
+                                            if commands_state.selected_index > 0 {
+                                                commands_state.selected_index -= 1;
+                                            }
                                         }
                                     }
                                 }
