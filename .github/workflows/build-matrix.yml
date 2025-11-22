@@ -1,0 +1,141 @@
+name: Build Matrix
+
+on:
+  workflow_call:
+    inputs:
+      verbose_diagnostics:
+        description: 'Enable verbose compiler output'
+        required: false
+        type: boolean
+        default: false
+      upload_artifacts:
+        description: 'Upload build artifacts'
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      build_summary:
+        description: 'Build summary JSON'
+        value: ${{ jobs.build.outputs.summary }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} / ${{ matrix.variant }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        variant: [headless, full, analyst]
+
+    outputs:
+      summary: ${{ steps.summary.outputs.json }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ hashFiles('Cargo.lock') }}
+
+      - name: Capture system info
+        id: sysinfo
+        run: |
+          echo "os=$(uname -s)" >> $GITHUB_OUTPUT
+          echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+          echo "rustc=$(rustc --version)" >> $GITHUB_OUTPUT
+          echo "cargo=$(cargo --version)" >> $GITHUB_OUTPUT
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coinor-libcbc-dev jq libssl-dev pkg-config
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install coinor-cbc jq openssl pkg-config || true
+
+      - name: Determine build features
+        id: features
+        run: |
+          case "${{ matrix.variant }}" in
+            headless)
+              echo "flags=--no-default-features --features minimal-io" >> $GITHUB_OUTPUT
+              ;;
+            analyst)
+              echo "flags=--no-default-features --features minimal-io,adms,derms,dist,analytics,featurize" >> $GITHUB_OUTPUT
+              ;;
+            full)
+              echo "flags=--all-features" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Build
+        env:
+          RUSTFLAGS: ${{ inputs.verbose_diagnostics && '-v' || '' }}
+        run: |
+          cargo build -p gat-cli --release ${{ steps.features.outputs.flags }} --locked
+
+      - name: Run tests
+        run: |
+          cargo test -p gat-core -p gat-cli --release ${{ steps.features.outputs.flags }} --locked -- --nocapture
+
+      - name: Capture build diagnostics
+        id: diagnostics
+        run: |
+          # Capture detailed system info
+          {
+            echo "{"
+            echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
+            echo "  \"github_run_id\": \"${{ github.run_id }}\","
+            echo "  \"github_run_number\": \"${{ github.run_number }}\","
+            echo "  \"runner_os\": \"${{ runner.os }}\","
+            echo "  \"runner_arch\": \"${{ runner.arch }}\","
+            echo "  \"variant\": \"${{ matrix.variant }}\","
+            echo "  \"toolchain\": {"
+            echo "    \"rustc\": \"$(rustc --version)\","
+            echo "    \"cargo\": \"$(cargo --version)\","
+            echo "    \"rustc_verbose\": \"$(rustc -vV)\""
+            echo "  },"
+            echo "  \"system\": {"
+            echo "    \"uname_a\": \"$(uname -a)\","
+            echo "    \"memory_available_gb\": \"$(free -h 2>/dev/null | grep Mem | awk '{print $7}' || echo 'N/A')\""
+            echo "  },"
+            echo "  \"build_flags\": \"${{ steps.features.outputs.flags }}\""
+            echo "}"
+          } > build-diagnostics-${{ matrix.os }}-${{ matrix.variant }}.json
+
+      - name: Upload verbose compiler output
+        if: inputs.verbose_diagnostics && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiler-output-${{ runner.os }}-${{ matrix.variant }}-${{ github.run_id }}
+          path: '**/*.o'
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-diagnostics-${{ runner.os }}-${{ matrix.variant }}-${{ github.run_id }}
+          path: build-diagnostics-*.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Generate build summary
+        id: summary
+        run: |
+          echo "json={\"status\":\"success\",\"os\":\"${{ runner.os }}\",\"variant\":\"${{ matrix.variant }}\"}" >> $GITHUB_OUTPUT
