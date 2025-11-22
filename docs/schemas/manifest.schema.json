@@ -39,6 +39,37 @@
       ],
       "type": "object"
     },
+    "ManifestTelemetry": {
+      "properties": {
+        "correlation_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "duration_ms": {
+          "format": "uint128",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "env": {
+          "items": {
+            "$ref": "#/definitions/Param"
+          },
+          "type": "array"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
     "Param": {
       "properties": {
         "name": {
@@ -93,6 +124,16 @@
         "string",
         "null"
       ]
+    },
+    "telemetry": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/ManifestTelemetry"
+        }
+      ],
+      "default": {
+        "status": ""
+      }
     },
     "timestamp": {
       "type": "string"

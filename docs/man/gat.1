@@ -1,6 +1,6 @@
 .ie \n(.g .ds Aq \(aq
 .el .ds Aq '
-.TH gat-cli 1  "gat-cli 0.1.0" 
+.TH gat-cli 1  "gat-cli 0.1.3" 
 .SH NAME
 gat\-cli
 .SH SYNOPSIS
@@ -29,6 +29,9 @@ Validate a dataset against a schema
 .TP
 gat\-cli\-graph(1)
 Graph utilities
+.TP
+gat\-cli\-scenarios(1)
+Scenario definitions and materialization workflows
 .TP
 gat\-cli\-completions(1)
 Generate shell completion scripts
@@ -63,13 +66,28 @@ Visualization helpers
 gat\-cli\-analytics(1)
 Grid analytics helpers (PTDF, sensitivities, etc.)
 .TP
+gat\-cli\-featurize(1)
+Feature extraction for ML models (GNN, KPI predictors, etc.)
+.TP
+gat\-cli\-geo(1)
+Geo\-spatial tools (GIS joins, polygon mapping, spatial features)
+.TP
+gat\-cli\-alloc(1)
+Allocation and settlement tools (congestion rents, cost attribution)
+.TP
+gat\-cli\-batch(1)
+Scenario batch runners for PF/OPF (CANOS\-style fan\-out)
+.TP
 gat\-cli\-runs(1)
 Run management
 .TP
 gat\-cli\-dataset(1)
 Dataset adapters
 .TP
+gat\-cli\-version(1)
+Release version helpers
+.TP
 gat\-cli\-help(1)
 Print this message or the help of the given subcommand(s)
 .SH VERSION
-v0.1.0
+v0.1.3

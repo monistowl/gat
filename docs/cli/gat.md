@@ -15,6 +15,11 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli graph islands`↴](#gat-cli-graph-islands)
 * [`gat-cli graph export`↴](#gat-cli-graph-export)
 * [`gat-cli graph visualize`↴](#gat-cli-graph-visualize)
+* [`gat-cli scenarios`↴](#gat-cli-scenarios)
+* [`gat-cli scenarios validate`↴](#gat-cli-scenarios-validate)
+* [`gat-cli scenarios list`↴](#gat-cli-scenarios-list)
+* [`gat-cli scenarios expand`↴](#gat-cli-scenarios-expand)
+* [`gat-cli scenarios materialize`↴](#gat-cli-scenarios-materialize)
 * [`gat-cli completions`↴](#gat-cli-completions)
 * [`gat-cli pf`↴](#gat-cli-pf)
 * [`gat-cli pf dc`↴](#gat-cli-pf-dc)
@@ -48,6 +53,21 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli viz plot`↴](#gat-cli-viz-plot)
 * [`gat-cli analytics`↴](#gat-cli-analytics)
 * [`gat-cli analytics ptdf`↴](#gat-cli-analytics-ptdf)
+* [`gat-cli analytics ds`↴](#gat-cli-analytics-ds)
+* [`gat-cli analytics reliability`↴](#gat-cli-analytics-reliability)
+* [`gat-cli analytics elcc`↴](#gat-cli-analytics-elcc)
+* [`gat-cli featurize`↴](#gat-cli-featurize)
+* [`gat-cli featurize gnn`↴](#gat-cli-featurize-gnn)
+* [`gat-cli featurize kpi`↴](#gat-cli-featurize-kpi)
+* [`gat-cli geo`↴](#gat-cli-geo)
+* [`gat-cli geo join`↴](#gat-cli-geo-join)
+* [`gat-cli geo featurize`↴](#gat-cli-geo-featurize)
+* [`gat-cli alloc`↴](#gat-cli-alloc)
+* [`gat-cli alloc rents`↴](#gat-cli-alloc-rents)
+* [`gat-cli alloc kpi`↴](#gat-cli-alloc-kpi)
+* [`gat-cli batch`↴](#gat-cli-batch)
+* [`gat-cli batch pf`↴](#gat-cli-batch-pf)
+* [`gat-cli batch opf`↴](#gat-cli-batch-opf)
 * [`gat-cli runs`↴](#gat-cli-runs)
 * [`gat-cli runs list`↴](#gat-cli-runs-list)
 * [`gat-cli runs describe`↴](#gat-cli-runs-describe)
@@ -67,6 +87,8 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli dataset public list`↴](#gat-cli-dataset-public-list)
 * [`gat-cli dataset public describe`↴](#gat-cli-dataset-public-describe)
 * [`gat-cli dataset public fetch`↴](#gat-cli-dataset-public-fetch)
+* [`gat-cli version`↴](#gat-cli-version)
+* [`gat-cli version sync`↴](#gat-cli-version-sync)
 
 ## `gat-cli`
 
@@ -77,6 +99,7 @@ This document contains the help content for the `gat-cli` command-line program.
 * `import` — Import data from various formats
 * `validate` — Validate a dataset against a schema
 * `graph` — Graph utilities
+* `scenarios` — Scenario definitions and materialization workflows
 * `completions` — Generate shell completion scripts
 * `pf` — Power flow solvers
 * `nminus1` — Contingency analysis
@@ -88,8 +111,13 @@ This document contains the help content for the `gat-cli` command-line program.
 * `se` — State estimation
 * `viz` — Visualization helpers
 * `analytics` — Grid analytics helpers (PTDF, sensitivities, etc.)
+* `featurize` — Feature extraction for ML models (GNN, KPI predictors, etc.)
+* `geo` — Geo-spatial tools (GIS joins, polygon mapping, spatial features)
+* `alloc` — Allocation and settlement tools (congestion rents, cost attribution)
+* `batch` — Scenario batch runners for PF/OPF (CANOS-style fan-out)
 * `runs` — Run management
 * `dataset` — Dataset adapters
+* `version` — Release version helpers
 
 ###### **Options:**
 
@@ -245,6 +273,79 @@ Compute force-directed layout for visualization
 
   Default value: `150`
 * `-o`, `--out <OUT>` — Optional output file path
+
+
+
+## `gat-cli scenarios`
+
+Scenario definitions and materialization workflows
+
+**Usage:** `gat-cli scenarios <COMMAND>`
+
+###### **Subcommands:**
+
+* `validate` — Validate a scenario specification (YAML/JSON)
+* `list` — List normalized scenarios inside a spec
+* `expand` — Expand templated scenarios into fully resolved definitions
+* `materialize` — Materialize per-scenario grids and produce a manifest
+
+
+
+## `gat-cli scenarios validate`
+
+Validate a scenario specification (YAML/JSON)
+
+**Usage:** `gat-cli scenarios validate --spec <SPEC>`
+
+###### **Options:**
+
+* `--spec <SPEC>` — Path to the scenario spec template
+
+
+
+## `gat-cli scenarios list`
+
+List normalized scenarios inside a spec
+
+**Usage:** `gat-cli scenarios list [OPTIONS] --spec <SPEC>`
+
+###### **Options:**
+
+* `--spec <SPEC>` — Path to the scenario spec
+* `--format <FORMAT>` — Output format (table or json)
+
+  Default value: `table`
+
+
+
+## `gat-cli scenarios expand`
+
+Expand templated scenarios into fully resolved definitions
+
+**Usage:** `gat-cli scenarios expand [OPTIONS] --spec <SPEC> --out <OUT>`
+
+###### **Options:**
+
+* `--spec <SPEC>` — Path to the scenario spec
+* `--grid-file <GRID_FILE>` — Optional base grid file to override the spec
+* `-o`, `--out <OUT>` — Path for the expanded output (JSON or YAML)
+
+
+
+## `gat-cli scenarios materialize`
+
+Materialize per-scenario grids and produce a manifest
+
+**Usage:** `gat-cli scenarios materialize [OPTIONS] --spec <SPEC> --out-dir <OUT_DIR>`
+
+###### **Options:**
+
+* `--spec <SPEC>` — Path to the scenario spec
+* `--grid-file <GRID_FILE>` — Optional base grid file (overrides spec)
+* `-o`, `--out-dir <OUT_DIR>` — Directory where scenario grids and manifest are written
+* `--drop-outaged` — Drop outaged components from the exported grids
+
+  Default value: `true`
 
 
 
@@ -872,6 +973,9 @@ Grid analytics helpers (PTDF, sensitivities, etc.)
 ###### **Subcommands:**
 
 * `ptdf` — PTDF sensitivity for a source→sink transfer
+* `ds` — Deliverability Score (DS) computation for resource adequacy accreditation
+* `reliability` — Reliability metrics (LOLE, EUE, thermal violations) from batch outputs
+* `elcc` — Estimate Equivalent Load Carrying Capability (ELCC)
 
 
 
@@ -902,6 +1006,328 @@ PTDF sensitivity for a source→sink transfer
 * `--solver <SOLVER>` — Solver to use (gauss, faer, etc.)
 
   Default value: `gauss`
+
+
+
+## `gat-cli analytics ds`
+
+Deliverability Score (DS) computation for resource adequacy accreditation
+
+Computes DC-approximate deliverability scores: the fraction of nameplate capacity that can be delivered before branch thermal limits are violated. Used in RA accreditation where DS × ELCC determines effective capacity. See doi:10.1109/TPWRS.2007.899019 for DC flow.
+
+**Usage:** `gat-cli analytics ds [OPTIONS] --limits <LIMITS> --branch-limits <BRANCH_LIMITS> --flows <FLOWS> --out <OUT> <GRID_FILE>`
+
+###### **Arguments:**
+
+* `<GRID_FILE>` — Path to the grid data file (Arrow format)
+
+###### **Options:**
+
+* `--limits <LIMITS>` — CSV file with bus capacity limits (bus_id, pmax)
+* `--branch-limits <BRANCH_LIMITS>` — CSV file with branch thermal limits (branch_id, flow_limit)
+* `--flows <FLOWS>` — Parquet file with branch flows from DC PF/OPF (must have branch_id, flow_mw)
+* `-o`, `--out <OUT>` — Output file path for DS table (Parquet)
+* `--sink-bus <SINK_BUS>` — Reference/slack bus ID for PTDF computation
+
+  Default value: `1`
+* `--solver <SOLVER>` — Solver to use (gauss, faer, etc.)
+
+  Default value: `gauss`
+* `--threads <THREADS>` — Threading hint (`auto` or integer)
+
+  Default value: `auto`
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
+
+
+
+## `gat-cli analytics reliability`
+
+Reliability metrics (LOLE, EUE, thermal violations) from batch outputs
+
+Computes Loss of Load Expectation (LOLE), Energy Unserved (EUE), and thermal violation counts from batch PF/OPF results. Used for resource adequacy assessment and KPI prediction. See doi:10.1109/TPWRS.2012.2187686 for reliability metrics in power systems.
+
+**Usage:** `gat-cli analytics reliability [OPTIONS] --out <OUT>`
+
+###### **Options:**
+
+* `--batch-manifest <BATCH_MANIFEST>` — Batch manifest JSON from `gat batch` (alternative to --flows)
+* `--flows <FLOWS>` — Parquet file with branch flows (alternative to --batch-manifest)
+* `--branch-limits <BRANCH_LIMITS>` — CSV file with branch thermal limits (branch_id, flow_limit)
+* `--scenario-weights <SCENARIO_WEIGHTS>` — CSV file with scenario weights/probabilities (scenario_id, weight)
+* `-o`, `--out <OUT>` — Output file path for reliability metrics table (Parquet)
+* `--unserved-threshold <UNSERVED_THRESHOLD>` — Minimum unserved load to count as LOLE event (MW, default 0.1)
+
+  Default value: `0.1`
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
+
+
+
+## `gat-cli analytics elcc`
+
+Estimate Equivalent Load Carrying Capability (ELCC)
+
+**Usage:** `gat-cli analytics elcc [OPTIONS] --resource-profiles <RESOURCE_PROFILES> --reliability-metrics <RELIABILITY_METRICS> --out <OUT>`
+
+###### **Options:**
+
+* `--resource-profiles <RESOURCE_PROFILES>` — Parquet file with resource profiles (asset_id, class_id, time, capacity)
+* `--reliability-metrics <RELIABILITY_METRICS>` — Parquet file with reliability metrics (from `gat analytics reliability`)
+* `-o`, `--out <OUT>` — Output file path for ELCC estimates (Parquet)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
+* `--max-jobs <MAX_JOBS>` — Number of parallel jobs (0 for auto)
+
+  Default value: `0`
+
+
+
+## `gat-cli featurize`
+
+Feature extraction for ML models (GNN, KPI predictors, etc.)
+
+**Usage:** `gat-cli featurize <COMMAND>`
+
+###### **Subcommands:**
+
+* `gnn` — Export grid topology and flows as GNN-ready graph features
+* `kpi` — Generate KPI training/evaluation feature tables for ML prediction models
+
+
+
+## `gat-cli featurize gnn`
+
+Export grid topology and flows as GNN-ready graph features
+
+Converts power grid data into graph-structured features for Graph Neural Networks (GNNs). Produces node features (buses with static topology + dynamic injections), edge features (branches with impedance + flows), and graph metadata. Compatible with PyTorch Geometric, DGL, and other GNN frameworks. See doi:10.1109/TPWRS.2020.3041234 for GNNs in power systems.
+
+**Usage:** `gat-cli featurize gnn [OPTIONS] --flows <FLOWS> --out <OUT> <GRID_FILE>`
+
+###### **Arguments:**
+
+* `<GRID_FILE>` — Path to the grid data file (Arrow format)
+
+###### **Options:**
+
+* `--flows <FLOWS>` — Parquet file with branch flows from PF/OPF (must have branch_id, flow_mw)
+* `-o`, `--out <OUT>` — Output directory root for feature tables (nodes, edges, graphs)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated, e.g., "graph_id,scenario_id")
+* `--group-by-scenario` — Group flows by scenario_id (if present in flows)
+
+  Default value: `true`
+* `--group-by-time` — Group flows by time (if present in flows)
+
+  Default value: `true`
+
+
+
+## `gat-cli featurize kpi`
+
+Generate KPI training/evaluation feature tables for ML prediction models
+
+Aggregates batch PF/OPF outputs and reliability metrics into wide feature tables suitable for training probabilistic KPI predictors (TabNet, NGBoost, gradient boosting, etc.). Outputs are keyed by (scenario_id, time, zone) and include system stress indicators, policy flags, and reliability metrics. The "X" features for predicting reliability KPIs.
+
+**Usage:** `gat-cli featurize kpi [OPTIONS] --batch-root <BATCH_ROOT> --out <OUT>`
+
+###### **Options:**
+
+* `--batch-root <BATCH_ROOT>` — Root directory containing batch PF/OPF outputs (flows, LMPs, violations)
+* `--reliability <RELIABILITY>` — Optional reliability metrics file (output from `gat analytics reliability`)
+* `--scenario-meta <SCENARIO_META>` — Optional scenario metadata file (YAML/JSON with policy flags, weather, etc.)
+* `-o`, `--out <OUT>` — Output file path for KPI features (Parquet format)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated, e.g., "scenario_id,time")
+
+
+
+## `gat-cli geo`
+
+Geo-spatial tools (GIS joins, polygon mapping, spatial features)
+
+**Usage:** `gat-cli geo <COMMAND>`
+
+###### **Subcommands:**
+
+* `join` — Map buses/feeders to spatial polygons (tracts, zip codes, neighborhoods)
+* `featurize` — Produce time-series feature tables keyed by (polygon_id, time)
+
+
+
+## `gat-cli geo join`
+
+Map buses/feeders to spatial polygons (tracts, zip codes, neighborhoods)
+
+Performs spatial joins between power grid topology (buses, feeders) and GIS polygons (census tracts, zip codes, planning areas, etc.). Produces polygon_id ↔ bus_id mapping tables for downstream spatial aggregation. Supports point-in-polygon tests, Voronoi tessellation, and k-nearest-neighbor assignment. Compatible with GeoParquet format. See doi:10.3390/ijgi9020102 for spatial joins in energy systems GIS.
+
+**Usage:** `gat-cli geo join [OPTIONS] --grid-file <GRID_FILE> --polygons <POLYGONS> --out <OUT>`
+
+###### **Options:**
+
+* `--grid-file <GRID_FILE>` — Path to the grid topology file (Arrow format, must have bus_id, lat, lon)
+* `--polygons <POLYGONS>` — Path to the GIS polygon file (GeoParquet, Shapefile, or GeoJSON with polygon geometries)
+* `--method <METHOD>` — Spatial join method: "point_in_polygon", "voronoi", or "knn"
+
+  Default value: `point_in_polygon`
+* `--k <K>` — For knn method: number of nearest polygons to assign (default 1)
+
+  Default value: `1`
+* `-o`, `--out <OUT>` — Output file path for bus-to-polygon mapping table (Parquet: bus_id, polygon_id, distance)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated, e.g., "polygon_id")
+
+
+
+## `gat-cli geo featurize`
+
+Produce time-series feature tables keyed by (polygon_id, time)
+
+Aggregates time-series grid metrics (load, voltage, violations, etc.) to spatial polygons using the bus-to-polygon mapping from `gat geo join`. Computes lags, rolling statistics, event flags, and seasonal features for spatial forecasting models. Outputs polygon-level feature fabric for demand forecasting, reliability prediction, and spatial planning. See doi:10.1016/j.energy.2020.117515 for spatial-temporal load forecasting.
+
+**Usage:** `gat-cli geo featurize [OPTIONS] --mapping <MAPPING> --timeseries <TIMESERIES> --out <OUT>`
+
+###### **Options:**
+
+* `--mapping <MAPPING>` — Path to the bus-to-polygon mapping table (output from `gat geo join`)
+* `--timeseries <TIMESERIES>` — Path to time-series grid metrics (Parquet with bus_id, time, values)
+* `--lags <LAGS>` — Lag periods to compute (comma separated, e.g., "1,7,24" for 1-hour, 7-hour, 24-hour lags)
+* `--windows <WINDOWS>` — Rolling window sizes (comma separated, e.g., "7,24,168" for 7h, 24h, 168h windows)
+* `--seasonal` — Compute seasonal features (day-of-week, hour-of-day, month-of-year flags)
+
+  Default value: `true`
+* `-o`, `--out <OUT>` — Output file path for polygon-level features (Parquet: polygon_id, time, features)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated, e.g., "polygon_id,time")
+
+
+
+## `gat-cli alloc`
+
+Allocation and settlement tools (congestion rents, cost attribution)
+
+**Usage:** `gat-cli alloc <COMMAND>`
+
+###### **Subcommands:**
+
+* `rents` — Compute congestion rents and surplus decomposition from OPF results
+* `kpi` — Simple contribution analysis for KPI changes across scenarios
+
+
+
+## `gat-cli alloc rents`
+
+Compute congestion rents and surplus decomposition from OPF results
+
+Analyzes OPF outputs (LMPs, flows, injections) to decompose system surplus into congestion rents, generator revenues, and load payments. Provides the numerical backbone for allocation and settlement frameworks. See doi:10.1109/TPWRS.2003.820692 for LMP-based congestion analysis.
+
+**Usage:** `gat-cli alloc rents [OPTIONS] --opf-results <OPF_RESULTS> --grid-file <GRID_FILE> --out <OUT>`
+
+###### **Options:**
+
+* `--opf-results <OPF_RESULTS>` — Parquet file with OPF results (must have: bus_id, lmp, injection_mw, flow_mw)
+* `--grid-file <GRID_FILE>` — Path to the grid topology file (Arrow format, for branch mapping)
+* `--tariffs <TARIFFS>` — Optional tariff/margin parameters CSV (resource_id, tariff_rate)
+* `-o`, `--out <OUT>` — Output file path for congestion rents table (Parquet)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated, e.g., "scenario_id,time")
+
+
+
+## `gat-cli alloc kpi`
+
+Simple contribution analysis for KPI changes across scenarios
+
+Approximates the contribution of control actions/portfolios to KPI improvements using gradient-based sensitivity or linear approximations. A stepping stone towards full SHAP explainability. See doi:10.1038/s42256-019-0138-9 for SHAP and model explanations.
+
+**Usage:** `gat-cli alloc kpi [OPTIONS] --kpi-results <KPI_RESULTS> --scenario-meta <SCENARIO_META> --out <OUT>`
+
+###### **Options:**
+
+* `--kpi-results <KPI_RESULTS>` — Parquet file with KPI results (must have: scenario_id, kpi_value)
+* `--scenario-meta <SCENARIO_META>` — Parquet file with scenario metadata (scenario_id, control flags, policy settings)
+* `-o`, `--out <OUT>` — Output file path for contribution analysis (Parquet)
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated, e.g., "scenario_id")
+
+
+
+## `gat-cli batch`
+
+Scenario batch runners for PF/OPF (CANOS-style fan-out)
+
+**Usage:** `gat-cli batch <COMMAND>`
+
+###### **Subcommands:**
+
+* `pf` — Run DC/AC PF for every scenario in a manifest (CANOS-style fan-out, doi:10.1109/TPWRS.2007.899019)
+* `opf` — Run DC/AC OPF for every scenario (CANOS-ready reliability stats)
+
+
+
+## `gat-cli batch pf`
+
+Run DC/AC PF for every scenario in a manifest (CANOS-style fan-out, doi:10.1109/TPWRS.2007.899019)
+
+**Usage:** `gat-cli batch pf [OPTIONS] --manifest <MANIFEST> --out <OUT>`
+
+###### **Options:**
+
+* `--manifest <MANIFEST>` — Scenario manifest JSON generated by `gat scenarios materialize`
+* `-o`, `--out <OUT>` — Output directory root for job outputs
+* `--mode <MODE>` — Flow mode (`dc` or `ac`)
+
+  Default value: `dc`
+* `--solver <SOLVER>` — Linear solver (`gauss`/`faer`, etc.)
+
+  Default value: `gauss`
+* `--threads <THREADS>` — Threading hint for global Rayon pool
+
+  Default value: `auto`
+* `--max-jobs <MAX_JOBS>` — Maximum number of jobs to execute in parallel (0 = auto)
+
+  Default value: `0`
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns for Parquet outputs (optional)
+* `--tol <TOL>` — AC tolerance in per unit
+
+  Default value: `0.000001`
+* `--max-iter <MAX_ITER>` — Maximum AC solver iterations
+
+  Default value: `50`
+
+
+
+## `gat-cli batch opf`
+
+Run DC/AC OPF for every scenario (CANOS-ready reliability stats)
+
+**Usage:** `gat-cli batch opf [OPTIONS] --manifest <MANIFEST> --out <OUT>`
+
+###### **Options:**
+
+* `--manifest <MANIFEST>` — Scenario manifest JSON
+* `-o`, `--out <OUT>` — Output directory root
+* `--mode <MODE>` — OPF mode (`dc` or `ac`)
+
+  Default value: `dc`
+* `--solver <SOLVER>` — Main solver (gauss/faer)
+
+  Default value: `gauss`
+* `--lp-solver <LP_SOLVER>` — LP solver for DC OPF
+
+  Default value: `clarabel`
+* `--cost <COST>` — Cost CSV (required for DC OPF)
+
+  Default value: ``
+* `--limits <LIMITS>` — Limits CSV (required for DC OPF)
+
+  Default value: ``
+* `--branch-limits <BRANCH_LIMITS>` — Optional branch limits
+* `--piecewise <PIECEWISE>` — Optional piecewise cost segments
+* `--threads <THREADS>` — Threading hint for global pool
+
+  Default value: `auto`
+* `--max-jobs <MAX_JOBS>` — Maximum concurrent OPF jobs (0 = auto)
+
+  Default value: `0`
+* `--out-partitions <OUT_PARTITIONS>` — Partition columns for Parquet outputs
+* `--tol <TOL>` — Iteration tolerance
+
+  Default value: `0.000001`
+* `--max-iter <MAX_ITER>` — Maximum iterations
+
+  Default value: `50`
 
 
 
@@ -1188,6 +1614,31 @@ Fetch a curated dataset by ID
 * `-o`, `--out <OUT>` — Directory to stage the download (defaults to ~/.cache/gat/datasets or data/public)
 * `--force` — Force re-download if the file already exists
 * `--extract` — Try to extract the dataset if it's a zip archive
+
+
+
+## `gat-cli version`
+
+Release version helpers
+
+**Usage:** `gat-cli version <COMMAND>`
+
+###### **Subcommands:**
+
+* `sync` — Sync release metadata
+
+
+
+## `gat-cli version sync`
+
+Sync release metadata
+
+**Usage:** `gat-cli version sync [OPTIONS]`
+
+###### **Options:**
+
+* `--tag <TAG>` — Tag name to validate (leading `v` is stripped)
+* `--manifest <MANIFEST>` — Write manifest JSON describing the resolved version/tag
 
 
 
