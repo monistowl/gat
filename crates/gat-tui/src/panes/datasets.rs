@@ -2,24 +2,37 @@ use crate::ui::{
     ContextButton, EmptyState, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar,
     TableView, Tooltip,
 };
+use crate::{create_fixture_datasets, DatasetStatus};
 
 pub struct DatasetsPane;
 
 impl DatasetsPane {
     pub fn layout() -> PaneLayout {
-        let workflow_table = TableView::new(["Workflow", "Status", "Updated"])
-            .add_row(["Ingest", "Ready", "just now"])
-            .add_row(["Transform", "Idle", "1m ago"])
-            .add_row(["Solve", "Pending", "3m ago"]);
+        let datasets = create_fixture_datasets();
+
+        // Build dataset table from fixture data
+        let mut dataset_table = TableView::new(["Name", "Source", "Size", "Status"]);
+        for dataset in &datasets {
+            let status_icon = match dataset.status {
+                DatasetStatus::Ready => "✓",
+                DatasetStatus::Idle => "◆",
+                DatasetStatus::Pending => "⟳",
+            };
+            dataset_table = dataset_table.add_row([
+                dataset.name.as_str(),
+                dataset.source.as_str(),
+                &format!("{:.1} MB", dataset.size_mb),
+                status_icon,
+            ]);
+        }
 
         PaneLayout::new(
             Pane::new("Data catalog")
                 .body([
-                    "Public data connectors",
-                    "OPSD snapshot",
-                    "Airtravel tutorial",
+                    "Available datasets:",
+                    "Select a dataset to view details or download",
                 ])
-                .with_table(workflow_table)
+                .with_table(dataset_table)
                 .with_child(Pane::new("Downloads").with_empty_state(EmptyState::new(
                     "No downloads queued",
                     [
