@@ -40,6 +40,25 @@ GAT scales with you:
 
 ---
 
+## 🖥️ Choose Your Interface
+
+GAT works the way you do:
+
+**Command Line** — For scripting, batch jobs, CI/CD pipelines, and reproducible workflows.
+- All features available through `gat` CLI
+- Outputs in Arrow/Parquet for downstream tools (Polars, DuckDB, Spark)
+- See `docs/guide/overview.md` for command reference
+
+**Terminal UI (TUI)** — For interactive exploration, workflow visualization, and real-time status.
+- Dashboard with reliability metrics and workflow status
+- Commands pane with snippet library and dry-run mode
+- Datasets, Pipeline, and Operations panes for job tracking
+- `cargo run -p gat-tui --release` to launch
+
+**GUI Dashboard** — Coming in Horizon 7 (planned).
+
+---
+
 # 📦 Installation
 
 ### 1. Install Rust (required)
