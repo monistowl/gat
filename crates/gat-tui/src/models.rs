@@ -25,11 +25,15 @@ pub struct AppState {
     pub datasets_loading: bool,
     pub workflows_loading: bool,
     pub metrics_loading: bool,
+    pub pipeline_loading: bool,
+    pub commands_loading: bool,
 
     // Results cache
     pub datasets: Option<Result<Vec<DatasetEntry>, QueryError>>,
     pub workflows: Option<Result<Vec<Workflow>, QueryError>>,
     pub metrics: Option<Result<SystemMetrics, QueryError>>,
+    pub pipeline_config: Option<Result<String, QueryError>>,
+    pub commands: Option<Result<Vec<String>, QueryError>>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -49,9 +53,13 @@ impl std::fmt::Debug for AppState {
             .field("datasets_loading", &self.datasets_loading)
             .field("workflows_loading", &self.workflows_loading)
             .field("metrics_loading", &self.metrics_loading)
+            .field("pipeline_loading", &self.pipeline_loading)
+            .field("commands_loading", &self.commands_loading)
             .field("datasets", &self.datasets)
             .field("workflows", &self.workflows)
             .field("metrics", &self.metrics)
+            .field("pipeline_config", &self.pipeline_config)
+            .field("commands", &self.commands)
             .finish()
     }
 }
@@ -290,9 +298,13 @@ impl AppState {
             datasets_loading: false,
             workflows_loading: false,
             metrics_loading: false,
+            pipeline_loading: false,
+            commands_loading: false,
             datasets: None,
             workflows: None,
             metrics: None,
+            pipeline_config: None,
+            commands: None,
         }
     }
 
@@ -368,6 +380,20 @@ impl AppState {
         self.metrics_loading = true;
         self.metrics = Some(self.query_builder.get_metrics().await);
         self.metrics_loading = false;
+    }
+
+    /// Fetch pipeline configuration asynchronously
+    pub async fn fetch_pipeline_config(&mut self) {
+        self.pipeline_loading = true;
+        self.pipeline_config = Some(self.query_builder.get_pipeline_config().await);
+        self.pipeline_loading = false;
+    }
+
+    /// Fetch available commands asynchronously
+    pub async fn fetch_commands(&mut self) {
+        self.commands_loading = true;
+        self.commands = Some(self.query_builder.get_commands().await);
+        self.commands_loading = false;
     }
 }
 

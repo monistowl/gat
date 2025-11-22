@@ -39,6 +39,12 @@ pub trait QueryBuilder: Send + Sync {
 
     /// Fetch system metrics
     async fn get_metrics(&self) -> Result<crate::data::SystemMetrics, QueryError>;
+
+    /// Fetch pipeline configuration
+    async fn get_pipeline_config(&self) -> Result<String, QueryError>;
+
+    /// Fetch list of available commands
+    async fn get_commands(&self) -> Result<Vec<String>, QueryError>;
 }
 
 /// Mock implementation using fixture data
@@ -67,6 +73,33 @@ impl QueryBuilder for MockQueryBuilder {
             lole_hours_per_year: 9.2,
             eue_mwh_per_year: 15.3,
         })
+    }
+
+    async fn get_pipeline_config(&self) -> Result<String, QueryError> {
+        Ok(serde_json::json!({
+            "name": "Default Pipeline",
+            "stages": [
+                { "name": "Data Load", "type": "source" },
+                { "name": "Data Validation", "type": "transform" },
+                { "name": "Power Flow", "type": "analysis" },
+                { "name": "Results Export", "type": "sink" }
+            ]
+        }).to_string())
+    }
+
+    async fn get_commands(&self) -> Result<Vec<String>, QueryError> {
+        Ok(vec![
+            "datasets list".to_string(),
+            "datasets upload".to_string(),
+            "pipeline validate".to_string(),
+            "pipeline run".to_string(),
+            "batch list".to_string(),
+            "batch submit".to_string(),
+            "analytics reliability".to_string(),
+            "analytics powerflow".to_string(),
+            "scenario generate".to_string(),
+            "scenario analyze".to_string(),
+        ])
     }
 }
 
