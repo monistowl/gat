@@ -4,6 +4,7 @@
 /// The update function processes messages to produce new state.
 
 use crate::models::{PaneId, ModalState};
+use crate::{DatasetEntry, QueryError};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -82,6 +83,9 @@ pub enum DatasetsMessage {
     DeleteDataset(usize),
     SearchDatasets(String),
     RefreshList,
+    // Async data fetching
+    FetchDatasets,
+    DatasetsLoaded(Result<Vec<DatasetEntry>, QueryError>),
 }
 
 #[derive(Clone, Debug)]
