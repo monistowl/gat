@@ -10,3 +10,4 @@ license = "MIT OR Apache-2.0"
 anyhow = "1.0"
 iocraft = { path = "../iocraft" }
 termios = "0.3"
+libc = "0.2"

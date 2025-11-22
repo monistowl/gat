@@ -71,33 +71,56 @@ pub mod input {
     }
 
     /// Manages terminal raw mode setup and teardown.
+    /// Works safely even when stdin is not a real terminal (no-op in that case).
     pub struct RawModeGuard {
-        original_termios: Termios,
+        original_termios: Option<Termios>,
     }
 
     impl RawModeGuard {
         /// Enable raw mode on stdin and return a guard that will restore it on drop.
+        /// If stdin is not a terminal, this succeeds but does nothing (no-op guard).
         pub fn enable() -> io::Result<Self> {
-            let original_termios = Termios::from_fd(io::stdin().as_raw_fd())?;
-            let mut raw_termios = original_termios;
+            // Try to get termios settings
+            match Termios::from_fd(io::stdin().as_raw_fd()) {
+                Ok(original_termios) => {
+                    let mut raw_termios = original_termios;
 
-            // Disable canonical mode and echo
-            raw_termios.c_lflag &= !(ICANON | ECHO);
-            // VMIN=1, VTIME=0 means: wait for at least 1 character with no timeout
-            raw_termios.c_cc[termios::VMIN] = 1;
-            raw_termios.c_cc[termios::VTIME] = 0;
+                    // Disable canonical mode and echo
+                    raw_termios.c_lflag &= !(ICANON | ECHO);
+                    // VMIN=1, VTIME=0 means: wait for at least 1 character with no timeout
+                    raw_termios.c_cc[termios::VMIN] = 1;
+                    raw_termios.c_cc[termios::VTIME] = 0;
 
-            // Apply raw mode
-            tcsetattr(io::stdin().as_raw_fd(), TCSANOW, &raw_termios)?;
+                    // Apply raw mode
+                    tcsetattr(io::stdin().as_raw_fd(), TCSANOW, &raw_termios)?;
 
-            Ok(Self { original_termios })
+                    Ok(Self {
+                        original_termios: Some(original_termios),
+                    })
+                }
+                Err(e) => {
+                    // Check if it's a "not a terminal" error (expected, not fatal)
+                    if e.raw_os_error() == Some(25) || e.raw_os_error() == Some(19) {
+                        // ENOTTY (25) or ENODEV (19) - stdin is not a TTY
+                        // This is OK - we'll return a no-op guard
+                        Ok(Self {
+                            original_termios: None,
+                        })
+                    } else {
+                        // Other errors are real problems
+                        Err(e)
+                    }
+                }
+            }
         }
     }
 
     impl Drop for RawModeGuard {
         fn drop(&mut self) {
-            // Restore original settings, ignore errors
-            let _ = tcsetattr(io::stdin().as_raw_fd(), TCSANOW, &self.original_termios);
+            // Only restore if we actually set raw mode
+            if let Some(original) = self.original_termios.as_ref() {
+                let _ = tcsetattr(io::stdin().as_raw_fd(), TCSANOW, original);
+            }
         }
     }
 

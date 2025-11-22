@@ -123,6 +123,16 @@ impl App {
         terminal.render(&self.render())?;
         terminal.flush()?;
 
+        // Check if stdin is a TTY - if not, we can't read interactive input
+        let is_tty = unsafe { libc::isatty(0) == 1 };
+
+        if !is_tty {
+            // Non-interactive mode - just display and exit
+            eprintln!("Note: stdin is not a terminal. Running in display-only mode.");
+            eprintln!("To use interactive mode, run with: cargo run -p gat-tui < /dev/tty");
+            return Ok(());
+        }
+
         // Main event loop
         loop {
             match stdin.read(&mut buffer) {
