@@ -1,6 +1,7 @@
 use anyhow::Result;
-use iocraft::input::{EventSource, StdinEventSource, Event};
 use iocraft::terminal::Terminal;
+use iocraft::input::RawModeGuard;
+use std::io::{self, Read};
 
 pub mod data;
 pub mod modals;
@@ -72,8 +73,16 @@ impl App {
     }
 
     pub fn run(mut self) -> Result<()> {
+        // Enable raw mode and ensure it's restored on exit
+        let _raw_mode = RawModeGuard::enable()?;
+
+        self.run_event_loop()
+    }
+
+    fn run_event_loop(&mut self) -> Result<()> {
         let mut terminal = Terminal::new()?;
-        let mut event_source = StdinEventSource::new();
+        let mut stdin = io::stdin();
+        let mut buffer = [0; 1];
 
         // Initial render
         terminal.clear()?;
@@ -82,19 +91,21 @@ impl App {
 
         // Main event loop
         loop {
-            match event_source.read() {
-                Ok(Event::Quit) => break,
-                Ok(Event::Key(c)) => {
+            match stdin.read(&mut buffer) {
+                Ok(0) => break, // EOF
+                Ok(_) => {
+                    let c = buffer[0] as char;
+                    if c == 'q' {
+                        break;
+                    }
                     self.select_menu_item(c);
                     terminal.clear()?;
                     terminal.render(&self.render())?;
                     terminal.flush()?;
                 }
-                Ok(Event::Tick) => {
-                    // Periodic tick - could be used for animations
-                    terminal.clear()?;
-                    terminal.render(&self.render())?;
-                    terminal.flush()?;
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    // Timeout - no input, continue
+                    continue;
                 }
                 Err(e) => {
                     eprintln!("Error reading input: {}", e);
@@ -103,6 +114,8 @@ impl App {
             }
         }
 
+        terminal.clear()?;
+        terminal.flush()?;
         Ok(())
     }
 }

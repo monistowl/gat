@@ -32,6 +32,8 @@ pub mod terminal {
 pub mod input {
     use std::io::{self, Read};
     use std::time::Duration;
+    use std::os::unix::io::AsRawFd;
+    use termios::{tcsetattr, Termios, TCSANOW, ICANON, ECHO};
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum Event {
@@ -47,6 +49,36 @@ pub mod input {
 
         fn read(&mut self) -> io::Result<Event> {
             Ok(Event::Quit)
+        }
+    }
+
+    /// Manages terminal raw mode setup and teardown.
+    pub struct RawModeGuard {
+        original_termios: Termios,
+    }
+
+    impl RawModeGuard {
+        /// Enable raw mode on stdin and return a guard that will restore it on drop.
+        pub fn enable() -> io::Result<Self> {
+            let original_termios = Termios::from_fd(io::stdin().as_raw_fd())?;
+            let mut raw_termios = original_termios;
+
+            // Disable canonical mode and echo
+            raw_termios.c_lflag &= !(ICANON | ECHO);
+            raw_termios.c_cc[termios::VMIN] = 0; // Non-blocking read
+            raw_termios.c_cc[termios::VTIME] = 1; // 100ms timeout
+
+            // Apply raw mode
+            tcsetattr(io::stdin().as_raw_fd(), TCSANOW, &raw_termios)?;
+
+            Ok(Self { original_termios })
+        }
+    }
+
+    impl Drop for RawModeGuard {
+        fn drop(&mut self) {
+            // Restore original settings, ignore errors
+            let _ = tcsetattr(io::stdin().as_raw_fd(), TCSANOW, &self.original_termios);
         }
     }
 
