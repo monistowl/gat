@@ -1,6 +1,7 @@
 use anyhow::Result;
 use iocraft::terminal::Terminal;
 
+pub mod data;
 mod command_runner;
 pub use command_runner::CommandHandle;
 pub mod panes;

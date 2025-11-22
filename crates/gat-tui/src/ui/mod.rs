@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+mod components;
 mod layout;
 mod modal;
 mod navigation;
@@ -7,6 +8,11 @@ mod registry;
 mod theme;
 
 /// The root container for the terminal experience.
+pub use components::{
+    config_form, file_browser_table, job_queue_table, manifest_preview, metrics_table,
+    progress_bar, ConfigField, ConfigFieldType, FileInfo, Job, JobStatus, MetricStatus,
+    MetricValue,
+};
 pub use layout::{PaneLayout, ResponsiveRules, Sidebar, SubTabs};
 pub use modal::{CommandModal, ExecutionMode};
 pub use navigation::{ContextButton, MenuItem, NavMenu};
