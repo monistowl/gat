@@ -3,6 +3,41 @@ use std::sync::Arc;
 use crate::{QueryBuilder, QueryError, DatasetEntry};
 use crate::data::{Workflow, SystemMetrics};
 use crate::services::{GridService, GatCoreQueryBuilder};
+use serde::Deserialize;
+
+/// Serialize SystemTime as Unix timestamp
+fn serialize_system_time<S>(time: &std::time::SystemTime, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match time.duration_since(std::time::UNIX_EPOCH) {
+        Ok(duration) => serializer.serialize_u64(duration.as_secs()),
+        Err(_) => serializer.serialize_u64(0),
+    }
+}
+
+/// Deserialize SystemTime from Unix timestamp
+fn deserialize_system_time<'de, D>(deserializer: D) -> Result<std::time::SystemTime, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let secs = u64::deserialize(deserializer)?;
+    Ok(std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs))
+}
+
+/// Executed command record (Phase 4)
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ExecutedCommand {
+    pub id: String,
+    pub command: String,
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+    pub duration_ms: u64,
+    pub timed_out: bool,
+    #[serde(serialize_with = "serialize_system_time", deserialize_with = "deserialize_system_time")]
+    pub executed_at: std::time::SystemTime,
+}
 
 /// Global application state
 #[derive(Clone)]
@@ -29,6 +64,9 @@ pub struct AppState {
 
     // Workflow tracking (Phase 3)
     pub executed_workflows: Vec<Workflow>,
+
+    // Command execution history (Phase 4)
+    pub command_history: Vec<ExecutedCommand>,
 
     // Async task tracking
     pub datasets_loading: bool,
@@ -314,6 +352,7 @@ impl AppState {
             gat_core_query_builder: None,
             current_grid_id: None,
             executed_workflows: Vec::new(),
+            command_history: Vec::new(),
             datasets_loading: false,
             workflows_loading: false,
             metrics_loading: false,
@@ -523,6 +562,101 @@ impl AppState {
     pub fn clear_workflows(&mut self) {
         self.executed_workflows.clear();
         self.workflows = Some(Ok(Vec::new()));
+    }
+
+    // Command execution history methods (Phase 4)
+
+    /// Add executed command to history
+    pub fn add_command_to_history(&mut self, cmd: ExecutedCommand) {
+        self.command_history.push(cmd);
+
+        // Keep only the last 500 commands to manage memory
+        if self.command_history.len() > 500 {
+            self.command_history.remove(0);
+        }
+    }
+
+    /// Get all executed commands
+    pub fn get_command_history(&self) -> Vec<ExecutedCommand> {
+        self.command_history.clone()
+    }
+
+    /// Get recent commands (last N)
+    pub fn get_recent_commands(&self, count: usize) -> Vec<ExecutedCommand> {
+        self.command_history
+            .iter()
+            .rev()
+            .take(count)
+            .cloned()
+            .collect()
+    }
+
+    /// Search command history by command string
+    pub fn search_command_history(&self, query: &str) -> Vec<ExecutedCommand> {
+        self.command_history
+            .iter()
+            .filter(|cmd| cmd.command.contains(query))
+            .cloned()
+            .collect()
+    }
+
+    /// Get successful command executions
+    pub fn get_successful_commands(&self) -> Vec<ExecutedCommand> {
+        self.command_history
+            .iter()
+            .filter(|cmd| cmd.exit_code == 0 && !cmd.timed_out)
+            .cloned()
+            .collect()
+    }
+
+    /// Get failed command executions
+    pub fn get_failed_commands(&self) -> Vec<ExecutedCommand> {
+        self.command_history
+            .iter()
+            .filter(|cmd| cmd.exit_code != 0 || cmd.timed_out)
+            .cloned()
+            .collect()
+    }
+
+    /// Clear all command history
+    pub fn clear_command_history(&mut self) {
+        self.command_history.clear();
+    }
+
+    /// Get command history count
+    pub fn command_history_count(&self) -> usize {
+        self.command_history.len()
+    }
+
+    /// Get success rate as percentage (0-100)
+    pub fn command_success_rate(&self) -> f32 {
+        if self.command_history.is_empty() {
+            return 0.0;
+        }
+
+        let successful = self.get_successful_commands().len() as f32;
+        let total = self.command_history.len() as f32;
+        (successful / total) * 100.0
+    }
+
+    /// Export command history as JSON
+    pub fn export_commands_json(&self) -> Result<String, String> {
+        crate::services::CommandExporter::export_json(&self.command_history)
+    }
+
+    /// Export command history as CSV
+    pub fn export_commands_csv(&self) -> Result<String, String> {
+        crate::services::CommandExporter::export_csv(&self.command_history)
+    }
+
+    /// Export command history as plain text
+    pub fn export_commands_text(&self) -> Result<String, String> {
+        crate::services::CommandExporter::export_text(&self.command_history)
+    }
+
+    /// Get command execution statistics
+    pub fn get_command_stats(&self) -> crate::services::CommandStats {
+        crate::services::CommandExporter::calculate_stats(&self.command_history)
     }
 }
 

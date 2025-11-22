@@ -414,8 +414,161 @@ fn handle_operations(
                 }
             }
         }
+        // Command execution (Phase 4)
+        OperationsMessage::ExecuteCommand(command) => {
+            let task_id = format!("cmd_{}", chrono::Local::now().timestamp_millis());
+            state
+                .async_tasks
+                .insert(task_id.clone(), AsyncTaskState::Running);
+
+            // Add to pane state for command execution UI
+            let pane_state = state
+                .pane_states
+                .entry(PaneId::Operations)
+                .or_insert_with(PaneState::default);
+            pane_state.form_values.insert("executing_command".to_string(), command.clone());
+            pane_state.form_values.insert("command_output".to_string(), String::new());
+
+            state.add_notification(
+                &format!("Executing: {}", command),
+                NotificationKind::Info,
+            );
+
+            effects.push(SideEffect::RunCommand { task_id, command });
+        }
+        OperationsMessage::CommandOutput(output) => {
+            // Append output to command result buffer
+            let pane_state = state
+                .pane_states
+                .entry(PaneId::Operations)
+                .or_insert_with(PaneState::default);
+
+            let current = pane_state
+                .form_values
+                .get("command_output")
+                .cloned()
+                .unwrap_or_default();
+            let new_output = if current.is_empty() {
+                output
+            } else {
+                format!("{}\n{}", current, output)
+            };
+            pane_state.form_values.insert("command_output".to_string(), new_output);
+        }
+        OperationsMessage::CommandCompleted(result) => {
+            match result {
+                Ok(cmd_result) => {
+                    // Create workflow record for completed command
+                    let workflow = crate::data::Workflow {
+                        id: format!("cmd_{}", chrono::Local::now().timestamp_millis()),
+                        name: format!("Command: {}", cmd_result.command),
+                        status: if cmd_result.exit_code == 0 {
+                            crate::data::WorkflowStatus::Succeeded
+                        } else {
+                            crate::data::WorkflowStatus::Failed
+                        },
+                        created_by: "user".to_string(),
+                        created_at: std::time::SystemTime::now(),
+                        completed_at: Some(std::time::SystemTime::now()),
+                    };
+
+                    state.add_workflow(workflow);
+
+                    // Prepare notification data before borrowing pane_state
+                    let exit_code = cmd_result.exit_code;
+                    let duration_ms = cmd_result.duration_ms;
+                    let status = if exit_code == 0 {
+                        "succeeded"
+                    } else {
+                        "failed"
+                    };
+                    let notif_kind = if exit_code == 0 {
+                        NotificationKind::Success
+                    } else {
+                        NotificationKind::Warning
+                    };
+
+                    // Now update pane state
+                    {
+                        let pane_state = state
+                            .pane_states
+                            .entry(PaneId::Operations)
+                            .or_insert_with(PaneState::default);
+                        pane_state.form_values.insert(
+                            "last_exit_code".to_string(),
+                            exit_code.to_string(),
+                        );
+                        pane_state.form_values.insert(
+                            "last_duration".to_string(),
+                            format!("{}ms", duration_ms),
+                        );
+                    }
+
+                    // Add notification after pane state is updated and borrow dropped
+                    state.add_notification(
+                        &format!("Command {} (exit code: {})", status, exit_code),
+                        notif_kind,
+                    );
+
+                    // Clear executing flag
+                    {
+                        let pane_state = state
+                            .pane_states
+                            .entry(PaneId::Operations)
+                            .or_insert_with(PaneState::default);
+                        pane_state.form_values.remove("executing_command");
+                    }
+                }
+                Err(err) => {
+                    state.add_notification(
+                        &format!("Command failed: {}", err),
+                        NotificationKind::Error,
+                    );
+
+                    let pane_state = state
+                        .pane_states
+                        .entry(PaneId::Operations)
+                        .or_insert_with(PaneState::default);
+                    pane_state.form_values.insert(
+                        "command_output".to_string(),
+                        format!("Error: {}", err),
+                    );
+                }
+            }
+        }
+        OperationsMessage::CancelCommand => {
+            let should_cancel = {
+                let pane_state = state
+                    .pane_states
+                    .entry(PaneId::Operations)
+                    .or_insert_with(PaneState::default);
+                pane_state.form_values.get("executing_command").is_some()
+            };
+
+            if should_cancel {
+                let task_ids: Vec<_> = state
+                    .async_tasks
+                    .keys()
+                    .filter(|id| id.starts_with("cmd_"))
+                    .cloned()
+                    .collect();
+
+                for task_id in task_ids {
+                    state.async_tasks.remove(&task_id);
+                    effects.push(SideEffect::CancelCommand { task_id });
+                }
+
+                state.add_notification("Command cancelled", NotificationKind::Info);
+
+                let pane_state = state
+                    .pane_states
+                    .entry(PaneId::Operations)
+                    .or_insert_with(PaneState::default);
+                pane_state.form_values.remove("executing_command");
+            }
+        }
         _ => {
-            // TODO: Implement other operations
+            // Other operations handled elsewhere
         }
     }
 }
@@ -488,7 +641,9 @@ pub enum SideEffect {
     // Grid management (Phase 3)
     LoadGrid { task_id: String, file_path: String },
     SendMessage(Box<Message>),
-    // Add more as needed
+    // Command execution (Phase 4)
+    RunCommand { task_id: String, command: String },
+    CancelCommand { task_id: String },
 }
 
 #[cfg(test)]
@@ -499,7 +654,7 @@ mod tests {
 
     #[test]
     fn test_fetch_datasets_message() {
-        let mut state = AppState::new();
+        let state = AppState::new();
         assert!(!state.datasets_loading);
 
         // Send FetchDatasets message
@@ -798,7 +953,7 @@ mod tests {
 
     #[test]
     fn test_switch_grid_message() {
-        let mut state = AppState::new();
+        let state = AppState::new();
         let grid_id = "test-grid-123".to_string();
 
         // Mock grid service with loaded grid
@@ -816,7 +971,7 @@ mod tests {
 
     #[test]
     fn test_grid_loaded_success_message() {
-        let mut state = AppState::new();
+        let state = AppState::new();
         let grid_id = "ieee14".to_string();
 
         let msg = Message::Datasets(DatasetsMessage::GridLoaded(grid_id.clone()));
@@ -980,6 +1135,309 @@ mod tests {
 
         state.clear_workflows();
         assert_eq!(state.executed_workflows.len(), 0);
+    }
+
+    // Command execution tests (Phase 4, Task 2)
+    #[test]
+    fn test_execute_command_creates_task() {
+        let state = AppState::new();
+        let msg = Message::Operations(OperationsMessage::ExecuteCommand("echo test".to_string()));
+        let (new_state, effects) = update(state, msg);
+
+        // Should create async task
+        assert_eq!(new_state.async_tasks.len(), 1);
+
+        // Task ID should start with cmd_
+        let task_id = new_state.async_tasks.keys().next().unwrap();
+        assert!(task_id.starts_with("cmd_"));
+
+        // Should generate RunCommand side effect
+        assert!(!effects.is_empty());
+        assert!(matches!(&effects[0], SideEffect::RunCommand { .. }));
+
+        // Should add notification
+        assert!(!new_state.notifications.is_empty());
+        let notif = &new_state.notifications[0];
+        assert!(notif.message.contains("Executing"));
+    }
+
+    #[test]
+    fn test_execute_command_initializes_pane_state() {
+        let state = AppState::new();
+        let cmd = "gat-cli datasets list".to_string();
+        let msg = Message::Operations(OperationsMessage::ExecuteCommand(cmd.clone()));
+        let (new_state, _effects) = update(state, msg);
+
+        // Verify pane state was initialized
+        let pane_state = new_state
+            .pane_states
+            .get(&PaneId::Operations)
+            .expect("Operations pane state should exist");
+
+        // Should store executing_command
+        assert_eq!(
+            pane_state.form_values.get("executing_command"),
+            Some(&cmd)
+        );
+
+        // Should initialize empty command_output
+        assert_eq!(
+            pane_state.form_values.get("command_output"),
+            Some(&String::new())
+        );
+    }
+
+    #[test]
+    fn test_command_output_appends_to_buffer() {
+        let mut state = AppState::new();
+
+        // Initialize pane state with some output
+        let pane_state = state
+            .pane_states
+            .entry(PaneId::Operations)
+            .or_insert_with(PaneState::default);
+        pane_state.form_values.insert(
+            "command_output".to_string(),
+            "line 1\nline 2".to_string(),
+        );
+
+        // Send CommandOutput message
+        let msg = Message::Operations(OperationsMessage::CommandOutput("line 3".to_string()));
+        let (new_state, _effects) = update(state, msg);
+
+        // Verify output was appended with newline
+        let pane_state = new_state.pane_states.get(&PaneId::Operations).unwrap();
+        let output = pane_state.form_values.get("command_output").unwrap();
+        assert_eq!(output, "line 1\nline 2\nline 3");
+    }
+
+    #[test]
+    fn test_command_output_first_line() {
+        let state = AppState::new();
+
+        // Send CommandOutput to empty buffer
+        let msg = Message::Operations(OperationsMessage::CommandOutput("first line".to_string()));
+        let (new_state, _effects) = update(state, msg);
+
+        // Verify first output doesn't add extra newline
+        let pane_state = new_state.pane_states.get(&PaneId::Operations).unwrap();
+        let output = pane_state.form_values.get("command_output").unwrap();
+        assert_eq!(output, "first line");
+    }
+
+    #[test]
+    fn test_command_completed_success() {
+        use crate::data::WorkflowStatus;
+
+        let state = AppState::new();
+        let result = CommandResult {
+            command: "echo success".to_string(),
+            exit_code: 0,
+            stdout: "success output".to_string(),
+            stderr: String::new(),
+            duration_ms: 150,
+            timed_out: false,
+        };
+
+        let msg = Message::Operations(OperationsMessage::CommandCompleted(Ok(result)));
+        let (new_state, _effects) = update(state, msg);
+
+        // Should create workflow record
+        assert_eq!(new_state.executed_workflows.len(), 1);
+        let workflow = &new_state.executed_workflows[0];
+        assert_eq!(
+            workflow.status,
+            WorkflowStatus::Succeeded,
+            "Successful command should have Succeeded status"
+        );
+        assert!(workflow.name.contains("echo success"));
+
+        // Should store exit code and duration in pane state
+        let pane_state = new_state.pane_states.get(&PaneId::Operations).unwrap();
+        assert_eq!(pane_state.form_values.get("last_exit_code"), Some(&"0".to_string()));
+        assert_eq!(
+            pane_state.form_values.get("last_duration"),
+            Some(&"150ms".to_string())
+        );
+
+        // Should add success notification
+        let notif = new_state.notifications.last().unwrap();
+        assert!(matches!(notif.kind, NotificationKind::Success));
+        assert!(notif.message.contains("succeeded"));
+
+        // Should clear executing_command flag
+        assert!(!pane_state.form_values.contains_key("executing_command"));
+    }
+
+    #[test]
+    fn test_command_completed_failure() {
+        use crate::data::WorkflowStatus;
+
+        let state = AppState::new();
+        let result = CommandResult {
+            command: "false".to_string(),
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "error message".to_string(),
+            duration_ms: 50,
+            timed_out: false,
+        };
+
+        let msg = Message::Operations(OperationsMessage::CommandCompleted(Ok(result)));
+        let (new_state, _effects) = update(state, msg);
+
+        // Should create workflow record with Failed status
+        let workflow = &new_state.executed_workflows[0];
+        assert_eq!(
+            workflow.status,
+            WorkflowStatus::Failed,
+            "Failed command should have Failed status"
+        );
+
+        // Should add warning notification (non-zero exit code)
+        let notif = new_state.notifications.last().unwrap();
+        assert!(matches!(notif.kind, NotificationKind::Warning));
+        assert!(notif.message.contains("failed"));
+        assert!(notif.message.contains("exit code: 1"));
+    }
+
+    #[test]
+    fn test_command_completed_error() {
+        let state = AppState::new();
+        let error_msg = "Command execution failed: timeout".to_string();
+
+        let msg = Message::Operations(OperationsMessage::CommandCompleted(Err(error_msg.clone())));
+        let (new_state, _effects) = update(state, msg);
+
+        // Should not create workflow (error case)
+        assert_eq!(new_state.executed_workflows.len(), 0);
+
+        // Should add error notification
+        let notif = new_state.notifications.last().unwrap();
+        assert!(matches!(notif.kind, NotificationKind::Error));
+        assert!(notif.message.contains("failed"));
+
+        // Should store error in command_output
+        let pane_state = new_state.pane_states.get(&PaneId::Operations).unwrap();
+        let output = pane_state.form_values.get("command_output").unwrap();
+        assert!(output.contains(&error_msg));
+    }
+
+    #[test]
+    fn test_cancel_command_removes_tasks() {
+        let mut state = AppState::new();
+
+        // Create a running command task
+        let task_id = "cmd_1234567890".to_string();
+        state
+            .async_tasks
+            .insert(task_id.clone(), AsyncTaskState::Running);
+
+        // Mark command as executing in pane state
+        let pane_state = state
+            .pane_states
+            .entry(PaneId::Operations)
+            .or_insert_with(PaneState::default);
+        pane_state
+            .form_values
+            .insert("executing_command".to_string(), "echo test".to_string());
+
+        // Send CancelCommand
+        let msg = Message::Operations(OperationsMessage::CancelCommand);
+        let (new_state, effects) = update(state, msg);
+
+        // Task should be removed
+        assert!(!new_state.async_tasks.contains_key(&task_id));
+
+        // Should generate CancelCommand side effect
+        assert!(effects.iter().any(|e| matches!(e, SideEffect::CancelCommand { .. })));
+
+        // Should clear executing_command flag
+        let pane_state = new_state.pane_states.get(&PaneId::Operations).unwrap();
+        assert!(!pane_state.form_values.contains_key("executing_command"));
+
+        // Should add notification
+        let notif = new_state.notifications.last().unwrap();
+        assert!(notif.message.contains("cancelled"));
+    }
+
+    #[test]
+    fn test_cancel_command_idempotent() {
+        let state = AppState::new();
+
+        // No executing command, send CancelCommand
+        let msg = Message::Operations(OperationsMessage::CancelCommand);
+        let (new_state, effects) = update(state, msg);
+
+        // Should not create effects or notifications
+        assert!(effects.is_empty());
+        assert!(new_state.notifications.is_empty());
+    }
+
+    #[test]
+    fn test_cancel_command_multiple_tasks() {
+        let mut state = AppState::new();
+
+        // Create multiple command tasks
+        for i in 0..3 {
+            let task_id = format!("cmd_{}", i);
+            state
+                .async_tasks
+                .insert(task_id, AsyncTaskState::Running);
+        }
+
+        // Mark one command as executing
+        let pane_state = state
+            .pane_states
+            .entry(PaneId::Operations)
+            .or_insert_with(PaneState::default);
+        pane_state
+            .form_values
+            .insert("executing_command".to_string(), "test".to_string());
+
+        // Send CancelCommand
+        let msg = Message::Operations(OperationsMessage::CancelCommand);
+        let (new_state, effects) = update(state, msg);
+
+        // All cmd_* tasks should be removed
+        for i in 0..3 {
+            let task_id = format!("cmd_{}", i);
+            assert!(!new_state.async_tasks.contains_key(&task_id));
+        }
+
+        // Should have 3 CancelCommand effects
+        let cancel_effects: Vec<_> = effects
+            .iter()
+            .filter(|e| matches!(e, SideEffect::CancelCommand { .. }))
+            .collect();
+        assert_eq!(cancel_effects.len(), 3);
+    }
+
+    #[test]
+    fn test_command_workflow_records_execution_time() {
+        let state = AppState::new();
+        let result = CommandResult {
+            command: "time consuming".to_string(),
+            exit_code: 0,
+            stdout: "done".to_string(),
+            stderr: String::new(),
+            duration_ms: 5000,
+            timed_out: false,
+        };
+
+        let msg = Message::Operations(OperationsMessage::CommandCompleted(Ok(result)));
+        let (new_state, _effects) = update(state, msg);
+
+        // Verify duration is stored
+        let pane_state = new_state.pane_states.get(&PaneId::Operations).unwrap();
+        assert_eq!(
+            pane_state.form_values.get("last_duration"),
+            Some(&"5000ms".to_string())
+        );
+
+        // Verify workflow has completion time
+        let workflow = &new_state.executed_workflows[0];
+        assert!(workflow.completed_at.is_some());
     }
 }
 

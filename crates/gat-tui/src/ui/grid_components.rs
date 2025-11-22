@@ -201,6 +201,76 @@ impl GridLoadState {
     }
 }
 
+/// Grid load modal rendering helper
+#[derive(Clone, Debug)]
+pub struct GridLoadModal;
+
+impl GridLoadModal {
+    /// Render the grid load modal
+    pub fn render(state: &GridLoadState) -> String {
+        let mut output = String::new();
+
+        output.push_str("╔═══════════════════════════════════════════════╗\n");
+        output.push_str("║              Load Grid from File              ║\n");
+        output.push_str("╚═══════════════════════════════════════════════╝\n\n");
+
+        output.push_str("Enter file path (.arrow or .m format):\n");
+        output.push_str("┌─────────────────────────────────────────────┐\n");
+
+        // Render file path input with cursor
+        let display_path = if state.file_path.is_empty() {
+            "(empty)".to_string()
+        } else {
+            state.file_path.clone()
+        };
+
+        let mut cursor_line = String::new();
+        for (idx, ch) in display_path.chars().enumerate() {
+            if idx == state.cursor_position {
+                cursor_line.push('│');
+            }
+            cursor_line.push(ch);
+        }
+        if state.cursor_position == display_path.len() {
+            cursor_line.push('│');
+        }
+
+        output.push('│');
+        output.push(' ');
+        output.push_str(&cursor_line);
+        output.push_str(" │\n");
+        output.push_str("└─────────────────────────────────────────────┘\n\n");
+
+        // Show validation status
+        if !state.file_path.is_empty() {
+            if state.is_valid() {
+                output.push_str("✓ Valid file path\n");
+            } else {
+                output.push_str("✗ File must end with .arrow or .m\n");
+            }
+        }
+
+        // Show error message if present
+        if let Some(err) = &state.error_message {
+            output.push_str("\n⚠ Error: ");
+            output.push_str(err);
+            output.push('\n');
+        }
+
+        // Show loading status
+        if state.loading {
+            output.push_str("\n◐ Loading...\n");
+        }
+
+        // Show help
+        output.push_str("\nControls:\n");
+        output.push_str("  [←→] Navigate cursor  [↑↓] Navigate path history (if available)\n");
+        output.push_str("  [Backspace] Delete  [Enter] Load  [Esc] Cancel\n");
+
+        output
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -374,5 +444,72 @@ mod tests {
 
         state.file_path = "test.m".to_string();
         assert!(state.is_valid());
+    }
+
+    #[test]
+    fn test_grid_load_modal_empty() {
+        let state = GridLoadState::new();
+        let rendered = GridLoadModal::render(&state);
+        assert!(rendered.contains("Load Grid from File"));
+        assert!(rendered.contains("(empty)"));
+        assert!(rendered.contains("[Backspace] Delete  [Enter] Load  [Esc] Cancel"));
+    }
+
+    #[test]
+    fn test_grid_load_modal_valid_path() {
+        let mut state = GridLoadState::new();
+        state.file_path = "test.arrow".to_string();
+        state.cursor_position = state.file_path.len();
+        let rendered = GridLoadModal::render(&state);
+        assert!(rendered.contains("test.arrow"));
+        assert!(rendered.contains("✓ Valid file path"));
+    }
+
+    #[test]
+    fn test_grid_load_modal_invalid_path() {
+        let mut state = GridLoadState::new();
+        state.file_path = "test.txt".to_string();
+        let rendered = GridLoadModal::render(&state);
+        assert!(rendered.contains("test.txt"));
+        assert!(rendered.contains("✗ File must end with .arrow or .m"));
+    }
+
+    #[test]
+    fn test_grid_load_modal_with_error() {
+        let mut state = GridLoadState::new();
+        state.file_path = "test.arrow".to_string();
+        state.error_message = Some("File not found".to_string());
+        let rendered = GridLoadModal::render(&state);
+        assert!(rendered.contains("⚠ Error: File not found"));
+    }
+
+    #[test]
+    fn test_grid_load_modal_loading() {
+        let mut state = GridLoadState::new();
+        state.file_path = "test.arrow".to_string();
+        state.loading = true;
+        let rendered = GridLoadModal::render(&state);
+        assert!(rendered.contains("◐ Loading..."));
+    }
+
+    #[test]
+    fn test_grid_load_modal_cursor_positions() {
+        let mut state = GridLoadState::new();
+        state.file_path = "test.arrow".to_string();
+
+        // Test cursor at start
+        state.cursor_position = 0;
+        let rendered = GridLoadModal::render(&state);
+        assert!(rendered.contains("│test.arrow"));
+
+        // Test cursor in middle
+        state.cursor_position = 4;
+        let rendered = GridLoadModal::render(&state);
+        assert!(rendered.contains("test│.arrow"));
+
+        // Test cursor at end
+        state.cursor_position = "test.arrow".len();
+        let rendered = GridLoadModal::render(&state);
+        assert!(rendered.contains("test.arrow│"));
     }
 }

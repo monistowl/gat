@@ -8,6 +8,7 @@
 /// - Resource usage metrics
 
 use crate::components::*;
+use crate::ui::{GridInfo, GridStatus};
 
 /// Dashboard pane state
 #[derive(Clone, Debug)]
@@ -23,6 +24,10 @@ pub struct DashboardPaneState {
     // Recent runs table
     pub recent_runs: Vec<RecentRun>,
     pub selected_run: usize,
+
+    // Grid management (Phase 3)
+    pub current_grid: Option<GridInfo>,
+    pub grid_count: usize,
 
     // Selected tab
     pub active_tab: usize,
@@ -104,6 +109,8 @@ impl Default for DashboardPaneState {
                 },
             ],
             selected_run: 0,
+            current_grid: None,
+            grid_count: 0,
             active_tab: 0,
             runs_table,
             metrics_list,
@@ -190,6 +197,52 @@ impl DashboardPaneState {
             "Error" => "red",
             _ => "gray",
         }
+    }
+
+    // Grid management methods (Phase 3)
+
+    /// Set the current active grid for display
+    pub fn set_current_grid(&mut self, grid: GridInfo) {
+        self.current_grid = Some(grid);
+    }
+
+    /// Clear the current grid
+    pub fn clear_current_grid(&mut self) {
+        self.current_grid = None;
+    }
+
+    /// Update grid count
+    pub fn update_grid_count(&mut self, count: usize) {
+        self.grid_count = count;
+    }
+
+    /// Get grid status indicator
+    pub fn grid_status_indicator(&self) -> &'static str {
+        match &self.current_grid {
+            Some(grid) => grid.status.display(),
+            None => "○", // Inactive
+        }
+    }
+
+    /// Get formatted grid info for display
+    pub fn grid_info_display(&self) -> String {
+        match &self.current_grid {
+            Some(grid) => {
+                format!(
+                    "{} {} ({} nodes, {} branches)",
+                    grid.status.display(),
+                    grid.id,
+                    grid.node_count,
+                    grid.branch_count
+                )
+            }
+            None => "No grid loaded".to_string(),
+        }
+    }
+
+    /// Get grid density as percentage
+    pub fn grid_density_percent(&self) -> Option<f64> {
+        self.current_grid.as_ref().map(|g| g.density * 100.0)
     }
 }
 
@@ -281,5 +334,105 @@ mod tests {
         let actions = QuickAction::all();
         assert_eq!(actions.len(), 4);
         assert_eq!(actions[0].key, 'r');
+    }
+
+    // Grid management tests (Phase 3)
+
+    #[test]
+    fn test_grid_initial_state() {
+        let state = DashboardPaneState::new();
+        assert!(state.current_grid.is_none());
+        assert_eq!(state.grid_count, 0);
+    }
+
+    #[test]
+    fn test_set_current_grid() {
+        let mut state = DashboardPaneState::new();
+        let grid = GridInfo {
+            id: "ieee14".to_string(),
+            node_count: 14,
+            branch_count: 20,
+            density: 0.14,
+            status: GridStatus::Active,
+        };
+        state.set_current_grid(grid.clone());
+        assert!(state.current_grid.is_some());
+        assert_eq!(state.current_grid.unwrap().id, "ieee14");
+    }
+
+    #[test]
+    fn test_clear_current_grid() {
+        let mut state = DashboardPaneState::new();
+        let grid = GridInfo {
+            id: "ieee14".to_string(),
+            node_count: 14,
+            branch_count: 20,
+            density: 0.14,
+            status: GridStatus::Active,
+        };
+        state.set_current_grid(grid);
+        assert!(state.current_grid.is_some());
+        state.clear_current_grid();
+        assert!(state.current_grid.is_none());
+    }
+
+    #[test]
+    fn test_update_grid_count() {
+        let mut state = DashboardPaneState::new();
+        assert_eq!(state.grid_count, 0);
+        state.update_grid_count(3);
+        assert_eq!(state.grid_count, 3);
+    }
+
+    #[test]
+    fn test_grid_status_indicator() {
+        let mut state = DashboardPaneState::new();
+        assert_eq!(state.grid_status_indicator(), "○");
+
+        let grid = GridInfo {
+            id: "ieee14".to_string(),
+            node_count: 14,
+            branch_count: 20,
+            density: 0.14,
+            status: GridStatus::Active,
+        };
+        state.set_current_grid(grid);
+        assert_eq!(state.grid_status_indicator(), "●");
+    }
+
+    #[test]
+    fn test_grid_info_display() {
+        let mut state = DashboardPaneState::new();
+        assert_eq!(state.grid_info_display(), "No grid loaded");
+
+        let grid = GridInfo {
+            id: "ieee14".to_string(),
+            node_count: 14,
+            branch_count: 20,
+            density: 0.14,
+            status: GridStatus::Active,
+        };
+        state.set_current_grid(grid);
+        let display = state.grid_info_display();
+        assert!(display.contains("ieee14"));
+        assert!(display.contains("14 nodes"));
+        assert!(display.contains("20 branches"));
+    }
+
+    #[test]
+    fn test_grid_density_percent() {
+        let mut state = DashboardPaneState::new();
+        assert!(state.grid_density_percent().is_none());
+
+        let grid = GridInfo {
+            id: "ieee14".to_string(),
+            node_count: 14,
+            branch_count: 20,
+            density: 0.14,
+            status: GridStatus::Active,
+        };
+        state.set_current_grid(grid);
+        let density = state.grid_density_percent().unwrap();
+        assert!((density - 14.0).abs() < 0.01); // 0.14 * 100 = 14.0
     }
 }

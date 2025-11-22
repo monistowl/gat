@@ -119,6 +119,12 @@ pub enum OperationsMessage {
     CancelRun,
     FetchOperations,
     OperationsLoaded(Result<Vec<crate::data::Workflow>, QueryError>),
+
+    // Command execution (Phase 4)
+    ExecuteCommand(String), // command line
+    CommandOutput(String), // output chunk
+    CommandCompleted(Result<CommandResult, String>), // result or error
+    CancelCommand, // stop running command
 }
 
 #[derive(Clone, Debug)]
@@ -139,6 +145,17 @@ pub enum TaskResult {
     Output(String),
 }
 
+/// Command execution result (Phase 4)
+#[derive(Clone, Debug)]
+pub struct CommandResult {
+    pub command: String,
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+    pub duration_ms: u64,
+    pub timed_out: bool,
+}
+
 impl ModalState {
     pub fn from_message(msg: ModalMessage) -> Self {
         match msg {
@@ -155,6 +172,95 @@ impl ModalState {
                 details: None,
             }),
             ModalMessage::FilePicker => ModalState::None, // TODO: Implement file picker modal
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_result_creation() {
+        let result = CommandResult {
+            command: "gat-cli datasets list".to_string(),
+            exit_code: 0,
+            stdout: "dataset1\ndataset2".to_string(),
+            stderr: String::new(),
+            duration_ms: 150,
+            timed_out: false,
+        };
+        assert_eq!(result.exit_code, 0);
+        assert!(!result.timed_out);
+        assert_eq!(result.duration_ms, 150);
+    }
+
+    #[test]
+    fn test_command_result_with_error() {
+        let result = CommandResult {
+            command: "gat-cli invalid".to_string(),
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "Unknown command: invalid".to_string(),
+            duration_ms: 50,
+            timed_out: false,
+        };
+        assert_ne!(result.exit_code, 0);
+        assert!(!result.stderr.is_empty());
+    }
+
+    #[test]
+    fn test_command_result_timeout() {
+        let result = CommandResult {
+            command: "gat-cli long-running".to_string(),
+            exit_code: -1,
+            stdout: "partial output".to_string(),
+            stderr: "Command timed out".to_string(),
+            duration_ms: 300000,
+            timed_out: true,
+        };
+        assert!(result.timed_out);
+    }
+
+    #[test]
+    fn test_operations_message_execute_command() {
+        let msg = OperationsMessage::ExecuteCommand("gat-cli datasets list".to_string());
+        match msg {
+            OperationsMessage::ExecuteCommand(cmd) => {
+                assert_eq!(cmd, "gat-cli datasets list");
+            }
+            _ => panic!("Wrong message variant"),
+        }
+    }
+
+    #[test]
+    fn test_operations_message_command_output() {
+        let msg = OperationsMessage::CommandOutput("dataset1".to_string());
+        match msg {
+            OperationsMessage::CommandOutput(output) => {
+                assert_eq!(output, "dataset1");
+            }
+            _ => panic!("Wrong message variant"),
+        }
+    }
+
+    #[test]
+    fn test_operations_message_command_completed_success() {
+        let result = CommandResult {
+            command: "echo test".to_string(),
+            exit_code: 0,
+            stdout: "test".to_string(),
+            stderr: String::new(),
+            duration_ms: 10,
+            timed_out: false,
+        };
+        let msg = OperationsMessage::CommandCompleted(Ok(result));
+        match msg {
+            OperationsMessage::CommandCompleted(Ok(r)) => {
+                assert_eq!(r.exit_code, 0);
+                assert_eq!(r.stdout, "test");
+            }
+            _ => panic!("Wrong message variant"),
         }
     }
 }

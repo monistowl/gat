@@ -7,6 +7,7 @@
 /// - Metadata and retention policies
 
 use crate::components::*;
+use crate::ui::{GridBrowserState, GridInfo, GridLoadState, GridStatus};
 
 /// Dataset entry in catalog
 #[derive(Clone, Debug)]
@@ -83,6 +84,11 @@ pub struct DatasetsPaneState {
 
     // Metadata
     pub metadata: DatasetMetadata,
+
+    // Grid management (Phase 3)
+    pub grid_browser: GridBrowserState,
+    pub grid_load: GridLoadState,
+    pub show_grid_browser: bool,
 
     // Component states
     pub datasets_table: TableWidget,
@@ -182,6 +188,9 @@ impl Default for DatasetsPaneState {
             uploads,
             selected_upload: 0,
             metadata,
+            grid_browser: GridBrowserState::new(Vec::new()),
+            grid_load: GridLoadState::new(),
+            show_grid_browser: false,
             datasets_table,
             uploads_list,
             search_input: InputWidget::new("dataset_search")
@@ -282,6 +291,88 @@ impl DatasetsPaneState {
             self.metadata.available_size_gb,
         ));
     }
+
+    // Grid management methods (Phase 3)
+
+    /// Update the grid browser with loaded grids from AppState
+    pub fn update_grids(&mut self, grids: Vec<GridInfo>) {
+        self.grid_browser = GridBrowserState::new(grids);
+    }
+
+    /// Get currently selected grid from grid browser
+    pub fn selected_grid(&self) -> Option<&GridInfo> {
+        self.grid_browser.selected_grid()
+    }
+
+    /// Navigate to next grid in browser
+    pub fn select_next_grid(&mut self) {
+        self.grid_browser.select_next();
+    }
+
+    /// Navigate to previous grid in browser
+    pub fn select_prev_grid(&mut self) {
+        self.grid_browser.select_previous();
+    }
+
+    /// Add character to grid load file path
+    pub fn add_grid_path_char(&mut self, c: char) {
+        self.grid_load.add_char(c);
+    }
+
+    /// Remove character from grid load file path
+    pub fn backspace_grid_path(&mut self) {
+        self.grid_load.backspace();
+    }
+
+    /// Move cursor left in grid load path
+    pub fn grid_path_cursor_left(&mut self) {
+        self.grid_load.cursor_left();
+    }
+
+    /// Move cursor right in grid load path
+    pub fn grid_path_cursor_right(&mut self) {
+        self.grid_load.cursor_right();
+    }
+
+    /// Get the grid load file path
+    pub fn grid_load_path(&self) -> String {
+        self.grid_load.get_path()
+    }
+
+    /// Check if grid load path is valid
+    pub fn is_grid_path_valid(&self) -> bool {
+        self.grid_load.is_valid()
+    }
+
+    /// Reset grid load state
+    pub fn reset_grid_load(&mut self) {
+        self.grid_load.reset();
+    }
+
+    /// Toggle grid browser visibility
+    pub fn toggle_grid_browser(&mut self) {
+        self.show_grid_browser = !self.show_grid_browser;
+    }
+
+    /// Add character to grid browser search
+    pub fn add_grid_search_char(&mut self, c: char) {
+        self.grid_browser.add_char(c);
+    }
+
+    /// Remove character from grid browser search
+    pub fn backspace_grid_search(&mut self) {
+        self.grid_browser.backspace();
+    }
+
+    /// Clear grid browser search
+    pub fn clear_grid_search(&mut self) {
+        self.grid_browser.clear_search();
+    }
+
+    /// Get filtered grids from grid browser
+    pub fn filtered_grids(&self) -> Vec<&GridInfo> {
+        self.grid_browser.filtered_grids()
+    }
 }
 
 #[cfg(test)]
@@ -353,5 +444,153 @@ mod tests {
         assert!(!state.show_uploads);
         state.toggle_view();
         assert!(state.show_uploads);
+    }
+
+    // Grid management tests (Phase 3)
+
+    #[test]
+    fn test_grid_browser_initialization() {
+        let state = DatasetsPaneState::new();
+        assert!(!state.show_grid_browser);
+        assert!(state.grid_browser.filtered_grids().is_empty());
+    }
+
+    #[test]
+    fn test_update_grids() {
+        let mut state = DatasetsPaneState::new();
+        let grids = vec![
+            GridInfo {
+                id: "ieee14".to_string(),
+                node_count: 14,
+                branch_count: 20,
+                density: 0.14,
+                status: GridStatus::Active,
+            },
+            GridInfo {
+                id: "ieee33".to_string(),
+                node_count: 33,
+                branch_count: 50,
+                density: 0.33,
+                status: GridStatus::Inactive,
+            },
+        ];
+        state.update_grids(grids);
+        assert_eq!(state.filtered_grids().len(), 2);
+    }
+
+    #[test]
+    fn test_grid_selection_navigation() {
+        let mut state = DatasetsPaneState::new();
+        let grids = vec![
+            GridInfo {
+                id: "grid1".to_string(),
+                node_count: 10,
+                branch_count: 15,
+                density: 0.1,
+                status: GridStatus::Active,
+            },
+            GridInfo {
+                id: "grid2".to_string(),
+                node_count: 20,
+                branch_count: 30,
+                density: 0.2,
+                status: GridStatus::Inactive,
+            },
+        ];
+        state.update_grids(grids);
+        assert_eq!(state.selected_grid().unwrap().id, "grid1");
+
+        state.select_next_grid();
+        assert_eq!(state.selected_grid().unwrap().id, "grid2");
+
+        state.select_prev_grid();
+        assert_eq!(state.selected_grid().unwrap().id, "grid1");
+    }
+
+    #[test]
+    fn test_grid_load_path_input() {
+        let mut state = DatasetsPaneState::new();
+        assert!(state.grid_load_path().is_empty());
+
+        state.add_grid_path_char('/');
+        state.add_grid_path_char('t');
+        state.add_grid_path_char('e');
+        state.add_grid_path_char('s');
+        state.add_grid_path_char('t');
+        state.add_grid_path_char('.');
+        state.add_grid_path_char('a');
+        state.add_grid_path_char('r');
+        state.add_grid_path_char('r');
+        state.add_grid_path_char('o');
+        state.add_grid_path_char('w');
+
+        assert_eq!(state.grid_load_path(), "/test.arrow");
+        assert!(state.is_grid_path_valid());
+    }
+
+    #[test]
+    fn test_grid_load_backspace() {
+        let mut state = DatasetsPaneState::new();
+        state.grid_load.file_path = "test.arrow".to_string();
+        state.grid_load.cursor_position = state.grid_load.file_path.len();
+
+        for _ in 0..6 {
+            state.backspace_grid_path();
+        }
+
+        assert_eq!(state.grid_load_path(), "test");
+        assert!(!state.is_grid_path_valid());
+    }
+
+    #[test]
+    fn test_grid_search_filtering() {
+        let mut state = DatasetsPaneState::new();
+        let grids = vec![
+            GridInfo {
+                id: "ieee14".to_string(),
+                node_count: 14,
+                branch_count: 20,
+                density: 0.14,
+                status: GridStatus::Active,
+            },
+            GridInfo {
+                id: "ieee33".to_string(),
+                node_count: 33,
+                branch_count: 50,
+                density: 0.33,
+                status: GridStatus::Inactive,
+            },
+        ];
+        state.update_grids(grids);
+        assert_eq!(state.filtered_grids().len(), 2);
+
+        state.add_grid_search_char('1');
+        state.add_grid_search_char('4');
+        assert_eq!(state.filtered_grids().len(), 1);
+        assert_eq!(state.filtered_grids()[0].id, "ieee14");
+    }
+
+    #[test]
+    fn test_grid_browser_toggle() {
+        let mut state = DatasetsPaneState::new();
+        assert!(!state.show_grid_browser);
+        state.toggle_grid_browser();
+        assert!(state.show_grid_browser);
+        state.toggle_grid_browser();
+        assert!(!state.show_grid_browser);
+    }
+
+    #[test]
+    fn test_grid_load_reset() {
+        let mut state = DatasetsPaneState::new();
+        state.add_grid_path_char('/');
+        state.add_grid_path_char('t');
+        state.add_grid_path_char('e');
+        state.add_grid_path_char('s');
+        state.add_grid_path_char('t');
+
+        assert_eq!(state.grid_load_path(), "/test");
+        state.reset_grid_load();
+        assert!(state.grid_load_path().is_empty());
     }
 }

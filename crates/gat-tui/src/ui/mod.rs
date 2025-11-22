@@ -8,6 +8,7 @@ mod modal;
 mod navigation;
 mod registry;
 mod theme;
+mod command_components;
 
 pub use ansi::{StyledText, COLOR_RED, COLOR_GREEN, COLOR_YELLOW, COLOR_CYAN, BOLD, DIM, REVERSE};
 
@@ -17,12 +18,13 @@ pub use components::{
     progress_bar, ConfigField, ConfigFieldType, FileInfo, Job, JobStatus, MetricStatus,
     MetricValue,
 };
-pub use grid_components::{GridBrowserState, GridInfo, GridLoadState, GridStatus};
+pub use grid_components::{GridBrowserState, GridInfo, GridLoadState, GridLoadModal, GridStatus};
 pub use layout::{PaneLayout, ResponsiveRules, Sidebar, SubTabs};
 pub use modal::{CommandModal, ExecutionMode};
 pub use navigation::{ContextButton, MenuItem, NavMenu};
 pub use registry::{PaneContext, PaneView, PanelRegistry};
 pub use theme::{EmptyState, Theme, THEME};
+pub use command_components::{CommandResultModal, CommandOutputViewer};
 
 pub struct AppShell {
     pub title: String,
