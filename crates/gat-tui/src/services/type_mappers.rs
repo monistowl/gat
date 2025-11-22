@@ -95,7 +95,9 @@ mod tests {
             edge_count: 150,
             density: 0.03,
             connected_components: 3,
-            degree_stats: Default::default(),
+            min_degree: 1,
+            avg_degree: 3.0,
+            max_degree: 5,
         };
 
         let metrics = graph_stats_to_system_metrics(&stats);
@@ -118,7 +120,9 @@ mod tests {
             edge_count: 4950,  // Nearly fully connected
             density: 0.99,
             connected_components: 1,
-            degree_stats: Default::default(),
+            min_degree: 50,
+            avg_degree: 99.0,
+            max_degree: 99,
         };
 
         let metrics = graph_stats_to_system_metrics(&stats);

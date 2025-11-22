@@ -40,7 +40,7 @@ async-trait = "0.1"
 
 # GAT core and IO integration
 gat-core = { path = "../gat-core" }
-gat-io = { path = "../gat-io" }
+gat-io = { path = "../gat-io", features = ["ipc"] }
 gat-algo = { path = "../gat-algo" }
 
 # Thread synchronization
