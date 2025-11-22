@@ -8,6 +8,8 @@ pub mod update;
 pub mod navigation;
 pub mod modal_renderer;
 pub mod modal_examples;
+pub mod services;
+pub mod integration;
 
 pub mod panes;
 pub mod ui;
