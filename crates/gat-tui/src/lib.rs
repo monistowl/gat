@@ -10,6 +10,7 @@ pub mod modal_renderer;
 pub mod modal_examples;
 pub mod services;
 pub mod integration;
+pub mod utils;
 
 pub mod panes;
 pub mod ui;
