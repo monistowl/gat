@@ -90,6 +90,14 @@ pub enum DatasetsMessage {
     // Async data fetching
     FetchDatasets,
     DatasetsLoaded(Result<Vec<DatasetEntry>, QueryError>),
+
+    // Grid management (Phase 3)
+    LoadGrid(String), // file_path
+    UnloadGrid(String), // grid_id
+    SwitchGrid(String), // grid_id
+    RefreshGrids,
+    GridLoaded(String), // grid_id
+    GridLoadFailed(String), // error message
 }
 
 #[derive(Clone, Debug)]

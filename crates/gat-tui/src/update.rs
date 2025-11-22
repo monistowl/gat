@@ -255,7 +255,88 @@ fn handle_datasets(
                 }
             }
         }
-        _ => {}
+
+        // Grid management (Phase 3)
+        DatasetsMessage::LoadGrid(file_path) => {
+            // Load grid from file path
+            let task_id = format!("load_grid_{}", state.async_tasks.len());
+            state
+                .async_tasks
+                .insert(task_id.clone(), AsyncTaskState::Running);
+            effects.push(SideEffect::LoadGrid {
+                task_id,
+                file_path,
+            });
+        }
+
+        DatasetsMessage::UnloadGrid(grid_id) => {
+            // Unload grid and refresh
+            match state.unload_current_grid() {
+                Ok(_) => {
+                    state.add_notification(
+                        &format!("Grid unloaded"),
+                        NotificationKind::Success,
+                    );
+                    // Trigger refresh of datasets
+                    effects.push(SideEffect::FetchDatasets {
+                        task_id: "fetch_datasets_after_unload".to_string(),
+                    });
+                }
+                Err(e) => {
+                    state.add_notification(
+                        &format!("Failed to unload grid: {}", e),
+                        NotificationKind::Error,
+                    );
+                }
+            }
+        }
+
+        DatasetsMessage::SwitchGrid(grid_id) => {
+            // Switch to a different grid
+            state.set_current_grid(grid_id.clone());
+            state.add_notification(
+                &format!("Switched to grid {}", grid_id),
+                NotificationKind::Success,
+            );
+            // Trigger metrics refresh for new grid
+            let msg = Message::Dashboard(DashboardMessage::FetchMetrics);
+            effects.push(SideEffect::SendMessage(Box::new(msg)));
+        }
+
+        DatasetsMessage::RefreshGrids => {
+            // Refresh the list of loaded grids
+            effects.push(SideEffect::FetchDatasets {
+                task_id: "fetch_grids".to_string(),
+            });
+        }
+
+        DatasetsMessage::GridLoaded(grid_id) => {
+            // Grid load succeeded
+            state.add_notification(
+                &format!("Grid '{}' loaded successfully", grid_id),
+                NotificationKind::Success,
+            );
+            // Refresh datasets list and metrics
+            effects.push(SideEffect::FetchDatasets {
+                task_id: "fetch_datasets_after_load".to_string(),
+            });
+            let msg = Message::Dashboard(DashboardMessage::FetchMetrics);
+            effects.push(SideEffect::SendMessage(Box::new(msg)));
+        }
+
+        DatasetsMessage::GridLoadFailed(error) => {
+            // Grid load failed
+            state.add_notification(
+                &format!("Failed to load grid: {}", error),
+                NotificationKind::Error,
+            );
+        }
+
+        // Other existing messages
+        DatasetsMessage::SelectDataset(_) => {}
+        DatasetsMessage::DeleteDataset(_) => {}
+        DatasetsMessage::SearchDatasets(_) => {}
+        DatasetsMessage::RefreshList => {}
     }
 }
 
@@ -404,6 +485,9 @@ pub enum SideEffect {
     FetchPipeline { task_id: String },
     FetchCommands { task_id: String },
     SaveSettings(AppSettings),
+    // Grid management (Phase 3)
+    LoadGrid { task_id: String, file_path: String },
+    SendMessage(Box<Message>),
     // Add more as needed
 }
 
@@ -683,6 +767,62 @@ mod tests {
         assert_eq!(effects1.len(), 1);
         assert_eq!(effects2.len(), 1);
         assert_eq!(effects3.len(), 1);
+    }
+
+    // Grid management tests (Phase 3)
+    #[test]
+    fn test_load_grid_message() {
+        let state = AppState::new();
+        let file_path = "/test_data/matpower/ieee14.arrow".to_string();
+
+        let msg = Message::Datasets(DatasetsMessage::LoadGrid(file_path.clone()));
+        let (new_state, effects) = update(state, msg);
+
+        // Should create a load task
+        assert!(!effects.is_empty());
+        match &effects[0] {
+            SideEffect::LoadGrid {
+                task_id,
+                file_path: path,
+            } => {
+                assert!(!task_id.is_empty());
+                assert_eq!(path, &file_path);
+            }
+            _ => panic!("Expected LoadGrid side effect"),
+        }
+
+        // Task should be tracked
+        assert!(new_state.async_tasks.len() > 0);
+    }
+
+    #[test]
+    fn test_switch_grid_message() {
+        let mut state = AppState::new();
+        let grid_id = "test-grid-123".to_string();
+
+        // Mock grid service with loaded grid
+        let _ = state.list_grids();
+
+        let msg = Message::Datasets(DatasetsMessage::SwitchGrid(grid_id.clone()));
+        let (new_state, effects) = update(state, msg);
+
+        // Should set current grid
+        assert_eq!(new_state.current_grid_id.as_ref(), Some(&grid_id));
+
+        // Should trigger metrics fetch
+        assert!(!effects.is_empty());
+    }
+
+    #[test]
+    fn test_grid_loaded_success_message() {
+        let mut state = AppState::new();
+        let grid_id = "ieee14".to_string();
+
+        let msg = Message::Datasets(DatasetsMessage::GridLoaded(grid_id.clone()));
+        let (_new_state, effects) = update(state, msg);
+
+        // Should trigger dataset fetch and metrics fetch
+        assert!(effects.len() >= 1);
     }
 }
 

@@ -62,6 +62,14 @@ impl PaneIntegrator {
                 // Results handled in update.rs
                 None
             }
+
+            // Grid management (Phase 3) - handled in update.rs
+            DatasetsMessage::LoadGrid(_) => None,
+            DatasetsMessage::UnloadGrid(_) => None,
+            DatasetsMessage::SwitchGrid(_) => None,
+            DatasetsMessage::RefreshGrids => None,
+            DatasetsMessage::GridLoaded(_) => None,
+            DatasetsMessage::GridLoadFailed(_) => None,
         }
     }
 
