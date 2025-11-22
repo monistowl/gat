@@ -10,7 +10,9 @@ pub fn handle(spec: &str) -> Result<()> {
     let res = (|| -> Result<()> {
         let path = Path::new(spec);
         let set = load_spec_from_path(path)?;
-        validate(&set)
+        validate(&set)?;
+        println!("Scenario spec validated successfully");
+        Ok(())
     })();
     record_run_timed(spec, "scenarios validate", &[("spec", spec)], start, &res);
     res

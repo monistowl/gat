@@ -17,11 +17,14 @@ pub enum OutputStage {
     SeWls,
     AnalyticsPtdf,
     AnalyticsDs,
+    FeaturizeGnnNodes,
+    FeaturizeGnnEdges,
+    FeaturizeGnnGraphs,
     AnalyticsReliability,
-    FeaturizeGnn,
-    FeaturizeKpi,
-    AllocRents,
+    AnalyticsElcc,
     AllocKpi,
+    AllocRents,
+    FeaturizeKpi,
 }
 
 impl OutputStage {
@@ -35,11 +38,14 @@ impl OutputStage {
             OutputStage::SeWls => "se-wls",
             OutputStage::AnalyticsPtdf => "analytics-ptdf",
             OutputStage::AnalyticsDs => "analytics-ds",
+            OutputStage::FeaturizeGnnNodes => "featurize-gnn-nodes",
+            OutputStage::FeaturizeGnnEdges => "featurize-gnn-edges",
+            OutputStage::FeaturizeGnnGraphs => "featurize-gnn-graphs",
             OutputStage::AnalyticsReliability => "analytics-reliability",
-            OutputStage::FeaturizeGnn => "featurize-gnn",
-            OutputStage::FeaturizeKpi => "featurize-kpi",
-            OutputStage::AllocRents => "alloc-rents",
+            OutputStage::AnalyticsElcc => "analytics-elcc",
             OutputStage::AllocKpi => "alloc-kpi",
+            OutputStage::AllocRents => "alloc-rents",
+            OutputStage::FeaturizeKpi => "featurize-kpi",
         }
     }
 }

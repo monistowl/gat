@@ -61,7 +61,7 @@ struct ReliabilityElement {
 /// **IEEE 1366-2012 Reliability Indices:**
 ///
 /// 1. **SAIDI (System Average Interruption Duration Index):**
-///    ```
+///    ```text
 ///    SAIDI = Σ(Ui × Ni) / Ntotal
 ///    ```
 ///    where Ui = interruption duration for customer i, Ni = # customers in group i, Ntotal = total customers
@@ -70,7 +70,7 @@ struct ReliabilityElement {
 ///    - **Typical values:** SAIDI ≈ 100-200 min/year (U.S. average), 50-100 for top utilities
 ///
 /// 2. **SAIFI (System Average Interruption Frequency Index):**
-///    ```
+///    ```text
 ///    SAIFI = Σ(λi × Ni) / Ntotal
 ///    ```
 ///    where λi = failure rate for component i, Ni = # customers affected
@@ -79,7 +79,7 @@ struct ReliabilityElement {
 ///    - **Typical values:** SAIFI ≈ 1.0-2.0 interruptions/year (U.S. average)
 ///
 /// 3. **CAIDI (Customer Average Interruption Duration Index):**
-///    ```
+///    ```text
 ///    CAIDI = SAIDI / SAIFI
 ///    ```
 ///    - **Units:** Hours per interruption
@@ -125,7 +125,7 @@ struct ReliabilityElement {
 /// for typical utility. Reliability improvement is a key metric for utility performance-based regulation.
 ///
 /// **Example Output Interpretation:**
-/// ```
+/// ```text
 /// Scenario 0: failed_element=branch_123, SAIDI=2.5 hrs, SAIFI=0.02, CAIDI=125 hrs
 /// Scenario 1: failed_element=branch_456, SAIDI=1.2 hrs, SAIFI=0.015, CAIDI=80 hrs
 /// Average: SAIDI=150 min/year, SAIFI=1.5 interruptions/year, CAIDI=100 min/interruption
@@ -241,7 +241,7 @@ pub fn flisr_sim(
 /// - **Result**: 1-3% loss reduction (worth $1-5M/year for typical utility), fewer voltage violations
 ///
 /// **VVO Formulation (AC OPF):**
-/// ```
+/// ```text
 /// minimize: Σ_branches (I_ij² × R_ij)  [total resistive losses]
 /// subject to:
 ///   Power flow equations (Kirchhoff's laws)
@@ -294,7 +294,7 @@ pub fn flisr_sim(
 /// to reduce losses costs ~$100M. This is why VVO is a cornerstone of distribution grid optimization.
 ///
 /// **Example Output Interpretation:**
-/// ```
+/// ```text
 /// Day type: weekday_summer
 ///   LTC tap: +4 (raise voltage 2.5% above nominal)
 ///   Cap bank 1: 600 kVAr (2 of 3 steps)
@@ -442,7 +442,7 @@ pub fn vvo_plan(
 /// For distribution reliability, N = 5,000-10,000 is typical (balances accuracy vs. computation time).
 ///
 /// **Example Output Interpretation:**
-/// ```
+/// ```text
 /// Sample 0: unserved=12.5 MW, repair=3.2 hours → outage cost = $3,750 (at $100/MWh VoLL)
 /// Sample 1: unserved=8.1 MW, repair=1.8 hours → outage cost = $1,458
 /// Mean: 10.2 MW, StdDev: 5.3 MW → High variability, need probabilistic planning
@@ -513,7 +513,7 @@ pub fn outage_mc(
 /// estimate the true system state x = [θ_1, ..., θ_N, V_1, ..., V_N] (bus voltage angles and magnitudes).
 ///
 /// **Measurement Model:**
-/// ```
+/// ```text
 /// z = h(x) + e
 /// ```
 /// where h(x) is the nonlinear measurement function (power flow equations), e ~ N(0, R) is Gaussian noise.
@@ -578,7 +578,7 @@ pub fn outage_mc(
 /// reject measurement with highest normalized residual.
 ///
 /// **Example Output Interpretation:**
-/// ```
+/// ```text
 /// Bus 1: V_est = 1.02 p.u., θ_est = 0.0° (slack bus)
 /// Bus 2: V_est = 0.98 p.u., θ_est = -2.3°
 /// Measurement residuals:

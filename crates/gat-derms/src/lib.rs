@@ -211,7 +211,7 @@ pub fn envelope(
 ///
 /// **Optimal Scheduling (Future Work):**
 /// Replace heuristic with **Mixed-Integer Linear Programming (MILP)**:
-/// ```
+/// ```text
 /// maximize: Σ_t (P_discharge(t) × price(t) - P_charge(t) × price(t))
 /// subject to:
 ///   SoC(t+1) = SoC(t) - P(t) × Δt / efficiency    [energy balance]
@@ -328,10 +328,10 @@ pub fn schedule(
 /// 4. Adjust bidding strategy (bid conservatively if forecast error is large)
 ///
 /// **Example Output Interpretation:**
-/// ```
-/// Scenario 0: scale=0.82, curtailment=0.15 (low prices → less discharge, low SoC pressure)
-/// Scenario 1: scale=1.18, curtailment=0.42 (high prices → aggressive discharge, hit SoC_min often)
-/// Mean curtailment=0.25, StdDev=0.12 → High variability, consider increasing battery capacity
+/// ```text
+/// Scenario 0: scale=0.82, curtailment=0.15 (low prices -> less discharge, low SoC pressure)
+/// Scenario 1: scale=1.18, curtailment=0.42 (high prices -> aggressive discharge, hit SoC_min often)
+/// Mean curtailment=0.25, StdDev=0.12 -> High variability, consider increasing battery capacity
 /// ```
 pub fn stress_test(
     asset_file: &Path,

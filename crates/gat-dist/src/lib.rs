@@ -80,7 +80,7 @@ pub fn import_matpower_case(matpower: &str, out_dir: &Path, feeder_id: Option<&s
 ///
 /// **AC Power Flow Equations:**
 /// For each bus i, the power balance equations are:
-/// ```
+/// ```text
 /// P_i = V_i ∑_j V_j (G_ij cos(θ_i - θ_j) + B_ij sin(θ_i - θ_j))
 /// Q_i = V_i ∑_j V_j (G_ij sin(θ_i - θ_j) - B_ij cos(θ_i - θ_j))
 /// ```

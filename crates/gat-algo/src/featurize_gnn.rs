@@ -96,6 +96,7 @@ struct EdgeStaticFeatures {
 ///
 /// **Purpose:** Provides graph-level attributes for GNN batch construction and
 /// dataset organization. Used by PyTorch Geometric, DGL, etc. to group nodes/edges.
+#[allow(dead_code)]
 struct GraphMeta {
     graph_id: i64,
     scenario_id: Option<String>,

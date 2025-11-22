@@ -37,7 +37,7 @@ pub struct ScenarioArtifact {
 /// 5. Write a manifest JSON file listing all artifacts.
 ///
 /// **Output structure:**
-/// ```
+/// ```text
 /// out_dir/
 ///   scenario_manifest.json          # Summary of all scenarios
 ///   <scenario_id>/

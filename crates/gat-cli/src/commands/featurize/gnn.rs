@@ -52,7 +52,7 @@ pub fn handle(command: &FeaturizeCommands) -> Result<()> {
         Ok(())
     })();
 
-    let mut params = vec![
+    let params = vec![
         ("grid_file".to_string(), grid_file.to_string()),
         ("flows".to_string(), flows.to_string()),
         ("out".to_string(), out.to_string()),

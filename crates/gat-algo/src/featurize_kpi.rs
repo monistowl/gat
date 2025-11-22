@@ -155,8 +155,6 @@ pub fn featurize_kpi(
 /// "flow_mw" and "branch_id" columns, concatenates them into a single DataFrame.
 /// Expects batch outputs from `gat batch pf` or `gat batch opf`.
 fn load_batch_flows(batch_root: &Path) -> Result<DataFrame> {
-    use std::fs;
-
     // Recursively find all Parquet files in batch_root
     let mut parquet_files = Vec::new();
     visit_dirs(batch_root, &mut parquet_files)?;

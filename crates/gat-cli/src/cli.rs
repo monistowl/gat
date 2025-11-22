@@ -105,6 +105,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: FeaturizeCommands,
     },
+    /// Geo-spatial tools (GIS joins, polygon mapping, spatial features)
+    Geo {
+        #[command(subcommand)]
+        command: GeoCommands,
+    },
     /// Allocation and settlement tools (congestion rents, cost attribution)
     Alloc {
         #[command(subcommand)]
@@ -815,6 +820,24 @@ pub enum AnalyticsCommands {
         #[arg(long)]
         out_partitions: Option<String>,
     },
+    /// Estimate Equivalent Load Carrying Capability (ELCC)
+    Elcc {
+        /// Parquet file with resource profiles (asset_id, class_id, time, capacity)
+        #[arg(long)]
+        resource_profiles: String,
+        /// Parquet file with reliability metrics (from `gat analytics reliability`)
+        #[arg(long)]
+        reliability_metrics: String,
+        /// Output file path for ELCC estimates (Parquet)
+        #[arg(short, long)]
+        out: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
+        /// Number of parallel jobs (0 for auto)
+        #[arg(long, default_value_t = 0)]
+        max_jobs: usize,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -857,6 +880,67 @@ pub enum AllocCommands {
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         out: String,
         /// Partition columns (comma separated, e.g., "scenario_id")
+        #[arg(long)]
+        out_partitions: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum GeoCommands {
+    /// Map buses/feeders to spatial polygons (tracts, zip codes, neighborhoods)
+    ///
+    /// Performs spatial joins between power grid topology (buses, feeders) and GIS polygons
+    /// (census tracts, zip codes, planning areas, etc.). Produces polygon_id ↔ bus_id mapping
+    /// tables for downstream spatial aggregation. Supports point-in-polygon tests, Voronoi
+    /// tessellation, and k-nearest-neighbor assignment. Compatible with GeoParquet format.
+    /// See doi:10.3390/ijgi9020102 for spatial joins in energy systems GIS.
+    Join {
+        /// Path to the grid topology file (Arrow format, must have bus_id, lat, lon)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        grid_file: String,
+        /// Path to the GIS polygon file (GeoParquet, Shapefile, or GeoJSON with polygon geometries)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        polygons: String,
+        /// Spatial join method: "point_in_polygon", "voronoi", or "knn"
+        #[arg(long, default_value = "point_in_polygon")]
+        method: String,
+        /// For knn method: number of nearest polygons to assign (default 1)
+        #[arg(long, default_value_t = 1)]
+        k: usize,
+        /// Output file path for bus-to-polygon mapping table (Parquet: bus_id, polygon_id, distance)
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Partition columns (comma separated, e.g., "polygon_id")
+        #[arg(long)]
+        out_partitions: Option<String>,
+    },
+    /// Produce time-series feature tables keyed by (polygon_id, time)
+    ///
+    /// Aggregates time-series grid metrics (load, voltage, violations, etc.) to spatial polygons
+    /// using the bus-to-polygon mapping from `gat geo join`. Computes lags, rolling statistics,
+    /// event flags, and seasonal features for spatial forecasting models. Outputs polygon-level
+    /// feature fabric for demand forecasting, reliability prediction, and spatial planning.
+    /// See doi:10.1016/j.energy.2020.117515 for spatial-temporal load forecasting.
+    Featurize {
+        /// Path to the bus-to-polygon mapping table (output from `gat geo join`)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        mapping: String,
+        /// Path to time-series grid metrics (Parquet with bus_id, time, values)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        timeseries: String,
+        /// Lag periods to compute (comma separated, e.g., "1,7,24" for 1-hour, 7-hour, 24-hour lags)
+        #[arg(long)]
+        lags: Option<String>,
+        /// Rolling window sizes (comma separated, e.g., "7,24,168" for 7h, 24h, 168h windows)
+        #[arg(long)]
+        windows: Option<String>,
+        /// Compute seasonal features (day-of-week, hour-of-day, month-of-year flags)
+        #[arg(long, default_value_t = true)]
+        seasonal: bool,
+        /// Output file path for polygon-level features (Parquet: polygon_id, time, features)
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Partition columns (comma separated, e.g., "polygon_id,time")
         #[arg(long)]
         out_partitions: Option<String>,
     },
