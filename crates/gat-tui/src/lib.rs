@@ -1,5 +1,5 @@
 use anyhow::Result;
-use iocraft::terminal::Terminal;
+use iocraft::terminal::{Terminal, get_terminal_size};
 use iocraft::input::RawModeGuard;
 use std::io::{self, Read};
 
@@ -58,7 +58,25 @@ impl App {
     }
 
     pub fn render(&self) -> String {
-        self.shell.render()
+        let (width, height) = get_terminal_size();
+        let output = self.shell.render_with_size(width, height);
+
+        // Truncate output to fit terminal height, preserving header and footer
+        let lines: Vec<&str> = output.lines().collect();
+        if lines.len() > height as usize {
+            // Keep header (first line), show content, add scrolling indicator
+            let available = height as usize - 2; // Reserve space for header and indicator
+            let truncated = lines.iter()
+                .take(available)
+                .copied()
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!("{}\n... ({} more lines, use scroll/pagination to view) ...",
+                    truncated,
+                    lines.len() - available)
+        } else {
+            output
+        }
     }
 
     pub fn select_menu_item(&mut self, hotkey: char) {

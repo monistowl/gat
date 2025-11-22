@@ -3,6 +3,22 @@ use std::io::{self, Write};
 pub mod terminal {
     use super::*;
 
+    /// Get terminal size from environment or use reasonable defaults
+    pub fn get_terminal_size() -> (u16, u16) {
+        // Try to get size from COLUMNS and LINES environment variables
+        let width = std::env::var("COLUMNS")
+            .ok()
+            .and_then(|s| s.parse::<u16>().ok())
+            .unwrap_or(110);
+
+        let height = std::env::var("LINES")
+            .ok()
+            .and_then(|s| s.parse::<u16>().ok())
+            .unwrap_or(100); // Large default for testing/CI
+
+        (width, height)
+    }
+
     /// Minimal terminal wrapper that writes directly to stdout.
     pub struct Terminal {
         stdout: io::Stdout,
@@ -16,7 +32,9 @@ pub mod terminal {
         }
 
         pub fn clear(&mut self) -> io::Result<()> {
-            self.stdout.write_all(b"\x1B[2J\x1B[H")
+            // Clear screen and move cursor to home
+            self.stdout.write_all(b"\x1B[2J\x1B[H")?;
+            Ok(())
         }
 
         pub fn render(&mut self, body: &str) -> io::Result<()> {
