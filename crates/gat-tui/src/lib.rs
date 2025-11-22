@@ -1,4 +1,5 @@
 use anyhow::Result;
+use iocraft::input::{EventSource, StdinEventSource, Event};
 use iocraft::terminal::Terminal;
 
 pub mod data;
@@ -70,11 +71,38 @@ impl App {
             .map(|item| item.label.as_str())
     }
 
-    pub fn run(&self) -> Result<()> {
+    pub fn run(mut self) -> Result<()> {
         let mut terminal = Terminal::new()?;
+        let mut event_source = StdinEventSource::new();
+
+        // Initial render
         terminal.clear()?;
         terminal.render(&self.render())?;
         terminal.flush()?;
+
+        // Main event loop
+        loop {
+            match event_source.read() {
+                Ok(Event::Quit) => break,
+                Ok(Event::Key(c)) => {
+                    self.select_menu_item(c);
+                    terminal.clear()?;
+                    terminal.render(&self.render())?;
+                    terminal.flush()?;
+                }
+                Ok(Event::Tick) => {
+                    // Periodic tick - could be used for animations
+                    terminal.clear()?;
+                    terminal.render(&self.render())?;
+                    terminal.flush()?;
+                }
+                Err(e) => {
+                    eprintln!("Error reading input: {}", e);
+                    break;
+                }
+            }
+        }
+
         Ok(())
     }
 }

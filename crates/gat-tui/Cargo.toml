@@ -8,5 +8,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0"
-atty = "0.2"
 iocraft = { path = "../iocraft" }
