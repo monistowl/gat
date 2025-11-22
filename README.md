@@ -245,62 +245,69 @@ All outputs follow consistent Arrow/Parquet schemas.
 
 ---
 
-# 🛠 CLI Reference (Simplified View)
+# 🛠 CLI Reference
 
 ```
 gat <category> <subcommand> [options]
 ```
 
-### **Importers**
+### **Data Import & Management**
 
 ```
-gat import psse
-gat import matpower
-gat import cim
+gat import {psse,matpower,cim}    # Import grid models
+gat dataset public {list,describe,fetch}  # Fetch public datasets
+gat runs {list,describe,resume}   # Manage previous runs
 ```
 
-### **Graph tools**
+### **Grid Analysis**
 
 ```
-gat graph stats
-gat graph islands
-gat graph export
+gat graph {stats,islands,export,visualize}  # Network topology
+gat pf {dc,ac}                    # Power flows
+gat opf {dc,ac}                   # Optimal dispatch
+gat nminus1 {dc,ac}               # Contingency screening
+gat se wls                         # State estimation
 ```
 
-### **Power Flow & OPF**
+### **Time Series & Feature Engineering**
 
 ```
-gat pf dc
-gat pf ac
-gat opf dc
-gat opf ac
+gat ts {resample,join,agg}        # Time-series tools
+gat featurize {gnn,kpi}           # Generate features
 ```
 
-### **Time Series**
+### **Scenarios & Batch Execution**
 
 ```
-gat ts resample
-gat ts join
-gat ts agg
+gat scenarios {validate,materialize,expand}  # Define what-if cases
+gat batch {pf,opf}                # Parallel job execution
 ```
 
-### **Contingency & SE**
+### **Distribution Systems (ADMS/DERMS/DIST)**
 
 ```
-gat nminus1 dc
-gat se wls
-gat gui run
+gat dist {pf,opf,hosting}         # Distribution modeling
+gat adms {flisr,vvo,outage}       # Distribution automation
+gat derms {aggregate,schedule,stress}  # DER analytics
+gat alloc {rents,kpi}             # Allocation metrics
 ```
 
-### **Grid Analytics**
+### **Analytics & Insights**
 
 ```
-gat analytics ptdf <grid.arrow> --source <bus> --sink <bus> --out <file>
+gat analytics {ptdf,reliability,elcc,ds,deliverability}  # Grid metrics
 ```
 
-Generate PTDF sensitivity tables for a 1 MW injection withdrawal between two buses. The command writes a Parquet table with branch IDs, flow magnitudes, and the resulting PTDF values plus a summary message that reports the branch/ptdf ranges. Use `--transfer` to scale the transfer magnitude, `--solver` to change the linear system backend (gauss/faer), and `--out-partitions` if you want partitioned outputs for large grids.
+### **Interfaces**
 
-Use `gat --help` and `gat <command> --help` for detailed flags and device-specific options.
+```
+gat tui                           # Interactive terminal dashboard
+gat gui run                       # Web dashboard (stub)
+gat viz [options]                 # Visualization helpers
+gat completions {bash,zsh,fish,powershell}  # Shell completion
+```
+
+Use `gat --help` and `gat <command> --help` for detailed flags and examples.
 
 ---
 
