@@ -467,18 +467,39 @@ Add `--force` to refresh a cached copy and `--extract` to unpack a ZIP file if a
 
 ---
 
-# 🗂 Documentation & Workflows
+# 📚 Documentation & Guides
 
-All curated docs now live under `docs/guide/` and the generated assets live under `docs/cli`, `docs/schemas`, `docs/arrow`, and `site/book/`. Key references:
+**Getting Started:**
+- `docs/guide/overview.md` — CLI architecture, command organization, and xtask workflow
+- `docs/guide/pf.md` — Power flow (DC/AC) examples and troubleshooting
+- `docs/guide/opf.md` — Optimal power flow with costs, limits, and solver selection
 
-* `docs/guide/doc-workflow.md` lays out the `bd` issue workflow plus the `cargo xtask doc all` steps that keep helpful docs in sync.
-* `docs/guide/mcp-onboarding.md` explains how to run `scripts/mcp-onboard.sh`, read `docs/mcp/manifest.json`, and then execute the curated commands (via `scripts/mcp-manifest-run.sh commands`) or dataset fetchers that agents need for automated workflows.
-* `docs/guide/adms.md`, `docs/guide/derms.md`, and `docs/guide/pf.md` describe the new ADMS/DERMS/distribution workflows (FLISR/VVO, DER scheduling, PTDF/power-flow recipes) that the workspace now covers via `gat-adms`, `gat-derms`, and `gat-dist`.
-* `docs/guide/datasets.md`, `docs/guide/opf.md`, `docs/guide/se.md`, `docs/guide/ts.md`, `docs/guide/gui.md`, `docs/guide/viz.md`, `docs/guide/packaging.md`, and `docs/guide/scaling.md` capture curated workflows and scaling guidance.
-* `docs/README.md` explains the auto-doc targets and how `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` exposes the tree for agents.
-* `docs/ROADMAP.md` is the canonical plan for the workspace.
+**Advanced Domains:**
+- `docs/guide/adms.md` — Distribution automation (FLISR, VVO, outage coordination)
+- `docs/guide/derms.md` — DER management (envelope aggregation, pricing, stress testing)
+- `docs/guide/dist.md` — Distribution system analysis (AC flows, hosting capacity)
 
-After documentation changes, run `cargo xtask doc all` (and optionally `cargo xtask doc site`) so the MCP server and `site/book/` stay up to date.
+**Common Tasks:**
+- `docs/guide/ts.md` — Time-series operations (resample, join, aggregate)
+- `docs/guide/se.md` — State estimation (weighted least squares)
+- `docs/guide/graph.md` — Network topology tools (stats, islands, visualization)
+- `docs/guide/datasets.md` — Public dataset fetching and caching
+- `docs/guide/gat-tui.md` — Terminal UI architecture and pane navigation
+
+**Infrastructure & Workflows:**
+- `docs/guide/doc-workflow.md` — Integration with `bd` issue tracker and auto-doc system
+- `docs/guide/cli-architecture.md` — Dispatcher, command modules, telemetry
+- `docs/guide/feature-matrix.md` — CI/CD matrix testing with solver combinations
+- `docs/guide/mcp-onboarding.md` — MCP server setup for agent integration
+- `docs/guide/packaging.md` — Binary distribution and installation
+- `docs/guide/scaling.md` — Multi-horizon scaling roadmap and performance tuning
+
+**Auto-Generated Documentation:**
+- `docs/cli/gat.md` — Full CLI command reference (generated)
+- `docs/schemas/` — JSON schema for manifests and outputs
+- `docs/ROADMAP.md` — Project plan with milestones and acceptance criteria
+
+After documentation changes, run `cargo xtask doc all` to regenerate CLI reference, schemas, and website. Expose the tree to agents with `gat-mcp-docs --docs docs --addr 127.0.0.1:4321`.
 
 ---
 
