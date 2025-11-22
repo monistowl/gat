@@ -9,6 +9,88 @@
 /// These are used across panes and the test harness for consistent data modeling.
 
 use std::time::SystemTime;
+use serde::{Deserialize, Serialize};
+
+/// Dataset availability status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DatasetStatus {
+    Ready,
+    Idle,
+    Pending,
+}
+
+/// A dataset entry with metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatasetEntry {
+    pub id: String,
+    pub name: String,
+    pub status: DatasetStatus,
+    pub source: String,
+    pub row_count: usize,
+    pub size_mb: f64,
+    pub last_updated: SystemTime,
+    pub description: String,
+}
+
+/// State for the Datasets pane
+#[derive(Debug, Clone, Default)]
+pub struct DatasetsState {
+    pub datasets: Vec<DatasetEntry>,
+    pub selected_index: usize,
+}
+
+impl DatasetsState {
+    pub fn with_fixtures() -> Self {
+        Self {
+            datasets: create_fixture_datasets(),
+            selected_index: 0,
+        }
+    }
+}
+
+/// Create fixture datasets for testing and demo purposes
+pub fn create_fixture_datasets() -> Vec<DatasetEntry> {
+    let now = SystemTime::now();
+
+    vec![
+        DatasetEntry {
+            id: "opsd-2024".to_string(),
+            name: "OPSD Snapshot".to_string(),
+            status: DatasetStatus::Ready,
+            source: "OPSD".to_string(),
+            row_count: 8_760,
+            size_mb: 245.3,
+            last_updated: now
+                .checked_sub(std::time::Duration::from_secs(3600))
+                .unwrap_or(now),
+            description: "Open Power System Data hourly generation".to_string(),
+        },
+        DatasetEntry {
+            id: "matpower-ieee118".to_string(),
+            name: "Matpower IEEE 118-Bus".to_string(),
+            status: DatasetStatus::Idle,
+            source: "Matpower".to_string(),
+            row_count: 118,
+            size_mb: 1.2,
+            last_updated: now
+                .checked_sub(std::time::Duration::from_secs(86400 * 7))
+                .unwrap_or(now),
+            description: "IEEE 118-bus test system".to_string(),
+        },
+        DatasetEntry {
+            id: "csv-import-2024".to_string(),
+            name: "Custom CSV Import".to_string(),
+            status: DatasetStatus::Pending,
+            source: "CSV".to_string(),
+            row_count: 0,
+            size_mb: 0.0,
+            last_updated: now
+                .checked_sub(std::time::Duration::from_secs(60))
+                .unwrap_or(now),
+            description: "User-uploaded CSV file (processing)".to_string(),
+        },
+    ]
+}
 
 /// Status of a background job in a queue
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

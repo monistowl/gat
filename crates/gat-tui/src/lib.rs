@@ -15,6 +15,7 @@ pub mod utils;
 
 pub mod panes;
 pub mod ui;
+mod data;
 
 pub use app::Application;
 pub use models::{AppState, PaneId};
@@ -22,3 +23,6 @@ pub use events::AppEvent;
 pub use message::Message;
 pub use update::{update, SideEffect};
 pub use modal_renderer::ModalRenderer;
+
+// Data structures (from data.rs module)
+pub use data::{DatasetEntry, DatasetStatus, DatasetsState, create_fixture_datasets};
