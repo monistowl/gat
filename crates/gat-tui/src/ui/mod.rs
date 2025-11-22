@@ -1,11 +1,14 @@
 use std::fmt::Write;
 
+mod ansi;
 mod components;
 mod layout;
 mod modal;
 mod navigation;
 mod registry;
 mod theme;
+
+pub use ansi::{StyledText, COLOR_RED, COLOR_GREEN, COLOR_YELLOW, COLOR_CYAN, BOLD, DIM, REVERSE};
 
 /// The root container for the terminal experience.
 pub use components::{
@@ -67,21 +70,47 @@ impl AppShell {
 
     pub fn render_with_size(&self, width: u16, height: u16) -> String {
         let mut output = String::new();
-        let _ = writeln!(&mut output, "{}", THEME.frame_title(&self.title));
+
+        // Render frame title with cyan and bold styling
+        let title_text = THEME.frame_title(&self.title);
+        let styled_title = StyledText::new()
+            .color(COLOR_CYAN)
+            .bold()
+            .apply(title_text);
+        let _ = writeln!(&mut output, "{}", styled_title);
+
+        // Render menu bar
         let _ = writeln!(&mut output, "{}", self.menu.render_menu_bar());
+
+        // Render active pane layout
         self.menu
             .render_active_layout_into(&mut output, width, height);
+
+        // Render tooltip if present (dim styling)
         let tooltip = self
             .menu
             .active_tooltip()
             .cloned()
             .or_else(|| self.tooltip.clone());
         if let Some(tooltip) = tooltip {
-            let _ = writeln!(&mut output, "\n{}", tooltip.render());
+            let tooltip_text = tooltip.render();
+            let styled_tooltip = StyledText::new()
+                .color(COLOR_YELLOW)
+                .dim()
+                .apply(tooltip_text);
+            let _ = writeln!(&mut output, "\n{}", styled_tooltip);
         }
+
+        // Render modal if present (with reverse video for emphasis)
         if let Some(modal) = &self.modal {
-            let _ = writeln!(&mut output, "\n{}", modal.render());
+            let modal_text = modal.render();
+            let styled_modal = StyledText::new()
+                .color(COLOR_YELLOW)
+                .bold()
+                .apply(modal_text);
+            let _ = writeln!(&mut output, "\n{}", styled_modal);
         }
+
         output
     }
 }

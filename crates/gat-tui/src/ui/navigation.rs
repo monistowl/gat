@@ -75,6 +75,8 @@ impl NavMenu {
     }
 
     pub fn render_menu_bar(&self) -> String {
+        use crate::ui::ansi::{StyledText, COLOR_YELLOW, COLOR_GREEN};
+
         let mut output = String::new();
         let parts: Vec<String> = self
             .items
@@ -82,7 +84,17 @@ impl NavMenu {
             .enumerate()
             .map(|(idx, item)| {
                 let active_marker = if idx == self.active { '*' } else { ' ' };
-                format!("[{active_marker}{}] {}", item.hotkey, item.label)
+                let menu_item = format!("[{active_marker}{}] {}", item.hotkey, item.label);
+
+                // Style active menu item in bright yellow
+                if idx == self.active {
+                    StyledText::new()
+                        .color(COLOR_YELLOW)
+                        .bold()
+                        .apply(menu_item)
+                } else {
+                    menu_item
+                }
             })
             .collect();
         let _ = write!(output, "Menu {}", parts.join("  "));
@@ -92,7 +104,13 @@ impl NavMenu {
                 let context: Vec<String> = active_item
                     .context_buttons
                     .iter()
-                    .map(|btn| format!("({}) {}", btn.hotkey, btn.label))
+                    .map(|btn| {
+                        let button_text = format!("({}) {}", btn.hotkey, btn.label);
+                        // Style action buttons in green
+                        StyledText::new()
+                            .color(COLOR_GREEN)
+                            .apply(button_text)
+                    })
                     .collect();
                 let _ = write!(output, " | Actions: {}", context.join(", "));
             }
@@ -102,9 +120,18 @@ impl NavMenu {
     }
 
     pub fn render_active_layout_into(&self, output: &mut String, width: u16, height: u16) {
+        use crate::ui::ansi::{StyledText, COLOR_CYAN};
+
         if let Some(item) = self.items.get(self.active) {
             let _ = writeln!(output, "");
-            let _ = writeln!(output, "Active: {}", item.label);
+
+            // Style "Active:" label in cyan bold
+            let active_label = StyledText::new()
+                .color(COLOR_CYAN)
+                .bold()
+                .apply(format!("Active: {}", item.label));
+            let _ = writeln!(output, "{}", active_label);
+
             item.layout.render_into(output, width, height);
         }
     }
