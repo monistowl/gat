@@ -33,6 +33,13 @@ pub enum Msg {
     SwitchPane(Id),
 }
 
+// Navigation state: which level of the hierarchy are we at?
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NavigationLevel {
+    MenuBar,      // Top level: selecting which pane
+    PaneContent,  // Inside a pane: selecting which section
+}
+
 // Pane-specific state
 #[derive(Debug, Clone)]
 pub struct DashboardPaneState {
@@ -194,6 +201,52 @@ impl Component<Msg, NoUserEvent> for DashboardPane {
     fn on(&mut self, _ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
         None
     }
+}
+
+// Helper function to render menu bar with pane selection
+fn render_menu_bar(frame: &mut Frame, area: Rect, current_pane: &Id, nav_level: NavigationLevel) {
+    let panes = [
+        ("Dashboard", Id::Dashboard),
+        ("Operations", Id::Operations),
+        ("Datasets", Id::Datasets),
+        ("Pipeline", Id::Pipeline),
+        ("Commands", Id::Commands),
+    ];
+
+    let mut menu_text = String::new();
+    for (i, (name, id)) in panes.iter().enumerate() {
+        let is_current = id == current_pane;
+        let is_focused = is_current && nav_level == NavigationLevel::MenuBar;
+
+        let indicator = if is_focused {
+            format!("[*{}]", i + 1)  // Focused pane with indicator
+        } else if is_current {
+            format!("[ {}]", i + 1)  // Current pane but not focused
+        } else {
+            format!("[ {}]", i + 1)  // Other panes
+        };
+
+        if i > 0 {
+            menu_text.push_str("  ");
+        }
+        menu_text.push_str(&format!("{} {}", indicator, name));
+    }
+
+    // Add help text
+    menu_text.push_str("  |  ↑↓ navigate sections  Enter go in  ESC menu");
+
+    let style = if nav_level == NavigationLevel::MenuBar {
+        Style::default().fg(Color::Cyan).bold()  // Menu bar is highlighted when in focus
+    } else {
+        Style::default().fg(Color::White)
+    };
+
+    frame.render_widget(
+        Paragraph::new(menu_text)
+            .style(style)
+            .block(Block::default().borders(Borders::BOTTOM)),
+        area,
+    );
 }
 
 // Helper function to render Dashboard pane with state
@@ -653,6 +706,7 @@ async fn main() -> Result<()> {
     let mut terminal = TerminalBridge::init(CrosstermTerminalAdapter::new()?)?;
     let mut current_pane = Id::Dashboard;
     let mut should_quit = false;
+    let mut nav_level = NavigationLevel::MenuBar;  // Start at menu bar
 
     // Pane-specific state
     let mut dashboard_state = DashboardPaneState {
@@ -684,7 +738,7 @@ async fn main() -> Result<()> {
                 ])
                 .split(f.area());
 
-            // Header
+            // Title
             let pane_name = match current_pane {
                 Id::Dashboard => "Dashboard - Status overview and quick actions",
                 Id::Operations => "Operations - DERMS/ADMS/Batch operations",
@@ -700,24 +754,8 @@ async fn main() -> Result<()> {
                 chunks[0],
             );
 
-            // Menu
-            let menu_indicators = [
-                if matches!(current_pane, Id::Dashboard) { "[*1]" } else { "[ 1]" },
-                if matches!(current_pane, Id::Operations) { "[*2]" } else { "[ 2]" },
-                if matches!(current_pane, Id::Datasets) { "[*3]" } else { "[ 3]" },
-                if matches!(current_pane, Id::Pipeline) { "[*4]" } else { "[ 4]" },
-                if matches!(current_pane, Id::Commands) { "[*5]" } else { "[ 5]" },
-            ];
-            let menu_text = format!(
-                "{} Dashboard  {} Operations  {} Datasets  {} Pipeline  {} Commands  |  ESC/Q to quit",
-                menu_indicators[0], menu_indicators[1], menu_indicators[2], menu_indicators[3], menu_indicators[4]
-            );
-            f.render_widget(
-                Paragraph::new(menu_text)
-                    .style(Style::default().fg(Color::White))
-                    .block(Block::default().borders(Borders::BOTTOM)),
-                chunks[1],
-            );
+            // Menu bar with pane selection
+            render_menu_bar(f, chunks[1], &current_pane, nav_level);
 
             // Active pane content
             match current_pane {
@@ -732,92 +770,116 @@ async fn main() -> Result<()> {
         // Poll for crossterm events
         if event::poll(Duration::from_millis(20))? {
             if let Event::Key(key) = event::read()? {
-                // Handle global navigation
-                match key.code {
-                    KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
-                        should_quit = true;
-                    }
-                    KeyCode::Char('1') => {
-                        current_pane = Id::Dashboard;
-                        app.active(&current_pane)?;
-                    }
-                    KeyCode::Char('2') => {
-                        current_pane = Id::Operations;
-                        app.active(&current_pane)?;
-                    }
-                    KeyCode::Char('3') => {
-                        current_pane = Id::Datasets;
-                        app.active(&current_pane)?;
-                    }
-                    KeyCode::Char('4') => {
-                        current_pane = Id::Pipeline;
-                        app.active(&current_pane)?;
-                    }
-                    KeyCode::Char('5') => {
-                        current_pane = Id::Commands;
-                        app.active(&current_pane)?;
-                    }
-                    KeyCode::Up => {
-                        // Handle pane-specific up navigation
-                        match current_pane {
-                            Id::Dashboard => {
-                                if dashboard_state.selected_index > 0 {
-                                    dashboard_state.selected_index -= 1;
-                                }
+                match nav_level {
+                    NavigationLevel::MenuBar => {
+                        // At menu bar: navigate between panes with Left/Right, enter with Down
+                        match key.code {
+                            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                                should_quit = true;
                             }
-                            Id::Operations => {
-                                if operations_state.selected_index > 0 {
-                                    operations_state.selected_index -= 1;
-                                }
+                            KeyCode::Left => {
+                                // Switch to previous pane
+                                current_pane = match current_pane {
+                                    Id::Dashboard => Id::Commands,
+                                    Id::Operations => Id::Dashboard,
+                                    Id::Datasets => Id::Operations,
+                                    Id::Pipeline => Id::Datasets,
+                                    Id::Commands => Id::Pipeline,
+                                };
+                                app.active(&current_pane)?;
                             }
-                            Id::Datasets => {
-                                if datasets_state.selected_index > 0 {
-                                    datasets_state.selected_index -= 1;
-                                }
+                            KeyCode::Right => {
+                                // Switch to next pane
+                                current_pane = match current_pane {
+                                    Id::Dashboard => Id::Operations,
+                                    Id::Operations => Id::Datasets,
+                                    Id::Datasets => Id::Pipeline,
+                                    Id::Pipeline => Id::Commands,
+                                    Id::Commands => Id::Dashboard,
+                                };
+                                app.active(&current_pane)?;
                             }
-                            Id::Pipeline => {
-                                if pipeline_state.selected_index > 0 {
-                                    pipeline_state.selected_index -= 1;
-                                }
+                            KeyCode::Down | KeyCode::Enter => {
+                                // Enter pane content
+                                nav_level = NavigationLevel::PaneContent;
                             }
-                            Id::Commands => {
-                                if commands_state.selected_index > 0 {
-                                    commands_state.selected_index -= 1;
-                                }
-                            }
+                            _ => {}
                         }
                     }
-                    KeyCode::Down => {
-                        // Handle pane-specific down navigation
-                        match current_pane {
-                            Id::Dashboard => {
-                                if dashboard_state.selected_index < 3 {
-                                    dashboard_state.selected_index += 1;
+                    NavigationLevel::PaneContent => {
+                        // Inside a pane: navigate sections with Up/Down, exit with ESC
+                        match key.code {
+                            KeyCode::Esc => {
+                                // Return to menu bar
+                                nav_level = NavigationLevel::MenuBar;
+                            }
+                            KeyCode::Char('q') | KeyCode::Char('Q') => {
+                                // Allow Q to quit from anywhere
+                                should_quit = true;
+                            }
+                            KeyCode::Up => {
+                                // Navigate up within pane
+                                match current_pane {
+                                    Id::Dashboard => {
+                                        if dashboard_state.selected_index > 0 {
+                                            dashboard_state.selected_index -= 1;
+                                        }
+                                    }
+                                    Id::Operations => {
+                                        if operations_state.selected_index > 0 {
+                                            operations_state.selected_index -= 1;
+                                        }
+                                    }
+                                    Id::Datasets => {
+                                        if datasets_state.selected_index > 0 {
+                                            datasets_state.selected_index -= 1;
+                                        }
+                                    }
+                                    Id::Pipeline => {
+                                        if pipeline_state.selected_index > 0 {
+                                            pipeline_state.selected_index -= 1;
+                                        }
+                                    }
+                                    Id::Commands => {
+                                        if commands_state.selected_index > 0 {
+                                            commands_state.selected_index -= 1;
+                                        }
+                                    }
                                 }
                             }
-                            Id::Operations => {
-                                if operations_state.selected_index < 3 {
-                                    operations_state.selected_index += 1;
+                            KeyCode::Down => {
+                                // Navigate down within pane
+                                match current_pane {
+                                    Id::Dashboard => {
+                                        if dashboard_state.selected_index < 3 {
+                                            dashboard_state.selected_index += 1;
+                                        }
+                                    }
+                                    Id::Operations => {
+                                        if operations_state.selected_index < 3 {
+                                            operations_state.selected_index += 1;
+                                        }
+                                    }
+                                    Id::Datasets => {
+                                        if datasets_state.selected_index < 2 {
+                                            datasets_state.selected_index += 1;
+                                        }
+                                    }
+                                    Id::Pipeline => {
+                                        if pipeline_state.selected_index < 2 {
+                                            pipeline_state.selected_index += 1;
+                                        }
+                                    }
+                                    Id::Commands => {
+                                        if commands_state.selected_index < 2 {
+                                            commands_state.selected_index += 1;
+                                        }
+                                    }
                                 }
                             }
-                            Id::Datasets => {
-                                if datasets_state.selected_index < 2 {
-                                    datasets_state.selected_index += 1;
-                                }
-                            }
-                            Id::Pipeline => {
-                                if pipeline_state.selected_index < 2 {
-                                    pipeline_state.selected_index += 1;
-                                }
-                            }
-                            Id::Commands => {
-                                if commands_state.selected_index < 2 {
-                                    commands_state.selected_index += 1;
-                                }
-                            }
+                            _ => {}
                         }
                     }
-                    _ => {}
                 }
             }
         }
