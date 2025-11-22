@@ -65,6 +65,8 @@ pub enum ModalMessage {
 pub enum DashboardMessage {
     RefreshMetrics,
     ClickMetric(String),
+    FetchMetrics,
+    MetricsLoaded(Result<crate::data::SystemMetrics, QueryError>),
 }
 
 #[derive(Clone, Debug)]
@@ -74,6 +76,8 @@ pub enum CommandsMessage {
     CancelExecution,
     SearchCommands(String),
     ClearHistory,
+    FetchCommands,
+    CommandsLoaded(Result<Vec<String>, QueryError>),
 }
 
 #[derive(Clone, Debug)]
@@ -95,6 +99,8 @@ pub enum PipelineMessage {
     RemoveTransform(usize),
     UpdateConfig(HashMap<String, String>),
     RunPipeline,
+    FetchPipeline,
+    PipelineLoaded(Result<String, QueryError>),
 }
 
 #[derive(Clone, Debug)]
@@ -103,6 +109,8 @@ pub enum OperationsMessage {
     ConfigChange(String, String), // key, value
     Execute,
     CancelRun,
+    FetchOperations,
+    OperationsLoaded(Result<Vec<crate::data::Workflow>, QueryError>),
 }
 
 #[derive(Clone, Debug)]
