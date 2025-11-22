@@ -90,7 +90,8 @@ fn visual_output_structure_analysis() {
         if line.is_empty() {
             println!("{:3} │ [EMPTY]", i + 1);
         } else if line.len() > 80 {
-            println!("{:3} │ [LONG: {} chars] {}", i + 1, line.len(), &line[..80.min(line.len())]);
+            let truncated = line.chars().take(80).collect::<String>();
+            println!("{:3} │ [LONG: {} chars] {}", i + 1, line.len(), truncated);
         } else {
             println!("{:3} │ {} chars │ {}", i + 1, line.len(), line);
         }
