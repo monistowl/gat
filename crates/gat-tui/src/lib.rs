@@ -26,3 +26,6 @@ pub use modal_renderer::ModalRenderer;
 
 // Data structures (from data.rs module)
 pub use data::{DatasetEntry, DatasetStatus, DatasetsState, create_fixture_datasets};
+
+// Query builder service
+pub use services::{QueryBuilder, QueryError};
