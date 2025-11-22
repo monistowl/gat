@@ -13,6 +13,19 @@ use gat_tui::panes::commands::CommandsPane;
 use std::io;
 use std::io::Write;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TerminalSize {
+    width: u16,
+    height: u16,
+}
+
+impl TerminalSize {
+    fn current() -> Result<Self> {
+        let (width, height) = crossterm::terminal::size()?;
+        Ok(Self { width, height })
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Setup terminal (gracefully continue if no TTY)
@@ -37,6 +50,7 @@ async fn main() -> Result<()> {
     };
 
     let mut shell = render_shell();
+    let mut last_terminal_size = TerminalSize::current()?;
 
     // Render initial screen once
     execute!(
@@ -48,9 +62,14 @@ async fn main() -> Result<()> {
     stdout.write_all(rendered.as_bytes())?;
     stdout.flush()?;
 
-    // Main event loop - render only on state changes
+    // Main event loop - render on state changes or resize
     loop {
+        // Check for terminal resize
+        let current_size = TerminalSize::current()?;
+        let size_changed = current_size != last_terminal_size;
+
         // Handle input events with timeout
+        let mut should_render = size_changed;
         match event::poll(std::time::Duration::from_millis(250)) {
             Ok(true) => {
                 match event::read() {
@@ -110,17 +129,27 @@ async fn main() -> Result<()> {
                             _ => {}
                         }
                     }
+                    Ok(Event::Resize(width, height)) => {
+                        // Crossterm will give us resize events; update our tracking
+                        last_terminal_size = TerminalSize { width, height };
+                        should_render = true;
+                    }
                     _ => {}
                 }
             }
             _ => {}
         }
 
-        // Re-render if state changed (e.g., pane switched)
-        if app.state().active_pane != last_pane {
+        // Re-render if state changed (e.g., pane switched) or terminal resized
+        if should_render || app.state().active_pane != last_pane {
             last_pane = app.state().active_pane;
-            // Sync shell menu selection with application state
+            last_terminal_size = current_size;
+
+            // Recreate shell with new viewport dimensions
+            shell = render_shell();
+            shell = shell.with_viewport(current_size.width, current_size.height);
             shell.select_menu_item(last_pane.hotkey());
+
             execute!(
                 stdout,
                 crossterm::terminal::Clear(crossterm::terminal::ClearType::All),

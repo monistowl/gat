@@ -29,12 +29,16 @@ pub struct AppShell {
 
 impl AppShell {
     pub fn new(title: impl Into<String>, menu: NavMenu) -> Self {
+        // Get actual terminal size, fall back to sensible defaults if detection fails
+        let (width, height) = crossterm::terminal::size()
+            .unwrap_or((80, 24));
+
         Self {
             title: title.into(),
             menu,
             tooltip: None,
             modal: None,
-            viewport: (110, 32),
+            viewport: (width, height),
         }
     }
 
