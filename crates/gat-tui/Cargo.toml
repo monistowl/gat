@@ -37,3 +37,11 @@ config = { version = "0.14", features = ["toml"] }
 # Async utilities
 futures = "0.3"
 async-trait = "0.1"
+
+# GAT core and IO integration
+gat-core = { path = "../gat-core" }
+gat-io = { path = "../gat-io" }
+gat-algo = { path = "../gat-algo" }
+
+# Thread synchronization
+parking_lot = "0.12"
