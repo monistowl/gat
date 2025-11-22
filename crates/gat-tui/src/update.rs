@@ -824,5 +824,68 @@ mod tests {
         // Should trigger dataset fetch and metrics fetch
         assert!(effects.len() >= 1);
     }
+
+    #[test]
+    fn test_unload_grid_message() {
+        let state = AppState::new();
+        let grid_id = "test-grid".to_string();
+
+        // Send unload message (grid doesn't exist, so it will fail)
+        let msg = Message::Datasets(DatasetsMessage::UnloadGrid(grid_id.clone()));
+        let (new_state, _effects) = update(state, msg);
+
+        // Should show error notification since grid wasn't loaded
+        assert!(!new_state.notifications.is_empty());
+        let notification = &new_state.notifications[0];
+        assert!(notification.message.to_lowercase().contains("no grid"));
+    }
+
+    #[test]
+    fn test_refresh_grids_message() {
+        let state = AppState::new();
+
+        let msg = Message::Datasets(DatasetsMessage::RefreshGrids);
+        let (_new_state, effects) = update(state, msg);
+
+        // Should trigger dataset fetch
+        assert!(!effects.is_empty());
+        match &effects[0] {
+            SideEffect::FetchDatasets { task_id } => {
+                assert_eq!(task_id, "fetch_grids");
+            }
+            _ => panic!("Expected FetchDatasets side effect"),
+        }
+    }
+
+    #[test]
+    fn test_grid_load_failed_message() {
+        let state = AppState::new();
+        let error_msg = "File not found".to_string();
+
+        let msg = Message::Datasets(DatasetsMessage::GridLoadFailed(error_msg.clone()));
+        let (new_state, _effects) = update(state, msg);
+
+        // Should show error notification
+        assert!(!new_state.notifications.is_empty());
+        let notification = &new_state.notifications[0];
+        let msg_lower = notification.message.to_lowercase();
+        assert!(msg_lower.contains("failed") || msg_lower.contains("error"));
+        assert!(msg_lower.contains("grid"));
+    }
+
+    #[test]
+    fn test_load_grid_with_multiple_tasks() {
+        let state = AppState::new();
+
+        // Send multiple load grid messages
+        let msg1 = Message::Datasets(DatasetsMessage::LoadGrid("grid1.arrow".to_string()));
+        let (state1, _effects1) = update(state, msg1);
+
+        let msg2 = Message::Datasets(DatasetsMessage::LoadGrid("grid2.arrow".to_string()));
+        let (state2, _effects2) = update(state1, msg2);
+
+        // Both tasks should be tracked
+        assert!(state2.async_tasks.len() >= 2);
+    }
 }
 
