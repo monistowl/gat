@@ -1,452 +1,137 @@
+/// Navigation and routing system for the application
+///
+/// Handles pane switching, tab navigation, modal management, and history
+
+use crate::models::PaneId;
 use std::collections::VecDeque;
 
-const CMD_DIST_IMPORT_MATPOWER: &[&str] = &[
-    "cargo",
-    "run",
-    "-p",
-    "gat-cli",
-    "--",
-    "dist",
-    "import",
-    "matpower",
-    "--m",
-    "test_data/derms/ieee33/case33bw.m",
-    "--output",
-    "test_data/derms/ieee33/case33bw.arrow",
-];
-const CMD_DERMS_ENVELOPE: &[&str] = &[
-    "cargo",
-    "run",
-    "-p",
-    "gat-cli",
-    "--",
-    "derms",
-    "envelope",
-    "--grid-file",
-    "test_data/derms/ieee33/case33bw.arrow",
-    "--assets",
-    "test_data/derms/ieee33/ieee33/IEEE33_dataset.csv",
-    "--out",
-    "docs/derms/envelope.parquet",
-];
-const CMD_DERMS_SCHEDULE: &[&str] = &[
-    "cargo",
-    "run",
-    "-p",
-    "gat-cli",
-    "--",
-    "derms",
-    "schedule",
-    "--assets",
-    "test_data/derms/ieee33/der_assets.parquet",
-    "--price-series",
-    "test_data/derms/ieee33/prices.parquet",
-    "--out",
-    "docs/derms/schedule.parquet",
-];
-const CMD_DERMS_STRESS: &[&str] = &[
-    "cargo",
-    "run",
-    "-p",
-    "gat-cli",
-    "--",
-    "derms",
-    "stress-test",
-    "--assets",
-    "test_data/derms/ieee33/der_assets.parquet",
-    "--price-series",
-    "test_data/derms/ieee33/prices.parquet",
-    "--output-dir",
-    "docs/derms/stress",
-    "--scenarios",
-    "8",
-];
-const CMD_ADMS_FLISR: &[&str] = &[
-    "cargo",
-    "run",
-    "-p",
-    "gat-cli",
-    "--",
-    "adms",
-    "flisr-sim",
-    "--grid-file",
-    "test_data/derms/ieee33/case33bw.arrow",
-    "--reliability",
-    "test_data/derms/ieee33/reliability.parquet",
-    "--output-dir",
-    "docs/adms/flisr",
-    "--scenarios",
-    "3",
-];
-const CMD_ADMS_VVO: &[&str] = &[
-    "cargo",
-    "run",
-    "-p",
-    "gat-cli",
-    "--",
-    "adms",
-    "vvo-plan",
-    "--grid-file",
-    "test_data/derms/ieee33/case33bw.arrow",
-    "--output-dir",
-    "docs/adms/vvo",
-    "--day-types",
-    "low,high",
-];
-const CMD_ADMS_OUTAGE: &[&str] = &[
-    "cargo",
-    "run",
-    "-p",
-    "gat-cli",
-    "--",
-    "adms",
-    "outage-mc",
-    "--reliability",
-    "test_data/derms/ieee33/reliability.parquet",
-    "--output-dir",
-    "docs/adms/outage",
-    "--samples",
-    "20",
-    "--seed",
-    "42",
-];
-const CMD_ADMS_STATE_EST: &[&str] = &[
-    "cargo",
-    "run",
-    "-p",
-    "gat-cli",
-    "--",
-    "adms",
-    "state-estimation",
-    "--grid-file",
-    "test_data/derms/ieee33/case33bw.arrow",
-    "--measurements",
-    "test_data/se/measurements.csv",
-    "--out",
-    "docs/adms/state_est.parquet",
-    "--state-out",
-    "docs/adms/estimated_state.parquet",
-    "--solver",
-    "gauss",
-];
-
-const ART_DIST_IMPORT: &[&str] = &[
-    "test_data/derms/ieee33/case33bw.arrow",
-    "test_data/derms/ieee33/dist_nodes.parquet",
-    "test_data/derms/ieee33/dist_branches.parquet",
-];
-const ART_DERMS_ENVELOPE: &[&str] = &["docs/derms/envelope.parquet"];
-const ART_DERMS_SCHEDULE: &[&str] = &["docs/derms/schedule.parquet"];
-const ART_DERMS_STRESS: &[&str] = &["docs/derms/stress/derms_stress_summary.parquet"];
-const ART_ADMS_FLISR: &[&str] = &[
-    "docs/adms/flisr/flisr_runs.parquet",
-    "docs/adms/flisr/reliability_indices.parquet",
-];
-const ART_ADMS_VVO: &[&str] = &["docs/adms/vvo/vvo_settings.parquet"];
-const ART_ADMS_OUTAGE: &[&str] = &["docs/adms/outage/outage_stats.parquet"];
-const ART_ADMS_STATE_EST: &[&str] = &[
-    "docs/adms/state_est.parquet",
-    "docs/adms/estimated_state.parquet",
-];
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum TabId {
-    Workflow,
-    Derms,
-    Adms,
-    Config,
-}
-
+/// Navigation history for back navigation
 #[derive(Clone, Debug)]
-pub struct DetailPayload {
-    pub title: Option<String>,
-    pub body: Option<String>,
+pub struct NavigationHistory {
+    stack: VecDeque<NavigationState>,
+    max_depth: usize,
 }
 
-impl DetailPayload {
-    pub fn empty() -> Self {
-        DetailPayload {
-            title: None,
-            body: None,
-        }
-    }
-}
-
+/// Complete navigation state at a point in time
 #[derive(Clone, Debug)]
-pub struct Pane {
-    pub title: String,
-    pub description: String,
+pub struct NavigationState {
+    pub pane: PaneId,
+    pub tab: usize,
+    pub modal: Option<String>,
 }
 
-impl Pane {
-    pub fn new(title: impl Into<String>, description: impl Into<String>) -> Self {
-        Pane {
-            title: title.into(),
-            description: description.into(),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct PaneStack {
-    panes: VecDeque<Pane>,
-    active: usize,
-}
-
-impl PaneStack {
-    pub fn new(initial: Pane) -> Self {
-        PaneStack {
-            panes: VecDeque::from(vec![initial]),
-            active: 0,
-        }
-    }
-
-    pub fn active_pane(&self) -> &Pane {
-        &self.panes[self.active]
-    }
-
-    #[allow(dead_code)]
-    pub fn push(&mut self, pane: Pane) {
-        self.panes.push_back(pane);
-        self.active = self.panes.len() - 1;
-    }
-
-    #[allow(dead_code)]
-    pub fn pop(&mut self) {
-        if self.panes.len() > 1 {
-            self.panes.pop_back();
-            self.active = self.panes.len() - 1;
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct MenuAction {
-    pub key: char,
-    pub label: &'static str,
-    pub detail: &'static str,
-    pub command: &'static [&'static str],
-    pub artifacts: &'static [&'static str],
-}
-
-impl MenuAction {
-    pub const fn new(
-        key: char,
-        label: &'static str,
-        detail: &'static str,
-        command: &'static [&'static str],
-        artifacts: &'static [&'static str],
-    ) -> Self {
-        Self {
-            key,
-            label,
-            detail,
-            command,
-            artifacts,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Tab {
-    pub id: TabId,
-    pub label: &'static str,
-    pub menu_actions: Vec<MenuAction>,
-    pub panes: PaneStack,
-}
-
-impl Tab {
-    pub fn new(id: TabId, label: &'static str, menu_actions: Vec<MenuAction>, pane: Pane) -> Self {
-        Tab {
-            id,
-            label,
-            menu_actions,
-            panes: PaneStack::new(pane),
-        }
-    }
-}
-
-/// State-machine for the tab/pane navigation. Maintains the list of tabs, the
-/// active tab index, the current detail payload, and a small backstack that
-/// preserves the previous tab/pane positions. All tab switches just mutate
-/// `active` and `detail`, so the renderer can stay lean while each namespace
-/// provides its own panes/actions.
-pub struct NavigationController {
-    tabs: Vec<Tab>,
-    active: usize,
-    detail: DetailPayload,
-    backstack: Vec<(TabId, usize)>,
-}
-impl NavigationController {
+impl NavigationHistory {
     pub fn new() -> Self {
-        let tabs = vec![
-            Tab::new(
-                TabId::Workflow,
-                "Workflow",
-                vec![],
-                Pane::new("Workflow overview", "Monitor workflows and live runs"),
-            ),
-            Tab::new(
-                TabId::Derms,
-                "DERMS",
-                vec![
-        MenuAction::new(
-            '0',
-            "Import MATPOWER",
-            "Generate case33bw.arrow so DERMS/ADMS commands have a grid",
-            CMD_DIST_IMPORT_MATPOWER,
-            ART_DIST_IMPORT,
-        ),
-        MenuAction::new(
-            '1',
-            "DERMS envelope",
-            "Summarize P/Q/S flexibility per aggregator (Baran & Wu envelope, DOI 10.1109/TPWRD.1989.4303454)",
-            CMD_DERMS_ENVELOPE,
-            ART_DERMS_ENVELOPE,
-        ),
-        MenuAction::new(
-            '2',
-            "DERMS schedule",
-            "Heuristic dispatch + curtailment metrics (pricing-based schedule)",
-            CMD_DERMS_SCHEDULE,
-            ART_DERMS_SCHEDULE,
-        ),
-        MenuAction::new(
-            '3',
-            "DERMS stress-test",
-            "Monte Carlo price perturbations protecing flexibility envelopes",
-            CMD_DERMS_STRESS,
-            ART_DERMS_STRESS,
-        ),
-                ],
-                Pane::new("DERMS queue", "Pending DERMS workflows"),
-            ),
-            Tab::new(
-                TabId::Adms,
-                "ADMS",
-                vec![
-            MenuAction::new(
-                '1',
-                "ADMS FLISR sim",
-                "Sample reliability scenarios (SAIDI/SAIFI/CAIDI, DOI 10.1109/PESGM.2009.5285954)",
-                CMD_ADMS_FLISR,
-                ART_ADMS_FLISR,
-            ),
-            MenuAction::new(
-                '2',
-                "ADMS VVO plan",
-                "Produce tap/VAR day-type summaries (VVO DOI 10.1109/TPWRS.2015.2426432)",
-                CMD_ADMS_VVO,
-                ART_ADMS_VVO,
-            ),
-            MenuAction::new(
-                '3',
-                "ADMS outage MC",
-                "Monte Carlo outage stats referencing the reliability catalog",
-                CMD_ADMS_OUTAGE,
-                ART_ADMS_OUTAGE,
-            ),
-            MenuAction::new(
-                '4',
-                "ADMS state-estimation",
-                "Run WLS state estimation and persist state artifacts",
-                CMD_ADMS_STATE_EST,
-                ART_ADMS_STATE_EST,
-            ),
-                ],
-                Pane::new("ADMS command center", "Co-sim insights and tooling"),
-            ),
-            Tab::new(
-                TabId::Config,
-                "Config",
-                vec![],
-                Pane::new("Config explorer", "Browse gat-tui settings and docs"),
-            ),
-        ];
-        NavigationController {
-            tabs,
-            active: 0,
-            detail: DetailPayload::empty(),
-            backstack: Vec::new(),
+        NavigationHistory {
+            stack: VecDeque::new(),
+            max_depth: 20,
         }
     }
 
-    pub fn tabs(&self) -> &[Tab] {
-        &self.tabs
-    }
-
-    #[allow(dead_code)]
-    pub fn active_tab(&self) -> &Tab {
-        &self.tabs[self.active]
-    }
-
-    pub fn active_tab_id(&self) -> TabId {
-        self.tabs[self.active].id
-    }
-
-    pub fn active_index(&self) -> usize {
-        self.active
-    }
-
-    pub fn active_actions(&self) -> &[MenuAction] {
-        &self.tabs[self.active].menu_actions
-    }
-
-    pub fn set_detail(&mut self, title: Option<String>, body: Option<String>) {
-        self.detail = DetailPayload { title, body };
-    }
-
-    pub fn detail(&self) -> &DetailPayload {
-        &self.detail
-    }
-
-    pub fn action_for_key(&self, key: char) -> Option<&MenuAction> {
-        self.active_actions()
-            .iter()
-            .find(|action| action.key == key)
-    }
-
-    #[allow(dead_code)]
-    pub fn switch_tab(&mut self, tab_id: TabId) {
-        if let Some((idx, _)) = self
-            .tabs
-            .iter()
-            .enumerate()
-            .find(|(_, tab)| tab.id == tab_id)
-        {
-            self.backstack.push((self.active_tab_id(), self.active));
-            self.active = idx;
+    /// Record current navigation state
+    pub fn push(&mut self, state: NavigationState) {
+        self.stack.push_front(state);
+        // Limit history size
+        while self.stack.len() > self.max_depth {
+            self.stack.pop_back();
         }
     }
 
-    pub fn next_tab(&mut self) {
-        let next = (self.active + 1) % self.tabs.len();
-        self.backstack.push((self.active_tab_id(), self.active));
-        self.active = next;
-    }
-
-    pub fn prev_tab(&mut self) {
-        let prev = if self.active == 0 {
-            self.tabs.len() - 1
+    /// Go back to previous state
+    pub fn pop(&mut self) -> Option<NavigationState> {
+        if self.stack.len() > 1 {
+            self.stack.pop_front(); // Remove current
+            self.stack.pop_front() // Return previous
         } else {
-            self.active - 1
-        };
-        self.backstack.push((self.active_tab_id(), self.active));
-        self.active = prev;
+            None
+        }
     }
 
-    #[allow(dead_code)]
-    pub fn push_pane(&mut self, pane: Pane) {
-        self.tabs[self.active].panes.push(pane);
+    /// Go back to previous state (alternative implementation)
+    pub fn go_back(&mut self) -> Option<NavigationState> {
+        // Remove current state and return the one before it (if it exists)
+        if !self.stack.is_empty() {
+            self.stack.pop_front();
+        }
+        self.stack.front().cloned()
     }
 
-    #[allow(dead_code)]
-    pub fn pop_pane(&mut self) {
-        self.tabs[self.active].panes.pop();
+    /// Get current state without removing
+    pub fn current(&self) -> Option<NavigationState> {
+        self.stack.front().cloned()
     }
 
-    pub fn active_pane(&self) -> &Pane {
-        self.tabs[self.active].panes.active_pane()
+    /// Clear history
+    pub fn clear(&mut self) {
+        self.stack.clear();
+    }
+}
+
+impl Default for NavigationHistory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Navigation event dispatcher
+pub struct NavigationRouter;
+
+impl NavigationRouter {
+    /// Map keyboard hotkeys to pane navigation
+    pub fn hotkey_to_pane(ch: char) -> Option<PaneId> {
+        match ch {
+            '1' => Some(PaneId::Dashboard),
+            '2' => Some(PaneId::Operations),
+            '3' => Some(PaneId::Datasets),
+            '4' => Some(PaneId::Pipeline),
+            '5' => Some(PaneId::Commands),
+            'h' => Some(PaneId::Help),
+            _ => None,
+        }
+    }
+
+    /// Check if character is a valid pane hotkey
+    pub fn is_pane_hotkey(ch: char) -> bool {
+        matches!(ch, '1' | '2' | '3' | '4' | '5' | 'h')
+    }
+
+    /// Get all available panes
+    pub fn all_panes() -> &'static [PaneId] {
+        &[
+            PaneId::Dashboard,
+            PaneId::Operations,
+            PaneId::Datasets,
+            PaneId::Pipeline,
+            PaneId::Commands,
+            PaneId::Help,
+        ]
+    }
+
+    /// Validate navigation state
+    pub fn validate_pane(pane: PaneId) -> bool {
+        Self::all_panes().contains(&pane)
+    }
+
+    /// Get previous pane in cycle
+    pub fn previous_pane(current: PaneId) -> PaneId {
+        let panes = Self::all_panes();
+        let idx = panes.iter().position(|&p| p == current).unwrap_or(0);
+        if idx == 0 {
+            panes[panes.len() - 1]
+        } else {
+            panes[idx - 1]
+        }
+    }
+
+    /// Get next pane in cycle
+    pub fn next_pane(current: PaneId) -> PaneId {
+        let panes = Self::all_panes();
+        let idx = panes.iter().position(|&p| p == current).unwrap_or(0);
+        if idx == panes.len() - 1 {
+            panes[0]
+        } else {
+            panes[idx + 1]
+        }
     }
 }
 
@@ -455,38 +140,49 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tabs_cycle_forward_and_backward() {
-        let mut nav = NavigationController::new();
-        let tab_count = nav.tabs().len();
-        assert_eq!(nav.active_index(), 0);
-        nav.next_tab();
-        assert_eq!(nav.active_index(), 1);
-        nav.prev_tab();
-        assert_eq!(nav.active_index(), 0);
-        for _ in 0..tab_count {
-            nav.next_tab();
-        }
-        assert_eq!(nav.active_index(), 0);
-        nav.prev_tab();
-        assert_eq!(nav.active_index(), tab_count - 1);
+    fn test_hotkey_to_pane() {
+        assert_eq!(NavigationRouter::hotkey_to_pane('1'), Some(PaneId::Dashboard));
+        assert_eq!(NavigationRouter::hotkey_to_pane('2'), Some(PaneId::Operations));
+        assert_eq!(NavigationRouter::hotkey_to_pane('h'), Some(PaneId::Help));
+        assert_eq!(NavigationRouter::hotkey_to_pane('x'), None);
     }
 
     #[test]
-    fn action_for_key_returns_menu_action() {
-        let mut nav = NavigationController::new();
-        nav.next_tab(); // DERMS
-        nav.next_tab(); // ADMS
-        let action = nav.action_for_key('2');
-        assert!(action.is_some());
-        assert_eq!(action.unwrap().label, "ADMS VVO plan");
+    fn test_is_pane_hotkey() {
+        assert!(NavigationRouter::is_pane_hotkey('1'));
+        assert!(NavigationRouter::is_pane_hotkey('h'));
+        assert!(!NavigationRouter::is_pane_hotkey('x'));
     }
 
     #[test]
-    fn detail_payload_updates() {
-        let mut nav = NavigationController::new();
-        nav.set_detail(Some("Foobar".into()), Some("Details".into()));
-        let detail = nav.detail();
-        assert_eq!(detail.title.as_deref(), Some("Foobar"));
-        assert_eq!(detail.body.as_deref(), Some("Details"));
+    fn test_navigation_history() {
+        let mut history = NavigationHistory::new();
+        let state1 = NavigationState {
+            pane: PaneId::Dashboard,
+            tab: 0,
+            modal: None,
+        };
+        let state2 = NavigationState {
+            pane: PaneId::Commands,
+            tab: 0,
+            modal: None,
+        };
+
+        history.push(state1.clone());
+        history.push(state2);
+
+        assert_eq!(history.current().map(|s| s.pane), Some(PaneId::Commands));
+        history.go_back();
+        assert_eq!(history.current().map(|s| s.pane), Some(PaneId::Dashboard));
+    }
+
+    #[test]
+    fn test_pane_cycling() {
+        assert_eq!(NavigationRouter::next_pane(PaneId::Dashboard), PaneId::Operations);
+        assert_eq!(NavigationRouter::previous_pane(PaneId::Dashboard), PaneId::Help);
+        assert_eq!(
+            NavigationRouter::next_pane(PaneId::Help),
+            PaneId::Dashboard
+        );
     }
 }

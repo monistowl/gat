@@ -5,6 +5,7 @@ pub mod theme;
 pub mod components;
 pub mod message;
 pub mod update;
+pub mod navigation;
 
 pub mod panes;
 pub mod ui;
