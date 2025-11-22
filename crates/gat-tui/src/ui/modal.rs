@@ -2,7 +2,16 @@ use std::fmt::Write;
 
 use anyhow::Result;
 
-use crate::command_runner::{spawn_command, CommandHandle};
+// Stub types - will be implemented properly later
+pub struct CommandHandle;
+impl CommandHandle {
+    pub fn poll(&self) -> Vec<String> {
+        Vec::new()
+    }
+}
+fn spawn_command(_cmd: Vec<String>) -> Result<CommandHandle> {
+    Ok(CommandHandle)
+}
 
 use super::{EmptyState, TableView, Tooltip, THEME};
 

@@ -1,3 +1,6 @@
+pub mod registry;
+
+// Legacy pane implementations (to be replaced)
 pub mod commands;
 pub mod dashboard;
 pub mod datasets;

@@ -1,7 +1,13 @@
 use anyhow::Result;
-use gat_tui::App;
+use gat_tui::Application;
 
-fn main() -> Result<()> {
-    let app = App::new();
-    app.run()
+#[tokio::main]
+async fn main() -> Result<()> {
+    let app = Application::new();
+
+    // Minimal hello world: print app state
+    println!("GAT TUI - Starting application");
+    println!("Active pane: {}", app.state().active_pane.label());
+
+    Ok(())
 }
