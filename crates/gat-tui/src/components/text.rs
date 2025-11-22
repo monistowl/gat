@@ -52,6 +52,15 @@ impl ParagraphWidget {
         self
     }
 
+    pub fn set_content(&mut self, content: impl Into<String>) {
+        let text = content.into();
+        self.lines = text
+            .lines()
+            .map(|s| s.to_string())
+            .collect();
+        self.scroll_offset = 0;
+    }
+
     pub fn add_line(&mut self, line: impl Into<String>) {
         self.lines.push(line.into());
     }
