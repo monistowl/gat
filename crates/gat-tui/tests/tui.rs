@@ -357,6 +357,18 @@ fn pipeline_shows_new_transform_options() {
         .assert_contains("KPI");
 }
 
+#[test]
+fn operations_shows_batch_and_allocation() {
+    let mut pilot = TuiPilot::new();
+
+    pilot.press('2').screenshot();
+    pilot.assert_active("Operations")
+        .assert_contains("Batch Operations")
+        .assert_contains("Allocation Analysis")
+        .assert_contains("Congestion rents")
+        .assert_contains("KPI contribution");
+}
+
 // Uncomment to use for manual testing:
 //
 // #[test]
