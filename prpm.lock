@@ -1,0 +1,854 @@
+{
+  "version": "1.0.0",
+  "lockfileVersion": 1,
+  "packages": {
+    "@wshobson/agents/api-scaffolding/backend-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fapi-scaffolding%2Fbackend-architect/1.0.0.tar.gz",
+      "integrity": "sha256-c5592bbfa2d38f976b4b210890684447f960c8e8c81605adbf4da774f33a1638",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/api-scaffolding/graphql-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fapi-scaffolding%2Fgraphql-architect/1.0.0.tar.gz",
+      "integrity": "sha256-98c2ada44c65949427c725799f26d733af5b3da8e9bcdf8993265d10eb627f33",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/application-performance/frontend-developer": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fapplication-performance%2Ffrontend-developer/1.0.0.tar.gz",
+      "integrity": "sha256-328b5ac5e751bea91d56c4551bb29964ed6e1ec0f2dfb16a830a59476858e1f9",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/backend-api-security/backend-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fbackend-api-security%2Fbackend-architect/1.0.0.tar.gz",
+      "integrity": "sha256-cb902cacd0ec359cab2e7cc457624594987b10bfbc1fe5879052627c34ce6bb0",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/backend-development/backend-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fbackend-development%2Fbackend-architect/1.0.0.tar.gz",
+      "integrity": "sha256-6bfa054ba7d512d5291bb569b0815d39bb8a7c0f7562f03636a4141fa9718e6a",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/backend-development/graphql-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fbackend-development%2Fgraphql-architect/1.0.0.tar.gz",
+      "integrity": "sha256-056da5928084c327742dc907662da9936bdc2a7dc458de919f31f6c1b6b291e6",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/blockchain-web3/blockchain-developer": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fblockchain-web3%2Fblockchain-developer/1.0.0.tar.gz",
+      "integrity": "sha256-5499a25b846f909e4d03e713e903844f5718b36aea81f297f62930f5ba79c3b8",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/cicd-automation/cloud-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcicd-automation%2Fcloud-architect/1.0.0.tar.gz",
+      "integrity": "sha256-a4047ba78c9155aac054383995ab448fa643752710563b91970badca2963c452",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/cloud-architect.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-cicd-automation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/cicd-automation/kubernetes-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcicd-automation%2Fkubernetes-architect/1.0.0.tar.gz",
+      "integrity": "sha256-1bae9ecb6c737dfe916332f226eef27e7ee74899b1faf233fc43f57039dffc69",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/kubernetes-architect.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-cicd-automation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/cloud-infrastructure/cloud-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcloud-infrastructure%2Fcloud-architect/1.0.0.tar.gz",
+      "integrity": "sha256-3ba4248bbf59efae7b0ec459f19560c56105e7d242422a26c38112d0e60dc57b",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/cloud-infrastructure/hybrid-cloud-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcloud-infrastructure%2Fhybrid-cloud-architect/1.0.0.tar.gz",
+      "integrity": "sha256-388fe1329627a12a8279d577f34e11dc23d01b879747cc5966d9f638b1f3e588",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/cloud-infrastructure/kubernetes-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcloud-infrastructure%2Fkubernetes-architect/1.0.0.tar.gz",
+      "integrity": "sha256-8f39df484630a9b51307834a6068cdfe1c3ef20002f199b2ef0234f76bf5e683",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/code-documentation/docs-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcode-documentation%2Fdocs-architect/1.0.0.tar.gz",
+      "integrity": "sha256-504f3a9c621183883254aacbfbc3059e7969b7a4f6b73cebb36309f1d587cda4",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/code-review-ai/architect-review": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcode-review-ai%2Farchitect-review/1.0.0.tar.gz",
+      "integrity": "sha256-f10b379310cb47f42fd0b03ab0e47a26da0ec7d280cebbecde6a2254cf83509b",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/comprehensive-review/architect-review": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcomprehensive-review%2Farchitect-review/1.0.0.tar.gz",
+      "integrity": "sha256-c5180ea56d9d13bb6bf3faeb9b47c90c4dfafb17375a27caf9ef085fed34ad1d",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/architect-review.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "comprehensive-review",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/data-engineering/backend-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fdata-engineering%2Fbackend-architect/1.0.0.tar.gz",
+      "integrity": "sha256-4330f7c3c603ff3dcb605d2857825aecbcc103cfbbc6626f678a4fe003455dc7",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/database-cloud-optimization/database-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fdatabase-cloud-optimization%2Fdatabase-architect/1.0.0.tar.gz",
+      "integrity": "sha256-6fe07347ec0680aba2037014405c8712464b8f0d2e143c5293ec3659e5538f67",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/database-design/database-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fdatabase-design%2Fdatabase-architect/1.0.0.tar.gz",
+      "integrity": "sha256-ee162144ae073349a8a2861b4457838cf0e902de9b2f36da1d0d8c2dcf1a8b1d",
+      "format": "agents.md",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": "AGENTS.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "essential-dev-agents",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-using-superpowers": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-using-superpowers/1.0.0.tar.gz",
+      "integrity": "sha256-6ddb5b702c1a898d48570cbfd2da458271f7614c35001c16eaf11b0cbb481a08",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-using-superpowers/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-brainstorming": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-brainstorming/1.0.0.tar.gz",
+      "integrity": "sha256-5caef1d3c21eca6b19472bd237547ab361e2c61292886e5defbda2b128e78d1b",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-brainstorming/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-writing-plans": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-writing-plans/1.0.0.tar.gz",
+      "integrity": "sha256-341e3a2e9978f28e5e0c4a292cc835af3fd675b09ffb8d4b026b36755af812be",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-writing-plans/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-executing-plans": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-executing-plans/1.0.0.tar.gz",
+      "integrity": "sha256-8c963b7f96aff470df06d56d54c1fbaa38465c9e87cc9d2c7c243f3a0142a8a2",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-executing-plans/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-test-driven-development": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-test-driven-development/1.0.0.tar.gz",
+      "integrity": "sha256-eed18c1a4d725194879b023caff0ebe437a9598dbcf1b188f2cf11d3ec53824e",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-test-driven-development/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-systematic-debugging": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-systematic-debugging/1.0.0.tar.gz",
+      "integrity": "sha256-56b03f9510dbb74b84eb6bbb9f7960023b372b17d6eb91241f5c49697868e9ac",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-systematic-debugging/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-requesting-code-review": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-requesting-code-review/1.0.0.tar.gz",
+      "integrity": "sha256-a32b0d7bba61c4ab0a22b75762e1bc5d5e9d8a4593c5ec551a95f1ee206a7272",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-requesting-code-review/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-receiving-code-review": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-receiving-code-review/1.0.0.tar.gz",
+      "integrity": "sha256-98f073bb1d27d56300e63f646af0bd99f54a42910bad624aa54383b0e2f67bc6",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-receiving-code-review/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-verification-before-completion": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-verification-before-completion/1.0.0.tar.gz",
+      "integrity": "sha256-3ddd78c131431c5345f7e4eadcd30d5e80f3f094305ad819214cfdcf7d461015",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-verification-before-completion/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-using-git-worktrees": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-using-git-worktrees/1.0.0.tar.gz",
+      "integrity": "sha256-cd017b561c9d0d338633078a15efb3edd932a8753ebbd05b91116822736a990f",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-using-git-worktrees/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-subagent-driven-development": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-subagent-driven-development/1.0.0.tar.gz",
+      "integrity": "sha256-ac0893db191089c13a2c14d921c5bef340647d3da92936d9f79731248097c627",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-subagent-driven-development/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-dispatching-parallel-agents": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-dispatching-parallel-agents/1.0.0.tar.gz",
+      "integrity": "sha256-98e3f345444e650671ce914bb60e3b17a79b6273b312a7a067942d834caad98b",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-dispatching-parallel-agents/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-root-cause-tracing": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-root-cause-tracing/1.0.0.tar.gz",
+      "integrity": "sha256-d89a5d7c2306a55aace4ec8d465b1165a33bfee87a0782404ad0f5a289f9a2b4",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-root-cause-tracing/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-defense-in-depth": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-defense-in-depth/1.0.0.tar.gz",
+      "integrity": "sha256-f4be078659e6aeb9c8a4f5e07943759f241bab39af44b20ab4ab7094dc2ba65e",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-defense-in-depth/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-condition-based-waiting": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-condition-based-waiting/1.0.0.tar.gz",
+      "integrity": "sha256-898bd1be4f698410e0f5e41209d54e30b47ddeb3667755b3ffcad56d0f12c292",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-condition-based-waiting/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-testing-anti-patterns": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-testing-anti-patterns/1.0.0.tar.gz",
+      "integrity": "sha256-0a6aa537fb675b2364bbf6aea41190a28155cf9b8904fa8184505499b71f080e",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-testing-anti-patterns/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-testing-skills-with-subagents": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-testing-skills-with-subagents/1.0.0.tar.gz",
+      "integrity": "sha256-a9c9dab69c35cbbe374fc0920b554e44bc5d0062dcf578896108f48f53fa9859",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-testing-skills-with-subagents/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-writing-skills": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-writing-skills/1.0.0.tar.gz",
+      "integrity": "sha256-5e2c6802b4b7281a8d44a4ce28d8d0ccbfa16cd79b7dea872938d8d1a58e2352",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-writing-skills/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-sharing-skills": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-sharing-skills/1.0.0.tar.gz",
+      "integrity": "sha256-154a0a791a5506e6477ae6cd1ca592beaf2ef3c86ab7fcbcad45a997f9987bab",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-sharing-skills/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@obra/skill-finishing-a-development-branch": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40obra%2Fskill-finishing-a-development-branch/1.0.0.tar.gz",
+      "integrity": "sha256-e731fa00a20e672a24becccada7bc0d21153cb1dfa52c6b09c7c2380bddc68b3",
+      "format": "claude",
+      "subtype": "skill",
+      "sourceFormat": "claude",
+      "sourceSubtype": "skill",
+      "installedPath": ".claude/skills/skill-finishing-a-development-branch/SKILL.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "superpowers",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/cicd-automation/deployment-engineer": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcicd-automation%2Fdeployment-engineer/1.0.0.tar.gz",
+      "integrity": "sha256-4387b408109235471a2e1be7ed94e5d3bb75bde1e96e22e205585282db9050f1",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/deployment-engineer.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-cicd-automation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/cicd-automation/devops-troubleshooter": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcicd-automation%2Fdevops-troubleshooter/1.0.0.tar.gz",
+      "integrity": "sha256-fbe5b83b23c5ce904423a8ea3897377305bf6557815e40e66ff1db1deff3f831",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/devops-troubleshooter.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-cicd-automation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/cicd-automation/terraform-specialist": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcicd-automation%2Fterraform-specialist/1.0.0.tar.gz",
+      "integrity": "sha256-52d1026506cbc66b502e357956dda986c1dbdf4930e20c7e61b2d1c5bdaa15e6",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/terraform-specialist.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-cicd-automation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/commands/cicd-automation/workflow-automate": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fcommands%2Fcicd-automation%2Fworkflow-automate/1.0.0.tar.gz",
+      "integrity": "sha256-b292c767db06efac8bf918777f5c12c742739cc70a68251830a8988fbf12a9de",
+      "format": "claude",
+      "subtype": "slash-command",
+      "sourceFormat": "claude",
+      "sourceSubtype": "slash-command",
+      "installedPath": ".claude/commands/workflow-automate.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-cicd-automation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/comprehensive-review/code-reviewer": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcomprehensive-review%2Fcode-reviewer/1.0.0.tar.gz",
+      "integrity": "sha256-f3fed111863830a63c87a801bc6f99321fb3d1c656ec67bea2f8a674b6381f2d",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/code-reviewer.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "comprehensive-review",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/comprehensive-review/security-auditor": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fcomprehensive-review%2Fsecurity-auditor/1.0.0.tar.gz",
+      "integrity": "sha256-bc0c2f6e413911f4d24eeebac298978a074cbb7543511d7d2c35052842866d2f",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/security-auditor.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "comprehensive-review",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/documentation-generation/api-documenter": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fdocumentation-generation%2Fapi-documenter/1.0.0.tar.gz",
+      "integrity": "sha256-f482f6533e0512c7b974e99be65aa5203d81459df281ae98590e9b403fb8c556",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/api-documenter.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-documentation-generation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/documentation-generation/docs-architect": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fdocumentation-generation%2Fdocs-architect/1.0.0.tar.gz",
+      "integrity": "sha256-0674bc38023e9b5e1a065976428ec052461bf07ba02c9ceb46e2ae558ba05d4e",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/docs-architect.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-documentation-generation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/documentation-generation/mermaid-expert": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fdocumentation-generation%2Fmermaid-expert/1.0.0.tar.gz",
+      "integrity": "sha256-f90d45aecdfd188f7df91a23b6081db92061a8eabd1edc0d621fd451bd9f23fe",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/mermaid-expert.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-documentation-generation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/documentation-generation/reference-builder": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fdocumentation-generation%2Freference-builder/1.0.0.tar.gz",
+      "integrity": "sha256-e4d449bfb45b7fcfe63d61ed2b373430efbdf901bac4c6e388677760c526361d",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/reference-builder.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-documentation-generation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/agents/documentation-generation/tutorial-engineer": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fagents%2Fdocumentation-generation%2Ftutorial-engineer/1.0.0.tar.gz",
+      "integrity": "sha256-4f0be052aff7c5e8ab1464134f12d83c68caed08158556b2c57e9c5a007d0cb4",
+      "format": "claude",
+      "subtype": "agent",
+      "sourceFormat": "claude",
+      "sourceSubtype": "agent",
+      "installedPath": ".claude/agents/tutorial-engineer.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-documentation-generation",
+        "version": "1.0.0"
+      }
+    },
+    "@wshobson/commands/documentation-generation/doc-generate": {
+      "version": "1.0.0",
+      "resolved": "https://registry.prpm.dev/api/v1/packages/%40wshobson%2Fcommands%2Fdocumentation-generation%2Fdoc-generate/1.0.0.tar.gz",
+      "integrity": "sha256-37ede7653bf86c0a4e6afd57593f0be45654be690026250130592405b4b4a1a8",
+      "format": "claude",
+      "subtype": "slash-command",
+      "sourceFormat": "claude",
+      "sourceSubtype": "slash-command",
+      "installedPath": ".claude/commands/doc-generate.md",
+      "fromCollection": {
+        "scope": "collection",
+        "name_slug": "wshobson-documentation-generation",
+        "version": "1.0.0"
+      }
+    }
+  },
+  "generated": "2025-11-22T06:10:46.782Z",
+  "collections": {
+    "@collection/essential-dev-agents": {
+      "scope": "collection",
+      "name_slug": "essential-dev-agents",
+      "version": "1.0.0",
+      "installedAt": "2025-11-22T05:59:38.573Z",
+      "packages": [
+        "@wshobson/agents/api-scaffolding/backend-architect",
+        "@wshobson/agents/api-scaffolding/graphql-architect",
+        "@wshobson/agents/application-performance/frontend-developer",
+        "@wshobson/agents/backend-api-security/backend-architect",
+        "@wshobson/agents/backend-development/backend-architect",
+        "@wshobson/agents/backend-development/graphql-architect",
+        "@wshobson/agents/blockchain-web3/blockchain-developer",
+        "@wshobson/agents/cicd-automation/cloud-architect",
+        "@wshobson/agents/cicd-automation/kubernetes-architect",
+        "@wshobson/agents/cloud-infrastructure/cloud-architect",
+        "@wshobson/agents/cloud-infrastructure/hybrid-cloud-architect",
+        "@wshobson/agents/cloud-infrastructure/kubernetes-architect",
+        "@wshobson/agents/code-documentation/docs-architect",
+        "@wshobson/agents/code-review-ai/architect-review",
+        "@wshobson/agents/comprehensive-review/architect-review",
+        "@wshobson/agents/data-engineering/backend-architect",
+        "@wshobson/agents/database-cloud-optimization/backend-architect",
+        "@wshobson/agents/database-cloud-optimization/cloud-architect",
+        "@wshobson/agents/database-cloud-optimization/database-architect",
+        "@wshobson/agents/database-design/database-architect"
+      ]
+    },
+    "@collection/superpowers": {
+      "scope": "collection",
+      "name_slug": "superpowers",
+      "version": "1.0.0",
+      "installedAt": "2025-11-22T06:02:35.716Z",
+      "packages": [
+        "@obra/skill-using-superpowers",
+        "@obra/skill-brainstorming",
+        "@obra/skill-writing-plans",
+        "@obra/skill-executing-plans",
+        "@obra/skill-test-driven-development",
+        "@obra/skill-systematic-debugging",
+        "@obra/skill-requesting-code-review",
+        "@obra/skill-receiving-code-review",
+        "@obra/skill-verification-before-completion",
+        "@obra/skill-using-git-worktrees",
+        "@obra/skill-subagent-driven-development",
+        "@obra/skill-dispatching-parallel-agents",
+        "@obra/skill-root-cause-tracing",
+        "@obra/skill-defense-in-depth",
+        "@obra/skill-condition-based-waiting",
+        "@obra/skill-testing-anti-patterns",
+        "@obra/skill-testing-skills-with-subagents",
+        "@obra/skill-writing-skills",
+        "@obra/skill-sharing-skills",
+        "@obra/skill-finishing-a-development-branch"
+      ]
+    },
+    "@collection/wshobson-cicd-automation": {
+      "scope": "collection",
+      "name_slug": "wshobson-cicd-automation",
+      "version": "1.0.0",
+      "installedAt": "2025-11-22T06:07:39.791Z",
+      "packages": [
+        "@wshobson/agents/cicd-automation/cloud-architect",
+        "@wshobson/agents/cicd-automation/deployment-engineer",
+        "@wshobson/agents/cicd-automation/devops-troubleshooter",
+        "@wshobson/agents/cicd-automation/kubernetes-architect",
+        "@wshobson/agents/cicd-automation/terraform-specialist",
+        "@wshobson/commands/cicd-automation/workflow-automate"
+      ]
+    },
+    "@collection/comprehensive-review": {
+      "scope": "collection",
+      "name_slug": "comprehensive-review",
+      "version": "1.0.0",
+      "installedAt": "2025-11-22T06:08:18.789Z",
+      "packages": [
+        "@wshobson/agents/comprehensive-review/architect-review",
+        "@wshobson/agents/comprehensive-review/code-reviewer",
+        "@wshobson/agents/comprehensive-review/security-auditor"
+      ]
+    },
+    "@collection/wshobson-documentation-generation": {
+      "scope": "collection",
+      "name_slug": "wshobson-documentation-generation",
+      "version": "1.0.0",
+      "installedAt": "2025-11-22T06:10:46.782Z",
+      "packages": [
+        "@wshobson/agents/documentation-generation/api-documenter",
+        "@wshobson/agents/documentation-generation/docs-architect",
+        "@wshobson/agents/documentation-generation/mermaid-expert",
+        "@wshobson/agents/documentation-generation/reference-builder",
+        "@wshobson/agents/documentation-generation/tutorial-engineer",
+        "@wshobson/commands/documentation-generation/doc-generate"
+      ]
+    }
+  }
+}
