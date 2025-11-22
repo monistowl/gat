@@ -5,9 +5,18 @@
 /// - Dataset preview and inspection
 /// - Upload and download management
 /// - Metadata and retention policies
+/// - Scenario templates and loading
 
 use crate::components::*;
 use crate::ui::{GridBrowserState, GridInfo, GridLoadState, GridStatus};
+
+/// Active tab in the Datasets pane
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DatasetTab {
+    Catalog,
+    Uploads,
+    Scenarios,
+}
 
 /// Dataset entry in catalog
 #[derive(Clone, Debug)]
@@ -71,9 +80,68 @@ impl UploadStatus {
     }
 }
 
+/// Scenario template entry
+#[derive(Clone, Debug)]
+pub struct ScenarioTemplate {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub path: String,
+    pub variable_count: usize,
+    pub last_modified: String,
+    pub validation_status: ScenarioStatus,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ScenarioStatus {
+    Valid,
+    Invalid,
+    Untested,
+}
+
+impl ScenarioStatus {
+    pub fn symbol(&self) -> &'static str {
+        match self {
+            ScenarioStatus::Valid => "✓",
+            ScenarioStatus::Invalid => "✗",
+            ScenarioStatus::Untested => "?",
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            ScenarioStatus::Valid => "Valid",
+            ScenarioStatus::Invalid => "Invalid",
+            ScenarioStatus::Untested => "Untested",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ScenarioMetadata {
+    pub total_scenarios: usize,
+    pub loaded_count: usize,
+    pub last_loaded: String,
+    pub validation_status: String,
+}
+
+impl Default for ScenarioMetadata {
+    fn default() -> Self {
+        Self {
+            total_scenarios: 0,
+            loaded_count: 0,
+            last_loaded: "Never".into(),
+            validation_status: "No scenarios loaded".into(),
+        }
+    }
+}
+
 /// Datasets pane state
 #[derive(Clone, Debug)]
 pub struct DatasetsPaneState {
+    // Tab navigation
+    pub active_tab: DatasetTab,
+
     // Catalog
     pub datasets: Vec<Dataset>,
     pub selected_dataset: usize,
@@ -81,6 +149,11 @@ pub struct DatasetsPaneState {
     // Uploads
     pub uploads: Vec<UploadJob>,
     pub selected_upload: usize,
+
+    // Scenarios (NEW)
+    pub scenarios: Vec<ScenarioTemplate>,
+    pub selected_scenario: usize,
+    pub scenario_metadata: ScenarioMetadata,
 
     // Metadata
     pub metadata: DatasetMetadata,
@@ -93,8 +166,10 @@ pub struct DatasetsPaneState {
     // Component states
     pub datasets_table: TableWidget,
     pub uploads_list: ListWidget,
+    pub scenarios_list: ListWidget,
     pub search_input: InputWidget,
     pub metadata_text: TextWidget,
+    pub scenario_details: TextWidget,
 
     // UI state
     pub search_filter: String,
@@ -175,6 +250,44 @@ impl Default for DatasetsPaneState {
             );
         }
 
+        let scenarios = vec![
+            ScenarioTemplate {
+                id: "scn_001".into(),
+                name: "Summer Peak Load".into(),
+                description: "High demand scenario with 15% load increase".into(),
+                path: "/scenarios/summer_peak.yaml".into(),
+                variable_count: 3,
+                last_modified: "2024-11-20 09:30".into(),
+                validation_status: ScenarioStatus::Valid,
+            },
+            ScenarioTemplate {
+                id: "scn_002".into(),
+                name: "High Renewable Penetration".into(),
+                description: "80% renewable energy scenario with dispatch optimization".into(),
+                path: "/scenarios/high_renewable.yaml".into(),
+                variable_count: 5,
+                last_modified: "2024-11-19 14:15".into(),
+                validation_status: ScenarioStatus::Valid,
+            },
+            ScenarioTemplate {
+                id: "scn_003".into(),
+                name: "Generator Outage".into(),
+                description: "Critical generator unavailable during peak hours".into(),
+                path: "/scenarios/gen_outage.yaml".into(),
+                variable_count: 2,
+                last_modified: "2024-11-21 11:45".into(),
+                validation_status: ScenarioStatus::Untested,
+            },
+        ];
+
+        let mut scenarios_list = ListWidget::new("datasets_scenarios");
+        for scenario in &scenarios {
+            scenarios_list.add_item(
+                format!("{} {}", scenario.name, scenario.validation_status.symbol()),
+                scenario.id.clone(),
+            );
+        }
+
         let metadata = DatasetMetadata {
             retention_days: 30,
             backup_schedule: "Nightly".into(),
@@ -182,20 +295,33 @@ impl Default for DatasetsPaneState {
             available_size_gb: 125.5,
         };
 
+        let scenario_metadata = ScenarioMetadata {
+            total_scenarios: scenarios.len(),
+            loaded_count: 2,
+            last_loaded: "2024-11-21 10:00".into(),
+            validation_status: "2 valid, 1 untested".into(),
+        };
+
         DatasetsPaneState {
+            active_tab: DatasetTab::Catalog,
             datasets,
             selected_dataset: 0,
             uploads,
             selected_upload: 0,
+            scenarios,
+            selected_scenario: 0,
+            scenario_metadata,
             metadata,
             grid_browser: GridBrowserState::new(Vec::new()),
             grid_load: GridLoadState::new(),
             show_grid_browser: false,
             datasets_table,
             uploads_list,
+            scenarios_list,
             search_input: InputWidget::new("dataset_search")
                 .with_placeholder("Search datasets..."),
             metadata_text: TextWidget::new("dataset_metadata", ""),
+            scenario_details: TextWidget::new("scenario_details", ""),
             search_filter: String::new(),
             show_uploads: false,
         }
@@ -289,6 +415,104 @@ impl DatasetsPaneState {
             self.metadata.total_size_gb - self.metadata.available_size_gb,
             self.metadata.total_size_gb,
             self.metadata.available_size_gb,
+        ));
+    }
+
+    // Tab navigation methods (Phase 5)
+
+    pub fn switch_tab(&mut self, tab: DatasetTab) {
+        self.active_tab = tab;
+    }
+
+    pub fn next_tab(&mut self) {
+        self.active_tab = match self.active_tab {
+            DatasetTab::Catalog => DatasetTab::Uploads,
+            DatasetTab::Uploads => DatasetTab::Scenarios,
+            DatasetTab::Scenarios => DatasetTab::Catalog,
+        };
+    }
+
+    pub fn prev_tab(&mut self) {
+        self.active_tab = match self.active_tab {
+            DatasetTab::Catalog => DatasetTab::Scenarios,
+            DatasetTab::Uploads => DatasetTab::Catalog,
+            DatasetTab::Scenarios => DatasetTab::Uploads,
+        };
+    }
+
+    pub fn is_catalog_tab(&self) -> bool {
+        self.active_tab == DatasetTab::Catalog
+    }
+
+    pub fn is_uploads_tab(&self) -> bool {
+        self.active_tab == DatasetTab::Uploads
+    }
+
+    pub fn is_scenarios_tab(&self) -> bool {
+        self.active_tab == DatasetTab::Scenarios
+    }
+
+    // Scenario management methods
+
+    pub fn select_next_scenario(&mut self) {
+        if self.selected_scenario < self.scenarios.len().saturating_sub(1) {
+            self.selected_scenario += 1;
+        }
+    }
+
+    pub fn select_prev_scenario(&mut self) {
+        if self.selected_scenario > 0 {
+            self.selected_scenario -= 1;
+        }
+    }
+
+    pub fn selected_scenario(&self) -> Option<&ScenarioTemplate> {
+        self.scenarios.get(self.selected_scenario)
+    }
+
+    pub fn scenario_count(&self) -> usize {
+        self.scenarios.len()
+    }
+
+    pub fn load_scenarios(&mut self, scenarios: Vec<ScenarioTemplate>) {
+        self.scenarios = scenarios;
+        self.selected_scenario = 0;
+        self.scenario_metadata.loaded_count = self.scenarios.len();
+        self.scenario_metadata.last_loaded = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+    }
+
+    pub fn get_scenario_details(&mut self) -> String {
+        if let Some(scenario) = self.selected_scenario() {
+            format!(
+                "Name: {}\nDescription: {}\nPath: {}\nVariables: {}\nStatus: {}\nModified: {}",
+                scenario.name,
+                scenario.description,
+                scenario.path,
+                scenario.variable_count,
+                scenario.validation_status.label(),
+                scenario.last_modified,
+            )
+        } else {
+            "No scenario selected".into()
+        }
+    }
+
+    pub fn validate_scenario(&self) -> bool {
+        if let Some(scenario) = self.selected_scenario() {
+            scenario.validation_status == ScenarioStatus::Valid
+        } else {
+            false
+        }
+    }
+
+    pub fn format_scenario_metadata(&mut self) {
+        let status = &self.scenario_metadata;
+        self.scenario_details.set_content(format!(
+            "Total Scenarios: {}\nLoaded: {}\nLast Loaded: {}\nValidation: {}",
+            status.total_scenarios,
+            status.loaded_count,
+            status.last_loaded,
+            status.validation_status,
         ));
     }
 
@@ -444,6 +668,152 @@ mod tests {
         assert!(!state.show_uploads);
         state.toggle_view();
         assert!(state.show_uploads);
+    }
+
+    // Tab navigation tests (Phase 5)
+
+    #[test]
+    fn test_tab_initialization() {
+        let state = DatasetsPaneState::new();
+        assert_eq!(state.active_tab, DatasetTab::Catalog);
+    }
+
+    #[test]
+    fn test_next_tab_cycle() {
+        let mut state = DatasetsPaneState::new();
+        assert_eq!(state.active_tab, DatasetTab::Catalog);
+
+        state.next_tab();
+        assert_eq!(state.active_tab, DatasetTab::Uploads);
+
+        state.next_tab();
+        assert_eq!(state.active_tab, DatasetTab::Scenarios);
+
+        state.next_tab();
+        assert_eq!(state.active_tab, DatasetTab::Catalog);
+    }
+
+    #[test]
+    fn test_prev_tab_cycle() {
+        let mut state = DatasetsPaneState::new();
+        state.active_tab = DatasetTab::Catalog;
+
+        state.prev_tab();
+        assert_eq!(state.active_tab, DatasetTab::Scenarios);
+
+        state.prev_tab();
+        assert_eq!(state.active_tab, DatasetTab::Uploads);
+
+        state.prev_tab();
+        assert_eq!(state.active_tab, DatasetTab::Catalog);
+    }
+
+    #[test]
+    fn test_switch_tab() {
+        let mut state = DatasetsPaneState::new();
+        state.switch_tab(DatasetTab::Scenarios);
+        assert_eq!(state.active_tab, DatasetTab::Scenarios);
+
+        state.switch_tab(DatasetTab::Uploads);
+        assert_eq!(state.active_tab, DatasetTab::Uploads);
+    }
+
+    #[test]
+    fn test_tab_query_methods() {
+        let mut state = DatasetsPaneState::new();
+        assert!(state.is_catalog_tab());
+        assert!(!state.is_uploads_tab());
+        assert!(!state.is_scenarios_tab());
+
+        state.next_tab();
+        assert!(!state.is_catalog_tab());
+        assert!(state.is_uploads_tab());
+        assert!(!state.is_scenarios_tab());
+
+        state.next_tab();
+        assert!(!state.is_catalog_tab());
+        assert!(!state.is_uploads_tab());
+        assert!(state.is_scenarios_tab());
+    }
+
+    // Scenario management tests
+
+    #[test]
+    fn test_scenarios_init() {
+        let state = DatasetsPaneState::new();
+        assert_eq!(state.scenario_count(), 3);
+        assert_eq!(state.selected_scenario, 0);
+    }
+
+    #[test]
+    fn test_scenario_selection_navigation() {
+        let mut state = DatasetsPaneState::new();
+        assert_eq!(state.selected_scenario, 0);
+
+        state.select_next_scenario();
+        assert_eq!(state.selected_scenario, 1);
+
+        state.select_next_scenario();
+        assert_eq!(state.selected_scenario, 2);
+
+        state.select_next_scenario();
+        assert_eq!(state.selected_scenario, 2); // Bounds check
+
+        state.select_prev_scenario();
+        assert_eq!(state.selected_scenario, 1);
+
+        state.select_prev_scenario();
+        assert_eq!(state.selected_scenario, 0);
+    }
+
+    #[test]
+    fn test_selected_scenario() {
+        let state = DatasetsPaneState::new();
+        let scenario = state.selected_scenario().unwrap();
+        assert_eq!(scenario.id, "scn_001");
+        assert_eq!(scenario.name, "Summer Peak Load");
+    }
+
+    #[test]
+    fn test_scenario_validation() {
+        let state = DatasetsPaneState::new();
+        assert!(state.validate_scenario()); // First scenario is valid
+
+        let mut state = state.clone();
+        state.select_next_scenario();
+        state.select_next_scenario(); // Third scenario
+        assert!(!state.validate_scenario()); // Third is untested
+    }
+
+    #[test]
+    fn test_scenario_details_formatting() {
+        let mut state = DatasetsPaneState::new();
+        let details = state.get_scenario_details();
+        assert!(details.contains("Summer Peak Load"));
+        assert!(details.contains("High demand scenario"));
+        assert!(details.contains("Valid"));
+    }
+
+    #[test]
+    fn test_scenario_metadata_formatting() {
+        let mut state = DatasetsPaneState::new();
+        state.format_scenario_metadata();
+        assert!(state.scenario_details.content.contains("Total Scenarios: 3"));
+        assert!(state.scenario_details.content.contains("Loaded: 2"));
+    }
+
+    #[test]
+    fn test_scenario_status_symbol() {
+        assert_eq!(ScenarioStatus::Valid.symbol(), "✓");
+        assert_eq!(ScenarioStatus::Invalid.symbol(), "✗");
+        assert_eq!(ScenarioStatus::Untested.symbol(), "?");
+    }
+
+    #[test]
+    fn test_scenario_status_label() {
+        assert_eq!(ScenarioStatus::Valid.label(), "Valid");
+        assert_eq!(ScenarioStatus::Invalid.label(), "Invalid");
+        assert_eq!(ScenarioStatus::Untested.label(), "Untested");
     }
 
     // Grid management tests (Phase 3)
