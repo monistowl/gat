@@ -1,29 +1,30 @@
-name: Nightly Full Build
+name: Nightly Build
 
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
-  RUSTFLAGS: -L/usr/lib/x86_64-linux-gnu
-  LIBRARY_PATH: /usr/lib/x86_64-linux-gnu
-  LD_LIBRARY_PATH: /usr/lib/x86_64-linux-gnu
+permissions:
+  contents: read
 
 jobs:
-  package:
+  build-all:
+    name: Full build with diagnostics
+    uses: ./.github/workflows/build-matrix.yml
+    with:
+      verbose_diagnostics: true
+      upload_artifacts: true
+
+  summary:
+    name: Nightly build summary
     runs-on: ubuntu-latest
+    needs: build-all
+    if: always()
     steps:
-      - uses: actions/checkout@v4
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev jq
-      - name: Package release artifacts
-        run: scripts/package.sh
-      - name: Upload binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: nightly-binaries
-          path: dist
-          retention-days: 14
-          if-no-files-found: error
+      - name: Print summary
+        run: |
+          echo "🌙 Nightly Build Complete"
+          echo "📦 Build result: ${{ needs.build-all.result }}"
+          echo "📊 Artifacts available with verbose diagnostics"
+          echo "⏱️ Retention: 14 days"
