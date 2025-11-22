@@ -15,6 +15,28 @@ OS="$(detect_os)"
 ARCH="$(detect_arch)"
 DIST_DIR="$ROOT_DIR/dist"
 
+# Determine variant from environment or argument
+VARIANT="${GAT_BUNDLE_VARIANT:-full}"
+if [[ $# -gt 0 ]]; then
+  VARIANT="$1"
+fi
+
+case "$VARIANT" in
+  headless)
+    BUILD_FLAGS="--no-default-features --features minimal-io"
+    ;;
+  analyst)
+    BUILD_FLAGS="--no-default-features --features minimal-io,adms,derms,dist,analytics,featurize"
+    ;;
+  full)
+    BUILD_FLAGS="--all-features"
+    ;;
+  *)
+    echo "Unknown variant: $VARIANT. Use headless, analyst, or full." >&2
+    exit 1
+    ;;
+esac
+
 pkg_dir() {
   local variant="$1"
   echo "$DIST_DIR/gat-${VERSION}-${OS}-${ARCH}-${variant}"
@@ -37,7 +59,7 @@ copy_common_files() {
 
 package_headless() {
   echo "Packaging GAT $VERSION for $OS/$ARCH (headless)"
-  cargo build --workspace --exclude gat-gui --exclude gat-tui --release
+  cargo build -p gat-cli --release $BUILD_FLAGS
 
   local dest
   dest="$(pkg_dir headless)"
@@ -50,9 +72,24 @@ package_headless() {
   tar -czf "$dest.tar.gz" -C "$DIST_DIR" "$(basename "$dest")"
 }
 
+package_analyst() {
+  echo "Packaging GAT $VERSION for $OS/$ARCH (analyst)"
+  cargo build -p gat-cli --release $BUILD_FLAGS
+
+  local dest
+  dest="$(pkg_dir analyst)"
+  mkdir -p "$dest/bin"
+
+  cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat-cli"
+  cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat"
+  copy_common_files "$dest"
+
+  tar -czf "$dest.tar.gz" -C "$DIST_DIR" "$(basename "$dest")"
+}
+
 package_full() {
   echo "Packaging GAT $VERSION for $OS/$ARCH (full)"
-  cargo build --workspace --all-features --release
+  cargo build -p gat-cli --release $BUILD_FLAGS
 
   local dest
   dest="$(pkg_dir full)"
@@ -74,10 +111,21 @@ package_full() {
 install_solver_deps
 ensure_solvers_available
 clean_dist
-package_headless
-package_full
 
-rm -rf "$(pkg_dir headless)" "$(pkg_dir full)"
+case "$VARIANT" in
+  headless)
+    package_headless
+    rm -rf "$(pkg_dir headless)"
+    ;;
+  analyst)
+    package_analyst
+    rm -rf "$(pkg_dir analyst)"
+    ;;
+  full)
+    package_full
+    rm -rf "$(pkg_dir full)"
+    ;;
+esac
 
 echo "Artifacts available in $DIST_DIR:"
 ls -1 "$DIST_DIR"
