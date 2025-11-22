@@ -33,6 +33,12 @@ pub trait QueryBuilder: Send + Sync {
 
     /// Fetch a specific dataset by ID
     async fn get_dataset(&self, id: &str) -> Result<DatasetEntry, QueryError>;
+
+    /// Fetch all workflows
+    async fn get_workflows(&self) -> Result<Vec<crate::data::Workflow>, QueryError>;
+
+    /// Fetch system metrics
+    async fn get_metrics(&self) -> Result<crate::data::SystemMetrics, QueryError>;
 }
 
 /// Mock implementation using fixture data
@@ -49,6 +55,18 @@ impl QueryBuilder for MockQueryBuilder {
             .into_iter()
             .find(|d| d.id == id)
             .ok_or_else(|| QueryError::NotFound(format!("Dataset {} not found", id)))
+    }
+
+    async fn get_workflows(&self) -> Result<Vec<crate::data::Workflow>, QueryError> {
+        Ok(vec![])  // Empty for now, will populate with fixtures later
+    }
+
+    async fn get_metrics(&self) -> Result<crate::data::SystemMetrics, QueryError> {
+        Ok(crate::data::SystemMetrics {
+            deliverability_score: 85.5,
+            lole_hours_per_year: 9.2,
+            eue_mwh_per_year: 15.3,
+        })
     }
 }
 

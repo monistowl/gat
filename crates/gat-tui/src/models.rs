@@ -348,6 +348,27 @@ impl AppState {
     pub fn close_modal(&mut self) {
         self.modal_state = Some(ModalState::None);
     }
+
+    /// Fetch all datasets asynchronously
+    pub async fn fetch_datasets(&mut self) {
+        self.datasets_loading = true;
+        self.datasets = Some(self.query_builder.get_datasets().await);
+        self.datasets_loading = false;
+    }
+
+    /// Fetch all workflows asynchronously
+    pub async fn fetch_workflows(&mut self) {
+        self.workflows_loading = true;
+        self.workflows = Some(self.query_builder.get_workflows().await);
+        self.workflows_loading = false;
+    }
+
+    /// Fetch system metrics asynchronously
+    pub async fn fetch_metrics(&mut self) {
+        self.metrics_loading = true;
+        self.metrics = Some(self.query_builder.get_metrics().await);
+        self.metrics_loading = false;
+    }
 }
 
 impl Default for AppState {
