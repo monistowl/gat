@@ -512,7 +512,7 @@ async fn main() -> Result<()> {
         })?;
 
         // Handle events
-        match app.tick(PollStrategy::Once) {
+        match app.tick(PollStrategy::UpTo(1)) {
             Ok(messages) if !messages.is_empty() => {
                 for msg in messages {
                     match msg {
