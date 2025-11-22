@@ -220,7 +220,7 @@ impl Pane {
         }
 
         for child in &self.children {
-            child.render_into(output, indent + 1, expanded);
+            child.render_into(output, indent, expanded);
         }
     }
 }
