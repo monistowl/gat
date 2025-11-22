@@ -1,13 +1,12 @@
 use anyhow::Result;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io;
 use std::time::Duration;
 use tuirealm::{
-    application::PollStrategy,
     command::{Cmd, CmdResult},
     event::{Key, KeyEvent},
     props::{Color, Style},
@@ -440,10 +439,11 @@ async fn main() -> Result<()> {
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
 
-    // Create tuirealm application
-    let event_listener = EventListenerCfg::default()
-        .crossterm_input_listener(Duration::from_millis(20), 20);
-    let mut app: Application<Id, Msg, NoUserEvent> = Application::init(event_listener);
+    // Create tuirealm application without automatic event listener
+    // We'll handle events manually via crossterm
+    let mut app: Application<Id, Msg, NoUserEvent> = Application::init(
+        EventListenerCfg::default()
+    );
 
     // Mount pane components
     app.mount(Id::Dashboard, Box::new(DashboardPane), vec![])?;
@@ -511,22 +511,41 @@ async fn main() -> Result<()> {
             app.view(&current_pane, f, chunks[2]);
         })?;
 
-        // Handle events
-        match app.tick(PollStrategy::UpTo(1)) {
-            Ok(messages) if !messages.is_empty() => {
-                for msg in messages {
-                    match msg {
-                        Msg::AppClose => {
-                            should_quit = true;
-                        }
-                        Msg::SwitchPane(pane) => {
-                            current_pane = pane.clone();
-                            app.active(&pane)?;
-                        }
+        // Poll for crossterm events
+        if event::poll(Duration::from_millis(20))? {
+            if let Event::Key(key) = event::read()? {
+                // Handle global navigation
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                        should_quit = true;
                     }
+                    KeyCode::Char('1') => {
+                        current_pane = Id::Dashboard;
+                        app.active(&current_pane)?;
+                    }
+                    KeyCode::Char('2') => {
+                        current_pane = Id::Operations;
+                        app.active(&current_pane)?;
+                    }
+                    KeyCode::Char('3') => {
+                        current_pane = Id::Datasets;
+                        app.active(&current_pane)?;
+                    }
+                    KeyCode::Char('4') => {
+                        current_pane = Id::Pipeline;
+                        app.active(&current_pane)?;
+                    }
+                    KeyCode::Char('5') => {
+                        current_pane = Id::Commands;
+                        app.active(&current_pane)?;
+                    }
+                    KeyCode::Up | KeyCode::Down => {
+                        // These are handled by panes internally
+                        // We'll need a different approach for pane-internal navigation
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
 
