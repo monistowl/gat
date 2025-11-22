@@ -1,5 +1,11 @@
 use anyhow::Result;
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use iocraft::terminal::Terminal;
+use std::io;
 
 pub mod data;
 pub mod modals;
@@ -70,11 +76,62 @@ impl App {
             .map(|item| item.label.as_str())
     }
 
-    pub fn run(&self) -> Result<()> {
+    pub fn run(mut self) -> Result<()> {
+        // Setup terminal
+        enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(
+            stdout,
+            EnterAlternateScreen,
+            EnableMouseCapture
+        )?;
+
+        let result = self.event_loop();
+
+        // Restore terminal
+        disable_raw_mode()?;
+        execute!(
+            stdout,
+            LeaveAlternateScreen,
+            DisableMouseCapture
+        )?;
+
+        result
+    }
+
+    fn event_loop(&mut self) -> Result<()> {
         let mut terminal = Terminal::new()?;
         terminal.clear()?;
         terminal.render(&self.render())?;
         terminal.flush()?;
+
+        loop {
+            if event::poll(std::time::Duration::from_millis(100))? {
+                if let Event::Key(key) = event::read()? {
+                    match handle_key(key) {
+                        Some('q') => break,
+                        Some(c) => {
+                            self.select_menu_item(c);
+                            terminal.clear()?;
+                            terminal.render(&self.render())?;
+                            terminal.flush()?;
+                        }
+                        None => {}
+                    }
+                }
+            }
+        }
+
         Ok(())
+    }
+}
+
+/// Convert crossterm KeyEvent to char, filtering for printable keys.
+/// Returns 'q' for Ctrl+C or ESC, None for non-printable keys.
+fn handle_key(key: KeyEvent) -> Option<char> {
+    match key.code {
+        KeyCode::Char(c) => Some(c),
+        KeyCode::Esc | KeyCode::F(0) => Some('q'), // ESC to quit
+        _ => None,
     }
 }
