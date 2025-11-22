@@ -92,7 +92,10 @@ impl App {
         // Main event loop
         loop {
             match stdin.read(&mut buffer) {
-                Ok(0) => break, // EOF
+                Ok(0) => {
+                    // Shouldn't happen with VMIN=1, but handle it
+                    break;
+                }
                 Ok(_) => {
                     let c = buffer[0] as char;
                     if c == 'q' {
@@ -102,10 +105,6 @@ impl App {
                     terminal.clear()?;
                     terminal.render(&self.render())?;
                     terminal.flush()?;
-                }
-                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-                    // Timeout - no input, continue
-                    continue;
                 }
                 Err(e) => {
                     eprintln!("Error reading input: {}", e);

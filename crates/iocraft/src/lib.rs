@@ -65,8 +65,9 @@ pub mod input {
 
             // Disable canonical mode and echo
             raw_termios.c_lflag &= !(ICANON | ECHO);
-            raw_termios.c_cc[termios::VMIN] = 0; // Non-blocking read
-            raw_termios.c_cc[termios::VTIME] = 1; // 100ms timeout
+            // VMIN=1, VTIME=0 means: wait for at least 1 character with no timeout
+            raw_termios.c_cc[termios::VMIN] = 1;
+            raw_termios.c_cc[termios::VTIME] = 0;
 
             // Apply raw mode
             tcsetattr(io::stdin().as_raw_fd(), TCSANOW, &raw_termios)?;
