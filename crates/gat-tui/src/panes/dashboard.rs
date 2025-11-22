@@ -13,6 +13,14 @@ impl DashboardPane {
             "Queued: 2 actions awaiting approvals",
         ]);
 
+        // Reliability KPI cards
+        let reliability_cards = Pane::new("Reliability Metrics").body([
+            "✓ Deliverability Score: 85.5%  |  ⚠ LOLE: 9.2 h/yr  |  ⚠ EUE: 15.3 MWh/yr",
+            "",
+            "Last update: 2024-11-21 14:30 UTC",
+            "Source: analytics reliability (batch_2024-11-21)",
+        ]);
+
         let recent_runs_table = TableView::new(["Run", "Status", "Owner", "Duration"])
             .add_row(["ingest-2304", "Succeeded", "alice", "42s"])
             .add_row(["transform-7781", "Running", "ops", "live"])
@@ -71,6 +79,7 @@ impl DashboardPane {
                     "Collapsible Details, Logs, and Resources start expanded on wide viewports.",
                 ])
                 .with_child(status_card)
+                .with_child(reliability_cards)
                 .with_child(recent_runs)
                 .with_child(quick_actions)
                 .with_child(details)
@@ -114,8 +123,9 @@ impl PaneView for DashboardPane {
 
     fn context_buttons(&self, _context: &PaneContext) -> Vec<ContextButton> {
         vec![
-            ContextButton::new('g', "[g] Go to quick actions"),
-            ContextButton::new('v', "[v] Show layout visualizer"),
+            ContextButton::new('r', "[r] Run reliability analysis"),
+            ContextButton::new('d', "[d] Run deliverability score"),
+            ContextButton::new('e', "[e] Run ELCC estimation"),
         ]
     }
 }
