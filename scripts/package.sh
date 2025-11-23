@@ -97,7 +97,9 @@ package_full() {
 
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat-cli"
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat"
-  cp "$ROOT_DIR/target/release/gat-gui" "$dest/bin/gat-gui"
+  if [[ -x "$ROOT_DIR/target/release/gat-gui" ]]; then
+    cp "$ROOT_DIR/target/release/gat-gui" "$dest/bin/gat-gui"
+  fi
   if [[ -x "$ROOT_DIR/target/release/gat-tui" ]]; then
     cp "$ROOT_DIR/target/release/gat-tui" "$dest/bin/gat-tui"
   fi
