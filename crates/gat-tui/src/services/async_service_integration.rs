@@ -4,7 +4,7 @@
 /// allowing background services to fetch data and dispatch results back to
 /// the UI through a clean, decoupled interface.
 
-use crate::services::{AsyncEvent, EventResult, TuiServiceLayer, QueryBuilder};
+use crate::services::{AsyncEvent, EventResult, TuiServiceLayer};
 use std::sync::Arc;
 
 /// Service that integrates TuiServiceLayer with async event handling

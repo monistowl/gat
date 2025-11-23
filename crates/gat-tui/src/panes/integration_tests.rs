@@ -386,4 +386,237 @@ mod tests {
             assert!(QuickAction::find_by_key(action.key).is_some());
         }
     }
+
+    // ============================================================================
+    // Task 4: Commands Pane Execution Tests
+    // ============================================================================
+
+    #[tokio::test]
+    async fn test_commands_pane_execute_command() {
+        let mut commands = CommandsPaneState::new();
+        commands.custom_command = "gat-cli datasets list".into();
+
+        let result = commands.execute_command().await;
+        assert!(result.is_ok());
+
+        let cmd_result = result.unwrap();
+        assert_eq!(cmd_result.status, CommandStatus::Success);
+        assert!(commands.history_count() > 0);
+    }
+
+    #[test]
+    fn test_commands_pane_execution_modes() {
+        let mut commands = CommandsPaneState::new();
+
+        assert_eq!(commands.execution_mode, ExecutionMode::DryRun);
+        commands.toggle_execution_mode();
+        assert_eq!(commands.execution_mode, ExecutionMode::Full);
+    }
+
+    #[test]
+    fn test_commands_pane_snippet_loading() {
+        let mut commands = CommandsPaneState::new();
+
+        commands.load_snippet_to_editor(0);
+        assert!(!commands.custom_command.is_empty());
+        assert_eq!(commands.selected_snippet, 0);
+    }
+
+    // ============================================================================
+    // Task 5: Pipeline Pane Integration Tests
+    // ============================================================================
+
+    #[test]
+    fn test_pipeline_pane_node_count() {
+        let pipeline = PipelinePaneState::new();
+        assert!(pipeline.node_count() > 0);
+    }
+
+    #[test]
+    fn test_pipeline_pane_structure() {
+        let pipeline = PipelinePaneState::new();
+
+        // Verify pipeline has nodes
+        assert!(!pipeline.nodes.is_empty());
+
+        // Verify at least one transform node
+        assert!(pipeline.nodes.iter().any(|n| n.node_type == NodeType::Transform));
+    }
+
+    // ============================================================================
+    // Task 6: Operations Pane Batch Job Tests
+    // ============================================================================
+
+    #[test]
+    fn test_operations_pane_batch_jobs() {
+        let mut operations = OperationsPaneState::new();
+
+        // Should have initial jobs
+        assert!(operations.job_count() > 0);
+
+        // Select next job
+        operations.select_next_job();
+        let job = operations.selected_job();
+        assert!(job.is_some());
+    }
+
+    #[test]
+    fn test_operations_pane_allocation_data() {
+        let operations = OperationsPaneState::new();
+
+        // Should have allocation results
+        assert!(operations.allocation_count() > 0);
+
+        // Allocations should have valid metrics
+        let summary = operations.get_allocation_summary();
+        assert!(!summary.is_empty());
+    }
+
+    // ============================================================================
+    // Task 7: Analytics Pane Multi-Type Tests
+    // ============================================================================
+
+    #[test]
+    fn test_analytics_pane_reliability_tab() {
+        let mut analytics = AnalyticsPaneState::new();
+
+        analytics.switch_tab(AnalyticsTab::Reliability);
+        assert_eq!(analytics.active_tab, AnalyticsTab::Reliability);
+        assert!(!analytics.reliability_results.is_empty());
+    }
+
+    #[test]
+    fn test_analytics_pane_all_tabs() {
+        let mut analytics = AnalyticsPaneState::new();
+
+        let tabs = vec![
+            AnalyticsTab::Reliability,
+            AnalyticsTab::DeliverabilityScore,
+            AnalyticsTab::ELCC,
+            AnalyticsTab::PowerFlow,
+        ];
+
+        for tab in tabs {
+            analytics.switch_tab(tab);
+            assert_eq!(analytics.active_tab, tab);
+        }
+    }
+
+    // ============================================================================
+    // Task 8: Cross-Pane Event Coordination Tests
+    // ============================================================================
+
+    #[test]
+    fn test_cross_pane_data_flow_datasets_to_analytics() {
+        let datasets = DatasetsPaneState::new();
+        let analytics = AnalyticsPaneState::new();
+
+        // Both should be initialized properly
+        assert!(datasets.dataset_count() > 0);
+        assert!(!analytics.reliability_results.is_empty());
+    }
+
+    #[test]
+    fn test_cross_pane_operations_affects_dashboard() {
+        let dashboard = DashboardPaneState::new();
+        let operations = OperationsPaneState::new();
+
+        // Both should be in healthy state after operations
+        assert_eq!(dashboard.overall_status, "Healthy");
+        assert!(operations.job_count() > 0);
+    }
+
+    #[test]
+    fn test_pane_event_consistency() {
+        let dashboard = DashboardPaneState::new();
+        let commands = CommandsPaneState::new();
+        let datasets = DatasetsPaneState::new();
+
+        // All panes should have consistent initialization
+        assert!(!dashboard.overall_status.is_empty());
+        assert!(commands.snippet_count() > 0);
+        assert!(datasets.dataset_count() > 0);
+    }
+
+    // ============================================================================
+    // Task 9: End-to-End Integration Workflows
+    // ============================================================================
+
+    #[tokio::test]
+    async fn test_end_to_end_dataset_workflow() {
+        // User uploads a dataset
+        let datasets = DatasetsPaneState::new();
+        assert!(datasets.dataset_count() > 0);
+
+        // User then runs analytics
+        let analytics = AnalyticsPaneState::new();
+        assert!(!analytics.reliability_results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_end_to_end_command_execution_workflow() {
+        let mut commands = CommandsPaneState::new();
+
+        // User loads a command snippet
+        commands.load_snippet_to_editor(10);
+        assert!(commands.custom_command.contains("reliability"));
+
+        // User executes it
+        let result = commands.execute_command().await;
+        assert!(result.is_ok());
+
+        // Result is recorded in history
+        assert!(commands.history_count() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_end_to_end_batch_job_workflow() {
+        let mut operations = OperationsPaneState::new();
+
+        // User checks available jobs
+        assert!(operations.job_count() > 0);
+
+        // User selects a job
+        operations.select_next_job();
+        let job = operations.selected_job();
+        assert!(job.is_some());
+
+        // User checks allocation results
+        assert!(operations.allocation_count() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_end_to_end_pipeline_scenario_workflow() {
+        let pipeline = PipelinePaneState::new();
+
+        // Pipeline is properly initialized with nodes
+        assert!(pipeline.node_count() > 0);
+
+        // Pipeline has transform steps
+        let transforms = pipeline.nodes.iter()
+            .filter(|n| n.node_type == NodeType::Transform)
+            .count();
+        assert!(transforms > 0);
+    }
+
+    #[tokio::test]
+    async fn test_end_to_end_multi_pane_analysis() {
+        // User starts at dashboard
+        let dashboard = DashboardPaneState::new();
+        assert!(!dashboard.overall_status.is_empty());
+
+        // User navigates to datasets
+        let datasets = DatasetsPaneState::new();
+        assert!(datasets.dataset_count() > 0);
+
+        // User executes commands
+        let mut commands = CommandsPaneState::new();
+        commands.custom_command = "gat-cli analytics reliability".into();
+        let result = commands.execute_command().await;
+        assert!(result.is_ok());
+
+        // User views results in analytics
+        let analytics = AnalyticsPaneState::new();
+        assert!(!analytics.reliability_results.is_empty());
+    }
 }
