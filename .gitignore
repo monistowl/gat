@@ -15,7 +15,7 @@ gha-creds-*.json
 .venv/
 
 # Development/agent-facing docs (kept on experimental only)
-# These files are regenerated during development and should not be in staging/master
+# These files are regenerated during development and should not be in staging/main
 PHASE_*.md
 *_PLAN.md
 *_ROADMAP.md
