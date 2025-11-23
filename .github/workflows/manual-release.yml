@@ -1,0 +1,103 @@
+name: Manual Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: 'Variants to build (space-separated: headless analyst full)'
+        required: false
+        default: 'headless analyst full'
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  package:
+    name: "Build release packages (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ runner.os }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coinor-libcbc-dev jq libssl-dev pkg-config
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install coinor-cbc jq openssl pkg-config || true
+
+      - name: Build all requested variants
+        run: |
+          variants="${{ inputs.variants }}"
+          for variant in $variants; do
+            echo "Building variant: $variant"
+            scripts/package.sh "$variant"
+          done
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages-${{ matrix.os }}-${{ github.run_id }}
+          path: dist/*.tar.gz
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: List built packages
+        run: |
+          echo "Built packages:"
+          ls -lh dist/*.tar.gz
+
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: package
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate summary
+        run: |
+          echo "## Release Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run:** ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Built Packages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -d artifacts ]; then
+            find artifacts -name "*.tar.gz" -exec basename {} \; | sort | while read pkg; do
+              echo "- \`$pkg\`" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "No packages found" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download and test the packages" >> $GITHUB_STEP_SUMMARY
+          echo "2. If satisfied, merge staging → main" >> $GITHUB_STEP_SUMMARY
+          echo "3. Tag the release: \`git tag -a v0.X.Y -m 'Release v0.X.Y'\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. Push the tag: \`git push --tags\`" >> $GITHUB_STEP_SUMMARY

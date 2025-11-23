@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
+#
+# Package GAT for distribution
+#
+# Usage: scripts/package.sh [headless|analyst|full]
+#
+# This script is used by:
+#   - .github/workflows/release-verification.yml (smoke test)
+#   - .github/workflows/manual-release.yml (full release builds)
+#
+# The resulting tarballs are named: gat-{version}-{os}-{arch}-{variant}.tar.gz
+# and can be installed via scripts/install.sh
+#
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

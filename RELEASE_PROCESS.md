@@ -1,195 +1,419 @@
-# Release Process & Branch Strategy
+# Release Process
 
-This document describes how to manage the flow from development to stable releases.
+This document describes the simplified manual release workflow for GAT.
+
+## Overview
+
+The release process follows a **manual staging-to-main workflow**:
+
+1. **Develop on staging** - All development and testing happens here
+2. **Run diagnostics** - Verify everything works across all features and platforms
+3. **Build packages** - Create release artifacts and test them
+4. **Merge to main** - When satisfied, merge staging → main
+5. **Tag release** - Manually tag the release on main
+6. **Distribute** - Packages are available via GitHub artifacts or releases
 
 ## Branch Strategy
 
-### `experimental` - Active Development
-- **Purpose**: Rapid iteration and feature development
-- **Stability**: Unstable, features under development
-- **Who commits**: Developers and AI agents during active work
-- **Content**:
-  - Implementation commits
-  - Test additions and fixes
-  - Dev-facing documentation (PHASE_*.md, *_PLAN.md, etc.)
-  - Git history shows the full development narrative
+### `staging` - Development and Pre-Release Testing
+- **Purpose**: Active development and release candidate preparation
+- **Stability**: Should pass all tests before merging to main
+- **Who commits**: Developers during active work
+- **Content**: All code, tests, and documentation
 
-**Keep on experimental only:**
-- `PHASE_*.md` - Phase planning and progress
-- `*_PLAN.md`, `*_ROADMAP.md` - Development plans
-- `.claude/`, `.agent/` - Agent-specific configurations
-- Development TODOs and mid-progress design docs
+### `main` - Production Releases
+- **Purpose**: Stable, released versions only
+- **Stability**: Critical - only merged from staging after full verification
+- **Who merges**: After staging diagnostics pass and packages are tested
+- **Content**: Tagged releases only
 
-### `staging` - Release Candidate
-- **Purpose**: Stabilized code ready for release
-- **Stability**: High - full test suite passing
-- **Who merges**: After explicit decision to create release candidate
-- **Content**:
-  - Clean, production-ready code
-  - Comprehensive user-facing documentation
-  - Release notes and API docs
-  - Dev docs are **excluded** (they stay on experimental)
+### `experimental` (optional)
+- **Purpose**: Rapid iteration and experimental features
+- **Stability**: Unstable
+- **Who commits**: Developers trying new ideas
+- **Content**: Merge to staging when features are stable
 
-**Replace on staging:**
-- `AGENTS.md` - User-facing agent onboarding (not dev-facing)
-- Release-specific documentation
+## GitHub Actions Workflows
 
-### `master` - Production Releases
-- **Purpose**: Stable, released versions
-- **Stability**: Critical - only tagged releases
-- **Who merges**: After release QA passes
-- **Content**:
-  - Same as staging, but tagged with version
-  - Historical reference for all released versions
+### 1. Release Verification (Quick Smoke Test)
+**File:** `.github/workflows/release-verification.yml`
 
-## Release Workflow
+**Trigger:** Automatically runs on push to `main` or `staging`
 
-### Step 1: Stabilize on `experimental`
+**Purpose:** Fast smoke test that packaging works
+
+**What it does:**
+- Builds headless variant only (for speed)
+- Tests on ubuntu-latest and macos-latest
+- Uploads artifacts for quick verification
+
+**When to use:** Runs automatically - no action needed
+
+---
+
+### 2. Staging Diagnostics
+**File:** `.github/workflows/staging-diagnostics.yml`
+
+**Trigger:** Manual only (workflow_dispatch)
+
+**Purpose:** Comprehensive testing to answer "what's broken where?"
+
+**What it does:**
+- Runs CLI feature matrix tests (minimal, full-io, viz, all-backends)
+- Runs subcrate tests (gat-core, gat-io, gat-algo, gat-ts, gat-viz)
+- Runs full build matrix (ubuntu/macos × headless/analyst/full)
+- Generates comprehensive diagnostic report with actionable next steps
+- Uploads build diagnostics JSON files for analysis
+
+**When to use:** Before merging staging → main
+
+**How to run:**
 ```bash
-# When you're ready to create a release candidate:
-# Make sure all tests pass
-cargo test -p gat-tui --lib
-# Ensure code is clean and committed
-git status
+# From GitHub Actions UI:
+# Actions → Staging Diagnostics → Run workflow
+# - Enable verbose diagnostics if needed
+# - Select which test suites to run
+# - Click "Run workflow"
 ```
 
-### Step 2: Merge to `staging` (Replace Dev Docs)
+---
+
+### 3. Manual Release Build
+**File:** `.github/workflows/manual-release.yml`
+
+**Trigger:** Manual only (workflow_dispatch)
+
+**Purpose:** Build release packages for all platforms and variants
+
+**What it does:**
+- Builds all requested variants (headless, analyst, full)
+- Tests on ubuntu-latest and macos-latest
+- Uploads .tar.gz packages with 30-day retention
+- Generates summary with next steps
+
+**When to use:** After staging diagnostics pass
+
+**How to run:**
 ```bash
+# From GitHub Actions UI:
+# Actions → Manual Release Build → Run workflow
+# - Optionally specify variants (default: all three)
+# - Click "Run workflow"
+```
+
+---
+
+### 4. Build Matrix (Reusable)
+**File:** `.github/workflows/build-matrix.yml`
+
+**Trigger:** Called by other workflows (workflow_call)
+
+**Purpose:** Reusable build matrix with diagnostics
+
+**What it does:**
+- Builds all os/variant combinations
+- Captures system info and build diagnostics
+- Runs tests for each configuration
+- Uploads diagnostic JSON files
+
+**When to use:** Used internally by staging-diagnostics.yml
+
+---
+
+### 5. CLI Feature Matrix & Subcrate Tests
+**Files:**
+- `.github/workflows/cli-feature-matrix.yml`
+- `.github/workflows/feature-subcrate-tests.yml`
+
+**Trigger:** On PR/push to main (cli-feature-matrix), manual (feature-subcrate-tests)
+
+**Purpose:** Test different feature combinations
+
+**What they do:**
+- Test various feature flags in isolation
+- Test individual subcrates with different feature sets
+
+**When to use:** Automatically on PRs; included in staging-diagnostics
+
+---
+
+## Step-by-Step Release Process
+
+### Step 1: Prepare Staging Branch
+
+Make sure all changes are committed and tests pass locally:
+
+```bash
+# Make sure you're on staging
 git checkout staging
-git merge experimental
+git status
 
-# Remove dev-facing docs that were committed on experimental
-git rm PHASE_*.md *_PLAN.md *_ROADMAP.md 2>/dev/null || true
+# Run local tests
+cargo test --workspace
+cargo clippy --workspace
+```
 
-# Replace AGENTS.md with user-facing version (if different)
-# The AGENTS.md on experimental may have dev-facing notes
-# Keep only the clean, user-facing parts:
-# - bd (beads) usage
-# - MCP server setup
-# - Quick start for agents
-# - Issue tracking workflow
+### Step 2: Run Staging Diagnostics
 
-# Update version in Cargo.toml
-vim crates/gat-tui/Cargo.toml  # Bump version
+Run the comprehensive diagnostic workflow:
 
-# Create comprehensive release notes
-cat > RELEASE_NOTES.md << 'EOF'
-# Release Notes v0.X.Y
+1. Go to **Actions → Staging Diagnostics** in GitHub
+2. Click **Run workflow**
+3. Enable all test suites (default)
+4. Optionally enable verbose diagnostics if investigating issues
+5. Click **Run workflow**
 
-## Summary
-[What was accomplished]
+**Review the results:**
+- Check the workflow summary for pass/fail status
+- If any tests fail:
+  - Download diagnostic artifacts
+  - Fix issues on staging
+  - Re-run diagnostics
+- If all pass: proceed to next step
 
-## New Features
+### Step 3: Build Release Packages
+
+Once diagnostics pass, build the release packages:
+
+1. Go to **Actions → Manual Release Build** in GitHub
+2. Click **Run workflow**
+3. Keep default variants (`headless analyst full`) or specify subset
+4. Click **Run workflow**
+
+**Review and test packages:**
+- Download the artifacts from the workflow run
+- Test installation locally:
+
+```bash
+# Extract a package
+tar -xzf gat-0.X.Y-linux-x86_64-headless.tar.gz
+cd gat-0.X.Y-linux-x86_64-headless
+
+# Test installation
+./install.sh --prefix /tmp/gat-test
+
+# Verify it works
+/tmp/gat-test/bin/gat-cli --version
+```
+
+### Step 4: Update Version and Changelog
+
+Update version numbers if not already done:
+
+```bash
+# Edit Cargo.toml files to bump version
+vim Cargo.toml
+
+# Update changelog or release notes
+vim CHANGELOG.md
+
+# Commit version bump
+git add -A
+git commit -m "chore: Bump version to 0.X.Y for release"
+git push origin staging
+```
+
+### Step 5: Merge to Main
+
+When satisfied with testing and packages:
+
+```bash
+# Merge staging to main
+git checkout main
+git merge staging --no-ff -m "Release v0.X.Y: [summary]"
+
+# Push to main
+git push origin main
+```
+
+### Step 6: Tag the Release
+
+Tag the release on main:
+
+```bash
+# Create annotated tag
+git tag -a v0.X.Y -m "$(cat <<'EOF'
+Release v0.X.Y: [Summary]
+
+## Major Features
 - Feature 1
 - Feature 2
 
-## Improvements
-- Improvement 1
+## Enhancements
+- Enhancement 1
+- Enhancement 2
 
 ## Bug Fixes
 - Fix 1
+- Fix 2
 
 ## Breaking Changes
 [If any]
 
-## Migration Guide
-[If needed]
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
-## Test Coverage
-- X tests passing
-- Y% code coverage
-
-## Dependencies Updated
-[If any]
+Co-Authored-By: Claude <noreply@anthropic.com>
 EOF
+)"
 
-# Commit everything
-git add -A
-git commit -m "Release v0.X.Y: [Summary]"
+# Push the tag
+git push origin v0.X.Y
 ```
 
-### Step 3: Tag & Push to `master`
+### Step 7: Create GitHub Release (Optional)
+
+If you want to create a formal GitHub release:
+
+1. Go to **Releases** in GitHub
+2. Click **Draft a new release**
+3. Select the tag `v0.X.Y`
+4. Fill in release notes
+5. Manually upload the release packages from Step 3 if desired
+6. Click **Publish release**
+
+Alternatively, users can install from source or from artifacts attached to the workflow runs.
+
+---
+
+## Quick Reference
+
+### Common Commands
+
 ```bash
-git checkout master
-git merge staging
+# Local testing before staging diagnostics
+cargo test --workspace
+cargo clippy --workspace
+cargo fmt --check
 
-# Tag the release
-git tag -a v0.X.Y -m "Release v0.X.Y: [Summary]"
+# Check what version will be packaged
+cargo metadata --no-deps --format-version 1 | jq -r '.metadata.release.version'
 
-# Push everything
-git push origin master staging experimental --tags
+# Build and test a variant locally
+scripts/package.sh headless
+ls -lh dist/
+
+# Test installation from local package
+cd dist
+tar -xzf gat-*.tar.gz
+cd gat-*
+./install.sh --prefix /tmp/test-install
 ```
 
-## Key Rules
-
-### ✅ Always
-- Keep `master` and `staging` clean and human-legible
-- Run full test suite before merging to staging
-- Write clear commit messages
-- Include test counts in release commits
-- Tag all releases with semantic versioning
-
-### ✅ On `experimental`
-- Generate PHASE_*.md, *_PLAN.md freely during development
-- Keep development TODOs and scratch notes
-- Frequent commits showing iteration
-- Agent-specific files are OK here
-
-### ❌ Never
-- Commit dev docs (PHASE_*.md, *_PLAN.md) to staging/master
-- Push to staging/master without running full test suite
-- Skip release notes when moving to staging
-- Forget to update version numbers
-
-## Automatic Filtering via .gitignore
-
-The `.gitignore` automatically excludes dev-facing docs when they exist on staging/master:
+### Workflow Decision Tree
 
 ```
-# Development/agent-facing docs (kept on experimental only)
-PHASE_*.md
-*_PLAN.md
-*_ROADMAP.md
-.claude/
-.agent/
+Is code ready for release?
+├─ No → Keep developing on staging
+└─ Yes → Run Staging Diagnostics
+    ├─ Failed → Fix issues, re-run diagnostics
+    └─ Passed → Run Manual Release Build
+        ├─ Packages don't work → Fix issues, re-run build
+        └─ Packages work → Merge staging → main → Tag release
 ```
 
-If a dev doc is accidentally committed to staging/master, remove it:
-```bash
-git checkout staging
-git rm --cached PHASE_*.md
-git commit -m "Remove dev docs from staging"
-```
+### Key Rules
 
-## Example Release Flow
+✅ **Always:**
+- Run full diagnostics before merging to main
+- Test packages locally before tagging
+- Use annotated tags (`git tag -a`)
+- Keep main stable and tagged-only
 
-**Current state on experimental:**
-- Phase 6 complete with 536 tests passing
-- PHASE_6_PLAN.md (dev-facing, shows iteration)
-- Multiple commits showing development process
+❌ **Never:**
+- Push directly to main without merging from staging
+- Tag a release without running diagnostics and testing packages
+- Skip testing packages locally
+- Use auto-tagging or auto-release features
 
-**Decision to release (0.3.0):**
-1. Run full test suite ✅
-2. Merge experimental → staging
-3. Remove PHASE_6_PLAN.md from staging
-4. Update Cargo.toml: 0.3.0
-5. Write RELEASE_NOTES.md
-6. Commit: "Release v0.3.0: Complete Phase 6 real backend integration"
-7. Tag: v0.3.0
-8. Merge staging → master
-9. Push with tags
+---
 
-**Result:**
-- `master`: Clean release with version tags, release notes
-- `staging`: Staging branch ready for next release
-- `experimental`: Dev work continues with phase planning, iteration history
+## Troubleshooting
 
-## Future Releases
+### Diagnostics Failed
 
-When starting the next phase:
-- Stay on `experimental`
-- Generate new PHASE_*.md files as needed
-- Commit freely with iteration history
-- When ready to release: merge to staging, clean up dev docs, update version
+**Problem:** Staging diagnostics workflow shows failures
 
-This keeps `master` and `staging` as pristine release artifacts while `experimental` captures the full development narrative.
+**Solution:**
+1. Click into the failed job to see logs
+2. Download diagnostic artifacts if available
+3. Reproduce the failure locally:
+   ```bash
+   # For feature matrix failures
+   cargo test -p gat-cli --no-default-features --features minimal,full-io
+
+   # For build matrix failures
+   scripts/package.sh headless
+   ```
+4. Fix the issue on staging
+5. Re-run diagnostics
+
+### Package Build Failed
+
+**Problem:** Manual release build fails on certain platforms
+
+**Solution:**
+1. Check if dependencies are missing in the workflow
+2. Review package.sh for variant-specific issues
+3. Test locally on a similar platform
+4. Update .github/workflows/manual-release.yml if needed
+
+### Installation Test Failed
+
+**Problem:** Downloaded package doesn't install correctly
+
+**Solution:**
+1. Check tarball structure: `tar -tzf gat-*.tar.gz`
+2. Verify expected structure:
+   ```
+   gat-VERSION-OS-ARCH-VARIANT/
+   ├── bin/
+   │   ├── gat-cli
+   │   └── gat
+   ├── README.md
+   ├── LICENSE.txt
+   └── install.sh
+   ```
+3. Update package.sh if structure is wrong
+4. Re-run manual release build
+
+### Version Mismatch
+
+**Problem:** Package version doesn't match expected version
+
+**Solution:**
+1. Check `Cargo.toml` workspace metadata:
+   ```bash
+   cargo metadata --no-deps --format-version 1 | jq -r '.metadata.release.version'
+   ```
+2. Update version in Cargo.toml:
+   ```toml
+   [workspace.metadata.release]
+   version = "0.X.Y"
+   ```
+3. Rebuild packages
+
+---
+
+## Historical Workflows (Removed)
+
+The following workflows have been **removed** as part of the simplification:
+
+- ~~`release.yml`~~ - Had auto-tagging on push to tags (removed)
+- ~~`release-dry-run.yml`~~ - Redundant with staging-diagnostics (removed)
+
+These were replaced by the simpler manual workflows above.
+
+---
+
+## Summary
+
+The simplified release process is:
+
+1. **Develop on staging**
+2. **Run Staging Diagnostics** (manual, comprehensive)
+3. **Run Manual Release Build** (manual, creates packages)
+4. **Test packages locally**
+5. **Merge staging → main** (manual)
+6. **Tag release on main** (manual)
+
+All release-critical steps are **manual** and **explicit**, eliminating surprises from auto-tagging or auto-releasing. The diagnostics workflow provides comprehensive "what's broken where" information to catch issues before release.
