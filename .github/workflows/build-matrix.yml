@@ -46,7 +46,7 @@ jobs:
       - name: Cache cargo builds
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: ${{ hashFiles('Cargo.lock') }}
+          shared-key: build-matrix-${{ runner.os }}
 
       - name: Capture system info
         id: sysinfo
