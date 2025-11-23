@@ -1,0 +1,19 @@
+# Zola configuration for GAT website
+
+base_url = "https://monistowl.github.io/gat"
+title = "GAT – Grid Analysis Toolkit"
+description = "A full grid lab in a single binary. AC-OPF, N-1 contingency analysis, and state estimation without the Python headaches or commercial invoices."
+default_language = "en"
+compile_sass = false
+build_search_index = false
+generate_feed = false
+
+[markdown]
+highlight_code = true
+highlight_theme = "base16-ocean-dark"
+
+[extra]
+# Custom variables for templates
+repo_url = "https://github.com/monistowl/gat"
+version = "0.2.1"
+tagline = "Stop installing. Start solving."

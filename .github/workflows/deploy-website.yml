@@ -1,0 +1,59 @@
+name: Deploy Website
+
+on:
+  push:
+    branches: ["main", "staging"]
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  ZOLA_VERSION: 0.18.0
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy website
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Zola
+        run: |
+          wget -q https://github.com/getzola/zola/releases/download/v${{ env.ZOLA_VERSION }}/zola-v${{ env.ZOLA_VERSION }}-x86_64-unknown-linux-gnu.tar.gz
+          tar xzf zola-v${{ env.ZOLA_VERSION }}-x86_64-unknown-linux-gnu.tar.gz
+          sudo mv zola /usr/local/bin/
+          zola --version
+
+      - name: Build website
+        run: |
+          cd website
+          zola build
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./website/public
+          publish_branch: gh-pages
+          cname: # Add your custom domain here if you have one
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy website from ${{ github.ref_name }} (${{ github.sha }})'
+
+      - name: Summary
+        run: |
+          echo "## Website Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### URLs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Pages:** https://monistowl.github.io/gat" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source:** https://github.com/${{ github.repository }}/tree/${{ github.ref_name }}/website" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Site should be live in ~1 minute." >> $GITHUB_STEP_SUMMARY
