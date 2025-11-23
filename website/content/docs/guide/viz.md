@@ -1,3 +1,9 @@
++++
+title = "Visualization CLI"
+description = "Visualization commands and plotting"
+weight = 180
++++
+
 # Visualization CLI
 
 `gat viz plot` is a placeholder that runs the `gat-viz` helper and prints a summary string. It exists so visualization primitives stay wired into the CLI for future exporters.
