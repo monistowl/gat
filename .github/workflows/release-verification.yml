@@ -24,7 +24,7 @@ jobs:
       - name: Cache cargo builds
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: ${{ hashFiles('Cargo.lock') }}
+          shared-key: release-verification-${{ runner.os }}
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
