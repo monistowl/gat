@@ -20,3 +20,6 @@ PHASE_*.md
 *_PLAN.md
 *_ROADMAP.md
 docs/plans/
+
+# AGENTS.md: Customer-facing doc, tracked on staging/main only, not on experimental
+AGENTS.md
