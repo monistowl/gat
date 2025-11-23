@@ -7,3 +7,11 @@ gha-creds-*.json
 
 # Virtualenvs and user caches
 .venv/
+
+# Development/agent-facing docs (kept on experimental only)
+# These files are regenerated during development and should not be in staging/master
+PHASE_*.md
+*_PLAN.md
+*_ROADMAP.md
+.claude/
+.agent/
