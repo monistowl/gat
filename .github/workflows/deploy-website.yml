@@ -2,11 +2,17 @@ name: Deploy Website
 
 on:
   push:
-    branches: ["main", "staging"]
+    branches: ["main"]
     paths:
       - 'website/**'
       - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy (for testing)'
+        required: false
+        default: 'main'
+        type: string
 
 permissions:
   contents: write
