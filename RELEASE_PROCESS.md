@@ -120,7 +120,41 @@ The release process follows a **manual staging-to-main workflow**:
 
 ---
 
-### 5. CLI Feature Matrix & Subcrate Tests
+### 4. Create GitHub Release (Automated)
+**File:** `.github/workflows/create-release.yml`
+
+**Trigger:** Automatically on push of tags matching `v*.*.*`
+
+**Purpose:** Automatically create GitHub release when you tag
+
+**What it does:**
+- Builds all variants (headless, analyst, full) for Linux and macOS
+- Generates release notes from git history
+- Uploads all packages to the GitHub release
+- Creates release with install instructions and changelog
+- 90-day artifact retention for release packages
+
+**When to use:** Triggered automatically when you push a version tag (see Step 6 below)
+
+---
+
+### 5. Deploy Website
+**File:** `.github/workflows/deploy-website.yml`
+
+**Trigger:** Automatically on push to `main` (website changes only)
+
+**Purpose:** Deploy website to GitHub Pages
+
+**What it does:**
+- Builds Zola static site with integrated documentation
+- Deploys to gh-pages branch
+- Updates live website at https://monistowl.github.io/gat/
+
+**When to use:** Runs automatically on main; can manually trigger for testing
+
+---
+
+### 6. CLI Feature Matrix & Subcrate Tests
 **Files:**
 - `.github/workflows/cli-feature-matrix.yml`
 - `.github/workflows/feature-subcrate-tests.yml`
@@ -228,7 +262,7 @@ git push origin main
 
 ### Step 6: Tag the Release
 
-Tag the release on main:
+Tag the release on main. When you push the tag, it will automatically trigger the GitHub release workflow:
 
 ```bash
 # Create annotated tag
@@ -256,22 +290,39 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 EOF
 )"
 
-# Push the tag
+# Push the tag - this triggers the automated release workflow
 git push origin v0.X.Y
 ```
 
-### Step 7: Create GitHub Release (Optional)
+### Step 7: Verify GitHub Release (Automated)
 
-If you want to create a formal GitHub release:
+The `create-release.yml` workflow automatically runs when you push a tag:
 
-1. Go to **Releases** in GitHub
-2. Click **Draft a new release**
-3. Select the tag `v0.X.Y`
-4. Fill in release notes
-5. Manually upload the release packages from Step 3 if desired
-6. Click **Publish release**
+**What happens automatically:**
+1. Workflow builds all variants (headless/analyst/full) for Linux and macOS
+2. Release notes are generated from git commits since last tag
+3. GitHub release is created with all packages attached
+4. Release includes install instructions and package list
 
-Alternatively, users can install from source or from artifacts attached to the workflow runs.
+**Verify the release:**
+1. Go to **Actions → Create GitHub Release** and watch the workflow
+2. Once complete, check **Releases** in GitHub
+3. Verify all 6 packages are attached (3 variants × 2 platforms)
+4. Test installation from release:
+
+```bash
+# Example: Install headless variant from release
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.X.Y/gat-0.X.Y-linux-x86_64-headless.tar.gz | tar xz
+cd gat-0.X.Y-linux-x86_64-headless
+./install.sh
+gat-cli --version
+```
+
+**If the workflow fails:**
+- Check the workflow logs for errors
+- Fix the issue on main if needed
+- Delete the tag locally and remotely: `git tag -d v0.X.Y && git push origin :refs/tags/v0.X.Y`
+- Fix the issue and re-tag
 
 ---
 
@@ -309,6 +360,7 @@ Is code ready for release?
     └─ Passed → Run Manual Release Build
         ├─ Packages don't work → Fix issues, re-run build
         └─ Packages work → Merge staging → main → Tag release
+            └─ Automated: GitHub release created with all packages
 ```
 
 ### Key Rules
@@ -411,9 +463,10 @@ The simplified release process is:
 
 1. **Develop on staging**
 2. **Run Staging Diagnostics** (manual, comprehensive)
-3. **Run Manual Release Build** (manual, creates packages)
-4. **Test packages locally**
+3. **Run Manual Release Build** (manual, creates packages for testing)
+4. **Test packages locally** (manual)
 5. **Merge staging → main** (manual)
-6. **Tag release on main** (manual)
+6. **Tag release on main** (manual) - Triggers automated release creation
+7. **Verify GitHub release** (automatic creation, manual verification)
 
-All release-critical steps are **manual** and **explicit**, eliminating surprises from auto-tagging or auto-releasing. The diagnostics workflow provides comprehensive "what's broken where" information to catch issues before release.
+All critical decision points are **manual** and **explicit** (diagnostics, merge, tag), while tedious tasks are automated (package building for release, release creation, website deployment). The diagnostics workflow provides comprehensive "what's broken where" information to catch issues before release.
