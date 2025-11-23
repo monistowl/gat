@@ -3,8 +3,18 @@ name: CLI Feature Matrix
 on:
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - 'website/**'
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/deploy-website.yml'
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - 'website/**'
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
 env:

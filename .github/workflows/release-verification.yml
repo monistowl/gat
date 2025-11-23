@@ -3,6 +3,11 @@ name: Release Verification (Quick Smoke Test)
 on:
   push:
     branches: [ "main", "staging" ]
+    paths-ignore:
+      - 'website/**'
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
 env:
