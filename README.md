@@ -4,76 +4,115 @@
 
 *A fast Rust-powered command-line toolkit for power-system modeling, flows, dispatch, and time-series analysis.*
 
-If you’re comfortable running simple CLI commands and want to start doing *real* grid analysis — without needing a giant Python stack or a full simulation lab — **GAT gives you industrial-grade tools in a form you can actually tinker with.** Everything runs as standalone commands, and all the heavy lifting is Rust-fast.
+If you're comfortable running simple CLI commands and want to start doing *real* grid analysis — without needing a giant Python stack or a full simulation lab — **GAT gives you industrial-grade tools in a form you can actually tinker with.** Everything runs as standalone commands, and all the heavy lifting is Rust-fast.
+
+## Table of Contents
+
+- [Why GAT?](#why-gat)
+- [Interfaces](#interfaces)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [CLI Reference](#cli-reference)
+- [Common Workflows](#common-workflows)
+- [Documentation](#documentation)
+- [Architecture & Crates](#architecture--crates)
 
 ---
 
-## 🌟 What Makes GAT worth learning?
+## Why GAT?
 
-**For beginners:**
+### For Beginners
 
-* You can start with *one command at a time*.
-* Outputs are in Parquet/Arrow/CSV — easy to open in Python, R, DuckDB, Polars.
-* Commands behave like Unix tools: pipeable, scriptable, reproducible.
+* Start with *one command at a time*
+* Outputs are Parquet/Arrow/CSV — easy to open in Python, R, DuckDB, Polars
+* Commands behave like Unix tools: pipeable, scriptable, reproducible
 
-**For advanced users (where you may grow into):**
+### For Advanced Users
 
 * Full DC/AC power-flow solvers
-* DC/AC optimal power-flow (OPF)
-* N-1 contingency analysis
+* DC/AC optimal power-flow (OPF) with costs and constraints
+* N-1 contingency analysis and screening
 * Time-series resampling, joining, aggregation
-* State estimation (WLS)
+* State estimation (weighted least squares)
 * **Distribution automation** (FLISR/VVO/outage coordination via ADMS)
 * **DER analytics** (envelope aggregation, pricing-based scheduling via DERMS)
-* **Distribution system modeling** (hosting-capacity analysis, AC optimal power flows)
+* **Distribution system modeling** (hosting-capacity analysis, AC OPF)
 * **Interactive terminal UI** (TUI) for workflows, datasets, pipelines, and batch jobs
-* **Reliability metrics** (energy unserved, loss-of-load expectation, delivery capability)
+* **Reliability metrics** (LOLE, EUE, deliverability scores)
 
-**Why Rust?**
-Because Rust gives you C-like execution speed without unsafe foot-guns. For grid models with thousands of buses/branches, that matters. Even on a laptop.
+### Why Rust?
+
+Rust gives you C-like execution speed without unsafe foot-guns. For grid models with thousands of buses/branches, that matters. Even on a laptop.
 
 GAT scales with you:
 
-* Two lines for a DC power flow.
-* A thousand AC-OPF scenarios on 20 machines when you need throughput.
-* All without Conda, Jupyter, or heavyweight clusters.
+* Two lines for a DC power flow
+* A thousand AC-OPF scenarios on 20 machines when you need throughput
+* All without Conda, Jupyter, or heavyweight clusters
 
 ---
 
-## 🖥️ Choose Your Interface
+## Interfaces
 
-GAT works the way you do:
+GAT works the way you do. Pick your interface:
 
-**Command Line** — For scripting, batch jobs, CI/CD pipelines, and reproducible workflows.
-- All features available through `gat` CLI
+### Command Line Interface (CLI)
+
+For scripting, batch jobs, CI/CD pipelines, and reproducible workflows.
+
+- All features available through the `gat` CLI
 - Outputs in Arrow/Parquet for downstream tools (Polars, DuckDB, Spark)
 - See `docs/guide/overview.md` for command reference
 
-**Terminal UI (TUI)** — For interactive exploration, workflow visualization, and real-time status.
-- Dashboard with reliability metrics and workflow status
-- Commands pane with snippet library and dry-run mode
-- Datasets, Pipeline, and Operations panes for job tracking
-- `cargo run -p gat-tui --release` to launch
+```bash
+gat pf dc grid.arrow --out flows.parquet
+gat opf dc grid.arrow --cost costs.csv --limits limits.csv --out dispatch.parquet
+gat batch pf --manifest scenario_manifest.json --out batch_results
+```
 
-**GUI Dashboard** — Coming in Horizon 7 (planned).
+### Terminal UI (TUI)
+
+For interactive exploration, workflow visualization, and real-time status monitoring.
+
+The TUI is a 7-pane interactive dashboard built with Ratatui:
+
+1. **Dashboard** — System health, KPIs (Deliverability Score, LOLE, EUE), quick-action toolbar
+2. **Commands** — 19+ built-in command snippets, dry-run/execute modes, execution history, output viewer
+3. **Datasets** — Catalog browser, upload manager, scenario template browser with validation
+4. **Pipeline** — Workflow DAG visualization, transform step tracking, node details
+5. **Operations** — Batch job monitor, allocation results, job status polling
+6. **Analytics** — Multi-tab results: Reliability, Deliverability Score, ELCC, Power Flow with context metrics
+7. **Settings** — Display, data, execution, and advanced preferences
+
+Launch it with:
+
+```bash
+cargo run -p gat-tui --release
+```
+
+Navigate with arrow keys, Tab to switch panes, Enter to select, Esc to close modals, `q` to quit. See `crates/gat-tui/README.md` for full keyboard shortcuts and feature details.
+
+### GUI Dashboard
+
+Coming in Horizon 7 (planned).
 
 ---
 
-# 📦 Installation
+## Installation
 
-### 1. Install Rust (required)
+### 1. Install Rust (Required)
 
 Go to https://rustup.rs. This installs `cargo` and the toolchain helpers used across the workspace.
 
-### 2. Optional helpers
+### 2. Optional Helpers
 
 These tools make documentation changes and CLI workflows easier:
 
-* `bd` — the beads issue tracker (run `bd ready` before you start work).
-* `beads-mcp` — so MCP-compatible agents can inspect docs via `gat-mcp-docs`.
-* `jq` — required by `scripts/package.sh`.
+* `bd` — the beads issue tracker (run `bd ready` before you start work)
+* `beads-mcp` — so MCP-compatible agents can inspect docs via `gat-mcp-docs`
+* `jq` — required by `scripts/package.sh`
 
-### 2.1 Shell completions
+### 3. Shell Completions (After Installation)
 
 Generate shell completions once `gat` is installed:
 
@@ -84,70 +123,64 @@ gat completions fish --out ~/.config/fish/completions/gat.fish
 gat completions powershell --out ~/gat.ps1
 ```
 
-Alternatively source them on the fly:
+Or source them on the fly:
 
 ```bash
 source <(gat completions bash)
 ```
 
-### 3. Binary-first install (recommended)
+### 4. Binary-First Install (Recommended)
 
 The installer fetches the right tarball for your OS/arch and only compiles from source when no binary is available.
 
 ```bash
-# Headless: CLI + core (defaults)
+# Headless: CLI + core (smallest footprint)
 scripts/install.sh --variant headless
 
-# Full: GUI + TUI + docs
+# Full: CLI + TUI + core + analysis tools
 scripts/install.sh --variant full
 ```
 
-Environment knobs:
+Environment variables:
 
-* `GAT_RELEASE_BASE` — override the release bucket (default: `https://releases.gat.dev/gat`).
-* `GAT_VERSION` — pin a specific version; `latest` fetches `latest.txt` from the bucket.
-* `GAT_PREFIX` — change the install location (defaults to `~/.local`).
+* `GAT_RELEASE_BASE` — override the release bucket (default: `https://releases.gat.dev/gat`)
+* `GAT_VERSION` — pin a specific version; `latest` fetches `latest.txt` from the bucket
+* `GAT_PREFIX` — change the install location (defaults to `~/.local`)
 
 If your platform is not covered by prebuilt binaries, the installer falls back to a cargo build with the appropriate feature set for the variant you requested.
 
-Use `scripts/check-install-fallback.sh` to exercise that path: the script points the installer at a non-existent release URL so the download always fails and the `Falling back to building from source ...` branch runs, producing headless binaries into a temporary prefix and proving the fallback path still logs/behaves as expected.
+### 5. Build from Source (Fallback)
 
-### 4. Build GAT from source (fallback)
-
-Headless (no GUI/TUI) builds keep the dependency footprint small:
+Headless (no TUI) builds keep the dependency footprint small:
 
 ```bash
-cargo build -p gat-cli --no-default-features
+cargo build -p gat-cli --no-default-features --features minimal-io
 ```
 
-Enable the optional UI helpers when you need them:
+Enable optional UI and analysis tools:
 
 ```bash
-cargo build -p gat-cli --features "viz gui tui"
+cargo build -p gat-cli --features "viz"
+cargo build -p gat-cli --all-features
 ```
 
-GAT produces a `gat` binary under `target/debug/`.
+GAT produces a `gat` binary under `target/debug/` or `target/release/`.
 
-For fast iteration that skips the heavier IO/Polars features, run:
+#### Feature Flags
 
-```bash
-cargo check -p gat-cli --no-default-features --features minimal-io
-```
-**Feature flags (optional):**
-
-* Default builds use the lightweight Clarabel backend. Enable other `good_lp` solvers with:
+* Default builds use the lightweight Clarabel backend. Enable other `good_lp` solvers:
 
   ```bash
-  cargo build --package gat-cli --no-default-features --features "all-backends"
+  cargo build -p gat-cli --no-default-features --features "all-backends"
   ```
 
-* To keep dependencies lean while still supporting Parquet/IPC I/O, use the minimal feature set:
+* To keep dependencies lean while supporting Parquet/IPC I/O:
 
   ```bash
-  cargo build --package gat-cli --no-default-features --features "minimal"
+  cargo build -p gat-cli --no-default-features --features "minimal-io"
   ```
 
-### 5. Package artifacts locally
+### 6. Package Artifacts Locally
 
 ```bash
 scripts/package.sh
@@ -156,13 +189,13 @@ scripts/package.sh
 This produces both variants under `dist/`:
 
 * `gat-<version>-<os>-<arch>-headless.tar.gz` (CLI + core)
-* `gat-<version>-<os>-<arch>-full.tar.gz` (CLI + GUI + TUI + docs)
+* `gat-<version>-<os>-<arch>-full.tar.gz` (CLI + TUI + docs)
 
 ---
 
-# 🚀 Quick Demo: Your First GAT Workflow
+## Quick Start
 
-## 1. DC Power Flow (fastest starter)
+### 1. DC Power Flow (Fastest Starter)
 
 ```bash
 gat pf dc test_data/matpower/case9.arrow --out out/dc-flows.parquet
@@ -170,13 +203,11 @@ gat pf dc test_data/matpower/case9.arrow --out out/dc-flows.parquet
 
 **What this does:**
 
-* Loads MATPOWER case9 as Arrow.
-* Solves the DC approximation.
-* Writes a Parquet branch-flow summary.
+* Loads MATPOWER case9 as Arrow
+* Solves the DC approximation (linear, very fast)
+* Writes a Parquet branch-flow summary
 
----
-
-## 2. DC Optimal Power Flow (dispatch with costs)
+### 2. DC Optimal Power Flow (Dispatch with Costs)
 
 ```bash
 gat opf dc test_data/matpower/case9.arrow \
@@ -188,10 +219,10 @@ gat opf dc test_data/matpower/case9.arrow \
 
 **Inputs:**
 
-* Cost per bus
+* Cost per bus/generator
 * Dispatch limits
 * Demand
-* Optional piecewise curve segments
+* Optional piecewise cost curve segments
 
 **Outputs:**
 
@@ -199,9 +230,7 @@ gat opf dc test_data/matpower/case9.arrow \
 * Branch flows
 * Violation flags
 
----
-
-## 3. AC Optimal Power Flow (nonlinear)
+### 3. AC Optimal Power Flow (Nonlinear)
 
 ```bash
 gat opf ac test_data/matpower/case9.arrow \
@@ -209,49 +238,25 @@ gat opf ac test_data/matpower/case9.arrow \
   --tol 1e-6 --max-iter 20
 ```
 
-AC OPF lets you graduate from the linear DC baseline to Newton–Raphson solves.
+Graduate from the linear DC baseline to Newton–Raphson solves.
+
+### 4. Interactive Exploration with TUI
+
+```bash
+cargo run -p gat-tui --release
+```
+
+Browse datasets, check pipeline status, run commands with dry-run mode, view reliability metrics.
 
 ---
 
-# 🧠 Beginner’s Section: Understanding GAT Concepts
-
-### **Power Flow (PF)** — “What are the voltages and flows right now?”
-
-* **DC PF:** fast, linear approximation
-* **AC PF:** nonlinear, more accurate
-
-### **Optimal Power Flow (OPF)** — “What’s the cheapest feasible dispatch?”
-
-* Adds costs, limits, and optional branch constraints
-* Produces an optimized operating point
-
-### **N-1 Screening** — “What happens if one thing breaks?”
-
-* Remove one branch at a time
-* Re-solve DC flows
-* Summarize and rank violations
-
-### **State Estimation (SE)** — “Given measurements, what’s happening?”
-
-Weighted least squares over branch flows & injections.
-
-### **Time-Series Tools** — “Make telemetry usable.”
-
-* Resample fixed-width windows
-* Join multiple streams on timestamp
-* Aggregate across sensors
-
-All outputs follow consistent Arrow/Parquet schemas.
-
----
-
-# 🛠 CLI Reference
+## CLI Reference
 
 ```
 gat <category> <subcommand> [options]
 ```
 
-### **Data Import & Management**
+### Data Import & Management
 
 ```
 gat import {psse,matpower,cim}    # Import grid models
@@ -259,7 +264,7 @@ gat dataset public {list,describe,fetch}  # Fetch public datasets
 gat runs {list,describe,resume}   # Manage previous runs
 ```
 
-### **Grid Analysis**
+### Grid Analysis
 
 ```
 gat graph {stats,islands,export,visualize}  # Network topology
@@ -269,21 +274,21 @@ gat nminus1 {dc,ac}               # Contingency screening
 gat se wls                         # State estimation
 ```
 
-### **Time Series & Feature Engineering**
+### Time Series & Feature Engineering
 
 ```
 gat ts {resample,join,agg}        # Time-series tools
 gat featurize {gnn,kpi}           # Generate features
 ```
 
-### **Scenarios & Batch Execution**
+### Scenarios & Batch Execution
 
 ```
 gat scenarios {validate,materialize,expand}  # Define what-if cases
 gat batch {pf,opf}                # Parallel job execution
 ```
 
-### **Distribution Systems (ADMS/DERMS/DIST)**
+### Distribution Systems (ADMS/DERMS/DIST)
 
 ```
 gat dist {pf,opf,hosting}         # Distribution modeling
@@ -292,13 +297,13 @@ gat derms {aggregate,schedule,stress}  # DER analytics
 gat alloc {rents,kpi}             # Allocation metrics
 ```
 
-### **Analytics & Insights**
+### Analytics & Insights
 
 ```
 gat analytics {ptdf,reliability,elcc,ds,deliverability}  # Grid metrics
 ```
 
-### **Interfaces**
+### Interfaces
 
 ```
 gat tui                           # Interactive terminal dashboard
@@ -311,108 +316,101 @@ Use `gat --help` and `gat <command> --help` for detailed flags and examples.
 
 ---
 
-## 🚀 Common Workflows
+## Common Workflows
 
-### Import a grid and run a quick power flow
+### Import a Grid and Run Power Flow
 
 ```bash
 gat import matpower case9.raw --out grid.arrow
 gat pf dc grid.arrow --out flows.parquet
 ```
 
-### Explore a grid interactively
+### Explore Interactively with TUI
 
 ```bash
 cargo run -p gat-tui --release
-# Then: Browse datasets, check pipeline status, view reliability metrics
+# Then: Browse datasets, check pipeline, view reliability metrics
 ```
 
-### Run N-1 contingency analysis at scale
+### Run N-1 Contingency Analysis at Scale
 
 ```bash
-gat scenarios materialize --spec rts_nminus1.yaml --grid-file grid.arrow --out-dir runs/scenarios
-gat batch opf --manifest runs/scenarios/rts_nminus1/scenario_manifest.json --out runs/batch/rts_opf
+# 1. Define scenarios
+gat scenarios validate --spec rts_nminus1.yaml
+
+# 2. Materialize into executable form
+gat scenarios materialize \
+  --spec rts_nminus1.yaml \
+  --grid-file grid.arrow \
+  --out-dir runs/scenarios
+
+# 3. Execute as batch
+gat batch opf \
+  --manifest runs/scenarios/rts_nminus1/scenario_manifest.json \
+  --out runs/batch/rts_opf \
+  --max-jobs 4
+
+# 4. Inspect results
 gat runs describe $(gat runs list --root runs --format json | jq -r '.[0].id')
 ```
 
-### Analyze DER hosting capacity
+### Analyze DER Hosting Capacity
 
 ```bash
 gat dist hosting --grid grid.arrow --der-file ders.csv --out hosting_curves.parquet
 ```
 
-### Extract reliability metrics
+### Extract Reliability Metrics
 
 ```bash
 gat analytics reliability --grid grid.arrow --outages contingencies.yaml --out results.parquet
 ```
 
-For more detailed walkthroughs, see `docs/guide/`.
+### Reproduce a Previous Run
 
----
-
-# ### **Scenario definitions & materialization**
-
-Use `gat scenarios` to validate, expand, and materialize what-if cases before batch execution:
+All runs emit `run.json` with full argument list:
 
 ```bash
-gat scenarios validate --spec examples/scenarios/rts_nminus1.yaml
-gat scenarios materialize \
-  --spec examples/scenarios/rts_nminus1.yaml \
-  --grid-file test_data/matpower/ieee14.arrow \
-  --out-dir runs/scenarios/rts_nminus1
+gat runs resume run.json --execute
 ```
 
-Each run writes per-scenario `grid.arrow` files under `runs/scenarios/rts_nminus1/<scenario_id>/grid.arrow`, plus a `scenario_manifest.json` that catalogs `scenario_id`, `time_slices`, scaling factors, and tags so downstream `gat batch`/`gat analytics` commands know which artifacts to consume. Manifest metadata mirrors canonical contingency analysis conventions (`N-1` reliability per IEEE 1551/TPWRS DOI:10.1109/TPWRS.2007.901018) and is recorded in `run.json` for reproducibility.
-
-Use `gat runs list` to inspect the most recent scenario materialization and then feed `runs/scenarios/rts_nminus1/scenario_manifest.json` into your batch/analytics pipelines.
+Use `gat runs list --root <dir>` to inspect saved manifests and `gat runs describe <run_id> --root <dir> --format json` for metadata before resuming.
 
 ---
 
-### **Batch runs (`gat batch`)**
+## Concepts (For Beginners)
 
-With the scenario manifest ready, `gat batch` fans out the desired solver (DC/AC PF or OPF) and writes one job per scenario plus a `batch_manifest.json` summary. The layout and counts follow IEEE-standard `N-1` enumeration practices (doi:10.1109/TPWRS.2007.899019).
+### Power Flow (PF) — "What are the voltages and flows right now?"
 
-```bash
-gat batch pf \
-  --mode dc \
-  --manifest runs/scenarios/rts_nminus1/scenario_manifest.json \
-  --out runs/batch/rts_pf \
-  --threads auto \
-  --max-jobs 4
+* **DC PF:** fast, linear approximation
+* **AC PF:** nonlinear, more accurate
 
-gat batch opf \
-  --mode dc \
-  --manifest runs/scenarios/rts_nminus1/scenario_manifest.json \
-  --out runs/batch/rts_opf \
-  --cost examples/opf/costs.csv \
-  --limits examples/opf/limits.csv \
-  --branch-limits examples/opf/branch_limits.csv \
-  --lp-solver clarabel
-```
+### Optimal Power Flow (OPF) — "What's the cheapest feasible dispatch?"
 
-Each run emits `runs/batch/<name>/<job-id>/result.parquet` plus a `runs/batch/<name>/batch_manifest.json` that records job-level status, errors, and output paths; downstream tools can read this manifest instead of wrestling with raw directories.
+* Adds costs, limits, and optional branch constraints
+* Produces an optimized operating point
 
----
+### N-1 Screening — "What happens if one thing breaks?"
 
-# 🔬 Specialized domain workflows
+* Remove one branch at a time
+* Re-solve DC flows
+* Summarize and rank violations
 
-Need more than the core CLI? These specialized crates back the higher-level workflows that handle reliability, DER, and distribution planning:
+### State Estimation (SE) — "Given measurements, what's happening?"
 
-- **`gat-adms`** — FLISR/VVO/outage helpers for automatic distribution management. See [the crate README](crates/gat-adms/README.md) and `docs/guide/adms.md` for solver setups, reliability table expectations, and how the CLI wraps these routines.
-- **`gat-derms`** — DER envelope aggregation, pricing-based scheduling, and stress-test runners. The crate README at `crates/gat-derms/README.md` plus `docs/guide/derms.md` explain how to source assets/prices and ingest the results.
-- **`gat-dist`** — MATPOWER import, AC flows, OPF, and hosting-capacity sweeps for distribution cases; see `crates/gat-dist/README.md` and the PF/OPF guides in `docs/guide/pf.md`, `docs/guide/opf.md`, and `docs/guide/scaling.md` for detail.
-- **`gat-schemas`** — Schema helpers placing Arrow/Parquet expectations; read `crates/gat-schemas/README.md` plus the generated schema artifacts under `docs/schemas/`.
+Weighted least squares over branch flows & injections.
 
-### CLI feature matrix workflow
+### Time-Series Tools — "Make telemetry usable"
 
-Every push or PR to `main` triggers `.github/workflows/cli-feature-matrix.yml`, which runs `cargo test -p gat-cli --locked --no-default-features` under four feature combinations: `minimal`, `minimal+full-io`, `minimal+full-io+viz`, and `all-backends`. Each job installs `coinor-libcbc-dev` (via `apt` on Ubuntu) before the tests run, matching the solver coverage documented in `gat`’s LP-solver flags, and you can re-run the matrix manually via `workflow_dispatch` from the Actions tab when you need to validate a new feature combo.
+* Resample fixed-width windows
+* Join multiple streams on timestamp
+* Aggregate across sensors
 
-For more detail about the matrix strategy and solver dependencies, see `docs/guide/feature-matrix.md`.
+All outputs follow consistent Arrow/Parquet schemas.
 
 ---
 
-# 📤 Outputs & Formats
+## Outputs & Formats
 
 All major commands emit **Parquet** because it is fast, columnar, and compatible with Polars, DuckDB, Pandas, Spark, R, etc.
 
@@ -424,15 +422,13 @@ gat runs resume run.json --execute
 
 This makes CI, batch jobs, and fan-out pipelines reproducible.
 
-Use `gat runs list --root <dir>` to inspect all saved manifests and `gat runs describe <run_id> --root <dir> --format json` when you need the metadata before resuming.
-
 ---
 
-# 🏎 Why Rust & Cluster Fan-Outs?
+## Performance & Scalability
 
-* Rust delivers fast execution in a single binary — no Conda or Python stack.
-* Each CLI command stands alone so you can fan them out across multiple machines (different AC-PF cases, OPF scenarios, thousands of N-1 contingencies, telemetry streams).
-* Instead of running one monolith, slice work embarrassingly parallel:
+* Rust delivers fast execution in a single binary — no Conda or Python stack
+* Each CLI command stands alone so you can fan them out across multiple machines
+* Slice work embarrassingly parallel:
 
 ```bash
 parallel gat pf dc grid.arrow --out out/flows_{}.parquet ::: {1..500}
@@ -442,7 +438,7 @@ If you know `xargs -P` or GNU `parallel`, you already know the essence of the wo
 
 ---
 
-# 📚 Test Fixtures (Great for Learning)
+## Test Fixtures (Great for Learning)
 
 * `test_data/matpower/` — MATPOWER cases
 * `test_data/opf/` — cost curves, limits, branch limits
@@ -454,56 +450,67 @@ Modify these freely while experimenting.
 
 ---
 
-# 📥 Public Dataset Fetching
+## Public Datasets
 
-Use `gat dataset public list` to preview the curated datasets, optionally filtering with `--tag` or `--query`, and `gat dataset public describe <id>` to inspect the source, license, and tags. Run `gat dataset public fetch <id>` to download the file — it defaults to `~/.cache/gat/datasets` (falling back to `data/public` if the cache directory is unavailable) but you can override the staging location with `--out` or set `GAT_PUBLIC_DATASET_DIR` in your environment.
+Use `gat dataset public list` to preview curated datasets, optionally filtering with `--tag` or `--query`:
 
-Available datasets (network connectivity permitting):
+```bash
+gat dataset public list --tag "ieee"
+gat dataset public describe <id>
+gat dataset public fetch <id>
+```
 
-- `opsd-time-series-2020` — an October 6, 2020 snapshot of the Open Power System Data 60-minute single-index time series (CC-BY-SA 4.0).
-- `airtravel` — a compact US air travel passenger CSV that introduces a lightweight time-series size in the CLI.
+Downloaded datasets default to `~/.cache/gat/datasets` (or `data/public` if unavailable). Override with:
 
-Add `--force` to refresh a cached copy and `--extract` to unpack a ZIP file if a future entry ships compressed. The CLI prints the staged path so you can reuse it in downstream commands such as `gat ts join` or `gat pf dc`.
+* `--out <path>` — specify staging location
+* `GAT_PUBLIC_DATASET_DIR` — set environment variable
+* `--force` — refresh a cached copy
+* `--extract` — unpack a ZIP file
+
+Available datasets include:
+- `opsd-time-series-2020` — Open Power System Data time series (CC-BY-SA 4.0)
+- `airtravel` — lightweight US air travel CSV for time-series examples
 
 ---
 
-# 📚 Documentation & Guides
+## Documentation
 
-**Getting Started:**
-- `docs/guide/overview.md` — CLI architecture, command organization, and xtask workflow
+### Getting Started
+
+- `docs/guide/overview.md` — CLI architecture and command organization
 - `docs/guide/pf.md` — Power flow (DC/AC) examples and troubleshooting
 - `docs/guide/opf.md` — Optimal power flow with costs, limits, and solver selection
 
-**Advanced Domains:**
+### Advanced Domains
+
 - `docs/guide/adms.md` — Distribution automation (FLISR, VVO, outage coordination)
 - `docs/guide/derms.md` — DER management (envelope aggregation, pricing, stress testing)
 - `docs/guide/dist.md` — Distribution system analysis (AC flows, hosting capacity)
 
-**Common Tasks:**
+### Common Tasks
+
 - `docs/guide/ts.md` — Time-series operations (resample, join, aggregate)
 - `docs/guide/se.md` — State estimation (weighted least squares)
 - `docs/guide/graph.md` — Network topology tools (stats, islands, visualization)
 - `docs/guide/datasets.md` — Public dataset fetching and caching
 - `docs/guide/gat-tui.md` — Terminal UI architecture and pane navigation
 
-**Infrastructure & Workflows:**
-- `docs/guide/doc-workflow.md` — Integration with `bd` issue tracker and auto-doc system
+### Infrastructure & Workflows
+
 - `docs/guide/cli-architecture.md` — Dispatcher, command modules, telemetry
 - `docs/guide/feature-matrix.md` — CI/CD matrix testing with solver combinations
 - `docs/guide/mcp-onboarding.md` — MCP server setup for agent integration
 - `docs/guide/packaging.md` — Binary distribution and installation
 - `docs/guide/scaling.md` — Multi-horizon scaling roadmap and performance tuning
 
-**Auto-Generated Documentation:**
-- `docs/cli/gat.md` — Full CLI command reference (generated)
+### Auto-Generated Documentation
+
+- `docs/cli/gat.md` — Full CLI command reference
 - `docs/schemas/` — JSON schema for manifests and outputs
-- `docs/ROADMAP.md` — Project plan with milestones and acceptance criteria
 
-After documentation changes, run `cargo xtask doc all` to regenerate CLI reference, schemas, and website. Expose the tree to agents with `gat-mcp-docs --docs docs --addr 127.0.0.1:4321`.
+### Regenerate Documentation
 
----
-
-# 📝 Auto-Documentation System
+After documentation changes, run:
 
 ```bash
 cargo xtask doc all
@@ -516,37 +523,53 @@ This regenerates:
 * JSON schemas (`docs/schemas/`)
 * A minimal book site (`site/book/`)
 
-Reload `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` to preview the results with MCP tooling.
+Expose the tree to agents:
+
+```bash
+gat-mcp-docs --docs docs --addr 127.0.0.1:4321
+```
 
 ---
 
-# 🗺 Roadmap (High-Level)
+## Architecture & Crates
 
-* More advanced DC/AC contingency screening
-* Broader SE functionality
-* Better GUI dashboards
-* More dataset importers (PSSE/CIM variants)
-* Improved packaging & distribution
+### Core Crates
 
-See `docs/ROADMAP.md` for the authoritative project plan with milestones, phases, and acceptance criteria.
+- **`gat-core`** — Grid types, DC/AC solvers, contingency analysis, state estimation
+- **`gat-io`** — Data formats (Arrow, Parquet, CSV), schema definitions, I/O utilities
+- **`gat-cli`** — Command-line interface, command modules, dispatcher
+- **`gat-tui`** — Terminal UI (Ratatui-based), 7-pane dashboard
+
+### Domain-Specific Crates
+
+- **`gat-adms`** — FLISR/VVO/outage helpers for automatic distribution management
+- **`gat-derms`** — DER envelope aggregation, pricing-based scheduling, stress-test runners
+- **`gat-dist`** — MATPOWER import, AC flows, OPF, and hosting-capacity sweeps
+- **`gat-algo`** — Advanced algorithms and solver backends (LP/QP abstraction)
+
+### Support Crates
+
+- **`gat-batch`** — Parallel job orchestration for batch solves
+- **`gat-scenarios`** — Scenario definition, materialization, and manifest generation
+- **`gat-schemas`** — Schema helpers for Arrow/Parquet consistency
+- **`gat-ts`** — Time-series resampling, joining, aggregation
+- **`gat-viz`** — Visualization and graph layout tools
+
+For details on any crate, see its `README.md` in `crates/<crate>/`.
 
 ---
 
-# 🎛️ Terminal dashboard
+## Contributing
 
-`gat-tui` is a Ratatui-based visualizer (see [awesome-ratatui](https://github.com/ratatui/awesome-ratatui) for inspiration) that lives in `crates/gat-tui`. It keeps workflows, statuses, logs, and layout previews in one terminal screen so newcomers can picture the pipeline before opening a browser or GUI. Run it with `cargo run -p gat-tui --release`.
+For local development:
 
-The UI pulls its demo metrics from `out/demos/cournot/cournot_results.csv` (run `test_data/demos/storage_cournot.sh` to refresh) and renders:
+1. Read `RELEASE_PROCESS.md` for our branch strategy (experimental → staging → main)
+2. Check `AGENTS.md` for agent integration and MCP setup
+3. Run tests with `cargo test -p gat-tui` (536+ tests currently)
+4. Use `bd` to track issues: `bd ready` before starting, `bd close` when done
 
-* A workflow table backed by `DemoStats` for aggregate metrics (average price, EENS, storage profits, consumer surplus) plus log ticks describing each stage.
-* A force-directed layout preview powered by `gat graph visualize`/`fdg-sim` so the terminal view and CLI layout tool share the same coordinates.
-* A chart and workflow graph for quick snapshots without leaving the terminal.
-* A control panel (poll frequency, solver selection, verbosity, command preview) paired with an in-line command editor (press `c` and edit `cargo run -p gat-cli -- --help`, Ctrl+S to save) plus presets that brand configurations as “Baseline”, “Cournot Demo”, or “Dispatch Check”.
-* A config preview (auto reloads `~/.config/gat-tui/config.toml` with `L`) and a live-run status block that shows what the next `cargo run` command would do.
-* A built-in file explorer (`e` toggles it, Enter loads the highlighted `.toml`, Esc cancels) so you can browse configs without leaving the TUI.
-* A dataset browser: `j`/`k` scroll the catalog entries, `F` fetches the highlighted dataset into `data/public`, and the description panel summarizes tags and licenses.
-* A PTDF analytics pane that keeps track of the configured grid/source/sink/transfer and launches `gat analytics ptdf <grid>` runs via `t` (adjust the source with `</>`, the sink with `()` and the transfer with `+/-`).
+---
 
-New controls: `↑`/`↓` to change the highlighted workflow, `l` for a manual log entry, `[`/`]` to tweak the polling rate, `s` to rotate solvers, `v` to toggle verbosity, `p`/`P` to cycle presets, `c` to edit the live command (Ctrl+S saves, Esc cancels), `r` to kick off the configured `gat-cli` command, `L` to reload the config file, `h` to open the help overlay, and `q` to quit.
+## License
 
-You can bootstrap the configuration with `gat-cli tui config --out ~/.config/gat-tui/config.toml`, which writes a template containing the current default command, solver, and poll period. Once `gat-tui` runs, it watches the config file, so you can tweak the poll interval or command text without recompiling.
+See `LICENSE` in the repository root.
