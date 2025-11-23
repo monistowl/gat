@@ -5,7 +5,6 @@ on:
     branches: ["main", "staging"]
     paths:
       - 'website/**'
-      - 'docs/**'
       - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
@@ -29,19 +28,14 @@ jobs:
           sudo mv zola /usr/local/bin/
           zola --version
 
-      - name: Build website
+      - name: Build website with integrated docs
         run: |
           cd website
           zola build
-
-      - name: Copy documentation to site
-        run: |
-          # Copy the docs directory to the built site
-          cp -r docs website/public/docs
-
-          # Create a simple docs index redirect if needed
-          echo "Documentation copied to public/docs"
-          ls -la website/public/
+          echo "✅ Zola build complete!"
+          echo ""
+          echo "Site structure:"
+          find public -maxdepth 2 -type f | head -20
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v3
@@ -63,9 +57,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### URLs" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Homepage:** https://monistowl.github.io/gat" >> $GITHUB_STEP_SUMMARY
+          echo "- **Homepage:** https://monistowl.github.io/gat/" >> $GITHUB_STEP_SUMMARY
           echo "- **Documentation:** https://monistowl.github.io/gat/docs/" >> $GITHUB_STEP_SUMMARY
-          echo "- **Source (website):** https://github.com/${{ github.repository }}/tree/${{ github.ref_name }}/website" >> $GITHUB_STEP_SUMMARY
-          echo "- **Source (docs):** https://github.com/${{ github.repository }}/tree/${{ github.ref_name }}/docs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source:** https://github.com/${{ github.repository }}/tree/${{ github.ref_name }}/website" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Site should be live in ~1 minute." >> $GITHUB_STEP_SUMMARY
