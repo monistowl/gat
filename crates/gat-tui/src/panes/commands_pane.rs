@@ -99,6 +99,7 @@ pub struct CommandsPaneState {
 impl Default for CommandsPaneState {
     fn default() -> Self {
         let snippets = vec![
+            // Datasets operations
             CommandSnippet {
                 id: "list-datasets".into(),
                 command: "gat-cli datasets list --limit 5".into(),
@@ -106,11 +107,31 @@ impl Default for CommandsPaneState {
                 category: "Datasets".into(),
             },
             CommandSnippet {
+                id: "upload-dataset".into(),
+                command: "gat-cli datasets upload --file <path> --name <name>".into(),
+                description: "Upload new dataset to catalogue".into(),
+                category: "Datasets".into(),
+            },
+            CommandSnippet {
+                id: "validate-dataset".into(),
+                command: "gat-cli datasets validate --id <id>".into(),
+                description: "Validate dataset for integrity and completeness".into(),
+                category: "Datasets".into(),
+            },
+            // DERMS operations
+            CommandSnippet {
                 id: "preview-envelope".into(),
                 command: "gat-cli derms envelope --grid-file <case>".into(),
                 description: "Preview flexibility envelope inputs".into(),
                 category: "DERMS".into(),
             },
+            CommandSnippet {
+                id: "derms-opf".into(),
+                command: "gat-cli derms opf --grid <grid> --dataset <id>".into(),
+                description: "Run optimal power flow with DERMS".into(),
+                category: "DERMS".into(),
+            },
+            // Distribution operations
             CommandSnippet {
                 id: "import-matpower".into(),
                 command: "gat-cli dist import matpower --m <file>".into(),
@@ -118,10 +139,86 @@ impl Default for CommandsPaneState {
                 category: "Distribution".into(),
             },
             CommandSnippet {
+                id: "dist-powerflow".into(),
+                command: "gat-cli dist powerflow --network <file> --demand <file>".into(),
+                description: "Run distribution network power flow analysis".into(),
+                category: "Distribution".into(),
+            },
+            // Scenario operations
+            CommandSnippet {
                 id: "scenario-solve".into(),
                 command: "gat-cli scenarios solve --config <path>".into(),
                 description: "Run scenario analysis with configuration".into(),
                 category: "Scenarios".into(),
+            },
+            CommandSnippet {
+                id: "scenario-validate".into(),
+                command: "gat-cli scenarios validate --template <path>".into(),
+                description: "Validate scenario template syntax and completeness".into(),
+                category: "Scenarios".into(),
+            },
+            CommandSnippet {
+                id: "scenario-materialize".into(),
+                command: "gat-cli scenarios materialize --template <path> --output <dir>".into(),
+                description: "Materialize scenarios from template".into(),
+                category: "Scenarios".into(),
+            },
+            // Analytics operations
+            CommandSnippet {
+                id: "reliability-analysis".into(),
+                command: "gat-cli analytics reliability --dataset <id> --grid <grid>".into(),
+                description: "Run reliability metrics (LOLE, EUE)".into(),
+                category: "Analytics".into(),
+            },
+            CommandSnippet {
+                id: "deliverability-score".into(),
+                command: "gat-cli analytics deliverability --dataset <id> --grid <grid>".into(),
+                description: "Calculate deliverability score".into(),
+                category: "Analytics".into(),
+            },
+            CommandSnippet {
+                id: "elcc-estimation".into(),
+                command: "gat-cli analytics elcc --dataset <id> --grid <grid>".into(),
+                description: "Run ELCC resource adequacy estimation".into(),
+                category: "Analytics".into(),
+            },
+            CommandSnippet {
+                id: "powerflow-study".into(),
+                command: "gat-cli analytics powerflow --dataset <id> --grid <grid> --cases <count>".into(),
+                description: "Run comprehensive power flow study".into(),
+                category: "Analytics".into(),
+            },
+            // Batch operations
+            CommandSnippet {
+                id: "batch-powerflow".into(),
+                command: "gat-cli batch powerflow --manifest <file> --max-jobs 4 --output <dir>".into(),
+                description: "Run batch power flow across multiple scenarios".into(),
+                category: "Batch".into(),
+            },
+            CommandSnippet {
+                id: "batch-opf".into(),
+                command: "gat-cli batch opf --manifest <file> --max-jobs 4 --solver ipopt".into(),
+                description: "Run batch optimal power flow".into(),
+                category: "Batch".into(),
+            },
+            CommandSnippet {
+                id: "batch-status".into(),
+                command: "gat-cli batch status --job-id <id>".into(),
+                description: "Check status of batch job".into(),
+                category: "Batch".into(),
+            },
+            // Utilities
+            CommandSnippet {
+                id: "geo-join".into(),
+                command: "gat-cli geo join --left <file> --right <file> --output <file>".into(),
+                description: "Perform geographic join of datasets".into(),
+                category: "Utilities".into(),
+            },
+            CommandSnippet {
+                id: "health-check".into(),
+                command: "gat-cli health check --verbose".into(),
+                description: "Run system health check".into(),
+                category: "Utilities".into(),
             },
         ];
 
@@ -348,7 +445,7 @@ mod tests {
     #[test]
     fn test_commands_init() {
         let state = CommandsPaneState::new();
-        assert_eq!(state.snippet_count(), 4);
+        assert_eq!(state.snippet_count(), 19);
         assert_eq!(state.history_count(), 2);
         assert_eq!(state.execution_mode, ExecutionMode::DryRun);
     }
@@ -365,9 +462,25 @@ mod tests {
     #[test]
     fn test_load_snippet() {
         let mut state = CommandsPaneState::new();
-        state.load_snippet_to_editor(1);
+        state.load_snippet_to_editor(3);
         assert_eq!(state.custom_command, "gat-cli derms envelope --grid-file <case>");
-        assert_eq!(state.selected_snippet, 1);
+        assert_eq!(state.selected_snippet, 3);
+    }
+
+    #[test]
+    fn test_load_analytics_snippet() {
+        let mut state = CommandsPaneState::new();
+        state.load_snippet_to_editor(10);
+        assert!(state.custom_command.contains("reliability"));
+        assert_eq!(state.selected_snippet, 10);
+    }
+
+    #[test]
+    fn test_load_batch_snippet() {
+        let mut state = CommandsPaneState::new();
+        state.load_snippet_to_editor(14);
+        assert!(state.custom_command.contains("batch powerflow"));
+        assert_eq!(state.selected_snippet, 14);
     }
 
     #[test]
@@ -403,8 +516,28 @@ mod tests {
         let mut state = CommandsPaneState::new();
         state.filter_snippets("dataset".into());
         let filtered = state.filtered_snippets();
-        assert_eq!(filtered.len(), 1); // Only "list-datasets" matches
-        assert_eq!(filtered[0].id, "list-datasets");
+        assert!(filtered.len() >= 3); // Multiple dataset snippets match
+        assert!(filtered.iter().any(|s| s.id == "list-datasets"));
+        assert!(filtered.iter().any(|s| s.id == "upload-dataset"));
+        assert!(filtered.iter().any(|s| s.id == "validate-dataset"));
+    }
+
+    #[test]
+    fn test_filter_analytics_snippets() {
+        let mut state = CommandsPaneState::new();
+        state.filter_snippets("analytics".into());
+        let filtered = state.filtered_snippets();
+        assert!(filtered.len() >= 4); // Multiple analytics snippets
+        assert!(filtered.iter().all(|s| s.category == "Analytics"));
+    }
+
+    #[test]
+    fn test_filter_batch_snippets() {
+        let mut state = CommandsPaneState::new();
+        state.filter_snippets("batch".into());
+        let filtered = state.filtered_snippets();
+        assert!(filtered.len() >= 3); // Multiple batch snippets
+        assert!(filtered.iter().all(|s| s.category == "Batch"));
     }
 
     #[test]

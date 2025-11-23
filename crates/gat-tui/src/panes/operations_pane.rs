@@ -64,13 +64,16 @@ impl JobStatus {
     }
 }
 
-/// Allocation result
+/// Allocation result with comprehensive metrics
 #[derive(Clone, Debug)]
 pub struct AllocationResult {
     pub node_id: String,
     pub rents: f64,
     pub contribution: f64,
     pub allocation_factor: f64,
+    pub revenue_adequacy: f64,  // Percentage of revenue needs met
+    pub cost_recovery: f64,     // Percentage of costs recovered
+    pub surplus_deficit: f64,   // Surplus/deficit in currency units
 }
 
 /// Reliability metric
@@ -170,12 +173,27 @@ impl Default for OperationsPaneState {
                 rents: 1250.5,
                 contribution: 45.2,
                 allocation_factor: 0.85,
+                revenue_adequacy: 95.3,
+                cost_recovery: 98.2,
+                surplus_deficit: 152.40,
             },
             AllocationResult {
                 node_id: "NODE_B".into(),
                 rents: 890.3,
                 contribution: 32.1,
                 allocation_factor: 0.72,
+                revenue_adequacy: 87.6,
+                cost_recovery: 91.5,
+                surplus_deficit: 65.20,
+            },
+            AllocationResult {
+                node_id: "NODE_C".into(),
+                rents: 675.8,
+                contribution: 28.5,
+                allocation_factor: 0.68,
+                revenue_adequacy: 82.1,
+                cost_recovery: 85.3,
+                surplus_deficit: -45.30,
             },
         ];
 
@@ -332,6 +350,93 @@ impl OperationsPaneState {
 
     pub fn total_rents(&self) -> f64 {
         self.allocation_results.iter().map(|r| r.rents).sum()
+    }
+
+    // Enhanced allocation methods (Phase 5)
+
+    pub fn select_next_allocation(&mut self) {
+        if self.selected_allocation < self.allocation_results.len().saturating_sub(1) {
+            self.selected_allocation += 1;
+        }
+    }
+
+    pub fn select_prev_allocation(&mut self) {
+        if self.selected_allocation > 0 {
+            self.selected_allocation -= 1;
+        }
+    }
+
+    pub fn selected_allocation(&self) -> Option<&AllocationResult> {
+        self.allocation_results.get(self.selected_allocation)
+    }
+
+    pub fn get_allocation_details(&self) -> String {
+        if let Some(result) = self.selected_allocation() {
+            format!(
+                "Node: {}\nRents: ${:.2}\nContribution: ${:.2}\nAllocation Factor: {:.2}\nRevenue Adequacy: {:.1}%\nCost Recovery: {:.1}%\nSurplus/Deficit: ${:.2}",
+                result.node_id,
+                result.rents,
+                result.contribution,
+                result.allocation_factor,
+                result.revenue_adequacy,
+                result.cost_recovery,
+                result.surplus_deficit,
+            )
+        } else {
+            "No allocation results selected".into()
+        }
+    }
+
+    pub fn total_contributions(&self) -> f64 {
+        self.allocation_results.iter().map(|r| r.contribution).sum()
+    }
+
+    pub fn avg_allocation_factor(&self) -> f64 {
+        if self.allocation_results.is_empty() {
+            return 0.0;
+        }
+        let sum: f64 = self.allocation_results.iter().map(|r| r.allocation_factor).sum();
+        sum / self.allocation_results.len() as f64
+    }
+
+    pub fn avg_revenue_adequacy(&self) -> f64 {
+        if self.allocation_results.is_empty() {
+            return 0.0;
+        }
+        let sum: f64 = self.allocation_results.iter().map(|r| r.revenue_adequacy).sum();
+        sum / self.allocation_results.len() as f64
+    }
+
+    pub fn avg_cost_recovery(&self) -> f64 {
+        if self.allocation_results.is_empty() {
+            return 0.0;
+        }
+        let sum: f64 = self.allocation_results.iter().map(|r| r.cost_recovery).sum();
+        sum / self.allocation_results.len() as f64
+    }
+
+    pub fn total_surplus_deficit(&self) -> f64 {
+        self.allocation_results.iter().map(|r| r.surplus_deficit).sum()
+    }
+
+    pub fn add_allocation(&mut self, result: AllocationResult) {
+        self.allocation_results.insert(0, result.clone());
+        self.allocation_list.add_item(
+            format!("{}: ${:.2}", result.node_id, result.rents),
+            result.node_id,
+        );
+    }
+
+    pub fn get_allocation_summary(&self) -> String {
+        format!(
+            "Total Rents: ${:.2}\nTotal Contributions: ${:.2}\nAvg Allocation Factor: {:.2}\nAvg Revenue Adequacy: {:.1}%\nAvg Cost Recovery: {:.1}%\nTotal Surplus/Deficit: ${:.2}",
+            self.total_rents(),
+            self.total_contributions(),
+            self.avg_allocation_factor(),
+            self.avg_revenue_adequacy(),
+            self.avg_cost_recovery(),
+            self.total_surplus_deficit(),
+        )
     }
 
     pub fn avg_deliverability(&self) -> f64 {
@@ -498,7 +603,7 @@ mod tests {
     fn test_operations_init() {
         let state = OperationsPaneState::new();
         assert_eq!(state.job_count(), 2);
-        assert_eq!(state.allocation_count(), 2);
+        assert_eq!(state.allocation_count(), 3);
         assert_eq!(state.metric_count(), 3);
         assert_eq!(state.active_tab, OperationType::Batch);
     }
@@ -545,6 +650,129 @@ mod tests {
         let total = state.total_rents();
         assert!(total > 0.0);
         assert_eq!(state.avg_deliverability(), 85.5);
+    }
+
+    // Enhanced allocation tests (Phase 5)
+
+    #[test]
+    fn test_allocation_selection() {
+        let mut state = OperationsPaneState::new();
+        assert_eq!(state.selected_allocation, 0);
+
+        state.select_next_allocation();
+        assert_eq!(state.selected_allocation, 1);
+
+        state.select_next_allocation();
+        assert_eq!(state.selected_allocation, 2);
+
+        state.select_next_allocation();
+        assert_eq!(state.selected_allocation, 2); // Bounds check
+
+        state.select_prev_allocation();
+        assert_eq!(state.selected_allocation, 1);
+    }
+
+    #[test]
+    fn test_selected_allocation() {
+        let state = OperationsPaneState::new();
+        let result = state.selected_allocation().unwrap();
+        assert_eq!(result.node_id, "NODE_A");
+        assert_eq!(result.rents, 1250.5);
+    }
+
+    #[test]
+    fn test_allocation_details_formatting() {
+        let state = OperationsPaneState::new();
+        let details = state.get_allocation_details();
+        assert!(details.contains("NODE_A"));
+        assert!(details.contains("1250.50"));
+        assert!(details.contains("95.3"));
+    }
+
+    #[test]
+    fn test_allocation_count() {
+        let state = OperationsPaneState::new();
+        assert_eq!(state.allocation_count(), 3);
+    }
+
+    #[test]
+    fn test_total_rents() {
+        let state = OperationsPaneState::new();
+        let total = state.total_rents();
+        assert!(total > 2800.0);
+        assert!(total < 2820.0);
+    }
+
+    #[test]
+    fn test_total_contributions() {
+        let state = OperationsPaneState::new();
+        let total = state.total_contributions();
+        assert!(total > 105.0);
+        assert!(total < 110.0);
+    }
+
+    #[test]
+    fn test_avg_allocation_factor() {
+        let state = OperationsPaneState::new();
+        let avg = state.avg_allocation_factor();
+        assert!(avg > 0.70);
+        assert!(avg < 0.80);
+    }
+
+    #[test]
+    fn test_avg_revenue_adequacy() {
+        let state = OperationsPaneState::new();
+        let avg = state.avg_revenue_adequacy();
+        assert!(avg > 80.0);
+        assert!(avg < 100.0);
+    }
+
+    #[test]
+    fn test_avg_cost_recovery() {
+        let state = OperationsPaneState::new();
+        let avg = state.avg_cost_recovery();
+        assert!(avg > 85.0);
+        assert!(avg < 100.0);
+    }
+
+    #[test]
+    fn test_total_surplus_deficit() {
+        let state = OperationsPaneState::new();
+        let total = state.total_surplus_deficit();
+        assert!(total > 170.0);
+        assert!(total < 180.0);
+    }
+
+    #[test]
+    fn test_add_allocation() {
+        let mut state = OperationsPaneState::new();
+        let initial_count = state.allocation_count();
+
+        let new_result = AllocationResult {
+            node_id: "NODE_D".into(),
+            rents: 500.0,
+            contribution: 20.0,
+            allocation_factor: 0.65,
+            revenue_adequacy: 80.0,
+            cost_recovery: 85.0,
+            surplus_deficit: 25.0,
+        };
+
+        state.add_allocation(new_result);
+        assert_eq!(state.allocation_count(), initial_count + 1);
+        assert_eq!(state.selected_allocation().unwrap().node_id, "NODE_D");
+    }
+
+    #[test]
+    fn test_allocation_summary() {
+        let state = OperationsPaneState::new();
+        let summary = state.get_allocation_summary();
+        assert!(summary.contains("Total Rents:"));
+        assert!(summary.contains("Total Contributions:"));
+        assert!(summary.contains("Avg Allocation Factor:"));
+        assert!(summary.contains("Avg Revenue Adequacy:"));
+        assert!(summary.contains("Avg Cost Recovery:"));
+        assert!(summary.contains("Total Surplus/Deficit:"));
     }
 
     #[test]

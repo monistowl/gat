@@ -247,36 +247,117 @@ impl DashboardPaneState {
 }
 
 /// Quick action shortcuts
+#[derive(Clone, Debug)]
 pub struct QuickAction {
     pub key: char,
     pub label: String,
     pub description: String,
+    pub action_type: ActionType,
+}
+
+/// Type of action triggered by quick action button
+#[derive(Clone, Debug, PartialEq)]
+pub enum ActionType {
+    ReliabilityAnalysis,
+    DeliverabilityScore,
+    ELCCEstimation,
+    PowerFlowAnalysis,
+    FilterRuns,
+}
+
+impl ActionType {
+    pub fn label(&self) -> &'static str {
+        match self {
+            ActionType::ReliabilityAnalysis => "Reliability",
+            ActionType::DeliverabilityScore => "Deliverability",
+            ActionType::ELCCEstimation => "ELCC",
+            ActionType::PowerFlowAnalysis => "Power Flow",
+            ActionType::FilterRuns => "Filter",
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            ActionType::ReliabilityAnalysis => "Run reliability analysis (LOLE, EUE)",
+            ActionType::DeliverabilityScore => "Run deliverability score calculation",
+            ActionType::ELCCEstimation => "Run ELCC resource adequacy",
+            ActionType::PowerFlowAnalysis => "Run power flow analysis",
+            ActionType::FilterRuns => "Filter and search recent runs",
+        }
+    }
 }
 
 impl QuickAction {
+    pub fn new(key: char, label: String, description: String, action_type: ActionType) -> Self {
+        Self { key, label, description, action_type }
+    }
+
     pub fn all() -> Vec<Self> {
         vec![
             QuickAction {
                 key: 'r',
                 label: "[r]".into(),
                 description: "Run reliability analysis".into(),
+                action_type: ActionType::ReliabilityAnalysis,
             },
             QuickAction {
                 key: 'd',
                 label: "[d]".into(),
                 description: "Run deliverability score".into(),
+                action_type: ActionType::DeliverabilityScore,
             },
             QuickAction {
                 key: 'e',
                 label: "[e]".into(),
                 description: "Run ELCC estimation".into(),
+                action_type: ActionType::ELCCEstimation,
+            },
+            QuickAction {
+                key: 'p',
+                label: "[p]".into(),
+                description: "Run power flow analysis".into(),
+                action_type: ActionType::PowerFlowAnalysis,
             },
             QuickAction {
                 key: 'f',
                 label: "[f]".into(),
                 description: "Filter recent runs".into(),
+                action_type: ActionType::FilterRuns,
             },
         ]
+    }
+
+    pub fn analytics_actions() -> Vec<Self> {
+        vec![
+            QuickAction {
+                key: 'r',
+                label: "[r]".into(),
+                description: "Run reliability analysis".into(),
+                action_type: ActionType::ReliabilityAnalysis,
+            },
+            QuickAction {
+                key: 'd',
+                label: "[d]".into(),
+                description: "Run deliverability score".into(),
+                action_type: ActionType::DeliverabilityScore,
+            },
+            QuickAction {
+                key: 'e',
+                label: "[e]".into(),
+                description: "Run ELCC estimation".into(),
+                action_type: ActionType::ELCCEstimation,
+            },
+            QuickAction {
+                key: 'p',
+                label: "[p]".into(),
+                description: "Run power flow analysis".into(),
+                action_type: ActionType::PowerFlowAnalysis,
+            },
+        ]
+    }
+
+    pub fn find_by_key(key: char) -> Option<Self> {
+        Self::all().into_iter().find(|a| a.key == key)
     }
 }
 
@@ -332,8 +413,64 @@ mod tests {
     #[test]
     fn test_quick_actions() {
         let actions = QuickAction::all();
-        assert_eq!(actions.len(), 4);
+        assert_eq!(actions.len(), 5);
         assert_eq!(actions[0].key, 'r');
+        assert_eq!(actions[0].action_type, ActionType::ReliabilityAnalysis);
+    }
+
+    #[test]
+    fn test_action_type_labels() {
+        assert_eq!(ActionType::ReliabilityAnalysis.label(), "Reliability");
+        assert_eq!(ActionType::DeliverabilityScore.label(), "Deliverability");
+        assert_eq!(ActionType::ELCCEstimation.label(), "ELCC");
+        assert_eq!(ActionType::PowerFlowAnalysis.label(), "Power Flow");
+        assert_eq!(ActionType::FilterRuns.label(), "Filter");
+    }
+
+    #[test]
+    fn test_action_type_descriptions() {
+        assert!(ActionType::ReliabilityAnalysis.description().contains("reliability"));
+        assert!(ActionType::DeliverabilityScore.description().contains("deliverability"));
+        assert!(ActionType::ELCCEstimation.description().contains("ELCC"));
+        assert!(ActionType::PowerFlowAnalysis.description().contains("power"));
+        assert!(ActionType::FilterRuns.description().contains("Filter"));
+    }
+
+    #[test]
+    fn test_analytics_actions() {
+        let actions = QuickAction::analytics_actions();
+        assert_eq!(actions.len(), 4);
+        assert!(actions.iter().all(|a| a.action_type != ActionType::FilterRuns));
+    }
+
+    #[test]
+    fn test_quick_action_constructor() {
+        let action = QuickAction::new(
+            'x',
+            "[x]".into(),
+            "Test action".into(),
+            ActionType::ReliabilityAnalysis,
+        );
+        assert_eq!(action.key, 'x');
+        assert_eq!(action.label, "[x]");
+        assert_eq!(action.description, "Test action");
+        assert_eq!(action.action_type, ActionType::ReliabilityAnalysis);
+    }
+
+    #[test]
+    fn test_find_action_by_key() {
+        let action = QuickAction::find_by_key('r');
+        assert!(action.is_some());
+        let action = action.unwrap();
+        assert_eq!(action.action_type, ActionType::ReliabilityAnalysis);
+
+        let action = QuickAction::find_by_key('p');
+        assert!(action.is_some());
+        let action = action.unwrap();
+        assert_eq!(action.action_type, ActionType::PowerFlowAnalysis);
+
+        let action = QuickAction::find_by_key('x');
+        assert!(action.is_none());
     }
 
     // Grid management tests (Phase 3)

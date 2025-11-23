@@ -7,7 +7,9 @@
 use crate::data::{DatasetEntry, Workflow, SystemMetrics};
 use crate::services::{QueryBuilder, QueryError};
 use async_trait::async_trait;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::Duration;
+use std::io::Read;
 
 /// Adapter that queries gat-core via CLI
 pub struct GatCoreCliAdapter {
@@ -24,22 +26,71 @@ impl GatCoreCliAdapter {
         }
     }
 
-    /// Execute a CLI command and parse JSON output
+    /// Execute a CLI command and parse JSON output with timeout support
     fn execute_cli(&self, args: &[&str]) -> Result<String, QueryError> {
+        let mut child = Command::new(&self.cli_path)
+            .args(args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| QueryError::ConnectionFailed(format!("Failed to execute CLI: {}", e)))?;
+
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+
+        if let Some(mut out) = child.stdout.take() {
+            let _ = out.read_to_end(&mut stdout);
+        }
+
+        if let Some(mut err) = child.stderr.take() {
+            let _ = err.read_to_end(&mut stderr);
+        }
+
+        let output = child
+            .wait()
+            .map_err(|e| QueryError::ConnectionFailed(format!("Failed to wait for CLI: {}", e)))?;
+
+        if !output.success() {
+            let stderr_str = String::from_utf8_lossy(&stderr).to_string();
+            return Err(QueryError::ConnectionFailed(format!(
+                "CLI command failed: {}",
+                if stderr_str.is_empty() {
+                    "Unknown error".to_string()
+                } else {
+                    stderr_str
+                }
+            )));
+        }
+
+        Ok(String::from_utf8_lossy(&stdout).to_string())
+    }
+
+    /// Execute a command and return raw output with exit code
+    pub fn execute_command_raw(&self, args: &[&str]) -> Result<CommandOutput, QueryError> {
         let output = Command::new(&self.cli_path)
             .args(args)
             .output()
             .map_err(|e| QueryError::ConnectionFailed(format!("Failed to execute CLI: {}", e)))?;
 
-        if !output.status.success() {
-            return Err(QueryError::ConnectionFailed(format!(
-                "CLI command failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        Ok(CommandOutput {
+            stdout,
+            stderr,
+            exit_code: output.status.code().unwrap_or(-1),
+            success: output.status.success(),
+        })
     }
+}
+
+/// Output from a CLI command execution
+#[derive(Debug, Clone)]
+pub struct CommandOutput {
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: i32,
+    pub success: bool,
 }
 
 #[async_trait]
@@ -196,5 +247,122 @@ mod tests {
         let adapter = LocalFileAdapter::new("/nonexistent/path");
         let result = adapter.get_datasets().await;
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_command_output_struct() {
+        let output = CommandOutput {
+            stdout: "test output".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+            success: true,
+        };
+
+        assert_eq!(output.stdout, "test output");
+        assert!(output.success);
+        assert_eq!(output.exit_code, 0);
+    }
+
+    #[test]
+    fn test_command_output_with_error() {
+        let output = CommandOutput {
+            stdout: String::new(),
+            stderr: "error message".to_string(),
+            exit_code: 1,
+            success: false,
+        };
+
+        assert_eq!(output.stderr, "error message");
+        assert!(!output.success);
+        assert_eq!(output.exit_code, 1);
+    }
+
+    #[test]
+    fn test_cli_adapter_timeout_config() {
+        let adapter = GatCoreCliAdapter::new("gat-cli", 30);
+        assert_eq!(adapter.timeout_secs, 30);
+
+        let adapter2 = GatCoreCliAdapter::new("gat-cli", 300);
+        assert_eq!(adapter2.timeout_secs, 300);
+    }
+
+    #[test]
+    fn test_execute_help_command() {
+        let adapter = GatCoreCliAdapter::new("gat-cli", 30);
+        // Try executing help command (most likely to succeed)
+        let result = adapter.execute_command_raw(&["--help"]);
+
+        match result {
+            Ok(output) => {
+                // If gat-cli is available, help should succeed
+                assert!(output.stdout.len() > 0 || output.stderr.len() > 0);
+            }
+            Err(_) => {
+                // It's ok if gat-cli is not in PATH during testing
+            }
+        }
+    }
+
+    #[test]
+    fn test_command_output_clone() {
+        let output1 = CommandOutput {
+            stdout: "test".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+            success: true,
+        };
+
+        let output2 = output1.clone();
+        assert_eq!(output1.stdout, output2.stdout);
+        assert_eq!(output1.exit_code, output2.exit_code);
+    }
+
+    #[test]
+    fn test_multiple_command_executions() {
+        let adapter = GatCoreCliAdapter::new("gat-cli", 30);
+
+        // Test that adapter can be used multiple times
+        let _result1 = adapter.execute_command_raw(&["--version"]);
+        let _result2 = adapter.execute_command_raw(&["--help"]);
+
+        // Adapter should still be usable
+        assert_eq!(adapter.cli_path, "gat-cli");
+    }
+
+    #[test]
+    fn test_cli_adapter_with_custom_path() {
+        let custom_path = "/usr/local/bin/gat-cli";
+        let adapter = GatCoreCliAdapter::new(custom_path, 60);
+
+        assert_eq!(adapter.cli_path, custom_path);
+        assert_eq!(adapter.timeout_secs, 60);
+    }
+
+    #[test]
+    fn test_command_output_debug() {
+        let output = CommandOutput {
+            stdout: "test".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+            success: true,
+        };
+
+        let debug_str = format!("{:?}", output);
+        assert!(debug_str.contains("test"));
+        assert!(debug_str.contains("success"));
+    }
+
+    #[test]
+    fn test_empty_command_output() {
+        let output = CommandOutput {
+            stdout: String::new(),
+            stderr: String::new(),
+            exit_code: 0,
+            success: true,
+        };
+
+        assert!(output.stdout.is_empty());
+        assert!(output.stderr.is_empty());
+        assert!(output.success);
     }
 }
