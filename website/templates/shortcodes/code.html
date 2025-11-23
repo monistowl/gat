@@ -1,0 +1,46 @@
+{% set language = lang | default(value="bash") %}
+{% set filename = file | default(value="") %}
+
+<div class="code-block relative my-4 rounded-lg overflow-hidden border border-slate-800">
+  <div class="code-header bg-slate-900 px-4 py-2 flex items-center justify-between border-b border-slate-800">
+    <div class="flex items-center gap-2">
+      {% if filename %}
+      <span class="text-slate-400 text-sm font-mono">{{ filename }}</span>
+      {% else %}
+      <span class="text-orange-500 text-xs font-bold uppercase tracking-wider">{{ language }}</span>
+      {% endif %}
+    </div>
+    <button
+      class="copy-btn text-slate-400 hover:text-white text-xs px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors"
+      onclick="copyCodeBlock(this)"
+      aria-label="Copy code">
+      <span class="copy-text">Copy</span>
+      <span class="copied-text hidden">Copied!</span>
+    </button>
+  </div>
+  <div class="code-content bg-slate-950">
+    <pre class="!my-0"><code class="language-{{ language }}">{{ body }}</code></pre>
+  </div>
+</div>
+
+<script>
+if (typeof copyCodeBlock === 'undefined') {
+  function copyCodeBlock(button) {
+    const codeBlock = button.closest('.code-block');
+    const code = codeBlock.querySelector('code').textContent;
+
+    navigator.clipboard.writeText(code).then(() => {
+      const copyText = button.querySelector('.copy-text');
+      const copiedText = button.querySelector('.copied-text');
+
+      copyText.classList.add('hidden');
+      copiedText.classList.remove('hidden');
+
+      setTimeout(() => {
+        copyText.classList.remove('hidden');
+        copiedText.classList.add('hidden');
+      }, 2000);
+    });
+  }
+}
+</script>
