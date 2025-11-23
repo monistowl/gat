@@ -134,17 +134,22 @@ source <(gat completions bash)
 The installer fetches the right tarball for your OS/arch and only compiles from source when no binary is available.
 
 ```bash
-# Headless: CLI + core (smallest footprint)
-scripts/install.sh --variant headless
+# Full variant (default): CLI + TUI + all features
+scripts/install.sh
 
-# Full: CLI + TUI + core + analysis tools
-scripts/install.sh --variant full
+# Or explicitly request a different variant:
+scripts/install.sh --variant headless  # Minimal footprint
+scripts/install.sh --variant analyst   # CLI + ADMS/DERMS/analytics
+scripts/install.sh --variant full      # Everything (default)
 ```
+
+**Why full by default?** The binaries are small (~few MB), so we give you the complete toolkit out of the box. You can always opt into minimal variants for embedded systems if needed.
 
 Environment variables:
 
-* `GAT_RELEASE_BASE` — override the release bucket (default: `https://releases.gat.dev/gat`)
-* `GAT_VERSION` — pin a specific version; `latest` fetches `latest.txt` from the bucket
+* `GAT_VARIANT` — choose variant (headless, analyst, full); defaults to `full`
+* `GAT_RELEASE_BASE` — override the release bucket (default: GitHub releases)
+* `GAT_VERSION` — pin a specific version; `latest` fetches from GitHub API
 * `GAT_PREFIX` — change the install location (defaults to `~/.local`)
 
 If your platform is not covered by prebuilt binaries, the installer falls back to a cargo build with the appropriate feature set for the variant you requested.
