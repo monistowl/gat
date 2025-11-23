@@ -1,3 +1,9 @@
++++
+title = "Documentation Workflow"
+description = "Documentation updates and issue tracking workflow"
+weight = 160
++++
+
 # Documentation & issue workflow
 
 This project treats documentation updates and issue tracking as linked operations. Follow these steps when you touch docs:

@@ -1,3 +1,9 @@
++++
+title = "Packaging & Installers"
+description = "Building release packages and installation scripts"
+weight = 150
++++
+
 # Packaging & installers
 
 GAT includes helper scripts that build release binaries, package them, and install them locally.

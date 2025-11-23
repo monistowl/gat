@@ -1,3 +1,9 @@
++++
+title = "GUI Dashboard"
+description = "GUI dashboard placeholder for future development"
+weight = 170
++++
+
 # GUI dashboard
 
 `gat gui run` is a placeholder that loads an Arrow grid, exercises the shared `gat-gui` helper, and prints status messages. The stub keeps parity with the planned `M7 GUI` milestone so the CLI surface mirrors future `egui`/`eframe` dashboards.
