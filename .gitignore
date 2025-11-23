@@ -10,6 +10,7 @@ gha-creds-*.json
 
 # Rust/Cargo build output and artifacts
 /target/
+/dist/
 
 # Virtualenvs and user caches
 .venv/
