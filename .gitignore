@@ -1,6 +1,12 @@
+# Agent-specific directories (various AI/automation tools)
 .gemini/
-gha-creds-*.json
+.claude/
+.agent/
+.gpt/
+.copilot/
+.replit/
 .beads/
+gha-creds-*.json
 
 # Rust/Cargo build output and artifacts
 /target/
@@ -13,6 +19,4 @@ gha-creds-*.json
 PHASE_*.md
 *_PLAN.md
 *_ROADMAP.md
-.claude/
-.agent/
 docs/plans/
