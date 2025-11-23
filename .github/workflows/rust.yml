@@ -2,9 +2,9 @@ name: Fast CI (Push/PR)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "staging", "experimental" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "staging", "experimental" ]
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:

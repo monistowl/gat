@@ -27,10 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
         with:
-          profile: minimal
-          toolchain: stable
+          shared-key: ${{ hashFiles('Cargo.lock') }}
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev
       - name: Run gat-cli tests for ${{ matrix.matrix-name }}
@@ -63,10 +64,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
         with:
-          profile: minimal
-          toolchain: stable
+          shared-key: ${{ hashFiles('Cargo.lock') }}
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y coinor-libcbc-dev
       - name: Run tests for ${{ matrix.matrix-name }}
