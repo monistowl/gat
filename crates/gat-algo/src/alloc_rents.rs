@@ -74,16 +74,19 @@ pub fn compute_rents(
     partitions: &[String],
 ) -> Result<RentsSummary> {
     // Load OPF results (LMPs, flows, injections)
-    let opf_df = LazyFrame::scan_parquet(opf_results_parquet.to_str().unwrap(), Default::default())?
-        .collect()
-        .context("loading OPF results")?;
+    let opf_df =
+        LazyFrame::scan_parquet(opf_results_parquet.to_str().unwrap(), Default::default())?
+            .collect()
+            .context("loading OPF results")?;
 
     // Validate required columns
     if !opf_df.get_column_names().iter().any(|c| *c == "bus_id") {
         return Err(anyhow!("OPF results must contain 'bus_id' column"));
     }
     if !opf_df.get_column_names().iter().any(|c| *c == "lmp") {
-        return Err(anyhow!("OPF results must contain 'lmp' (locational marginal price) column"));
+        return Err(anyhow!(
+            "OPF results must contain 'lmp' (locational marginal price) column"
+        ));
     }
 
     // Note: grid_file is passed for interface consistency, but Network is loaded by CLI handler
@@ -105,7 +108,11 @@ pub fn compute_rents(
     let mut combined_df = join_and_aggregate(rents_df, injections_df)?;
 
     // Compute summary statistics
-    let num_scenarios = if combined_df.get_column_names().iter().any(|c| *c == "scenario_id") {
+    let num_scenarios = if combined_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "scenario_id")
+    {
         combined_df.column("scenario_id")?.unique()?.len()
     } else {
         1
@@ -172,10 +179,7 @@ pub fn compute_rents(
 ///
 /// **Interpretation:** If LMP_j > LMP_i and flow_ij > 0, congestion rent is positive:
 /// the flow relieves congestion from low-price to high-price area, creating value.
-fn compute_branch_rents(
-    opf_df: &DataFrame,
-    network: &gat_core::Network,
-) -> Result<DataFrame> {
+fn compute_branch_rents(opf_df: &DataFrame, network: &gat_core::Network) -> Result<DataFrame> {
     // Extract branch flows (branch_id, flow_mw)
     let has_branch = opf_df.get_column_names().iter().any(|c| *c == "branch_id");
     let has_flow = opf_df.get_column_names().iter().any(|c| *c == "flow_mw");
@@ -276,7 +280,10 @@ fn compute_injection_payments(
     opf_df: &DataFrame,
     _tariffs: &HashMap<i64, f64>,
 ) -> Result<DataFrame> {
-    let has_injection = opf_df.get_column_names().iter().any(|c| *c == "injection_mw");
+    let has_injection = opf_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "injection_mw");
 
     if !has_injection {
         // No injections: return empty DataFrame
@@ -300,11 +307,9 @@ fn compute_injection_payments(
     let mut output_load_payment = Vec::new();
 
     for idx in 0..opf_df.height() {
-        if let (Some(bus_id), Some(lmp), Some(injection)) = (
-            bus_col.get(idx),
-            lmp_col.get(idx),
-            injection_col.get(idx),
-        ) {
+        if let (Some(bus_id), Some(lmp), Some(injection)) =
+            (bus_col.get(idx), lmp_col.get(idx), injection_col.get(idx))
+        {
             let (gen_revenue, load_payment) = if injection > 0.0 {
                 // Generation: earns revenue
                 (lmp * injection, 0.0)

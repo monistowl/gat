@@ -2,7 +2,6 @@
 ///
 /// This module provides conversion functions between gat-core's internal
 /// data structures and gat-tui's display-oriented types.
-
 use crate::data::{DatasetEntry, DatasetStatus, SystemMetrics};
 use gat_core::graph_utils::GraphStats;
 use gat_core::Network;
@@ -117,7 +116,7 @@ mod tests {
         // Test with high density (very connected)
         let stats = GraphStats {
             node_count: 100,
-            edge_count: 4950,  // Nearly fully connected
+            edge_count: 4950, // Nearly fully connected
             density: 0.99,
             connected_components: 1,
             min_degree: 50,

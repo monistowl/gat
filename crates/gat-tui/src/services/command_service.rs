@@ -1,12 +1,11 @@
+use crate::message::CommandResult;
 /// Command execution service for running system commands with timeout and output streaming
 ///
 /// Handles subprocess management, output capture, timeout enforcement, and graceful termination.
-
 use std::process::Stdio;
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use crate::message::CommandResult;
 
 /// Error types for command execution
 #[derive(Debug, Clone)]
@@ -98,9 +97,7 @@ impl CommandService {
         // Parse command into program and args
         let parts: Vec<&str> = exec.command.split_whitespace().collect();
         if parts.is_empty() {
-            return Err(CommandError::ExecutionFailed(
-                "Empty command".to_string(),
-            ));
+            return Err(CommandError::ExecutionFailed("Empty command".to_string()));
         }
 
         let program = parts[0];
@@ -120,9 +117,9 @@ impl CommandService {
         cmd.stderr(Stdio::piped());
 
         // Spawn process
-        let mut child = cmd.spawn().map_err(|e| {
-            CommandError::SpawnFailed(format!("{}: {}", program, e))
-        })?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| CommandError::SpawnFailed(format!("{}: {}", program, e)))?;
 
         // Collect output
         let mut stdout = String::new();
@@ -216,9 +213,7 @@ impl CommandService {
         // Parse command
         let parts: Vec<&str> = exec.command.split_whitespace().collect();
         if parts.is_empty() {
-            return Err(CommandError::ExecutionFailed(
-                "Empty command".to_string(),
-            ));
+            return Err(CommandError::ExecutionFailed("Empty command".to_string()));
         }
 
         let program = parts[0];
@@ -236,9 +231,9 @@ impl CommandService {
         cmd.stderr(Stdio::piped());
 
         // Spawn
-        let mut child = cmd.spawn().map_err(|e| {
-            CommandError::SpawnFailed(format!("{}: {}", program, e))
-        })?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| CommandError::SpawnFailed(format!("{}: {}", program, e)))?;
 
         let mut all_stdout = String::new();
         let mut all_stderr = String::new();
@@ -408,15 +403,12 @@ mod tests {
     #[tokio::test]
     async fn test_execute_nonexistent_command() {
         let service = CommandService::new(10);
-        let exec = CommandExecution::new(
-            "nonexistent_command_xyz_abc".to_string(),
-            10,
-        );
+        let exec = CommandExecution::new("nonexistent_command_xyz_abc".to_string(), 10);
 
         let result = service.execute(exec).await;
         assert!(result.is_err());
         match result.unwrap_err() {
-            CommandError::SpawnFailed(_) => {},
+            CommandError::SpawnFailed(_) => {}
             _ => panic!("Expected SpawnFailed error"),
         }
     }
@@ -440,8 +432,7 @@ mod tests {
     async fn test_execute_with_max_output_lines() {
         let service = CommandService::new(10);
         // Test that output lines limit is enforced - just test it doesn't panic
-        let exec = CommandExecution::new("echo test".to_string(), 10)
-            .with_max_output_lines(100);
+        let exec = CommandExecution::new("echo test".to_string(), 10).with_max_output_lines(100);
 
         let result = service.execute(exec).await;
         assert!(result.is_ok());
@@ -475,9 +466,11 @@ mod tests {
         let exec = CommandExecution::new("echo test".to_string(), 10);
 
         let mut received_lines = Vec::new();
-        let result = service.execute_with_streaming(exec, |line| {
-            received_lines.push(line);
-        }).await;
+        let result = service
+            .execute_with_streaming(exec, |line| {
+                received_lines.push(line);
+            })
+            .await;
 
         assert!(result.is_ok());
         // Should have at least one line
@@ -491,9 +484,11 @@ mod tests {
         let exec = CommandExecution::new("echo test".to_string(), 10);
 
         let mut received_lines = Vec::new();
-        let result = service.execute_with_streaming(exec, |_line| {
-            received_lines.push("output".to_string());
-        }).await;
+        let result = service
+            .execute_with_streaming(exec, |_line| {
+                received_lines.push("output".to_string());
+            })
+            .await;
 
         assert!(result.is_ok());
         let cmd_result = result.unwrap();
@@ -520,8 +515,7 @@ mod tests {
     #[tokio::test]
     async fn test_command_with_builder() {
         let service = CommandService::new(10);
-        let exec = CommandExecution::new("echo test".to_string(), 10)
-            .with_max_output_lines(100);
+        let exec = CommandExecution::new("echo test".to_string(), 10).with_max_output_lines(100);
 
         let result = service.execute(exec).await;
         assert!(result.is_ok());

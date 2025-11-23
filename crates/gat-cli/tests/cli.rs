@@ -415,7 +415,9 @@ scenarios:
     ])
     .assert()
     .success()
-    .stdout(predicate::str::contains("Scenario spec validated successfully"));
+    .stdout(predicate::str::contains(
+        "Scenario spec validated successfully",
+    ));
 }
 
 #[cfg(all(feature = "full-io", feature = "viz"))]

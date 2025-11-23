@@ -6,7 +6,6 @@
 /// - Dry-run vs full execution modes
 /// - Command history with results
 /// - Output modal for viewing results
-
 use crate::components::*;
 
 /// Execution mode for commands
@@ -184,14 +183,16 @@ impl Default for CommandsPaneState {
             },
             CommandSnippet {
                 id: "powerflow-study".into(),
-                command: "gat-cli analytics powerflow --dataset <id> --grid <grid> --cases <count>".into(),
+                command: "gat-cli analytics powerflow --dataset <id> --grid <grid> --cases <count>"
+                    .into(),
                 description: "Run comprehensive power flow study".into(),
                 category: "Analytics".into(),
             },
             // Batch operations
             CommandSnippet {
                 id: "batch-powerflow".into(),
-                command: "gat-cli batch powerflow --manifest <file> --max-jobs 4 --output <dir>".into(),
+                command: "gat-cli batch powerflow --manifest <file> --max-jobs 4 --output <dir>"
+                    .into(),
                 description: "Run batch power flow across multiple scenarios".into(),
                 category: "Batch".into(),
             },
@@ -224,8 +225,14 @@ impl Default for CommandsPaneState {
 
         let mut snippets_table = TableWidget::new("commands_snippets");
         snippets_table.columns = vec![
-            Column { header: "Snippet".into(), width: 40 },
-            Column { header: "Purpose".into(), width: 40 },
+            Column {
+                header: "Snippet".into(),
+                width: 40,
+            },
+            Column {
+                header: "Purpose".into(),
+                width: 40,
+            },
         ];
 
         let mut history_list = ListWidget::new("commands_history");
@@ -252,7 +259,12 @@ impl Default for CommandsPaneState {
         // Populate history list
         for result in &history {
             history_list.add_item(
-                format!("{} {} ({})", result.status.symbol(), result.command, result.mode.label()),
+                format!(
+                    "{} {} ({})",
+                    result.status.symbol(),
+                    result.command,
+                    result.mode.label()
+                ),
                 result.id.clone(),
             );
         }
@@ -316,8 +328,7 @@ impl CommandsPaneState {
     pub fn toggle_execution_mode(&mut self) {
         self.execution_mode = self.execution_mode.toggle();
         let msg = format!("{} mode", self.execution_mode.label());
-        self.mode_indicator = StatusWidget::new("execution_mode")
-            .set_info(msg);
+        self.mode_indicator = StatusWidget::new("execution_mode").set_info(msg);
     }
 
     pub fn open_modal(&mut self) {
@@ -336,7 +347,12 @@ impl CommandsPaneState {
     pub fn add_to_history(&mut self, result: CommandResult) {
         self.history.insert(0, result.clone());
         self.history_list.add_item(
-            format!("{} {} ({})", result.status.symbol(), result.command, result.mode.label()),
+            format!(
+                "{} {} ({})",
+                result.status.symbol(),
+                result.command,
+                result.mode.label()
+            ),
             result.id,
         );
     }
@@ -392,9 +408,21 @@ impl CommandsPaneState {
     }
 
     pub fn execution_summary(&self) -> (usize, usize, usize) {
-        let success = self.history.iter().filter(|r| r.status == CommandStatus::Success).count();
-        let failed = self.history.iter().filter(|r| r.status == CommandStatus::Failed).count();
-        let running = self.history.iter().filter(|r| r.status == CommandStatus::Running).count();
+        let success = self
+            .history
+            .iter()
+            .filter(|r| r.status == CommandStatus::Success)
+            .count();
+        let failed = self
+            .history
+            .iter()
+            .filter(|r| r.status == CommandStatus::Failed)
+            .count();
+        let running = self
+            .history
+            .iter()
+            .filter(|r| r.status == CommandStatus::Running)
+            .count();
         (success, failed, running)
     }
 
@@ -487,7 +515,10 @@ mod tests {
     fn test_load_snippet() {
         let mut state = CommandsPaneState::new();
         state.load_snippet_to_editor(3);
-        assert_eq!(state.custom_command, "gat-cli derms envelope --grid-file <case>");
+        assert_eq!(
+            state.custom_command,
+            "gat-cli derms envelope --grid-file <case>"
+        );
         assert_eq!(state.selected_snippet, 3);
     }
 
@@ -521,7 +552,7 @@ mod tests {
     fn test_history_management() {
         let mut state = CommandsPaneState::new();
         let initial_count = state.history_count();
-        
+
         let result = CommandResult {
             id: "cmd_003".into(),
             command: "gat-cli test".into(),
@@ -530,7 +561,7 @@ mod tests {
             output_lines: 10,
             timestamp: "2024-11-21 14:35:00".into(),
         };
-        
+
         state.add_to_history(result);
         assert_eq!(state.history_count(), initial_count + 1);
     }

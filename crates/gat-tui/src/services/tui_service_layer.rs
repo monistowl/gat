@@ -4,11 +4,10 @@
 /// abstracting away complexity of multiple service types and providing clean APIs
 /// for panes to use. It coordinates between CommandService, GatService, and
 /// external data sources.
-
-use crate::data::{DatasetEntry, Workflow, SystemMetrics};
-use crate::services::{QueryBuilder, QueryError, CommandValidator, ValidCommand, ValidationError};
-use std::sync::Arc;
+use crate::data::{DatasetEntry, SystemMetrics, Workflow};
+use crate::services::{CommandValidator, QueryBuilder, QueryError, ValidCommand, ValidationError};
 use serde_json::json;
+use std::sync::Arc;
 
 /// Enumeration of available analytics types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,7 +170,11 @@ impl TuiServiceLayer {
         dataset_id: &str,
         options: &[(&str, &str)],
     ) -> String {
-        let mut cmd = format!("gat-cli analytics {} --dataset-id {}", analytics_type.as_str(), dataset_id);
+        let mut cmd = format!(
+            "gat-cli analytics {} --dataset-id {}",
+            analytics_type.as_str(),
+            dataset_id
+        );
         for (key, value) in options {
             cmd.push_str(&format!(" --{} {}", key, value));
         }
@@ -213,12 +216,23 @@ impl TuiServiceLayer {
 
     /// Build scenario materialization command
     pub fn build_scenario_materialize_command(&self, template: &str, output: &str) -> String {
-        format!("gat-cli scenarios materialize --template {} --output {}", template, output)
+        format!(
+            "gat-cli scenarios materialize --template {} --output {}",
+            template, output
+        )
     }
 
     /// Build scenario expansion command
-    pub fn build_scenario_expand_command(&self, template: &str, vars: &[(String, String)], output: &str) -> String {
-        let mut cmd = format!("gat-cli scenarios expand --template {} --output {}", template, output);
+    pub fn build_scenario_expand_command(
+        &self,
+        template: &str,
+        vars: &[(String, String)],
+        output: &str,
+    ) -> String {
+        let mut cmd = format!(
+            "gat-cli scenarios expand --template {} --output {}",
+            template, output
+        );
         for (key, value) in vars {
             cmd.push_str(&format!(" --var {}={}", key, value));
         }
@@ -231,7 +245,10 @@ impl TuiServiceLayer {
 
     /// Build batch power flow command
     pub fn build_batch_pf_command(&self, manifest: &str, max_jobs: usize) -> String {
-        format!("gat-cli batch pf --manifest {} --max-jobs {}", manifest, max_jobs)
+        format!(
+            "gat-cli batch pf --manifest {} --max-jobs {}",
+            manifest, max_jobs
+        )
     }
 
     /// Build batch OPF command
@@ -247,7 +264,12 @@ impl TuiServiceLayer {
     // ============================================================================
 
     /// Build geographic join command
-    pub fn build_geo_join_command(&self, left_file: &str, right_file: &str, output: &str) -> String {
+    pub fn build_geo_join_command(
+        &self,
+        left_file: &str,
+        right_file: &str,
+        output: &str,
+    ) -> String {
         format!(
             "gat-cli geo join --left {} --right {} --output {}",
             left_file, right_file, output
@@ -255,7 +277,12 @@ impl TuiServiceLayer {
     }
 
     /// Build geographic query command
-    pub fn build_geo_query_command(&self, file: &str, bounds: (f64, f64, f64, f64), output: &str) -> String {
+    pub fn build_geo_query_command(
+        &self,
+        file: &str,
+        bounds: (f64, f64, f64, f64),
+        output: &str,
+    ) -> String {
         let (min_lat, min_lon, max_lat, max_lon) = bounds;
         format!(
             "gat-cli geo query --file {} --bounds {},{},{},{} --output {}",
@@ -377,9 +404,7 @@ impl TuiServiceLayer {
             deliverability_score: deliverability["deliverability_score"]
                 .as_f64()
                 .unwrap_or(0.0),
-            lole_hours_per_year: reliability["lole_hours_per_year"]
-                .as_f64()
-                .unwrap_or(0.0),
+            lole_hours_per_year: reliability["lole_hours_per_year"].as_f64().unwrap_or(0.0),
             eue_mwh_per_year: reliability["eue_mwh_per_year"].as_f64().unwrap_or(0.0),
         })
     }
@@ -510,7 +535,10 @@ impl TuiServiceLayer {
     }
 
     /// Poll batch job status
-    pub async fn get_batch_job_status(&self, job_id: &str) -> Result<serde_json::Value, QueryError> {
+    pub async fn get_batch_job_status(
+        &self,
+        job_id: &str,
+    ) -> Result<serde_json::Value, QueryError> {
         Ok(json!({
             "job_id": job_id,
             "status": "in_progress",
@@ -1151,9 +1179,7 @@ mod tests {
         let qb = Arc::new(MockQueryBuilder);
         let service = TuiServiceLayer::new(qb);
 
-        let result = service
-            .execute_batch_power_flow("manifest.json", 10)
-            .await;
+        let result = service.execute_batch_power_flow("manifest.json", 10).await;
         assert!(result.is_ok());
 
         let data = result.unwrap();
@@ -1225,10 +1251,7 @@ mod tests {
         let qb = Arc::new(MockQueryBuilder);
         let service = TuiServiceLayer::new(qb);
 
-        let result = service
-            .get_batch_job_status("batch-001")
-            .await
-            .unwrap();
+        let result = service.get_batch_job_status("batch-001").await.unwrap();
 
         assert_eq!(result["status"], "in_progress");
         assert_eq!(result["progress"], 65);
@@ -1260,9 +1283,7 @@ mod tests {
         let qb = Arc::new(MockQueryBuilder);
         let service = TuiServiceLayer::new(qb);
 
-        let result = service
-            .get_all_analytics_results("dataset1", "grid1")
-            .await;
+        let result = service.get_all_analytics_results("dataset1", "grid1").await;
         assert!(result.is_ok());
 
         let data = result.unwrap();
@@ -1347,16 +1368,10 @@ mod tests {
         let qb = Arc::new(MockQueryBuilder);
         let service = TuiServiceLayer::new(qb);
 
-        let dataset_pairs = vec![
-            ("ds1", "grid1"),
-            ("ds2", "grid2"),
-            ("ds3", "grid3"),
-        ];
+        let dataset_pairs = vec![("ds1", "grid1"), ("ds2", "grid2"), ("ds3", "grid3")];
 
         for (dataset_id, grid_id) in dataset_pairs {
-            let result = service
-                .get_all_analytics_results(dataset_id, grid_id)
-                .await;
+            let result = service.get_all_analytics_results(dataset_id, grid_id).await;
             assert!(result.is_ok());
 
             let data = result.unwrap();

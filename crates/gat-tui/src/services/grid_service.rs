@@ -3,13 +3,12 @@
 /// This module provides GridService which manages lifecycle of loaded
 /// power system grids (networks). It uses gat-io to load grids from files
 /// and caches them in memory for fast access and analysis.
-
 use gat_core::Network;
 use gat_io::importers;
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use parking_lot::RwLock;
 use uuid::Uuid;
 
 /// Error type for grid service operations
@@ -94,7 +93,11 @@ impl GridService {
     /// Load a grid from a Matpower .m file and cache it
     ///
     /// Matpower files must be converted to Arrow format first via gat-io.
-    pub fn load_grid_from_matpower(&self, file_path: &str, output_arrow: &str) -> Result<String, GridError> {
+    pub fn load_grid_from_matpower(
+        &self,
+        file_path: &str,
+        output_arrow: &str,
+    ) -> Result<String, GridError> {
         // Verify file exists
         if !Path::new(file_path).exists() {
             return Err(GridError::NotFound(file_path.to_string()));

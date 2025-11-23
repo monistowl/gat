@@ -3,13 +3,12 @@
 /// This module provides adapters that implement the QueryBuilder trait
 /// using actual gat-core services. This serves as the production implementation
 /// while MockQueryBuilder is used for testing.
-
-use crate::data::{DatasetEntry, Workflow, SystemMetrics};
+use crate::data::{DatasetEntry, SystemMetrics, Workflow};
 use crate::services::{QueryBuilder, QueryError};
 use async_trait::async_trait;
+use std::io::Read;
 use std::process::{Command, Stdio};
 use std::time::Duration;
-use std::io::Read;
 
 /// Adapter that queries gat-core via CLI
 pub struct GatCoreCliAdapter {

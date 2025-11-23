@@ -2,7 +2,6 @@
 ///
 /// This module provides abstractions for executing GAT operations and retrieving data.
 /// It maps pane actions to appropriate GAT CLI commands and handles async execution.
-
 use std::collections::HashMap;
 
 /// GAT service command builder
@@ -26,7 +25,10 @@ impl GatService {
 
     /// Download dataset for preview
     pub fn preview_dataset(&self, dataset_id: &str) -> String {
-        format!("{} dataset download --id {} --format preview", self.cli_path, dataset_id)
+        format!(
+            "{} dataset download --id {} --format preview",
+            self.cli_path, dataset_id
+        )
     }
 
     /// Upload user dataset

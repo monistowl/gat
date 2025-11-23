@@ -26,7 +26,8 @@ fn test_unicode_characters_in_output() {
     for (char, desc) in chars_to_check {
         let found = output.contains(char);
         let byte_count = char.len();
-        println!("  {} ({:2} bytes) - {}: {}",
+        println!(
+            "  {} ({:2} bytes) - {}: {}",
             char,
             byte_count,
             desc,
@@ -74,9 +75,12 @@ fn check_locale_and_encoding() {
 
     println!("\nFor UTF-8 support, one of these should contain 'UTF-8' or 'utf8'");
 
-    let has_utf8 = lang.contains("UTF") || lang.contains("utf") ||
-                   lc_all.contains("UTF") || lc_all.contains("utf") ||
-                   lc_ctype.contains("UTF") || lc_ctype.contains("utf");
+    let has_utf8 = lang.contains("UTF")
+        || lang.contains("utf")
+        || lc_all.contains("UTF")
+        || lc_all.contains("utf")
+        || lc_ctype.contains("UTF")
+        || lc_ctype.contains("utf");
 
     if has_utf8 {
         println!("✓ UTF-8 locale appears to be set\n");

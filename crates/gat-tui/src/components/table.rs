@@ -68,7 +68,10 @@ impl TableWidget {
     pub fn scroll_down(&mut self, page_size: usize) {
         self.scroll_offset = self.scroll_offset.saturating_add(page_size);
         if self.scroll_offset > self.rows.len() {
-            self.scroll_offset = self.rows.len().saturating_sub(page_size.min(self.rows.len()));
+            self.scroll_offset = self
+                .rows
+                .len()
+                .saturating_sub(page_size.min(self.rows.len()));
         }
     }
 

@@ -27,11 +27,11 @@ use std::path::Path;
 /// - Industry benchmarks: IEEE 1366-2012 (distribution reliability indices)
 #[derive(Clone, Debug)]
 struct ReliabilityElement {
-    element_id: String,        // Unique identifier (branch_id, switch_id, etc.)
-    _element_type: String,     // Type: "branch", "transformer", "switch", "fuse"
-    failure_rate: f64,         // λ (failures/year): annual failure probability
-    repair_hours: f64,         // r (hours): mean time to repair (MTTR)
-    _customers: Option<i64>,   // N_cust: downstream customer count for weighting
+    element_id: String,      // Unique identifier (branch_id, switch_id, etc.)
+    _element_type: String,   // Type: "branch", "transformer", "switch", "fuse"
+    failure_rate: f64,       // λ (failures/year): annual failure probability
+    repair_hours: f64,       // r (hours): mean time to repair (MTTR)
+    _customers: Option<i64>, // N_cust: downstream customer count for weighting
 }
 
 /// Simulate FLISR (Fault Location, Isolation, and Service Restoration) with reliability metrics.

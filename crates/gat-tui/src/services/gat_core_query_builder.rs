@@ -2,9 +2,8 @@
 ///
 /// GatCoreQueryBuilder implements the QueryBuilder trait to provide
 /// actual power system data from loaded networks, replacing MockQueryBuilder.
-
 use super::query_builder::{QueryBuilder, QueryError};
-use super::{GridService, network_to_dataset_entry, graph_stats_to_system_metrics};
+use super::{graph_stats_to_system_metrics, network_to_dataset_entry, GridService};
 use crate::data::{DatasetEntry, SystemMetrics, Workflow};
 use async_trait::async_trait;
 use gat_core::graph_utils;
@@ -124,7 +123,8 @@ impl QueryBuilder for GatCoreQueryBuilder {
     async fn get_metrics(&self) -> Result<SystemMetrics, QueryError> {
         let grid_id = self.get_current_grid_id()?;
 
-        let network = self.grid_service
+        let network = self
+            .grid_service
             .get_grid(&grid_id)
             .map_err(|e| QueryError::ConnectionFailed(format!("{:?}", e)))?;
 
@@ -142,7 +142,8 @@ impl QueryBuilder for GatCoreQueryBuilder {
     async fn get_pipeline_config(&self) -> Result<String, QueryError> {
         let grid_id = self.get_current_grid_id()?;
 
-        let network = self.grid_service
+        let network = self
+            .grid_service
             .get_grid(&grid_id)
             .map_err(|e| QueryError::ConnectionFailed(format!("{:?}", e)))?;
 
@@ -244,10 +245,7 @@ mod tests {
     #[test]
     fn test_clear_current_grid() {
         let grid_service = GridService::new();
-        let mut qb = GatCoreQueryBuilder::with_grid(
-            grid_service,
-            "test-grid".to_string(),
-        );
+        let mut qb = GatCoreQueryBuilder::with_grid(grid_service, "test-grid".to_string());
         assert!(qb.current_grid().is_some());
 
         qb.clear_current_grid();
@@ -265,10 +263,7 @@ mod tests {
     #[test]
     fn test_get_current_grid_id_when_set() {
         let grid_service = GridService::new();
-        let qb = GatCoreQueryBuilder::with_grid(
-            grid_service,
-            "test-123".to_string(),
-        );
+        let qb = GatCoreQueryBuilder::with_grid(grid_service, "test-123".to_string());
         let result = qb.get_current_grid_id();
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "test-123");
@@ -277,10 +272,7 @@ mod tests {
     #[test]
     fn test_gat_core_query_builder_clone() {
         let grid_service = GridService::new();
-        let qb1 = GatCoreQueryBuilder::with_grid(
-            grid_service,
-            "test-grid".to_string(),
-        );
+        let qb1 = GatCoreQueryBuilder::with_grid(grid_service, "test-grid".to_string());
         let qb2 = qb1.clone();
         assert_eq!(qb2.current_grid(), qb1.current_grid());
     }

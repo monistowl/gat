@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 /// Shared data structures for TUI state and display.
 ///
 /// Provides types for:
@@ -7,9 +8,7 @@
 /// - Configuration state
 ///
 /// These are used across panes and the test harness for consistent data modeling.
-
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
 
 /// Dataset availability status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -312,12 +311,7 @@ impl ConfigField {
         }
     }
 
-    pub fn number(
-        name: impl Into<String>,
-        label: impl Into<String>,
-        min: i32,
-        max: i32,
-    ) -> Self {
+    pub fn number(name: impl Into<String>, label: impl Into<String>, min: i32, max: i32) -> Self {
         Self {
             name: name.into(),
             label: label.into(),
@@ -415,9 +409,9 @@ pub enum WorkflowStatus {
 /// System metrics for Dashboard
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SystemMetrics {
-    pub deliverability_score: f64,  // 0-100
-    pub lole_hours_per_year: f64,   // Loss of Load Expectation
-    pub eue_mwh_per_year: f64,      // Expected Unserved Energy
+    pub deliverability_score: f64, // 0-100
+    pub lole_hours_per_year: f64,  // Loss of Load Expectation
+    pub eue_mwh_per_year: f64,     // Expected Unserved Energy
 }
 
 #[cfg(test)]
@@ -439,12 +433,10 @@ mod tests {
 
     #[test]
     fn test_metric_min_threshold() {
-        let m = MetricValue::new("LOLE", 12.0, "h/yr")
-            .with_min_threshold(10.0);
+        let m = MetricValue::new("LOLE", 12.0, "h/yr").with_min_threshold(10.0);
         assert_eq!(m.status, MetricStatus::Good);
 
-        let m = MetricValue::new("LOLE", 5.0, "h/yr")
-            .with_min_threshold(10.0);
+        let m = MetricValue::new("LOLE", 5.0, "h/yr").with_min_threshold(10.0);
         assert_eq!(m.status, MetricStatus::Critical);
     }
 

@@ -75,7 +75,7 @@ impl NavMenu {
     }
 
     pub fn render_menu_bar(&self) -> String {
-        use crate::ui::ansi::{StyledText, COLOR_YELLOW, COLOR_GREEN};
+        use crate::ui::ansi::{StyledText, COLOR_GREEN, COLOR_YELLOW};
 
         let mut output = String::new();
         let parts: Vec<String> = self
@@ -107,9 +107,7 @@ impl NavMenu {
                     .map(|btn| {
                         let button_text = format!("({}) {}", btn.hotkey, btn.label);
                         // Style action buttons in green
-                        StyledText::new()
-                            .color(COLOR_GREEN)
-                            .apply(button_text)
+                        StyledText::new().color(COLOR_GREEN).apply(button_text)
                     })
                     .collect();
                 let _ = write!(output, " | Actions: {}", context.join(", "));

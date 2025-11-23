@@ -5,8 +5,6 @@ pub struct Label {
 
 impl Label {
     pub fn new(text: impl Into<String>) -> Self {
-        Label {
-            text: text.into(),
-        }
+        Label { text: text.into() }
     }
 }

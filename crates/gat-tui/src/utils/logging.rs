@@ -1,13 +1,10 @@
+use std::path::Path;
+use tracing_appender::rolling;
 /// Logging configuration and initialization
 ///
 /// Provides convenient setup for the tracing logging system with support for
 /// both console output and file-based logging.
-
-use tracing_subscriber::{
-    fmt, prelude::*, registry::Registry, util::SubscriberInitExt, EnvFilter,
-};
-use tracing_appender::rolling;
-use std::path::Path;
+use tracing_subscriber::{fmt, prelude::*, registry::Registry, util::SubscriberInitExt, EnvFilter};
 
 /// Initialize console logging with optional file output
 ///
@@ -29,9 +26,7 @@ pub fn init_logging(log_dir: Option<&str>, _max_level_env: &str) -> anyhow::Resu
 
     let console_layer = fmt::layer().with_writer(std::io::stdout);
 
-    let registry = Registry::default()
-        .with(env_filter)
-        .with(console_layer);
+    let registry = Registry::default().with(env_filter).with(console_layer);
 
     if let Some(log_dir) = log_dir {
         let file_appender = rolling::hourly(log_dir, "gat-tui.log");
@@ -83,11 +78,7 @@ pub fn setup_file_logging(log_dir: impl AsRef<Path>, file_prefix: &str) -> anyho
 
 /// Log a user-facing message with context
 pub fn log_user_action(action: &str, details: &str) {
-    tracing::info!(
-        action = action,
-        details = details,
-        "User action executed"
-    );
+    tracing::info!(action = action, details = details, "User action executed");
 }
 
 /// Log an operation start (useful for span tracking)

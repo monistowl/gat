@@ -1,7 +1,6 @@
 /// Navigation and routing system for the application
 ///
 /// Handles pane switching, tab navigation, modal management, and history
-
 use crate::models::PaneId;
 use std::collections::VecDeque;
 
@@ -141,8 +140,14 @@ mod tests {
 
     #[test]
     fn test_hotkey_to_pane() {
-        assert_eq!(NavigationRouter::hotkey_to_pane('1'), Some(PaneId::Dashboard));
-        assert_eq!(NavigationRouter::hotkey_to_pane('2'), Some(PaneId::Operations));
+        assert_eq!(
+            NavigationRouter::hotkey_to_pane('1'),
+            Some(PaneId::Dashboard)
+        );
+        assert_eq!(
+            NavigationRouter::hotkey_to_pane('2'),
+            Some(PaneId::Operations)
+        );
         assert_eq!(NavigationRouter::hotkey_to_pane('h'), Some(PaneId::Help));
         assert_eq!(NavigationRouter::hotkey_to_pane('x'), None);
     }
@@ -178,11 +183,14 @@ mod tests {
 
     #[test]
     fn test_pane_cycling() {
-        assert_eq!(NavigationRouter::next_pane(PaneId::Dashboard), PaneId::Operations);
-        assert_eq!(NavigationRouter::previous_pane(PaneId::Dashboard), PaneId::Help);
         assert_eq!(
-            NavigationRouter::next_pane(PaneId::Help),
-            PaneId::Dashboard
+            NavigationRouter::next_pane(PaneId::Dashboard),
+            PaneId::Operations
         );
+        assert_eq!(
+            NavigationRouter::previous_pane(PaneId::Dashboard),
+            PaneId::Help
+        );
+        assert_eq!(NavigationRouter::next_pane(PaneId::Help), PaneId::Dashboard);
     }
 }

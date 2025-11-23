@@ -5,7 +5,6 @@
 /// - Deliverability Score (DS) metrics
 /// - ELCC (Effective Load Carrying Capability) results
 /// - Power flow analysis and congestion identification
-
 use crate::components::*;
 
 /// Metric status indicator
@@ -285,17 +284,34 @@ impl Default for AnalyticsPaneState {
         let mut metrics_list = ListWidget::new("analytics_metrics");
         for result in &reliability_results {
             metrics_list.add_item(
-                format!("{}: {:.1}h LOLE {}", result.scenario_id, result.lole_hours, result.status.symbol()),
+                format!(
+                    "{}: {:.1}h LOLE {}",
+                    result.scenario_id,
+                    result.lole_hours,
+                    result.status.symbol()
+                ),
                 result.scenario_id.clone(),
             );
         }
 
         let mut details_table = TableWidget::new("analytics_details");
         details_table.columns = vec![
-            Column { header: "Scenario".into(), width: 20 },
-            Column { header: "LOLE (h)".into(), width: 12 },
-            Column { header: "EUE (MWh)".into(), width: 12 },
-            Column { header: "Status".into(), width: 10 },
+            Column {
+                header: "Scenario".into(),
+                width: 20,
+            },
+            Column {
+                header: "LOLE (h)".into(),
+                width: 12,
+            },
+            Column {
+                header: "EUE (MWh)".into(),
+                width: 12,
+            },
+            Column {
+                header: "Status".into(),
+                width: 10,
+            },
         ];
 
         AnalyticsPaneState {
@@ -530,7 +546,12 @@ impl AnalyticsPaneState {
             AnalyticsTab::Reliability => {
                 for result in &self.reliability_results {
                     self.metrics_list.add_item(
-                        format!("{}: {:.1}h {}", result.scenario_id, result.lole_hours, result.status.symbol()),
+                        format!(
+                            "{}: {:.1}h {}",
+                            result.scenario_id,
+                            result.lole_hours,
+                            result.status.symbol()
+                        ),
                         result.scenario_id.clone(),
                     );
                 }
@@ -538,7 +559,12 @@ impl AnalyticsPaneState {
             AnalyticsTab::DeliverabilityScore => {
                 for result in &self.ds_results {
                     self.metrics_list.add_item(
-                        format!("{}: {:.1}% {}", result.bus_id, result.ds_value, result.status.symbol()),
+                        format!(
+                            "{}: {:.1}% {}",
+                            result.bus_id,
+                            result.ds_value,
+                            result.status.symbol()
+                        ),
                         result.bus_id.clone(),
                     );
                 }
@@ -546,7 +572,12 @@ impl AnalyticsPaneState {
             AnalyticsTab::ELCC => {
                 for result in &self.elcc_results {
                     self.metrics_list.add_item(
-                        format!("{}: {:.1} MW {}", result.resource_id, result.elcc_mw, result.status.symbol()),
+                        format!(
+                            "{}: {:.1} MW {}",
+                            result.resource_id,
+                            result.elcc_mw,
+                            result.status.symbol()
+                        ),
                         result.resource_id.clone(),
                     );
                 }
@@ -573,7 +604,11 @@ impl AnalyticsPaneState {
             AnalyticsTab::DeliverabilityScore => self.ds_summary.clone(),
             AnalyticsTab::ELCC => self.elcc_summary.clone(),
             AnalyticsTab::PowerFlow => {
-                format!("{} branches - {} congested", self.power_flow_results.len(), self.congestion_count)
+                format!(
+                    "{} branches - {} congested",
+                    self.power_flow_results.len(),
+                    self.congestion_count
+                )
             }
         };
         self.summary_text.set_content(content);
@@ -585,16 +620,40 @@ impl AnalyticsPaneState {
         }
 
         let warning_count = match self.active_tab {
-            AnalyticsTab::Reliability => self.reliability_results.iter().filter(|r| r.status == MetricStatus::Warning).count(),
-            AnalyticsTab::DeliverabilityScore => self.ds_results.iter().filter(|r| r.status == MetricStatus::Warning).count(),
-            AnalyticsTab::ELCC => self.elcc_results.iter().filter(|r| r.status == MetricStatus::Warning).count(),
+            AnalyticsTab::Reliability => self
+                .reliability_results
+                .iter()
+                .filter(|r| r.status == MetricStatus::Warning)
+                .count(),
+            AnalyticsTab::DeliverabilityScore => self
+                .ds_results
+                .iter()
+                .filter(|r| r.status == MetricStatus::Warning)
+                .count(),
+            AnalyticsTab::ELCC => self
+                .elcc_results
+                .iter()
+                .filter(|r| r.status == MetricStatus::Warning)
+                .count(),
             AnalyticsTab::PowerFlow => self.congestion_count,
         };
 
         let critical_count = match self.active_tab {
-            AnalyticsTab::Reliability => self.reliability_results.iter().filter(|r| r.status == MetricStatus::Critical).count(),
-            AnalyticsTab::DeliverabilityScore => self.ds_results.iter().filter(|r| r.status == MetricStatus::Critical).count(),
-            AnalyticsTab::ELCC => self.elcc_results.iter().filter(|r| r.status == MetricStatus::Critical).count(),
+            AnalyticsTab::Reliability => self
+                .reliability_results
+                .iter()
+                .filter(|r| r.status == MetricStatus::Critical)
+                .count(),
+            AnalyticsTab::DeliverabilityScore => self
+                .ds_results
+                .iter()
+                .filter(|r| r.status == MetricStatus::Critical)
+                .count(),
+            AnalyticsTab::ELCC => self
+                .elcc_results
+                .iter()
+                .filter(|r| r.status == MetricStatus::Critical)
+                .count(),
             AnalyticsTab::PowerFlow => 0, // Handled by congestion_count
         };
 

@@ -1,9 +1,9 @@
+use crate::data::{SystemMetrics, Workflow};
+use crate::services::{GatCoreQueryBuilder, GridService};
+use crate::{DatasetEntry, QueryBuilder, QueryError};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::{QueryBuilder, QueryError, DatasetEntry};
-use crate::data::{Workflow, SystemMetrics};
-use crate::services::{GridService, GatCoreQueryBuilder};
-use serde::Deserialize;
 
 /// Serialize SystemTime as Unix timestamp
 fn serialize_system_time<S>(time: &std::time::SystemTime, serializer: S) -> Result<S::Ok, S::Error>
@@ -35,7 +35,10 @@ pub struct ExecutedCommand {
     pub stderr: String,
     pub duration_ms: u64,
     pub timed_out: bool,
-    #[serde(serialize_with = "serialize_system_time", deserialize_with = "deserialize_system_time")]
+    #[serde(
+        serialize_with = "serialize_system_time",
+        deserialize_with = "deserialize_system_time"
+    )]
     pub executed_at: std::time::SystemTime,
 }
 
@@ -483,9 +486,9 @@ impl AppState {
         // Switch to GatCoreQueryBuilder as the active query builder
         // In future, this could be made switchable with MockQueryBuilder for testing
         self.query_builder = Arc::new(
-            self.gat_core_query_builder.clone().unwrap_or_else(|| {
-                GatCoreQueryBuilder::new(self.grid_service.clone())
-            })
+            self.gat_core_query_builder
+                .clone()
+                .unwrap_or_else(|| GatCoreQueryBuilder::new(self.grid_service.clone())),
         );
 
         // Invalidate cached results so they refresh with new grid data

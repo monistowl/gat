@@ -135,7 +135,10 @@ pub fn handle(command: &GeoCommands) -> Result<()> {
             summary.num_mapped, summary.num_unmapped
         );
         if summary.num_unmapped > 0 {
-            println!("  ⚠️  {} buses outside all polygons (will have null polygon_id)", summary.num_unmapped);
+            println!(
+                "  ⚠️  {} buses outside all polygons (will have null polygon_id)",
+                summary.num_unmapped
+            );
         }
         println!("  Output: {}", out);
 
@@ -143,7 +146,7 @@ pub fn handle(command: &GeoCommands) -> Result<()> {
     })();
 
     // Record run telemetry
-    let params = vec![
+    let params = [
         ("grid_file".to_string(), grid_file.to_string()),
         ("polygons".to_string(), polygons.to_string()),
         ("method".to_string(), method.to_string()),

@@ -1,7 +1,6 @@
 /// Command execution UI components
 ///
 /// Provides rendering helpers for displaying command results and output.
-
 use crate::message::CommandResult;
 
 /// Command result modal renderer
@@ -14,9 +13,12 @@ impl CommandResultModal {
         let mut lines = Vec::new();
 
         // Header box
-        lines.push("╔════════════════════════════════════════════════════════════════╗".to_string());
-        lines.push("║                    COMMAND EXECUTION RESULT                    ║".to_string());
-        lines.push("╚════════════════════════════════════════════════════════════════╝".to_string());
+        lines
+            .push("╔════════════════════════════════════════════════════════════════╗".to_string());
+        lines
+            .push("║                    COMMAND EXECUTION RESULT                    ║".to_string());
+        lines
+            .push("╚════════════════════════════════════════════════════════════════╝".to_string());
         lines.push(String::new());
 
         // Command info
@@ -32,7 +34,10 @@ impl CommandResultModal {
         } else {
             "✗ Failed"
         };
-        lines.push(format!("Status: {} (exit code: {})", status_indicator, result.exit_code));
+        lines.push(format!(
+            "Status: {} (exit code: {})",
+            status_indicator, result.exit_code
+        ));
 
         // Duration
         let duration_sec = result.duration_ms as f64 / 1000.0;
@@ -126,7 +131,9 @@ impl CommandOutputViewer {
             return vec!["(No output)".to_string()];
         }
 
-        let start = self.scroll_position.min(self.lines.len().saturating_sub(height));
+        let start = self
+            .scroll_position
+            .min(self.lines.len().saturating_sub(height));
         let end = (start + height).min(self.lines.len());
 
         self.lines[start..end].to_vec()
@@ -266,7 +273,12 @@ mod tests {
 
     #[test]
     fn test_output_viewer_scroll_up_down() {
-        let lines = vec!["L1".to_string(), "L2".to_string(), "L3".to_string(), "L4".to_string()];
+        let lines = vec![
+            "L1".to_string(),
+            "L2".to_string(),
+            "L3".to_string(),
+            "L4".to_string(),
+        ];
         let mut viewer = CommandOutputViewer::new(lines);
 
         // Start at beginning
@@ -371,9 +383,7 @@ mod tests {
 
     #[test]
     fn test_output_viewer_large_output() {
-        let lines: Vec<String> = (0..1000)
-            .map(|i| format!("Line {}", i))
-            .collect();
+        let lines: Vec<String> = (0..1000).map(|i| format!("Line {}", i)).collect();
 
         let mut viewer = CommandOutputViewer::new(lines);
         assert_eq!(viewer.line_count(), 1000);

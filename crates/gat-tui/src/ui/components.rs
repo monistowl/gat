@@ -7,7 +7,6 @@
 /// - Data preview tables
 ///
 /// These components are used across panes for consistent UI and reduce duplication.
-
 use super::*;
 
 /// Information about a file for display in file browsers
@@ -69,10 +68,7 @@ pub fn file_browser_table(files: &[FileInfo]) -> Pane {
 
     Pane::new("Available Files")
         .with_table(table)
-        .with_child(
-            Pane::new("")
-                .body(["Navigation: ↑↓ select  Enter confirm  Esc cancel"]),
-        )
+        .with_child(Pane::new("").body(["Navigation: ↑↓ select  Enter confirm  Esc cancel"]))
 }
 
 /// Create a progress bar with percentage and counts
@@ -213,7 +209,11 @@ impl ConfigField {
         }
     }
 
-    pub fn dropdown(name: impl Into<String>, label: impl Into<String>, options: Vec<String>) -> Self {
+    pub fn dropdown(
+        name: impl Into<String>,
+        label: impl Into<String>,
+        options: Vec<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             label: label.into(),
@@ -357,10 +357,7 @@ pub fn manifest_preview(title: &str, lines: &[impl AsRef<str>]) -> Pane {
     let string_lines: Vec<String> = lines.iter().map(|l| l.as_ref().to_string()).collect();
     Pane::new(title)
         .body(string_lines.as_slice())
-        .with_child(
-            Pane::new("")
-                .body(vec!["▍ Scroll: ↑↓ Page up/down"]),
-        )
+        .with_child(Pane::new("").body(vec!["▍ Scroll: ↑↓ Page up/down"]))
 }
 
 #[cfg(test)]

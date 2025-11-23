@@ -1,12 +1,13 @@
+use std::fmt;
 /// Unique ID generation for tasks and commands
 ///
 /// Provides a convenient wrapper around uuid for generating unique identifiers.
-
 use uuid::Uuid;
-use std::fmt;
 
 /// A unique task identifier
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct TaskId(Uuid);
 
 impl TaskId {

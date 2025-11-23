@@ -19,11 +19,11 @@ pub struct ReliabilitySummary {
 struct ReliabilityRecord {
     scenario_id: Option<String>,
     time: Option<String>,
-    lole: f64,              // Loss of Load Expectation: 1.0 if unserved load > 0, else 0.0
-    eue_mwh: f64,          // Energy Unserved/Not Served (MWh)
+    lole: f64,               // Loss of Load Expectation: 1.0 if unserved load > 0, else 0.0
+    eue_mwh: f64,            // Energy Unserved/Not Served (MWh)
     thermal_violations: i64, // Count of branches exceeding thermal limits
     max_flow_utilization: f64, // Maximum branch flow / limit ratio
-    constrained_hours: f64,    // 1.0 if any constraint binding, else 0.0
+    constrained_hours: f64,  // 1.0 if any constraint binding, else 0.0
 }
 
 /// Compute reliability metrics (LOLE, EUE, thermal violations) from batch PF/OPF outputs.
@@ -94,7 +94,11 @@ pub fn reliability_metrics(
     };
 
     // Validate required columns
-    if !flows_df.get_column_names().iter().any(|c| *c == "branch_id") {
+    if !flows_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "branch_id")
+    {
         return Err(anyhow!("flows must contain 'branch_id' column"));
     }
     if !flows_df.get_column_names().iter().any(|c| *c == "flow_mw") {
@@ -215,16 +219,25 @@ fn compute_reliability_records(
     let mut records = Vec::new();
 
     // Determine grouping columns (scenario_id, time)
-    let has_scenario = flows_df.get_column_names().iter().any(|c| *c == "scenario_id");
+    let has_scenario = flows_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "scenario_id");
     let has_time = flows_df.get_column_names().iter().any(|c| *c == "time");
-    let has_unserved = flows_df.get_column_names().iter().any(|c| *c == "unserved_energy_mw");
+    let has_unserved = flows_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "unserved_energy_mw");
 
     // Group flows by case (scenario_id, time)
-    let group_cols: Vec<String> = [has_scenario.then_some("scenario_id"), has_time.then_some("time")]
-        .into_iter()
-        .flatten()
-        .map(|s| s.to_string())
-        .collect();
+    let group_cols: Vec<String> = [
+        has_scenario.then_some("scenario_id"),
+        has_time.then_some("time"),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|s| s.to_string())
+    .collect();
 
     if group_cols.is_empty() {
         // Single case: treat entire DataFrame as one scenario/time
@@ -334,7 +347,11 @@ fn compute_case_metrics(
     }
 
     // LOLE = 1.0 if unserved load exceeds threshold, else 0.0
-    let lole = if eue_mwh > unserved_threshold_mw { 1.0 } else { 0.0 };
+    let lole = if eue_mwh > unserved_threshold_mw {
+        1.0
+    } else {
+        0.0
+    };
 
     // Constrained hours: 1.0 if any violation or high utilization (>0.95), else 0.0
     let constrained_hours = if thermal_violations > 0 || max_utilization > 0.95 {
@@ -359,11 +376,11 @@ fn compute_case_metrics(
 /// **Algorithm:** Reads batch_manifest.json, loads each job's output Parquet file,
 /// and concatenates them into a single DataFrame with scenario_id/time columns.
 fn load_flows_from_manifest(manifest_path: &Path) -> Result<DataFrame> {
-    use std::fs::File;
-    use polars::prelude::ParquetReader;
-    use serde_json;
-    use serde::{Deserialize, Serialize};
     use chrono::{DateTime, Utc};
+    use polars::prelude::ParquetReader;
+    use serde::{Deserialize, Serialize};
+    use serde_json;
+    use std::fs::File;
 
     // Define BatchManifest locally to avoid dependency on gat-batch
     #[derive(Debug, Serialize, Deserialize)]
@@ -403,8 +420,15 @@ fn load_flows_from_manifest(manifest_path: &Path) -> Result<DataFrame> {
                 .with_context(|| format!("reading job output '{}'", job.output))?;
 
             // Add scenario_id column if not present
-            if !current_df.get_column_names().iter().any(|c| *c == "scenario_id") {
-                current_df.with_column(Series::new("scenario_id", vec![job.scenario_id.clone(); current_df.height()]))?;
+            if !current_df
+                .get_column_names()
+                .iter()
+                .any(|c| *c == "scenario_id")
+            {
+                current_df.with_column(Series::new(
+                    "scenario_id",
+                    vec![job.scenario_id.clone(); current_df.height()],
+                ))?;
             }
 
             // Add time column if not present

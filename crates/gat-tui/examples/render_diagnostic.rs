@@ -1,10 +1,10 @@
 use gat_tui::{
-    ui::{PanelRegistry, PaneContext, CommandModal},
-    panes::dashboard::DashboardPane,
-    panes::operations::OperationsPane,
-    panes::datasets::DatasetsPane,
-    panes::pipeline::PipelinePane,
     panes::commands::CommandsPane,
+    panes::dashboard::DashboardPane,
+    panes::datasets::DatasetsPane,
+    panes::operations::OperationsPane,
+    panes::pipeline::PipelinePane,
+    ui::{CommandModal, PaneContext, PanelRegistry},
 };
 
 fn main() {
@@ -70,7 +70,10 @@ fn main() {
     println!("\n=== TERMINAL SIZE ===");
     match crossterm::terminal::size() {
         Ok((width, height)) => {
-            println!("Detected terminal size: {} x {} (width x height)", width, height);
+            println!(
+                "Detected terminal size: {} x {} (width x height)",
+                width, height
+            );
         }
         Err(e) => {
             println!("Failed to detect terminal size: {}", e);

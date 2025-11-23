@@ -36,34 +36,34 @@ pub enum Msg {
 // Navigation state: which level of the hierarchy are we at?
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NavigationLevel {
-    MenuBar,      // Top level: selecting which pane
-    PaneContent,  // Inside a pane: selecting which section
+    MenuBar,     // Top level: selecting which pane
+    PaneContent, // Inside a pane: selecting which section
 }
 
 // Pane-specific state
 #[derive(Debug, Clone)]
 pub struct DashboardPaneState {
-    pub selected_index: usize,  // 0-3 for the 4 sections
+    pub selected_index: usize, // 0-3 for the 4 sections
 }
 
 #[derive(Debug, Clone)]
 pub struct OperationsPaneState {
-    pub selected_index: usize,  // 0-3 for the 4 sections
+    pub selected_index: usize, // 0-3 for the 4 sections
 }
 
 #[derive(Debug, Clone)]
 pub struct DatasetsPaneState {
-    pub selected_index: usize,  // 0-2 for the 3 sections
+    pub selected_index: usize, // 0-2 for the 3 sections
 }
 
 #[derive(Debug, Clone)]
 pub struct PipelinePaneState {
-    pub selected_index: usize,  // 0-2 for the 3 sections
+    pub selected_index: usize, // 0-2 for the 3 sections
 }
 
 #[derive(Debug, Clone)]
 pub struct CommandsPaneState {
-    pub selected_index: usize,  // 0-2 for the 3 sections
+    pub selected_index: usize, // 0-2 for the 3 sections
 }
 
 // Header component
@@ -114,9 +114,7 @@ impl MockComponent for Header {
 impl Component<Msg, NoUserEvent> for Header {
     fn on(&mut self, ev: TuiEvent<NoUserEvent>) -> Option<Msg> {
         match ev {
-            TuiEvent::Keyboard(KeyEvent {
-                code: Key::Esc, ..
-            }) => Some(Msg::AppClose),
+            TuiEvent::Keyboard(KeyEvent { code: Key::Esc, .. }) => Some(Msg::AppClose),
             TuiEvent::Keyboard(KeyEvent {
                 code: Key::Char('1'),
                 ..
@@ -161,9 +159,11 @@ impl MockComponent for DashboardPane {
             ])
             .split(area);
 
-        let status = Paragraph::new("Status\n  Overall: healthy\n  Running: 1 workflow\n  Queued: 2 actions")
-            .block(Block::default().borders(Borders::ALL).title("Status"))
-            .style(Style::default().fg(Color::Green));
+        let status = Paragraph::new(
+            "Status\n  Overall: healthy\n  Running: 1 workflow\n  Queued: 2 actions",
+        )
+        .block(Block::default().borders(Borders::ALL).title("Status"))
+        .style(Style::default().fg(Color::Green));
         frame.render_widget(status, chunks[0]);
 
         let metrics = Paragraph::new("Reliability Metrics\n  ✓ Deliverability Score: 85.5%\n  ⚠ LOLE: 9.2 h/yr\n  ⚠ EUE: 15.3 MWh/yr")
@@ -301,11 +301,7 @@ fn render_menu_bar(frame: &mut Frame, area: Rect, current_pane: &Id, nav_level: 
         Style::default().fg(Color::White)
     };
 
-    frame.render_widget(
-        Paragraph::new(menu_text)
-            .style(default_style),
-        area,
-    );
+    frame.render_widget(Paragraph::new(menu_text).style(default_style), area);
 }
 
 // Helper function to render Dashboard pane with state
@@ -326,9 +322,10 @@ fn render_dashboard_pane(frame: &mut Frame, area: Rect, state: &DashboardPaneSta
     } else {
         Style::default().fg(Color::Green)
     };
-    let status = Paragraph::new("Status\n  Overall: healthy\n  Running: 1 workflow\n  Queued: 2 actions")
-        .block(Block::default().borders(Borders::ALL).title("Status"))
-        .style(status_style);
+    let status =
+        Paragraph::new("Status\n  Overall: healthy\n  Running: 1 workflow\n  Queued: 2 actions")
+            .block(Block::default().borders(Borders::ALL).title("Status"))
+            .style(status_style);
     frame.render_widget(status, chunks[0]);
 
     // Metrics section with KPI cards
@@ -402,7 +399,11 @@ fn render_operations_pane(frame: &mut Frame, area: Rect, state: &OperationsPaneS
         Style::default().fg(Color::Cyan)
     };
     let derms = Paragraph::new("DERMS + ADMS\n  2 queued envelopes\n  1 stress-test running")
-        .block(Block::default().borders(Borders::ALL).title("DERMS/ADMS Queue"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("DERMS/ADMS Queue"),
+        )
         .style(derms_style);
     frame.render_widget(derms, chunks[0]);
 
@@ -570,7 +571,11 @@ fn render_commands_pane(frame: &mut Frame, area: Rect, state: &CommandsPaneState
         Style::default().fg(Color::Green)
     };
     let recent = Paragraph::new("Recent: ✔ datasets list (5 rows), ✔ envelope preview")
-        .block(Block::default().borders(Borders::ALL).title("Recent Results"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Recent Results"),
+        )
         .style(recent_style);
     frame.render_widget(recent, chunks[2]);
 }
@@ -731,7 +736,11 @@ impl MockComponent for CommandsPane {
         frame.render_widget(snippets, chunks[1]);
 
         let recent = Paragraph::new("Recent: ✔ datasets list (5 rows), ✔ envelope preview")
-            .block(Block::default().borders(Borders::ALL).title("Recent Results"))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Recent Results"),
+            )
             .style(Style::default().fg(Color::Green));
         frame.render_widget(recent, chunks[2]);
     }
@@ -766,9 +775,7 @@ async fn main() -> Result<()> {
 
     // Create tuirealm application without automatic event listener
     // We'll handle events manually via crossterm
-    let mut app: Application<Id, Msg, NoUserEvent> = Application::init(
-        EventListenerCfg::default()
-    );
+    let mut app: Application<Id, Msg, NoUserEvent> = Application::init(EventListenerCfg::default());
 
     // Mount pane components
     app.mount(Id::Dashboard, Box::new(DashboardPane), vec![])?;
@@ -783,24 +790,14 @@ async fn main() -> Result<()> {
     let mut terminal = TerminalBridge::init(CrosstermTerminalAdapter::new()?)?;
     let mut current_pane = Id::Dashboard;
     let mut should_quit = false;
-    let mut nav_level = NavigationLevel::MenuBar;  // Start at menu bar
+    let mut nav_level = NavigationLevel::MenuBar; // Start at menu bar
 
     // Pane-specific state
-    let mut dashboard_state = DashboardPaneState {
-        selected_index: 0,
-    };
-    let mut operations_state = OperationsPaneState {
-        selected_index: 0,
-    };
-    let mut datasets_state = DatasetsPaneState {
-        selected_index: 0,
-    };
-    let mut pipeline_state = PipelinePaneState {
-        selected_index: 0,
-    };
-    let mut commands_state = CommandsPaneState {
-        selected_index: 0,
-    };
+    let mut dashboard_state = DashboardPaneState { selected_index: 0 };
+    let mut operations_state = OperationsPaneState { selected_index: 0 };
+    let mut datasets_state = DatasetsPaneState { selected_index: 0 };
+    let mut pipeline_state = PipelinePaneState { selected_index: 0 };
+    let mut commands_state = CommandsPaneState { selected_index: 0 };
 
     // Main loop
     while !should_quit {

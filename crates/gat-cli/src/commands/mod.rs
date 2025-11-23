@@ -1,12 +1,12 @@
 pub mod adms;
 pub mod alloc;
 pub mod analytics;
-pub mod featurize;
 pub mod batch;
 pub mod completions;
 pub mod datasets;
 pub mod derms;
 pub mod dist;
+pub mod featurize;
 pub mod geo;
 pub mod graph;
 #[cfg(feature = "gui")]

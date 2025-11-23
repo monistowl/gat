@@ -20,7 +20,8 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         sink_bus,
         threads,
         out_partitions,
-    } = command else {
+    } = command
+    else {
         unreachable!();
     };
     configure_threads(threads);
@@ -44,7 +45,7 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         summary = Some(result);
         Ok(())
     })();
-    
+
     // Build params list, including summary stats if available
     let mut params = vec![
         ("grid_file".to_string(), grid_file.to_string()),
@@ -63,9 +64,7 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         // Print summary and add to params (using ref to avoid move)
         println!(
             "DS results: {} buses × {} cases written to {}",
-            s.num_buses,
-            s.num_cases,
-            out
+            s.num_buses, s.num_cases, out
         );
         params.push(("num_buses".to_string(), s.num_buses.to_string()));
         params.push(("num_cases".to_string(), s.num_cases.to_string()));

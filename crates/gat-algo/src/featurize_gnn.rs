@@ -138,36 +138,41 @@ pub fn featurize_gnn_dc(
     // Step 1: Precompute static node features from network topology
     // These are invariant across scenarios/time and represent the base grid structure
     let (node_features, bus_id_to_node_idx) = extract_node_features(network)?;
-    
+
     // Step 2: Precompute static edge features from network topology
     // These represent branch impedance parameters and connectivity
-    let (edge_features, _branch_id_to_edge_idx) = extract_edge_features(network, &bus_id_to_node_idx)?;
-    
+    let (edge_features, _branch_id_to_edge_idx) =
+        extract_edge_features(network, &bus_id_to_node_idx)?;
+
     // Step 3: Load branch flows from PF/OPF results
     // Expected schema: branch_id, flow_mw, optionally scenario_id, time
     let flows_df = LazyFrame::scan_parquet(flows_parquet.to_str().unwrap(), Default::default())?
         .collect()
         .context("loading flows parquet for GNN featurization")?;
-    
+
     // Validate required columns
-    if !flows_df.get_column_names().iter().any(|c| *c == "branch_id") {
+    if !flows_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "branch_id")
+    {
         return Err(anyhow!("flows parquet must contain 'branch_id' column"));
     }
     if !flows_df.get_column_names().iter().any(|c| *c == "flow_mw") {
         return Err(anyhow!("flows parquet must contain 'flow_mw' column"));
     }
-    
+
     // Step 4: Determine grouping columns (scenario_id, time)
     // Each unique combination becomes a separate graph instance
     let group_cols = determine_group_columns(&flows_df, cfg)?;
-    
+
     // Step 5: Group flows and create graph keys
     let graph_keys = create_graph_keys(&flows_df, &group_cols)?;
-    
+
     if graph_keys.is_empty() {
         return Err(anyhow!("no graph instances found in flows data"));
     }
-    
+
     // Step 6: Build DataFrames for nodes, edges, and graphs
     let (nodes_df, edges_df, graphs_df) = build_feature_dataframes(
         &node_features,
@@ -176,7 +181,7 @@ pub fn featurize_gnn_dc(
         &flows_df,
         &group_cols,
     )?;
-    
+
     // Step 7: Persist to Parquet with optional partitioning
     persist_dataframe(
         &mut nodes_df.clone(),
@@ -196,7 +201,7 @@ pub fn featurize_gnn_dc(
         partitions,
         &cfg.graphs_stage,
     )?;
-    
+
     println!(
         "GNN features: {} graphs, {} nodes, {} edges -> {}",
         graph_keys.len(),
@@ -204,7 +209,7 @@ pub fn featurize_gnn_dc(
         edge_features.len(),
         output_root.display()
     );
-    
+
     Ok(())
 }
 
@@ -221,7 +226,7 @@ fn extract_node_features(
 ) -> Result<(Vec<NodeStaticFeatures>, HashMap<BusId, i64>)> {
     let mut node_features = Vec::new();
     let mut bus_id_to_node_idx = HashMap::new();
-    
+
     // First pass: collect all buses and assign contiguous node indices
     for node_idx in network.graph.node_indices() {
         if let Node::Bus(bus) = &network.graph[node_idx] {
@@ -241,7 +246,7 @@ fn extract_node_features(
             });
         }
     }
-    
+
     // Second pass: aggregate generator and load statistics per bus
     for node_idx in network.graph.node_indices() {
         match &network.graph[node_idx] {
@@ -268,7 +273,7 @@ fn extract_node_features(
             _ => {}
         }
     }
-    
+
     Ok((node_features, bus_id_to_node_idx))
 }
 
@@ -287,7 +292,7 @@ fn extract_edge_features(
 ) -> Result<(Vec<EdgeStaticFeatures>, HashMap<i64, i64>)> {
     let mut edge_features = Vec::new();
     let mut branch_id_to_edge_idx = HashMap::new();
-    
+
     for edge_idx in network.graph.edge_indices() {
         if let Edge::Branch(branch) = &network.graph[edge_idx] {
             // Map branch endpoints to node indices
@@ -311,10 +316,10 @@ fn extract_edge_features(
                         branch.to_bus.value()
                     )
                 })?;
-            
+
             let edge_id = edge_features.len() as i64;
             let branch_id = branch.id.value() as i64;
-            
+
             edge_features.push(EdgeStaticFeatures {
                 edge_id,
                 branch_id,
@@ -323,11 +328,11 @@ fn extract_edge_features(
                 resistance: branch.resistance,
                 reactance: branch.reactance,
             });
-            
+
             branch_id_to_edge_idx.insert(branch_id, edge_id);
         }
     }
-    
+
     Ok((edge_features, branch_id_to_edge_idx))
 }
 
@@ -338,20 +343,17 @@ fn extract_edge_features(
 /// a single graph.
 ///
 /// **Returns:** Vector of column names to use for grouping
-fn determine_group_columns(
-    flows_df: &DataFrame,
-    cfg: &FeaturizeGnnConfig,
-) -> Result<Vec<String>> {
+fn determine_group_columns(flows_df: &DataFrame, cfg: &FeaturizeGnnConfig) -> Result<Vec<String>> {
     let mut group_cols = Vec::new();
     let column_names: Vec<&str> = flows_df.get_column_names();
-    
+
     if cfg.group_by_scenario && column_names.iter().any(|c| *c == "scenario_id") {
         group_cols.push("scenario_id".to_string());
     }
     if cfg.group_by_time && column_names.iter().any(|c| *c == "time") {
         group_cols.push("time".to_string());
     }
-    
+
     Ok(group_cols)
 }
 
@@ -363,12 +365,9 @@ fn determine_group_columns(
 /// 3. For each group, extract scenario_id/time and assign sequential graph_id
 ///
 /// **Returns:** Vector of GraphKey, one per unique (scenario_id, time) combination
-fn create_graph_keys(
-    flows_df: &DataFrame,
-    group_cols: &[String],
-) -> Result<Vec<GraphKey>> {
+fn create_graph_keys(flows_df: &DataFrame, group_cols: &[String]) -> Result<Vec<GraphKey>> {
     let mut graph_keys = Vec::new();
-    
+
     if group_cols.is_empty() {
         // Single graph: all flows belong to one graph instance
         graph_keys.push(GraphKey {
@@ -380,14 +379,14 @@ fn create_graph_keys(
         // Multiple graphs: group by scenario_id and/or time
         let group_by = flows_df.group_by(group_cols)?;
         let groups = group_by.get_groups();
-        
+
         let mut graph_id = 0i64;
         for (_idx, group) in groups.iter().enumerate() {
             let first_row_idx = match group {
                 GroupsIndicator::Idx((first, _)) => first,
                 GroupsIndicator::Slice([first, _]) => first,
             };
-            
+
             // Extract scenario_id and time from first row of group
             let scenario_id = flows_df
                 .column("scenario_id")
@@ -401,22 +400,19 @@ fn create_graph_keys(
                         Some(s)
                     }
                 });
-            
-            let time = flows_df
-                .column("time")
-                .ok()
-                .and_then(|col| {
-                    col.get(first_row_idx as usize).ok().and_then(|val| {
-                        let s = val.to_string();
-                        if s == "null" {
-                            None
-                        } else {
-                            // Try to parse as DateTime (RFC3339 or ISO8601)
-                            s.parse::<DateTime<Utc>>().ok()
-                        }
-                    })
-                });
-            
+
+            let time = flows_df.column("time").ok().and_then(|col| {
+                col.get(first_row_idx as usize).ok().and_then(|val| {
+                    let s = val.to_string();
+                    if s == "null" {
+                        None
+                    } else {
+                        // Try to parse as DateTime (RFC3339 or ISO8601)
+                        s.parse::<DateTime<Utc>>().ok()
+                    }
+                })
+            });
+
             graph_keys.push(GraphKey {
                 graph_id,
                 scenario_id,
@@ -425,7 +421,7 @@ fn create_graph_keys(
             graph_id += 1;
         }
     }
-    
+
     Ok(graph_keys)
 }
 
@@ -448,7 +444,7 @@ fn build_feature_dataframes(
     let mut all_nodes = Vec::new();
     let mut all_edges = Vec::new();
     let mut all_graphs = Vec::new();
-    
+
     // Extract flows grouped by graph
     let flows_by_graph = if group_cols.is_empty() {
         // Single graph: use entire flows DataFrame
@@ -458,7 +454,7 @@ fn build_feature_dataframes(
         let group_by = flows_df.group_by(group_cols)?;
         let groups = group_by.get_groups();
         let mut flows_map = Vec::new();
-        
+
         for (graph_idx, group) in groups.iter().enumerate() {
             let group_df = match group {
                 GroupsIndicator::Idx((_first, idx_vec)) => {
@@ -475,14 +471,14 @@ fn build_feature_dataframes(
         }
         flows_map
     };
-    
+
     // Build flow maps: branch_id -> flow_mw for each graph
     let mut flow_maps = Vec::new();
     for (graph_idx, group_df) in &flows_by_graph {
         let mut flow_map = HashMap::new();
         let branch_col = group_df.column("branch_id")?.i64()?;
         let flow_col = group_df.column("flow_mw")?.f64()?;
-        
+
         for idx in 0..group_df.height() {
             if let (Some(branch_id), Some(flow)) = (branch_col.get(idx), flow_col.get(idx)) {
                 flow_map.insert(branch_id, flow);
@@ -490,7 +486,7 @@ fn build_feature_dataframes(
         }
         flow_maps.push((*graph_idx, flow_map));
     }
-    
+
     // Build nodes DataFrame: static features repeated for each graph
     for graph_key in graph_keys {
         for node_feat in node_features {
@@ -509,7 +505,7 @@ fn build_feature_dataframes(
             ));
         }
     }
-    
+
     // Build edges DataFrame: static features + dynamic flow_mw per graph
     for graph_key in graph_keys {
         // Find flow map for this graph, or use empty map if not found
@@ -519,7 +515,7 @@ fn build_feature_dataframes(
             .find(|(idx, _)| *idx == graph_key.graph_id as usize)
             .map(|(_, map)| map)
             .unwrap_or(&empty_map);
-        
+
         for edge_feat in edge_features {
             let flow_mw = flow_map.get(&edge_feat.branch_id).copied().unwrap_or(0.0);
             all_edges.push((
@@ -534,7 +530,7 @@ fn build_feature_dataframes(
             ));
         }
     }
-    
+
     // Build graphs DataFrame: metadata per graph
     for graph_key in graph_keys {
         all_graphs.push((
@@ -545,40 +541,94 @@ fn build_feature_dataframes(
             edge_features.len() as i64,
         ));
     }
-    
+
     // Construct DataFrames
     let nodes_df = DataFrame::new(vec![
-        Series::new("graph_id", all_nodes.iter().map(|n| n.0).collect::<Vec<_>>()),
+        Series::new(
+            "graph_id",
+            all_nodes.iter().map(|n| n.0).collect::<Vec<_>>(),
+        ),
         Series::new("node_id", all_nodes.iter().map(|n| n.1).collect::<Vec<_>>()),
         Series::new("bus_id", all_nodes.iter().map(|n| n.2).collect::<Vec<_>>()),
-        Series::new("name", all_nodes.iter().map(|n| n.3.clone()).collect::<Vec<_>>()),
-        Series::new("voltage_kv", all_nodes.iter().map(|n| n.4).collect::<Vec<_>>()),
-        Series::new("num_gens", all_nodes.iter().map(|n| n.5).collect::<Vec<_>>()),
-        Series::new("p_gen_mw", all_nodes.iter().map(|n| n.6).collect::<Vec<_>>()),
-        Series::new("q_gen_mvar", all_nodes.iter().map(|n| n.7).collect::<Vec<_>>()),
-        Series::new("num_loads", all_nodes.iter().map(|n| n.8).collect::<Vec<_>>()),
-        Series::new("p_load_mw", all_nodes.iter().map(|n| n.9).collect::<Vec<_>>()),
-        Series::new("q_load_mvar", all_nodes.iter().map(|n| n.10).collect::<Vec<_>>()),
+        Series::new(
+            "name",
+            all_nodes.iter().map(|n| n.3.clone()).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "voltage_kv",
+            all_nodes.iter().map(|n| n.4).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "num_gens",
+            all_nodes.iter().map(|n| n.5).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "p_gen_mw",
+            all_nodes.iter().map(|n| n.6).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "q_gen_mvar",
+            all_nodes.iter().map(|n| n.7).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "num_loads",
+            all_nodes.iter().map(|n| n.8).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "p_load_mw",
+            all_nodes.iter().map(|n| n.9).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "q_load_mvar",
+            all_nodes.iter().map(|n| n.10).collect::<Vec<_>>(),
+        ),
     ])?;
-    
+
     let edges_df = DataFrame::new(vec![
-        Series::new("graph_id", all_edges.iter().map(|e| e.0).collect::<Vec<_>>()),
+        Series::new(
+            "graph_id",
+            all_edges.iter().map(|e| e.0).collect::<Vec<_>>(),
+        ),
         Series::new("edge_id", all_edges.iter().map(|e| e.1).collect::<Vec<_>>()),
         Series::new("src", all_edges.iter().map(|e| e.2).collect::<Vec<_>>()),
         Series::new("dst", all_edges.iter().map(|e| e.3).collect::<Vec<_>>()),
-        Series::new("branch_id", all_edges.iter().map(|e| e.4).collect::<Vec<_>>()),
-        Series::new("resistance", all_edges.iter().map(|e| e.5).collect::<Vec<_>>()),
-        Series::new("reactance", all_edges.iter().map(|e| e.6).collect::<Vec<_>>()),
+        Series::new(
+            "branch_id",
+            all_edges.iter().map(|e| e.4).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "resistance",
+            all_edges.iter().map(|e| e.5).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "reactance",
+            all_edges.iter().map(|e| e.6).collect::<Vec<_>>(),
+        ),
         Series::new("flow_mw", all_edges.iter().map(|e| e.7).collect::<Vec<_>>()),
     ])?;
-    
+
     let graphs_df = DataFrame::new(vec![
-        Series::new("graph_id", all_graphs.iter().map(|g| g.0).collect::<Vec<_>>()),
-        Series::new("scenario_id", all_graphs.iter().map(|g| g.1.clone()).collect::<Vec<_>>()),
-        Series::new("time", all_graphs.iter().map(|g| g.2.clone()).collect::<Vec<_>>()),
-        Series::new("num_nodes", all_graphs.iter().map(|g| g.3).collect::<Vec<_>>()),
-        Series::new("num_edges", all_graphs.iter().map(|g| g.4).collect::<Vec<_>>()),
+        Series::new(
+            "graph_id",
+            all_graphs.iter().map(|g| g.0).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "scenario_id",
+            all_graphs.iter().map(|g| g.1.clone()).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "time",
+            all_graphs.iter().map(|g| g.2.clone()).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "num_nodes",
+            all_graphs.iter().map(|g| g.3).collect::<Vec<_>>(),
+        ),
+        Series::new(
+            "num_edges",
+            all_graphs.iter().map(|g| g.4).collect::<Vec<_>>(),
+        ),
     ])?;
-    
+
     Ok((nodes_df, edges_df, graphs_df))
 }

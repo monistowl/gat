@@ -2,7 +2,6 @@
 ///
 /// Pure function that takes current state and a message, producing new state.
 /// This is where all business logic happens.
-
 use crate::message::*;
 use crate::models::*;
 
@@ -85,13 +84,14 @@ pub fn update(mut state: AppState, msg: Message) -> (AppState, Vec<SideEffect>) 
             // Handle task results and update relevant pane state
             match result {
                 TaskResult::Success(_output) => {
-                    state.add_notification(
-                        "Task completed successfully",
-                        NotificationKind::Success,
-                    );
+                    state
+                        .add_notification("Task completed successfully", NotificationKind::Success);
                 }
                 TaskResult::Failure(err) => {
-                    state.add_notification(&format!("Task failed: {}", err), NotificationKind::Error);
+                    state.add_notification(
+                        &format!("Task failed: {}", err),
+                        NotificationKind::Error,
+                    );
                 }
                 TaskResult::Output(_output) => {
                     // Update pane with output
@@ -112,11 +112,7 @@ pub fn update(mut state: AppState, msg: Message) -> (AppState, Vec<SideEffect>) 
     (state, effects)
 }
 
-fn handle_dashboard(
-    state: &mut AppState,
-    msg: DashboardMessage,
-    effects: &mut Vec<SideEffect>,
-) {
+fn handle_dashboard(state: &mut AppState, msg: DashboardMessage, effects: &mut Vec<SideEffect>) {
     match msg {
         DashboardMessage::RefreshMetrics | DashboardMessage::FetchMetrics => {
             let task_id = "fetch_metrics".to_string();
@@ -133,10 +129,8 @@ fn handle_dashboard(
 
             match result {
                 Ok(_metrics) => {
-                    state.add_notification(
-                        "Metrics loaded successfully",
-                        NotificationKind::Success,
-                    );
+                    state
+                        .add_notification("Metrics loaded successfully", NotificationKind::Success);
                 }
                 Err(e) => {
                     state.add_notification(
@@ -152,11 +146,7 @@ fn handle_dashboard(
     }
 }
 
-fn handle_commands(
-    state: &mut AppState,
-    msg: CommandsMessage,
-    effects: &mut Vec<SideEffect>,
-) {
+fn handle_commands(state: &mut AppState, msg: CommandsMessage, effects: &mut Vec<SideEffect>) {
     match msg {
         CommandsMessage::ExecuteCommand(cmd) => {
             let task_id = format!("cmd_{}", state.async_tasks.len());
@@ -209,11 +199,7 @@ fn handle_commands(
     }
 }
 
-fn handle_datasets(
-    state: &mut AppState,
-    msg: DatasetsMessage,
-    effects: &mut Vec<SideEffect>,
-) {
+fn handle_datasets(state: &mut AppState, msg: DatasetsMessage, effects: &mut Vec<SideEffect>) {
     match msg {
         DatasetsMessage::UploadDataset(path) => {
             let task_id = format!("dataset_{}", state.async_tasks.len());
@@ -263,20 +249,14 @@ fn handle_datasets(
             state
                 .async_tasks
                 .insert(task_id.clone(), AsyncTaskState::Running);
-            effects.push(SideEffect::LoadGrid {
-                task_id,
-                file_path,
-            });
+            effects.push(SideEffect::LoadGrid { task_id, file_path });
         }
 
         DatasetsMessage::UnloadGrid(_grid_id) => {
             // Unload grid and refresh
             match state.unload_current_grid() {
                 Ok(_) => {
-                    state.add_notification(
-                        &format!("Grid unloaded"),
-                        NotificationKind::Success,
-                    );
+                    state.add_notification(&format!("Grid unloaded"), NotificationKind::Success);
                     // Trigger refresh of datasets
                     effects.push(SideEffect::FetchDatasets {
                         task_id: "fetch_datasets_after_unload".to_string(),
@@ -340,11 +320,7 @@ fn handle_datasets(
     }
 }
 
-fn handle_pipeline(
-    state: &mut AppState,
-    msg: PipelineMessage,
-    effects: &mut Vec<SideEffect>,
-) {
+fn handle_pipeline(state: &mut AppState, msg: PipelineMessage, effects: &mut Vec<SideEffect>) {
     match msg {
         PipelineMessage::FetchPipeline => {
             let task_id = "fetch_pipeline".to_string();
@@ -380,11 +356,7 @@ fn handle_pipeline(
     }
 }
 
-fn handle_operations(
-    state: &mut AppState,
-    msg: OperationsMessage,
-    effects: &mut Vec<SideEffect>,
-) {
+fn handle_operations(state: &mut AppState, msg: OperationsMessage, effects: &mut Vec<SideEffect>) {
     match msg {
         OperationsMessage::FetchOperations => {
             let task_id = "fetch_operations".to_string();
@@ -426,13 +398,14 @@ fn handle_operations(
                 .pane_states
                 .entry(PaneId::Operations)
                 .or_insert_with(PaneState::default);
-            pane_state.form_values.insert("executing_command".to_string(), command.clone());
-            pane_state.form_values.insert("command_output".to_string(), String::new());
+            pane_state
+                .form_values
+                .insert("executing_command".to_string(), command.clone());
+            pane_state
+                .form_values
+                .insert("command_output".to_string(), String::new());
 
-            state.add_notification(
-                &format!("Executing: {}", command),
-                NotificationKind::Info,
-            );
+            state.add_notification(&format!("Executing: {}", command), NotificationKind::Info);
 
             effects.push(SideEffect::RunCommand { task_id, command });
         }
@@ -453,7 +426,9 @@ fn handle_operations(
             } else {
                 format!("{}\n{}", current, output)
             };
-            pane_state.form_values.insert("command_output".to_string(), new_output);
+            pane_state
+                .form_values
+                .insert("command_output".to_string(), new_output);
         }
         OperationsMessage::CommandCompleted(result) => {
             match result {
@@ -494,14 +469,12 @@ fn handle_operations(
                             .pane_states
                             .entry(PaneId::Operations)
                             .or_insert_with(PaneState::default);
-                        pane_state.form_values.insert(
-                            "last_exit_code".to_string(),
-                            exit_code.to_string(),
-                        );
-                        pane_state.form_values.insert(
-                            "last_duration".to_string(),
-                            format!("{}ms", duration_ms),
-                        );
+                        pane_state
+                            .form_values
+                            .insert("last_exit_code".to_string(), exit_code.to_string());
+                        pane_state
+                            .form_values
+                            .insert("last_duration".to_string(), format!("{}ms", duration_ms));
                     }
 
                     // Add notification after pane state is updated and borrow dropped
@@ -529,10 +502,9 @@ fn handle_operations(
                         .pane_states
                         .entry(PaneId::Operations)
                         .or_insert_with(PaneState::default);
-                    pane_state.form_values.insert(
-                        "command_output".to_string(),
-                        format!("Error: {}", err),
-                    );
+                    pane_state
+                        .form_values
+                        .insert("command_output".to_string(), format!("Error: {}", err));
                 }
             }
         }
@@ -649,8 +621,8 @@ pub enum SideEffect {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{create_fixture_datasets, QueryError};
     use crate::data::Workflow;
+    use crate::{create_fixture_datasets, QueryError};
 
     #[test]
     fn test_fetch_datasets_message() {
@@ -1175,10 +1147,7 @@ mod tests {
             .expect("Operations pane state should exist");
 
         // Should store executing_command
-        assert_eq!(
-            pane_state.form_values.get("executing_command"),
-            Some(&cmd)
-        );
+        assert_eq!(pane_state.form_values.get("executing_command"), Some(&cmd));
 
         // Should initialize empty command_output
         assert_eq!(
@@ -1196,10 +1165,9 @@ mod tests {
             .pane_states
             .entry(PaneId::Operations)
             .or_insert_with(PaneState::default);
-        pane_state.form_values.insert(
-            "command_output".to_string(),
-            "line 1\nline 2".to_string(),
-        );
+        pane_state
+            .form_values
+            .insert("command_output".to_string(), "line 1\nline 2".to_string());
 
         // Send CommandOutput message
         let msg = Message::Operations(OperationsMessage::CommandOutput("line 3".to_string()));
@@ -1254,7 +1222,10 @@ mod tests {
 
         // Should store exit code and duration in pane state
         let pane_state = new_state.pane_states.get(&PaneId::Operations).unwrap();
-        assert_eq!(pane_state.form_values.get("last_exit_code"), Some(&"0".to_string()));
+        assert_eq!(
+            pane_state.form_values.get("last_exit_code"),
+            Some(&"0".to_string())
+        );
         assert_eq!(
             pane_state.form_values.get("last_duration"),
             Some(&"150ms".to_string())
@@ -1350,7 +1321,9 @@ mod tests {
         assert!(!new_state.async_tasks.contains_key(&task_id));
 
         // Should generate CancelCommand side effect
-        assert!(effects.iter().any(|e| matches!(e, SideEffect::CancelCommand { .. })));
+        assert!(effects
+            .iter()
+            .any(|e| matches!(e, SideEffect::CancelCommand { .. })));
 
         // Should clear executing_command flag
         let pane_state = new_state.pane_states.get(&PaneId::Operations).unwrap();
@@ -1381,9 +1354,7 @@ mod tests {
         // Create multiple command tasks
         for i in 0..3 {
             let task_id = format!("cmd_{}", i);
-            state
-                .async_tasks
-                .insert(task_id, AsyncTaskState::Running);
+            state.async_tasks.insert(task_id, AsyncTaskState::Running);
         }
 
         // Mark one command as executing
@@ -1440,4 +1411,3 @@ mod tests {
         assert!(workflow.completed_at.is_some());
     }
 }
-

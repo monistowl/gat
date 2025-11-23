@@ -26,14 +26,29 @@ fn simulate_small_terminal_rendering() {
     let line_count = output.lines().count();
 
     println!("\nStats:");
-    println!("  Max line width: {} bytes (visual width may be less due to unicode)", max_width);
-    println!("  Line count: {} (fits in 24-line terminal with truncation)", line_count);
+    println!(
+        "  Max line width: {} bytes (visual width may be less due to unicode)",
+        max_width
+    );
+    println!(
+        "  Line count: {} (fits in 24-line terminal with truncation)",
+        line_count
+    );
 
     // Width check: allowing some unicode character byte overhead
-    assert!(max_width < 100, "Lines should be reasonably sized (allowing for unicode)");
+    assert!(
+        max_width < 100,
+        "Lines should be reasonably sized (allowing for unicode)"
+    );
     // Line count should be <= 24, but may include truncation indicator
-    assert!(line_count <= 24, "Output should fit in 24-line terminal with proper truncation");
-    assert!(output.contains("...") || line_count < 20, "Very long content should show truncation indicator");
+    assert!(
+        line_count <= 24,
+        "Output should fit in 24-line terminal with proper truncation"
+    );
+    assert!(
+        output.contains("...") || line_count < 20,
+        "Very long content should show truncation indicator"
+    );
 }
 
 #[test]
@@ -80,16 +95,20 @@ fn verify_interactive_response_on_simulated_terminal() {
 
     println!("1. Initial state (Dashboard):");
     let initial = app.render();
-    println!("   Width: {} chars (of max 79)",
-            initial.lines().map(|l| l.len()).max().unwrap_or(0));
+    println!(
+        "   Width: {} chars (of max 79)",
+        initial.lines().map(|l| l.len()).max().unwrap_or(0)
+    );
     println!("   Height: {} lines (of max 24)", initial.lines().count());
     println!("   Active: {}", app.active_menu_label().unwrap_or("?"));
 
     println!("\n2. Press '2' to switch to Operations:");
     app.select_menu_item('2');
     let ops = app.render();
-    println!("   Width: {} chars (of max 79)",
-            ops.lines().map(|l| l.len()).max().unwrap_or(0));
+    println!(
+        "   Width: {} chars (of max 79)",
+        ops.lines().map(|l| l.len()).max().unwrap_or(0)
+    );
     println!("   Height: {} lines (of max 24)", ops.lines().count());
     println!("   Active: {}", app.active_menu_label().unwrap_or("?"));
 
@@ -99,8 +118,10 @@ fn verify_interactive_response_on_simulated_terminal() {
     println!("\n3. Press '3' to switch to Datasets:");
     app.select_menu_item('3');
     let datasets = app.render();
-    println!("   Width: {} chars (of max 79)",
-            datasets.lines().map(|l| l.len()).max().unwrap_or(0));
+    println!(
+        "   Width: {} chars (of max 79)",
+        datasets.lines().map(|l| l.len()).max().unwrap_or(0)
+    );
     println!("   Height: {} lines (of max 24)", datasets.lines().count());
     println!("   Active: {}", app.active_menu_label().unwrap_or("?"));
 

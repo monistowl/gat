@@ -1,6 +1,6 @@
 use anyhow::Result;
-use gat_cli::cli::AnalyticsCommands;
 use gat_algo::elcc::elcc_estimation;
+use gat_cli::cli::AnalyticsCommands;
 use std::path::Path;
 use std::time::Instant;
 
@@ -14,7 +14,8 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         out,
         out_partitions,
         max_jobs,
-    } = command else {
+    } = command
+    else {
         unreachable!();
     };
 
@@ -35,8 +36,14 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
     })();
 
     let mut params = vec![
-        ("resource_profiles".to_string(), resource_profiles.to_string()),
-        ("reliability_metrics".to_string(), reliability_metrics.to_string()),
+        (
+            "resource_profiles".to_string(),
+            resource_profiles.to_string(),
+        ),
+        (
+            "reliability_metrics".to_string(),
+            reliability_metrics.to_string(),
+        ),
         ("out".to_string(), out.to_string()),
         (
             "out_partitions".to_string(),
@@ -49,7 +56,10 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
             "ELCC results: {} resource classes, {} output rows written to {}",
             s.num_resource_classes, s.num_output_rows, out
         );
-        params.push(("num_resource_classes".to_string(), s.num_resource_classes.to_string()));
+        params.push((
+            "num_resource_classes".to_string(),
+            s.num_resource_classes.to_string(),
+        ));
         params.push(("num_output_rows".to_string(), s.num_output_rows.to_string()));
     }
 

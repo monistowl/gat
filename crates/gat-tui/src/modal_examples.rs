@@ -1,9 +1,8 @@
+use crate::message::{Message, ModalMessage};
 /// Examples of using the modal system
 ///
 /// This module shows patterns for using modals in message handlers.
-
 use crate::models::AppState;
-use crate::message::{Message, ModalMessage};
 
 /// Example 1: Opening a confirmation dialog for a delete action
 #[allow(dead_code)]
@@ -26,9 +25,7 @@ pub fn example_show_error(state: &mut AppState, error_msg: &str) {
 
 /// Example 3: Opening a command execution modal
 pub fn example_show_command(state: &mut AppState) {
-    state.show_command_modal(
-        "gat-cli datasets list --limit 10\n--format table".to_string()
-    );
+    state.show_command_modal("gat-cli datasets list --limit 10\n--format table".to_string());
 }
 
 /// Example 4: Showing a success message
@@ -43,7 +40,7 @@ pub fn example_show_success(state: &mut AppState, operation: &str) {
 /// Example 5: Using modal messages in the message enum
 pub fn example_modal_message_flow() -> Message {
     Message::OpenModal(ModalMessage::ConfirmAction(
-        "Proceed with operation?".to_string()
+        "Proceed with operation?".to_string(),
     ))
 }
 

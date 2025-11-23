@@ -23,21 +23,19 @@ impl PipelinePane {
         ]);
 
         // New feature transforms
-        let scenario_transforms = Pane::new("Scenario materialization")
-            .body([
-                "Materialize templated scenarios into full manifest",
-                "File: scenarios.yaml → Manifest: scenarios_expanded.json",
-                "Status: [Queued] Ready to load template",
-            ]);
+        let scenario_transforms = Pane::new("Scenario materialization").body([
+            "Materialize templated scenarios into full manifest",
+            "File: scenarios.yaml → Manifest: scenarios_expanded.json",
+            "Status: [Queued] Ready to load template",
+        ]);
 
-        let featurize_transforms = Pane::new("Feature engineering")
-            .body([
-                "Transform grid data into ML-ready features",
-                "Available:",
-                "  • GNN: Export graph topology for neural networks",
-                "  • KPI: Generate training features from batch results",
-                "  • Geo: Spatial-temporal features from geospatial data",
-            ]);
+        let featurize_transforms = Pane::new("Feature engineering").body([
+            "Transform grid data into ML-ready features",
+            "Available:",
+            "  • GNN: Export graph topology for neural networks",
+            "  • KPI: Generate training features from batch results",
+            "  • Geo: Spatial-temporal features from geospatial data",
+        ]);
 
         let transform_tabs = Tabs::new(["Classic", "Scenarios", "Features"], 0);
         let transforms = Pane::new("Transforms")

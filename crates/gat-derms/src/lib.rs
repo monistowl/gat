@@ -25,14 +25,14 @@ use std::path::Path;
 #[derive(Clone, Debug)]
 struct DerAsset {
     id: String,
-    agg_id: Option<String>,    // Aggregation ID (e.g., feeder, zone, VPP portfolio)
-    bus_id: Option<usize>,      // Grid connection point (for locational constraints)
-    p_min: f64,                 // Minimum active power (MW): negative = max charge rate
-    p_max: f64,                 // Maximum active power (MW): positive = max discharge rate
-    q_min: f64,                 // Minimum reactive power (MVAr): volt-VAR capability
-    q_max: f64,                 // Maximum reactive power (MVAr): for voltage support
-    soc_min: f64,               // Minimum state of charge (MWh or p.u.)
-    soc_max: f64,               // Maximum state of charge (MWh or p.u.)
+    agg_id: Option<String>, // Aggregation ID (e.g., feeder, zone, VPP portfolio)
+    bus_id: Option<usize>,  // Grid connection point (for locational constraints)
+    p_min: f64,             // Minimum active power (MW): negative = max charge rate
+    p_max: f64,             // Maximum active power (MW): positive = max discharge rate
+    q_min: f64,             // Minimum reactive power (MVAr): volt-VAR capability
+    q_max: f64,             // Maximum reactive power (MVAr): for voltage support
+    soc_min: f64,           // Minimum state of charge (MWh or p.u.)
+    soc_max: f64,           // Maximum state of charge (MWh or p.u.)
 }
 
 /// Lightweight price vector for scheduling horizons.

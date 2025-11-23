@@ -49,9 +49,9 @@ pub mod terminal {
 
 pub mod input {
     use std::io::{self, Read};
-    use std::time::Duration;
     use std::os::unix::io::AsRawFd;
-    use termios::{tcsetattr, Termios, TCSANOW, ICANON, ECHO};
+    use std::time::Duration;
+    use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW};
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum Event {
@@ -162,9 +162,7 @@ pub mod input {
                         c => Ok(Event::Key(c)),
                     }
                 }
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => {
-                    Ok(Event::Tick)
-                }
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => Ok(Event::Tick),
                 Err(e) => Err(e),
             }
         }

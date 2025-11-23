@@ -107,15 +107,16 @@ pub fn featurize_kpi(
     };
 
     // Step 5: Validate output has required keys
-    if !features_df.get_column_names().iter().any(|c| *c == "scenario_id") {
+    if !features_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "scenario_id")
+    {
         return Err(anyhow!("features must contain 'scenario_id' column"));
     }
 
     // Compute summary statistics
-    let num_scenarios = features_df
-        .column("scenario_id")?
-        .unique()?
-        .len();
+    let num_scenarios = features_df.column("scenario_id")?.unique()?.len();
     let num_time_periods = if features_df.get_column_names().iter().any(|c| *c == "time") {
         features_df.column("time")?.unique()?.len()
     } else {
@@ -225,7 +226,10 @@ fn visit_dirs(dir: &Path, files: &mut Vec<std::path::PathBuf>) -> Result<()> {
 /// **Output:** DataFrame with one row per (scenario_id, time) case and engineered stress features.
 fn compute_stress_features(flows_df: &DataFrame) -> Result<DataFrame> {
     // Determine grouping columns
-    let has_scenario = flows_df.get_column_names().iter().any(|c| *c == "scenario_id");
+    let has_scenario = flows_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "scenario_id");
     let has_time = flows_df.get_column_names().iter().any(|c| *c == "time");
 
     let group_cols: Vec<String> = [
@@ -260,7 +264,10 @@ fn compute_stress_features(flows_df: &DataFrame) -> Result<DataFrame> {
             col("abs_flow_mw").max().alias("max_flow_mw"),
             col("abs_flow_mw").sum().alias("total_flow_mw"),
             // Branch count (topology size)
-            col("branch_id").n_unique().alias("num_branches").cast(DataType::Int64),
+            col("branch_id")
+                .n_unique()
+                .alias("num_branches")
+                .cast(DataType::Int64),
         ])
         .collect()?;
 
@@ -271,20 +278,27 @@ fn compute_stress_features(flows_df: &DataFrame) -> Result<DataFrame> {
 ///
 /// **Algorithm:** Loads reliability Parquet, joins on (scenario_id, time) with features_df.
 /// Adds columns: lole, eue_mwh, thermal_violations, max_flow_utilization, constrained_hours.
-fn join_reliability_metrics(
-    features_df: DataFrame,
-    reliability_path: &Path,
-) -> Result<DataFrame> {
+fn join_reliability_metrics(features_df: DataFrame, reliability_path: &Path) -> Result<DataFrame> {
     // Load reliability metrics
-    let reliability_df = LazyFrame::scan_parquet(reliability_path.to_str().unwrap(), Default::default())?
-        .collect()
-        .context("loading reliability metrics")?;
+    let reliability_df =
+        LazyFrame::scan_parquet(reliability_path.to_str().unwrap(), Default::default())?
+            .collect()
+            .context("loading reliability metrics")?;
 
     // Determine join keys (scenario_id, time)
-    let has_scenario_feat = features_df.get_column_names().iter().any(|c| *c == "scenario_id");
+    let has_scenario_feat = features_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "scenario_id");
     let has_time_feat = features_df.get_column_names().iter().any(|c| *c == "time");
-    let has_scenario_rel = reliability_df.get_column_names().iter().any(|c| *c == "scenario_id");
-    let has_time_rel = reliability_df.get_column_names().iter().any(|c| *c == "time");
+    let has_scenario_rel = reliability_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "scenario_id");
+    let has_time_rel = reliability_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "time");
 
     let join_keys: Vec<String> = [
         (has_scenario_feat && has_scenario_rel).then_some("scenario_id"),
@@ -304,7 +318,11 @@ fn join_reliability_metrics(
     // Perform left join: keep all features, add reliability where available
     let joined = features_df
         .lazy()
-        .left_join(reliability_df.lazy(), col("scenario_id"), col("scenario_id"))
+        .left_join(
+            reliability_df.lazy(),
+            col("scenario_id"),
+            col("scenario_id"),
+        )
         .collect()?;
 
     Ok(joined)
@@ -325,10 +343,7 @@ fn join_reliability_metrics(
 /// - Any additional fields from metadata
 ///
 /// Joins on scenario_id, adds all metadata columns to features.
-fn join_scenario_metadata(
-    features_df: DataFrame,
-    _meta_path: &Path,
-) -> Result<DataFrame> {
+fn join_scenario_metadata(features_df: DataFrame, _meta_path: &Path) -> Result<DataFrame> {
     // TODO: Implement YAML/JSON parsing for scenario metadata
     // For now, return features_df unchanged (stub implementation)
     // In a full implementation:

@@ -44,20 +44,13 @@ impl ParagraphWidget {
     }
 
     pub fn with_text(mut self, text: impl Into<String>) -> Self {
-        self.lines = text
-            .into()
-            .lines()
-            .map(|s| s.to_string())
-            .collect();
+        self.lines = text.into().lines().map(|s| s.to_string()).collect();
         self
     }
 
     pub fn set_content(&mut self, content: impl Into<String>) {
         let text = content.into();
-        self.lines = text
-            .lines()
-            .map(|s| s.to_string())
-            .collect();
+        self.lines = text.lines().map(|s| s.to_string()).collect();
         self.scroll_offset = 0;
     }
 
@@ -71,9 +64,7 @@ impl ParagraphWidget {
     }
 
     pub fn scroll_down(&mut self, lines: usize) {
-        self.scroll_offset = (self.scroll_offset + lines).min(
-            self.lines.len().saturating_sub(1)
-        );
+        self.scroll_offset = (self.scroll_offset + lines).min(self.lines.len().saturating_sub(1));
     }
 
     pub fn scroll_up(&mut self, lines: usize) {

@@ -22,7 +22,8 @@ pub fn handle(command: &FeaturizeCommands) -> Result<()> {
         out_partitions,
         group_by_scenario,
         group_by_time,
-    } = command else {
+    } = command
+    else {
         unreachable!();
     };
 
@@ -52,7 +53,7 @@ pub fn handle(command: &FeaturizeCommands) -> Result<()> {
         Ok(())
     })();
 
-    let params = vec![
+    let params = [
         ("grid_file".to_string(), grid_file.to_string()),
         ("flows".to_string(), flows.to_string()),
         ("out".to_string(), out.to_string()),

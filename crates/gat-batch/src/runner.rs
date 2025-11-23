@@ -46,7 +46,7 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
             config.output_root.display()
         )
     })?;
-    
+
     // Configure thread pool: auto-detect CPU count if threads=0, otherwise use specified count
     let thread_count = if config.threads == 0 {
         num_cpus::get()
@@ -57,7 +57,7 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
         .num_threads(thread_count)
         .build()
         .context("building Rayon thread pool for batch runs")?;
-    
+
     // Execute all jobs in parallel using Rayon's parallel iterator
     // Each job runs PF/OPF on a scenario-specific grid snapshot
     let job_records: Vec<BatchJobRecord> = pool.install(|| {
@@ -67,14 +67,14 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
             .map(|job| run_job(job, config))
             .collect()
     });
-    
+
     // Count successes and failures for summary
     let success = job_records
         .iter()
         .filter(|record| record.status == "ok")
         .count();
     let failure = job_records.len() - success;
-    
+
     // Write batch manifest JSON for downstream tools (analytics, reporting)
     let manifest = BatchManifest {
         created_at: Utc::now(),
@@ -105,7 +105,7 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
 /// **Returns:** BatchJobRecord with status ("ok" or "error") and output path.
 fn run_job(job: &BatchJob, config: &BatchRunnerConfig) -> BatchJobRecord {
     let output_file = config.output_root.join(&job.job_id).join("result.parquet");
-    
+
     // Closure that performs the actual computation
     let runner = || -> Result<()> {
         let grid_path = job.grid_file.to_str().ok_or_else(|| {
@@ -114,11 +114,11 @@ fn run_job(job: &BatchJob, config: &BatchRunnerConfig) -> BatchJobRecord {
                 job.grid_file.display()
             )
         })?;
-        
+
         // Load scenario-specific grid snapshot (from gat scenarios materialize)
         let network = importers::load_grid_from_arrow(grid_path)?;
         let solver_impl = config.solver.build_solver();
-        
+
         // Dispatch to appropriate solver routine based on task type
         match config.task {
             TaskKind::PfDc => power_flow::dc_power_flow(

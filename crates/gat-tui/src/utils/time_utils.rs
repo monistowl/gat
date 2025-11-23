@@ -2,9 +2,8 @@
 ///
 /// Provides convenient wrappers around chrono for working with timestamps,
 /// durations, and date/time formatting in the TUI.
-
-use chrono::{DateTime, Utc, Local, Duration};
-use serde::{Serialize, Deserialize};
+use chrono::{DateTime, Duration, Local, Utc};
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Application timestamp type
@@ -34,7 +33,10 @@ impl Timestamp {
 
     /// Format as human-readable local time
     pub fn to_local_string(&self) -> String {
-        self.0.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S").to_string()
+        self.0
+            .with_timezone(&Local)
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
     }
 
     /// Format as short time (HH:MM:SS)

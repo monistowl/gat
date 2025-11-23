@@ -1,11 +1,10 @@
+use crate::message::{CommandsMessage, DatasetsMessage, OperationsMessage, PipelineMessage};
 /// Pane integration with GAT services
 ///
 /// This module handles message routing from panes to appropriate GAT services,
 /// executes commands, and updates state with results.
-
 use crate::models::AppState;
-use crate::message::{DatasetsMessage, PipelineMessage, OperationsMessage, CommandsMessage};
-use crate::services::{GatService, DatasetsService, PipelineService, OperationsService};
+use crate::services::{DatasetsService, GatService, OperationsService, PipelineService};
 
 /// Integration coordinator for handling pane messages with GAT services
 pub struct PaneIntegrator {
@@ -27,7 +26,11 @@ impl PaneIntegrator {
     }
 
     /// Handle Datasets pane messages
-    pub fn handle_datasets_message(&self, state: &mut AppState, msg: DatasetsMessage) -> Option<String> {
+    pub fn handle_datasets_message(
+        &self,
+        state: &mut AppState,
+        msg: DatasetsMessage,
+    ) -> Option<String> {
         match msg {
             DatasetsMessage::RefreshList => {
                 // Generate command to list datasets
@@ -74,7 +77,11 @@ impl PaneIntegrator {
     }
 
     /// Handle Pipeline pane messages
-    pub fn handle_pipeline_message(&self, state: &mut AppState, msg: PipelineMessage) -> Option<String> {
+    pub fn handle_pipeline_message(
+        &self,
+        state: &mut AppState,
+        msg: PipelineMessage,
+    ) -> Option<String> {
         match msg {
             PipelineMessage::RunPipeline => {
                 // Validate pipeline first
@@ -101,7 +108,11 @@ impl PaneIntegrator {
     }
 
     /// Handle Operations pane messages
-    pub fn handle_operations_message(&self, state: &mut AppState, msg: OperationsMessage) -> Option<String> {
+    pub fn handle_operations_message(
+        &self,
+        state: &mut AppState,
+        msg: OperationsMessage,
+    ) -> Option<String> {
         match msg {
             OperationsMessage::Execute => {
                 // Determine which operation based on active tab
@@ -123,7 +134,11 @@ impl PaneIntegrator {
                     }
                     Some(2) => {
                         // Reliability operations
-                        let cmd = self.gat_service.analytics_reliability("manifest.json", "flows.parquet", "reliability.json");
+                        let cmd = self.gat_service.analytics_reliability(
+                            "manifest.json",
+                            "flows.parquet",
+                            "reliability.json",
+                        );
                         Some(cmd)
                     }
                     _ => None,
@@ -156,7 +171,11 @@ impl PaneIntegrator {
     }
 
     /// Handle Commands pane messages
-    pub fn handle_commands_message(&self, _state: &mut AppState, msg: CommandsMessage) -> Option<String> {
+    pub fn handle_commands_message(
+        &self,
+        _state: &mut AppState,
+        msg: CommandsMessage,
+    ) -> Option<String> {
         match msg {
             CommandsMessage::ExecuteCommand(cmd) => Some(cmd),
             CommandsMessage::SearchCommands(_) => None, // Local filtering
@@ -403,13 +422,20 @@ mod tests {
             ("false", 1),
             ("echo another", 0),
             ("failing command", 1),
-        ].iter().enumerate() {
+        ]
+        .iter()
+        .enumerate()
+        {
             let cmd = ExecutedCommand {
                 id: format!("cmd_{}", i),
                 command: cmd_str.to_string(),
                 exit_code,
                 stdout: "output".to_string(),
-                stderr: if exit_code != 0 { "error".to_string() } else { String::new() },
+                stderr: if exit_code != 0 {
+                    "error".to_string()
+                } else {
+                    String::new()
+                },
                 duration_ms: 100,
                 timed_out: false,
                 executed_at: UNIX_EPOCH,
@@ -476,14 +502,17 @@ mod tests {
             .or_insert_with(PaneState::default);
 
         // Set command input
-        pane_state.form_values.insert("executing_command".to_string(), "echo test".to_string());
-        pane_state.form_values.insert("command_output".to_string(), String::new());
+        pane_state
+            .form_values
+            .insert("executing_command".to_string(), "echo test".to_string());
+        pane_state
+            .form_values
+            .insert("command_output".to_string(), String::new());
 
         // Simulate output accumulation
-        pane_state.form_values.insert(
-            "command_output".to_string(),
-            "output line 1\n".to_string()
-        );
+        pane_state
+            .form_values
+            .insert("command_output".to_string(), "output line 1\n".to_string());
 
         // Verify final state
         let pane_state = state.pane_states.get(&PaneId::Operations).unwrap();
@@ -491,13 +520,17 @@ mod tests {
             pane_state.form_values.get("executing_command"),
             Some(&"echo test".to_string())
         );
-        assert!(pane_state.form_values.get("command_output").unwrap().contains("output line 1"));
+        assert!(pane_state
+            .form_values
+            .get("command_output")
+            .unwrap()
+            .contains("output line 1"));
     }
 
     #[test]
     fn test_integration_command_validator_with_export() {
-        use crate::services::CommandValidator;
         use crate::models::ExecutedCommand;
+        use crate::services::CommandValidator;
         use std::time::UNIX_EPOCH;
 
         let validator = CommandValidator::new();
@@ -557,7 +590,11 @@ mod tests {
                 command: format!("cmd {}", cmd),
                 exit_code,
                 stdout: "output".to_string(),
-                stderr: if exit_code != 0 { "error".to_string() } else { String::new() },
+                stderr: if exit_code != 0 {
+                    "error".to_string()
+                } else {
+                    String::new()
+                },
                 duration_ms: duration,
                 timed_out,
                 executed_at: UNIX_EPOCH,
@@ -570,7 +607,7 @@ mod tests {
         assert_eq!(stats.successful_count, 3);
         assert_eq!(stats.failed_count, 1);
         assert_eq!(stats.timed_out_count, 1);
-        assert!((stats.success_rate - 60.0).abs() < 0.1);  // 60.0 with floating point tolerance
+        assert!((stats.success_rate - 60.0).abs() < 0.1); // 60.0 with floating point tolerance
         assert_eq!(stats.fastest_duration_ms, 100);
         assert_eq!(stats.slowest_duration_ms, 5000);
     }
@@ -600,7 +637,7 @@ mod tests {
         // Get recent 3 (should be in reverse order)
         let recent = state.get_recent_commands(3);
         assert_eq!(recent.len(), 3);
-        assert_eq!(recent[0].id, "cmd_4");  // Most recent first
+        assert_eq!(recent[0].id, "cmd_4"); // Most recent first
         assert_eq!(recent[1].id, "cmd_3");
         assert_eq!(recent[2].id, "cmd_2");
     }

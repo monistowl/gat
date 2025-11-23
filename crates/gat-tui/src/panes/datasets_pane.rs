@@ -6,7 +6,6 @@
 /// - Upload and download management
 /// - Metadata and retention policies
 /// - Scenario templates and loading
-
 use crate::components::*;
 use crate::ui::{GridBrowserState, GridInfo, GridLoadState, GridStatus};
 
@@ -218,10 +217,22 @@ impl Default for DatasetsPaneState {
 
         let mut datasets_table = TableWidget::new("datasets_catalog");
         datasets_table.columns = vec![
-            Column { header: "Name".into(), width: 25 },
-            Column { header: "Size (MB)".into(), width: 12 },
-            Column { header: "Rows".into(), width: 12 },
-            Column { header: "Status".into(), width: 10 },
+            Column {
+                header: "Name".into(),
+                width: 25,
+            },
+            Column {
+                header: "Size (MB)".into(),
+                width: 12,
+            },
+            Column {
+                header: "Rows".into(),
+                width: 12,
+            },
+            Column {
+                header: "Status".into(),
+                width: 10,
+            },
         ];
 
         let mut uploads_list = ListWidget::new("datasets_uploads");
@@ -318,8 +329,7 @@ impl Default for DatasetsPaneState {
             datasets_table,
             uploads_list,
             scenarios_list,
-            search_input: InputWidget::new("dataset_search")
-                .with_placeholder("Search datasets..."),
+            search_input: InputWidget::new("dataset_search").with_placeholder("Search datasets..."),
             metadata_text: TextWidget::new("dataset_metadata", ""),
             scenario_details: TextWidget::new("scenario_details", ""),
             search_filter: String::new(),
@@ -360,7 +370,10 @@ impl DatasetsPaneState {
             let query = self.search_filter.to_lowercase();
             self.datasets
                 .iter()
-                .filter(|d| d.name.to_lowercase().contains(&query) || d.format.to_lowercase().contains(&query))
+                .filter(|d| {
+                    d.name.to_lowercase().contains(&query)
+                        || d.format.to_lowercase().contains(&query)
+                })
                 .collect()
         }
     }
@@ -478,7 +491,8 @@ impl DatasetsPaneState {
         self.scenarios = scenarios;
         self.selected_scenario = 0;
         self.scenario_metadata.loaded_count = self.scenarios.len();
-        self.scenario_metadata.last_loaded = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
+        self.scenario_metadata.last_loaded =
+            chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
     }
 
     pub fn get_scenario_details(&mut self) -> String {
@@ -798,7 +812,10 @@ mod tests {
     fn test_scenario_metadata_formatting() {
         let mut state = DatasetsPaneState::new();
         state.format_scenario_metadata();
-        assert!(state.scenario_details.content.contains("Total Scenarios: 3"));
+        assert!(state
+            .scenario_details
+            .content
+            .contains("Total Scenarios: 3"));
         assert!(state.scenario_details.content.contains("Loaded: 2"));
     }
 

@@ -5,7 +5,7 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout, Alignment},
+    layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     widgets::{Block, Borders, Paragraph},
     Terminal,

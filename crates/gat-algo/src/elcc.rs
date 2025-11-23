@@ -45,7 +45,12 @@ pub fn elcc_estimation(
         elcc_ci_hi_series,
     ])?;
 
-    persist_dataframe(&mut df, out, partitions, OutputStage::AnalyticsElcc.as_str())?;
+    persist_dataframe(
+        &mut df,
+        out,
+        partitions,
+        OutputStage::AnalyticsElcc.as_str(),
+    )?;
 
     Ok(ElccSummary {
         num_resource_classes: 3,

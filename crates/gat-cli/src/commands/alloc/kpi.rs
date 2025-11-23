@@ -92,7 +92,7 @@ pub fn handle(command: &AllocCommands) -> Result<()> {
     })();
 
     // Record run telemetry
-    let params = vec![
+    let params = [
         ("kpi_results".to_string(), kpi_results.to_string()),
         ("scenario_meta".to_string(), scenario_meta.to_string()),
         ("out".to_string(), out.to_string()),

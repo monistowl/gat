@@ -4,7 +4,6 @@
 /// operations like data fetching, command execution, and service calls. Events
 /// are dispatched through a channel-based architecture with retry logic and
 /// error recovery.
-
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
@@ -21,16 +20,16 @@ pub enum AsyncEvent {
     FetchCommands,
 
     // Analytics events
-    RunAnalytics(String, Vec<(String, String)>),  // (analytics_type, options)
+    RunAnalytics(String, Vec<(String, String)>), // (analytics_type, options)
     RunScenarioValidation(String),
-    RunScenarioMaterialize(String, String),  // (template, output)
+    RunScenarioMaterialize(String, String), // (template, output)
 
     // Batch operation events
-    RunBatchPowerFlow(String, usize),  // (manifest, max_jobs)
-    RunBatchOPF(String, usize, String),  // (manifest, max_jobs, solver)
+    RunBatchPowerFlow(String, usize),   // (manifest, max_jobs)
+    RunBatchOPF(String, usize, String), // (manifest, max_jobs, solver)
 
     // Geographic operations
-    RunGeoJoin(String, String, String),  // (left, right, output)
+    RunGeoJoin(String, String, String), // (left, right, output)
 
     // Command execution
     ExecuteCommand(String),
@@ -89,7 +88,7 @@ impl Default for EventDispatcherConfig {
 /// Handler for processing events with retry logic
 pub struct EventDispatcher {
     config: EventDispatcherConfig,
-    sender: mpsc::Sender<(AsyncEvent, usize)>,  // (event, retry_count)
+    sender: mpsc::Sender<(AsyncEvent, usize)>, // (event, retry_count)
     receiver: mpsc::Receiver<(AsyncEvent, usize)>,
 }
 
@@ -253,7 +252,10 @@ mod tests {
             AsyncEvent::RunAnalytics("test".to_string(), vec![]).name(),
             "RunAnalytics"
         );
-        assert_eq!(AsyncEvent::ExecuteCommand("test".to_string()).name(), "ExecuteCommand");
+        assert_eq!(
+            AsyncEvent::ExecuteCommand("test".to_string()).name(),
+            "ExecuteCommand"
+        );
     }
 
     #[test]
@@ -341,7 +343,7 @@ mod tests {
         let sender = dispatcher.sender();
         tokio::spawn(async move {
             let _ = sender.send(AsyncEvent::FetchDatasets).await;
-            sleep(Duration::from_millis(500)).await;  // Wait for retries
+            sleep(Duration::from_millis(500)).await; // Wait for retries
             let _ = sender.send(AsyncEvent::Shutdown).await;
         });
 

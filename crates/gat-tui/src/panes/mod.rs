@@ -1,12 +1,12 @@
 pub mod registry;
 
 // New tuirealm-based pane implementations
-pub mod dashboard_pane;
-pub mod commands_pane;
-pub mod datasets_pane;
-pub mod pipeline_pane;
-pub mod operations_pane;
 pub mod analytics_pane;
+pub mod commands_pane;
+pub mod dashboard_pane;
+pub mod datasets_pane;
+pub mod operations_pane;
+pub mod pipeline_pane;
 pub mod settings_pane;
 
 // Integration tests
@@ -22,10 +22,23 @@ pub mod pipeline;
 pub mod quickstart;
 
 // Re-exports
-pub use dashboard_pane::{DashboardPaneState, KPIMetrics, RecentRun, QuickAction, ActionType};
-pub use commands_pane::{CommandsPaneState, CommandSnippet, CommandResult, ExecutionMode, CommandStatus, CommandAction};
-pub use datasets_pane::{DatasetsPaneState, Dataset, DatasetStatus, UploadJob, UploadStatus, DatasetMetadata};
-pub use pipeline_pane::{PipelinePaneState, PipelineNode, NodeType, TransformTemplate};
-pub use operations_pane::{OperationsPaneState, BatchJob, JobStatus, AllocationResult, ReliabilityMetric, MetricStatus, OperationType};
-pub use analytics_pane::{AnalyticsPaneState, AnalyticsTab, AnalyticsMetric, ReliabilityResult, DeliverabilityResult, ELCCResult, PowerFlowResult, CongestionStatus, MetricStatus as AnalyticsMetricStatus};
-pub use settings_pane::{SettingsPaneState, SettingsTab, DisplaySettings, DataSettings, ExecutionSettings, AdvancedSettings};
+pub use analytics_pane::{
+    AnalyticsMetric, AnalyticsPaneState, AnalyticsTab, CongestionStatus, DeliverabilityResult,
+    ELCCResult, MetricStatus as AnalyticsMetricStatus, PowerFlowResult, ReliabilityResult,
+};
+pub use commands_pane::{
+    CommandAction, CommandResult, CommandSnippet, CommandStatus, CommandsPaneState, ExecutionMode,
+};
+pub use dashboard_pane::{ActionType, DashboardPaneState, KPIMetrics, QuickAction, RecentRun};
+pub use datasets_pane::{
+    Dataset, DatasetMetadata, DatasetStatus, DatasetsPaneState, UploadJob, UploadStatus,
+};
+pub use operations_pane::{
+    AllocationResult, BatchJob, JobStatus, MetricStatus, OperationType, OperationsPaneState,
+    ReliabilityMetric,
+};
+pub use pipeline_pane::{NodeType, PipelineNode, PipelinePaneState, TransformTemplate};
+pub use settings_pane::{
+    AdvancedSettings, DataSettings, DisplaySettings, ExecutionSettings, SettingsPaneState,
+    SettingsTab,
+};

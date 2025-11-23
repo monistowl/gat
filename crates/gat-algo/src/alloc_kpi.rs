@@ -104,27 +104,41 @@ pub fn compute_kpi_contributions(
     partitions: &[String],
 ) -> Result<KpiContributionSummary> {
     // Load KPI results (scenario_id, kpi columns like lole, eue_mwh, thermal_violations)
-    let kpi_df = LazyFrame::scan_parquet(kpi_results_parquet.to_str().unwrap(), Default::default())?
-        .collect()
-        .context("loading KPI results")?;
+    let kpi_df =
+        LazyFrame::scan_parquet(kpi_results_parquet.to_str().unwrap(), Default::default())?
+            .collect()
+            .context("loading KPI results")?;
 
     // Load scenario metadata (scenario_id, control flags like dr_enabled, der_dispatch)
-    let meta_df = LazyFrame::scan_parquet(scenario_meta_parquet.to_str().unwrap(), Default::default())?
-        .collect()
-        .context("loading scenario metadata")?;
+    let meta_df =
+        LazyFrame::scan_parquet(scenario_meta_parquet.to_str().unwrap(), Default::default())?
+            .collect()
+            .context("loading scenario metadata")?;
 
     // Validate required columns
-    if !kpi_df.get_column_names().iter().any(|c| *c == "scenario_id") {
+    if !kpi_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "scenario_id")
+    {
         return Err(anyhow!("KPI results must contain 'scenario_id' column"));
     }
-    if !meta_df.get_column_names().iter().any(|c| *c == "scenario_id") {
-        return Err(anyhow!("Scenario metadata must contain 'scenario_id' column"));
+    if !meta_df
+        .get_column_names()
+        .iter()
+        .any(|c| *c == "scenario_id")
+    {
+        return Err(anyhow!(
+            "Scenario metadata must contain 'scenario_id' column"
+        ));
     }
 
     // Identify control columns before joining (to avoid moving meta_df)
     let control_columns = identify_control_columns(&meta_df)?;
     if control_columns.is_empty() {
-        return Err(anyhow!("No control columns found in metadata (expected boolean columns like dr_enabled)"));
+        return Err(anyhow!(
+            "No control columns found in metadata (expected boolean columns like dr_enabled)"
+        ));
     }
 
     // Join KPI results with scenario metadata on scenario_id
@@ -136,22 +150,21 @@ pub fn compute_kpi_contributions(
     // Identify KPI columns (numeric, not scenario_id or control flags)
     let kpi_columns = identify_kpi_columns(&joined_df)?;
     if kpi_columns.is_empty() {
-        return Err(anyhow!("No KPI columns found in results (expected numeric columns like lole, eue_mwh)"));
+        return Err(anyhow!(
+            "No KPI columns found in results (expected numeric columns like lole, eue_mwh)"
+        ));
     }
 
     // Identify baseline scenario (all controls off, or user-specified)
-    let baseline_id = identify_baseline_scenario(&joined_df, &control_columns, baseline_scenario_id)?;
+    let baseline_id =
+        identify_baseline_scenario(&joined_df, &control_columns, baseline_scenario_id)?;
 
     // Compute baseline KPI values
     let baseline_kpis = extract_baseline_kpis(&joined_df, &baseline_id, &kpi_columns)?;
 
     // Compute contributions for each (kpi, control) pair
-    let contributions = compute_contributions(
-        &joined_df,
-        &kpi_columns,
-        &control_columns,
-        &baseline_kpis,
-    )?;
+    let contributions =
+        compute_contributions(&joined_df, &kpi_columns, &control_columns, &baseline_kpis)?;
 
     // Convert contributions to DataFrame
     let mut contrib_df = contributions_to_dataframe(contributions)?;
@@ -184,7 +197,10 @@ fn identify_kpi_columns(df: &DataFrame) -> Result<Vec<String>> {
     let mut kpi_cols = Vec::new();
     for col_name in df.get_column_names() {
         // Skip scenario_id and control flags
-        if col_name == "scenario_id" || col_name.ends_with("_enabled") || col_name.ends_with("_dispatch") {
+        if col_name == "scenario_id"
+            || col_name.ends_with("_enabled")
+            || col_name.ends_with("_dispatch")
+        {
             continue;
         }
         // Include numeric columns
@@ -261,7 +277,10 @@ fn extract_baseline_kpis(
 
     // Find baseline row
     for idx in 0..df.height() {
-        let scenario_id = scenario_col.get(idx).ok().map(|v| v.to_string().trim_matches('"').to_string());
+        let scenario_id = scenario_col
+            .get(idx)
+            .ok()
+            .map(|v| v.to_string().trim_matches('"').to_string());
         if let Some(scenario_id) = scenario_id {
             if scenario_id.as_str() == baseline_id {
                 // Extract KPI values
@@ -280,7 +299,10 @@ fn extract_baseline_kpis(
     }
 
     if baseline_kpis.is_empty() {
-        return Err(anyhow!("Baseline scenario '{}' not found or has no KPI values", baseline_id));
+        return Err(anyhow!(
+            "Baseline scenario '{}' not found or has no KPI values",
+            baseline_id
+        ));
     }
 
     Ok(baseline_kpis)

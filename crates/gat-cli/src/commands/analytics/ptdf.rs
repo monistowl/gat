@@ -18,7 +18,8 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         out_partitions,
         threads,
         solver,
-    } = command else {
+    } = command
+    else {
         unreachable!();
     };
 

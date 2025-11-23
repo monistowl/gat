@@ -57,7 +57,9 @@ impl OperationsPane {
                 ])
                 .mark_visual(),
         )
-        .with_sidebar(Sidebar::new("Operator notes", true).lines(["Review batch progress before dispatch"]))
+        .with_sidebar(
+            Sidebar::new("Operator notes", true).lines(["Review batch progress before dispatch"]),
+        )
         .with_subtabs(SubTabs::new(["Control", "Queue", "Results"], 0))
     }
 }

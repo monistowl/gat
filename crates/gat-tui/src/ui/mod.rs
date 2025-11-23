@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 mod ansi;
+mod command_components;
 mod components;
 mod grid_components;
 mod layout;
@@ -8,23 +9,22 @@ mod modal;
 mod navigation;
 mod registry;
 mod theme;
-mod command_components;
 
-pub use ansi::{StyledText, COLOR_RED, COLOR_GREEN, COLOR_YELLOW, COLOR_CYAN, BOLD, DIM, REVERSE};
+pub use ansi::{StyledText, BOLD, COLOR_CYAN, COLOR_GREEN, COLOR_RED, COLOR_YELLOW, DIM, REVERSE};
 
+pub use command_components::{CommandOutputViewer, CommandResultModal};
 /// The root container for the terminal experience.
 pub use components::{
     config_form, file_browser_table, job_queue_table, manifest_preview, metrics_table,
     progress_bar, ConfigField, ConfigFieldType, FileInfo, Job, JobStatus, MetricStatus,
     MetricValue,
 };
-pub use grid_components::{GridBrowserState, GridInfo, GridLoadState, GridLoadModal, GridStatus};
+pub use grid_components::{GridBrowserState, GridInfo, GridLoadModal, GridLoadState, GridStatus};
 pub use layout::{PaneLayout, ResponsiveRules, Sidebar, SubTabs};
 pub use modal::{CommandModal, ExecutionMode};
 pub use navigation::{ContextButton, MenuItem, NavMenu};
 pub use registry::{PaneContext, PaneView, PanelRegistry};
 pub use theme::{EmptyState, Theme, THEME};
-pub use command_components::{CommandResultModal, CommandOutputViewer};
 
 pub struct AppShell {
     pub title: String,
@@ -37,8 +37,7 @@ pub struct AppShell {
 impl AppShell {
     pub fn new(title: impl Into<String>, menu: NavMenu) -> Self {
         // Get actual terminal size, fall back to sensible defaults if detection fails
-        let (width, height) = crossterm::terminal::size()
-            .unwrap_or((80, 24));
+        let (width, height) = crossterm::terminal::size().unwrap_or((80, 24));
 
         Self {
             title: title.into(),
@@ -77,10 +76,7 @@ impl AppShell {
 
         // Render frame title with cyan and bold styling
         let title_text = THEME.frame_title(&self.title);
-        let styled_title = StyledText::new()
-            .color(COLOR_CYAN)
-            .bold()
-            .apply(title_text);
+        let styled_title = StyledText::new().color(COLOR_CYAN).bold().apply(title_text);
         let _ = writeln!(&mut output, "{}", styled_title);
 
         // Render menu bar

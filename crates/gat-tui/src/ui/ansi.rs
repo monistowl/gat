@@ -57,9 +57,7 @@ pub struct StyledText {
 
 impl StyledText {
     pub fn new() -> Self {
-        Self {
-            codes: Vec::new(),
-        }
+        Self { codes: Vec::new() }
     }
 
     pub fn color(mut self, code: AnsiCode) -> Self {
@@ -114,20 +112,17 @@ mod tests {
             .apply("Dashboard");
 
         assert!(result.contains("\x1b[36m")); // Cyan
-        assert!(result.contains("\x1b[1m"));  // Bold
+        assert!(result.contains("\x1b[1m")); // Bold
         assert!(result.contains("Dashboard"));
         assert!(result.ends_with("\x1b[0m"));
     }
 
     #[test]
     fn test_multiple_codes() {
-        let result = StyledText::new()
-            .color(COLOR_GREEN)
-            .dim()
-            .apply("inactive");
+        let result = StyledText::new().color(COLOR_GREEN).dim().apply("inactive");
 
         assert!(result.contains("\x1b[32m")); // Green
-        assert!(result.contains("\x1b[2m"));  // Dim
+        assert!(result.contains("\x1b[2m")); // Dim
         assert!(result.contains("inactive"));
     }
 }

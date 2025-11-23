@@ -5,7 +5,6 @@
 /// - Allocation operations (rents, contributions)
 /// - Reliability metrics and analysis
 /// - Multi-tab interface for different operation types
-
 use crate::components::*;
 use crate::data::Workflow;
 
@@ -71,9 +70,9 @@ pub struct AllocationResult {
     pub rents: f64,
     pub contribution: f64,
     pub allocation_factor: f64,
-    pub revenue_adequacy: f64,  // Percentage of revenue needs met
-    pub cost_recovery: f64,     // Percentage of costs recovered
-    pub surplus_deficit: f64,   // Surplus/deficit in currency units
+    pub revenue_adequacy: f64, // Percentage of revenue needs met
+    pub cost_recovery: f64,    // Percentage of costs recovered
+    pub surplus_deficit: f64,  // Surplus/deficit in currency units
 }
 
 /// Reliability metric
@@ -321,8 +320,8 @@ impl OperationsPaneState {
 
     pub fn start_operation(&mut self) {
         self.run_in_progress = true;
-        self.status_indicator = StatusWidget::new("operations_status")
-            .set_info("Running operation...");
+        self.status_indicator =
+            StatusWidget::new("operations_status").set_info("Running operation...");
     }
 
     pub fn complete_operation(&mut self, success: bool) {
@@ -331,8 +330,8 @@ impl OperationsPaneState {
             self.status_indicator = StatusWidget::new("operations_status")
                 .set_success("Operation completed successfully");
         } else {
-            self.status_indicator = StatusWidget::new("operations_status")
-                .set_error("Operation failed");
+            self.status_indicator =
+                StatusWidget::new("operations_status").set_error("Operation failed");
         }
     }
 
@@ -395,7 +394,11 @@ impl OperationsPaneState {
         if self.allocation_results.is_empty() {
             return 0.0;
         }
-        let sum: f64 = self.allocation_results.iter().map(|r| r.allocation_factor).sum();
+        let sum: f64 = self
+            .allocation_results
+            .iter()
+            .map(|r| r.allocation_factor)
+            .sum();
         sum / self.allocation_results.len() as f64
     }
 
@@ -403,7 +406,11 @@ impl OperationsPaneState {
         if self.allocation_results.is_empty() {
             return 0.0;
         }
-        let sum: f64 = self.allocation_results.iter().map(|r| r.revenue_adequacy).sum();
+        let sum: f64 = self
+            .allocation_results
+            .iter()
+            .map(|r| r.revenue_adequacy)
+            .sum();
         sum / self.allocation_results.len() as f64
     }
 
@@ -411,12 +418,19 @@ impl OperationsPaneState {
         if self.allocation_results.is_empty() {
             return 0.0;
         }
-        let sum: f64 = self.allocation_results.iter().map(|r| r.cost_recovery).sum();
+        let sum: f64 = self
+            .allocation_results
+            .iter()
+            .map(|r| r.cost_recovery)
+            .sum();
         sum / self.allocation_results.len() as f64
     }
 
     pub fn total_surplus_deficit(&self) -> f64 {
-        self.allocation_results.iter().map(|r| r.surplus_deficit).sum()
+        self.allocation_results
+            .iter()
+            .map(|r| r.surplus_deficit)
+            .sum()
     }
 
     pub fn add_allocation(&mut self, result: AllocationResult) {

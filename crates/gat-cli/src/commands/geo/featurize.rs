@@ -151,21 +151,13 @@ pub fn handle(command: &GeoCommands) -> Result<()> {
         // Parse lag periods (comma-separated hours)
         let lag_periods: Vec<usize> = lags
             .as_ref()
-            .map(|s| {
-                s.split(',')
-                    .filter_map(|x| x.trim().parse().ok())
-                    .collect()
-            })
+            .map(|s| s.split(',').filter_map(|x| x.trim().parse().ok()).collect())
             .unwrap_or_default();
 
         // Parse rolling window sizes (comma-separated hours)
         let window_sizes: Vec<usize> = windows
             .as_ref()
-            .map(|s| {
-                s.split(',')
-                    .filter_map(|x| x.trim().parse().ok())
-                    .collect()
-            })
+            .map(|s| s.split(',').filter_map(|x| x.trim().parse().ok()).collect())
             .unwrap_or_default();
 
         // Perform spatial-temporal featurization
@@ -198,10 +190,13 @@ pub fn handle(command: &GeoCommands) -> Result<()> {
     })();
 
     // Record run telemetry
-    let params = vec![
+    let params = [
         ("mapping".to_string(), mapping.to_string()),
         ("timeseries".to_string(), timeseries.to_string()),
-        ("lags".to_string(), lags.as_deref().unwrap_or("").to_string()),
+        (
+            "lags".to_string(),
+            lags.as_deref().unwrap_or("").to_string(),
+        ),
         (
             "windows".to_string(),
             windows.as_deref().unwrap_or("").to_string(),

@@ -2,8 +2,7 @@
 ///
 /// Messages represent user actions and system events that drive state changes.
 /// The update function processes messages to produce new state.
-
-use crate::models::{PaneId, ModalState};
+use crate::models::{ModalState, PaneId};
 use crate::{DatasetEntry, QueryError};
 use std::collections::HashMap;
 
@@ -18,9 +17,9 @@ pub enum Message {
     CloseModal,
 
     // Input/Form handling
-    TextInput(String, String), // component_id, text_value
+    TextInput(String, String),      // component_id, text_value
     SelectionChange(String, usize), // component_id, selected_index
-    CheckboxToggle(String, bool), // component_id, new_value
+    CheckboxToggle(String, bool),   // component_id, new_value
 
     // Pane-specific actions
     Dashboard(DashboardMessage),
@@ -36,7 +35,7 @@ pub enum Message {
 
     // Async task completion
     TaskCompleted(String, TaskResult), // task_id, result
-    TaskFailed(String, String), // task_id, error
+    TaskFailed(String, String),        // task_id, error
 
     // Keyboard shortcuts
     KeyShortcut(KeyShortcut),
@@ -92,11 +91,11 @@ pub enum DatasetsMessage {
     DatasetsLoaded(Result<Vec<DatasetEntry>, QueryError>),
 
     // Grid management (Phase 3)
-    LoadGrid(String), // file_path
+    LoadGrid(String),   // file_path
     UnloadGrid(String), // grid_id
     SwitchGrid(String), // grid_id
     RefreshGrids,
-    GridLoaded(String), // grid_id
+    GridLoaded(String),     // grid_id
     GridLoadFailed(String), // error message
 }
 
@@ -113,7 +112,7 @@ pub enum PipelineMessage {
 
 #[derive(Clone, Debug)]
 pub enum OperationsMessage {
-    SelectTab(usize), // 0=Batch, 1=Alloc, 2=Reliability
+    SelectTab(usize),             // 0=Batch, 1=Alloc, 2=Reliability
     ConfigChange(String, String), // key, value
     Execute,
     CancelRun,
@@ -121,10 +120,10 @@ pub enum OperationsMessage {
     OperationsLoaded(Result<Vec<crate::data::Workflow>, QueryError>),
 
     // Command execution (Phase 4)
-    ExecuteCommand(String), // command line
-    CommandOutput(String), // output chunk
+    ExecuteCommand(String),                          // command line
+    CommandOutput(String),                           // output chunk
     CommandCompleted(Result<CommandResult, String>), // result or error
-    CancelCommand, // stop running command
+    CancelCommand,                                   // stop running command
 }
 
 #[derive(Clone, Debug)]
@@ -161,11 +160,13 @@ impl ModalState {
         match msg {
             ModalMessage::CommandExecution => ModalState::CommandExecution(Default::default()),
             ModalMessage::Settings => ModalState::Settings(Default::default()),
-            ModalMessage::ConfirmAction(msg) => ModalState::Confirmation(crate::models::ConfirmationState {
-                message: msg,
-                yes_label: "Yes".to_string(),
-                no_label: "No".to_string(),
-            }),
+            ModalMessage::ConfirmAction(msg) => {
+                ModalState::Confirmation(crate::models::ConfirmationState {
+                    message: msg,
+                    yes_label: "Yes".to_string(),
+                    no_label: "No".to_string(),
+                })
+            }
             ModalMessage::Info(title, message) => ModalState::Info(crate::models::InfoState {
                 title,
                 message,

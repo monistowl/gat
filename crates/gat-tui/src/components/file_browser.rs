@@ -164,10 +164,7 @@ impl FileBrowserState {
             }
 
             let metadata = entry.metadata()?;
-            let name = entry
-                .file_name()
-                .to_string_lossy()
-                .to_string();
+            let name = entry.file_name().to_string_lossy().to_string();
 
             self.entries.push(FileEntry {
                 name,
@@ -179,12 +176,10 @@ impl FileBrowserState {
         }
 
         // Sort: directories first, then alphabetically
-        self.entries.sort_by(|a, b| {
-            match (a.is_dir, b.is_dir) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => a.name.cmp(&b.name),
-            }
+        self.entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.name.cmp(&b.name),
         });
 
         Ok(())
@@ -222,7 +217,11 @@ pub fn render_tree_node(
     let indent = "  ".repeat(indent_level);
     let indicator = if is_selected { "▶" } else { " " };
     let icon = if is_dir {
-        if is_expanded { "▼" } else { "▶" }
+        if is_expanded {
+            "▼"
+        } else {
+            "▶"
+        }
     } else {
         "─"
     };

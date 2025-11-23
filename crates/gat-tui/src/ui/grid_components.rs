@@ -4,7 +4,6 @@
 /// - Grid browser (list of loaded grids)
 /// - Grid load modal (file path input)
 /// - Grid info display (stats for current grid)
-
 use crate::data::DatasetEntry;
 
 /// Display information about a single loaded grid
@@ -43,7 +42,7 @@ impl GridInfo {
             id: entry.id.clone(),
             node_count: entry.row_count,
             branch_count: (entry.row_count as f64 * 1.5) as usize, // Rough estimate
-            density: entry.row_count as f64 / 100.0, // Normalized
+            density: entry.row_count as f64 / 100.0,               // Normalized
             status: match is_active {
                 true => GridStatus::Active,
                 false => GridStatus::Inactive,
@@ -184,7 +183,8 @@ impl GridLoadState {
 
     /// Check if path is valid (basic validation)
     pub fn is_valid(&self) -> bool {
-        !self.file_path.is_empty() && (self.file_path.ends_with(".arrow") || self.file_path.ends_with(".m"))
+        !self.file_path.is_empty()
+            && (self.file_path.ends_with(".arrow") || self.file_path.ends_with(".m"))
     }
 
     /// Get the file path

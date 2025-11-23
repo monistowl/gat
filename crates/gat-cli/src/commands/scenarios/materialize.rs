@@ -17,11 +17,9 @@ pub fn handle(
     let mut scenario_count = 0;
     let res = (|| -> Result<()> {
         let set = load_spec_from_path(Path::new(spec))?;
-        let grid_path = grid_file
-            .or_else(|| set.grid_file.as_deref())
-            .ok_or_else(|| {
-                anyhow!("base grid file must be provided either in the spec or via --grid-file")
-            })?;
+        let grid_path = grid_file.or(set.grid_file.as_deref()).ok_or_else(|| {
+            anyhow!("base grid file must be provided either in the spec or via --grid-file")
+        })?;
         grid_used = grid_path.to_string();
         let resolved = resolve_scenarios(&set)?;
         let options = ScenarioApplyOptions {

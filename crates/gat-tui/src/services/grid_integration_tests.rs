@@ -6,7 +6,7 @@
 
 #[cfg(test)]
 mod grid_integration_tests {
-    use crate::services::{GridService, GatCoreQueryBuilder, QueryBuilder};
+    use crate::services::{GatCoreQueryBuilder, GridService, QueryBuilder};
     use std::path::PathBuf;
 
     /// Helper to get the path to a test grid file
@@ -136,7 +136,10 @@ mod grid_integration_tests {
 
         let datasets_vec = datasets.unwrap();
         assert!(!datasets_vec.is_empty(), "Should have at least one dataset");
-        assert_eq!(datasets_vec[0].id, grid_id, "Dataset ID should match grid ID");
+        assert_eq!(
+            datasets_vec[0].id, grid_id,
+            "Dataset ID should match grid ID"
+        );
 
         // Verify dataset properties
         let dataset = &datasets_vec[0];
@@ -165,14 +168,29 @@ mod grid_integration_tests {
 
         // Test get_metrics
         let metrics = qb.get_metrics().await;
-        assert!(metrics.is_ok(), "get_metrics should succeed with grid loaded");
+        assert!(
+            metrics.is_ok(),
+            "get_metrics should succeed with grid loaded"
+        );
 
         let metrics_val = metrics.unwrap();
         // Metrics should be reasonable values
-        assert!(metrics_val.deliverability_score >= 0.0, "Deliverability should be non-negative");
-        assert!(metrics_val.deliverability_score <= 100.0, "Deliverability should be <= 100");
-        assert!(metrics_val.lole_hours_per_year >= 0.0, "LOLE should be non-negative");
-        assert!(metrics_val.eue_mwh_per_year >= 0.0, "EUE should be non-negative");
+        assert!(
+            metrics_val.deliverability_score >= 0.0,
+            "Deliverability should be non-negative"
+        );
+        assert!(
+            metrics_val.deliverability_score <= 100.0,
+            "Deliverability should be <= 100"
+        );
+        assert!(
+            metrics_val.lole_hours_per_year >= 0.0,
+            "LOLE should be non-negative"
+        );
+        assert!(
+            metrics_val.eue_mwh_per_year >= 0.0,
+            "EUE should be non-negative"
+        );
     }
 
     /// Test: GatCoreQueryBuilder pipeline config with real grid
@@ -231,15 +249,26 @@ mod grid_integration_tests {
 
         // Switch to IEEE 14
         qb.set_current_grid(id14.clone());
-        assert_eq!(qb.current_grid(), Some(id14.as_str()), "Should be on IEEE 14");
+        assert_eq!(
+            qb.current_grid(),
+            Some(id14.as_str()),
+            "Should be on IEEE 14"
+        );
 
         // Switch to IEEE 33
         qb.set_current_grid(id33.clone());
-        assert_eq!(qb.current_grid(), Some(id33.as_str()), "Should be on IEEE 33");
+        assert_eq!(
+            qb.current_grid(),
+            Some(id33.as_str()),
+            "Should be on IEEE 33"
+        );
 
         // Clear grid
         qb.clear_current_grid();
-        assert!(qb.current_grid().is_none(), "Should have no grid after clear");
+        assert!(
+            qb.current_grid().is_none(),
+            "Should have no grid after clear"
+        );
     }
 
     /// Test: Concurrent access to GridService
@@ -263,16 +292,18 @@ mod grid_integration_tests {
         let id1 = grid_id.clone();
         let id2 = grid_id.clone();
 
-        let h1 = std::thread::spawn(move || {
-            gs1.get_grid(&id1).is_ok()
-        });
+        let h1 = std::thread::spawn(move || gs1.get_grid(&id1).is_ok());
 
-        let h2 = std::thread::spawn(move || {
-            gs2.get_grid(&id2).is_ok()
-        });
+        let h2 = std::thread::spawn(move || gs2.get_grid(&id2).is_ok());
 
-        assert!(h1.join().unwrap(), "Thread 1 should access grid successfully");
-        assert!(h2.join().unwrap(), "Thread 2 should access grid successfully");
+        assert!(
+            h1.join().unwrap(),
+            "Thread 1 should access grid successfully"
+        );
+        assert!(
+            h2.join().unwrap(),
+            "Thread 2 should access grid successfully"
+        );
     }
 
     /// Test: Unload grid and verify it's removed
@@ -297,7 +328,11 @@ mod grid_integration_tests {
         assert!(result.is_ok(), "Unload should succeed");
 
         // Verify it's removed
-        assert_eq!(grid_service.grid_count(), 0, "Should have 0 grids after unload");
+        assert_eq!(
+            grid_service.grid_count(),
+            0,
+            "Should have 0 grids after unload"
+        );
         assert!(
             grid_service.get_grid(&grid_id).is_err(),
             "Grid should not be retrievable after unload"

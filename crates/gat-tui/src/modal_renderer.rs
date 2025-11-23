@@ -2,10 +2,9 @@
 ///
 /// Provides rendering functions for all modal types (confirmation, info, commands, settings).
 /// Modals are rendered as overlays on top of the current pane, centered on screen.
-
 use crate::models::{
-    ModalState, CommandModalState, SettingsModalState, ConfirmationState, InfoState,
-    ExecutionMode, Theme,
+    CommandModalState, ConfirmationState, ExecutionMode, InfoState, ModalState, SettingsModalState,
+    Theme,
 };
 
 /// Central modal renderer
@@ -16,9 +15,13 @@ impl ModalRenderer {
     pub fn render(modal_state: &ModalState, width: u16, height: u16) -> Option<String> {
         match modal_state {
             ModalState::None => None,
-            ModalState::CommandExecution(state) => Some(Self::render_command_modal(state, width, height)),
+            ModalState::CommandExecution(state) => {
+                Some(Self::render_command_modal(state, width, height))
+            }
             ModalState::Settings(state) => Some(Self::render_settings_modal(state, width, height)),
-            ModalState::Confirmation(state) => Some(Self::render_confirmation_modal(state, width, height)),
+            ModalState::Confirmation(state) => {
+                Some(Self::render_confirmation_modal(state, width, height))
+            }
             ModalState::Info(state) => Some(Self::render_info_modal(state, width, height)),
         }
     }
@@ -31,8 +34,21 @@ impl ModalRenderer {
         let start_row = ((height as usize).saturating_sub(modal_height)) / 2;
 
         let mut output = String::new();
-        output.push_str(&Self::render_backdrop(width, height, start_row, start_col, modal_height, modal_width));
-        output.push_str(&Self::render_command_content(state, start_row, start_col, modal_width, modal_height));
+        output.push_str(&Self::render_backdrop(
+            width,
+            height,
+            start_row,
+            start_col,
+            modal_height,
+            modal_width,
+        ));
+        output.push_str(&Self::render_command_content(
+            state,
+            start_row,
+            start_col,
+            modal_width,
+            modal_height,
+        ));
 
         output
     }
@@ -60,7 +76,11 @@ impl ModalRenderer {
             Self::spaces(start_col)
         ));
 
-        let cmd_lines = state.command_text.lines().take(height.saturating_sub(8)).collect::<Vec<_>>();
+        let cmd_lines = state
+            .command_text
+            .lines()
+            .take(height.saturating_sub(8))
+            .collect::<Vec<_>>();
         for line in cmd_lines {
             let truncated = if line.len() > width.saturating_sub(4) {
                 format!("{}...", &line[..width.saturating_sub(7)])
@@ -88,7 +108,11 @@ impl ModalRenderer {
             "{}│ Mode: {}{}│",
             Self::spaces(start_col),
             mode_indicator,
-            Self::spaces(width.saturating_sub(10).saturating_sub(mode_indicator.len()))
+            Self::spaces(
+                width
+                    .saturating_sub(10)
+                    .saturating_sub(mode_indicator.len())
+            )
         ));
 
         // Output section
@@ -97,7 +121,11 @@ impl ModalRenderer {
             Self::spaces(start_col)
         ));
 
-        let output_lines = state.output.iter().take(height.saturating_sub(12)).collect::<Vec<_>>();
+        let output_lines = state
+            .output
+            .iter()
+            .take(height.saturating_sub(12))
+            .collect::<Vec<_>>();
         for line in output_lines {
             let truncated = if line.len() > width.saturating_sub(4) {
                 format!("{}...", &line[..width.saturating_sub(7)])
@@ -136,7 +164,14 @@ impl ModalRenderer {
         let start_row = ((height as usize).saturating_sub(modal_height)) / 2;
 
         let mut output = String::new();
-        output.push_str(&Self::render_backdrop(width, height, start_row, start_col, modal_height, modal_width));
+        output.push_str(&Self::render_backdrop(
+            width,
+            height,
+            start_row,
+            start_col,
+            modal_height,
+            modal_width,
+        ));
 
         let mut lines = Vec::new();
         lines.push(format!(
@@ -189,7 +224,14 @@ impl ModalRenderer {
         let start_row = ((height as usize).saturating_sub(modal_height)) / 2;
 
         let mut output = String::new();
-        output.push_str(&Self::render_backdrop(width, height, start_row, start_col, modal_height, modal_width));
+        output.push_str(&Self::render_backdrop(
+            width,
+            height,
+            start_row,
+            start_col,
+            modal_height,
+            modal_width,
+        ));
 
         let mut lines = Vec::new();
         lines.push(format!(
@@ -254,7 +296,14 @@ impl ModalRenderer {
         let start_col = ((width as usize).saturating_sub(modal_width)) / 2;
 
         let mut output = String::new();
-        output.push_str(&Self::render_backdrop(width, height, 3, start_col, modal_height, modal_width));
+        output.push_str(&Self::render_backdrop(
+            width,
+            height,
+            3,
+            start_col,
+            modal_height,
+            modal_width,
+        ));
 
         let mut lines = Vec::new();
         lines.push(format!(
@@ -330,7 +379,10 @@ impl ModalRenderer {
         // Rows covering modal sides (dim)
         for _ in 0..modal_height {
             let before = format!("\x1b[2m{}\x1b[0m", "▓".repeat(modal_start_col));
-            let after = format!("\x1b[2m{}\x1b[0m", "▓".repeat((width as usize).saturating_sub(modal_start_col + modal_width)));
+            let after = format!(
+                "\x1b[2m{}\x1b[0m",
+                "▓".repeat((width as usize).saturating_sub(modal_start_col + modal_width))
+            );
             lines.push(format!("{}{}", before, after));
         }
 

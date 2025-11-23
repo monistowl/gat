@@ -2,7 +2,6 @@
 ///
 /// Manages user preferences, application settings, and configuration options
 /// across multiple categories: Display, Data, Execution, and Advanced.
-
 use serde::{Deserialize, Serialize};
 
 /// Settings tab enumeration
@@ -28,11 +27,11 @@ impl SettingsTab {
 /// Display preferences
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DisplaySettings {
-    pub theme: String,                    // "dark", "light", "auto"
+    pub theme: String, // "dark", "light", "auto"
     pub show_grid_lines: bool,
     pub compact_mode: bool,
     pub font_size: u8,
-    pub status_bar_position: String,      // "top", "bottom"
+    pub status_bar_position: String, // "top", "bottom"
 }
 
 impl Default for DisplaySettings {
@@ -205,92 +204,133 @@ impl SettingsPaneState {
     /// Get currently selected setting name and value
     pub fn selected_setting(&self) -> Option<(String, String)> {
         match self.current_tab {
-            SettingsTab::Display => {
-                match self.selected_setting_index {
-                    0 => Some(("Theme".to_string(), self.display_settings.theme.clone())),
-                    1 => Some(("Grid Lines".to_string(), self.display_settings.show_grid_lines.to_string())),
-                    2 => Some(("Compact Mode".to_string(), self.display_settings.compact_mode.to_string())),
-                    3 => Some(("Font Size".to_string(), self.display_settings.font_size.to_string())),
-                    4 => Some(("Status Bar Position".to_string(), self.display_settings.status_bar_position.clone())),
-                    _ => None,
-                }
-            }
-            SettingsTab::Data => {
-                match self.selected_setting_index {
-                    0 => Some(("Auto Refresh".to_string(), self.data_settings.auto_refresh.to_string())),
-                    1 => Some(("Refresh Interval (s)".to_string(), self.data_settings.refresh_interval_secs.to_string())),
-                    2 => Some(("Cache Enabled".to_string(), self.data_settings.cache_enabled.to_string())),
-                    3 => Some(("Cache Size (MB)".to_string(), self.data_settings.cache_size_mb.to_string())),
-                    4 => Some(("Default Dataset Path".to_string(), self.data_settings.default_dataset_path.clone())),
-                    _ => None,
-                }
-            }
-            SettingsTab::Execution => {
-                match self.selected_setting_index {
-                    0 => Some(("Max Parallel Jobs".to_string(), self.execution_settings.max_parallel_jobs.to_string())),
-                    1 => Some(("Job Timeout (s)".to_string(), self.execution_settings.job_timeout_secs.to_string())),
-                    2 => Some(("Auto Save Results".to_string(), self.execution_settings.auto_save_results.to_string())),
-                    3 => Some(("Results Output Path".to_string(), self.execution_settings.results_output_path.clone())),
-                    4 => Some(("Verbose Logging".to_string(), self.execution_settings.verbose_logging.to_string())),
-                    _ => None,
-                }
-            }
-            SettingsTab::Advanced => {
-                match self.selected_setting_index {
-                    0 => Some(("Debug Mode".to_string(), self.advanced_settings.enable_debug_mode.to_string())),
-                    1 => Some(("Telemetry".to_string(), self.advanced_settings.enable_telemetry.to_string())),
-                    2 => Some(("Connection Timeout (s)".to_string(), self.advanced_settings.connection_timeout_secs.to_string())),
-                    3 => Some(("Retry Attempts".to_string(), self.advanced_settings.retry_attempts.to_string())),
-                    4 => Some(("Config Path".to_string(), self.advanced_settings.custom_config_path.clone())),
-                    _ => None,
-                }
-            }
+            SettingsTab::Display => match self.selected_setting_index {
+                0 => Some(("Theme".to_string(), self.display_settings.theme.clone())),
+                1 => Some((
+                    "Grid Lines".to_string(),
+                    self.display_settings.show_grid_lines.to_string(),
+                )),
+                2 => Some((
+                    "Compact Mode".to_string(),
+                    self.display_settings.compact_mode.to_string(),
+                )),
+                3 => Some((
+                    "Font Size".to_string(),
+                    self.display_settings.font_size.to_string(),
+                )),
+                4 => Some((
+                    "Status Bar Position".to_string(),
+                    self.display_settings.status_bar_position.clone(),
+                )),
+                _ => None,
+            },
+            SettingsTab::Data => match self.selected_setting_index {
+                0 => Some((
+                    "Auto Refresh".to_string(),
+                    self.data_settings.auto_refresh.to_string(),
+                )),
+                1 => Some((
+                    "Refresh Interval (s)".to_string(),
+                    self.data_settings.refresh_interval_secs.to_string(),
+                )),
+                2 => Some((
+                    "Cache Enabled".to_string(),
+                    self.data_settings.cache_enabled.to_string(),
+                )),
+                3 => Some((
+                    "Cache Size (MB)".to_string(),
+                    self.data_settings.cache_size_mb.to_string(),
+                )),
+                4 => Some((
+                    "Default Dataset Path".to_string(),
+                    self.data_settings.default_dataset_path.clone(),
+                )),
+                _ => None,
+            },
+            SettingsTab::Execution => match self.selected_setting_index {
+                0 => Some((
+                    "Max Parallel Jobs".to_string(),
+                    self.execution_settings.max_parallel_jobs.to_string(),
+                )),
+                1 => Some((
+                    "Job Timeout (s)".to_string(),
+                    self.execution_settings.job_timeout_secs.to_string(),
+                )),
+                2 => Some((
+                    "Auto Save Results".to_string(),
+                    self.execution_settings.auto_save_results.to_string(),
+                )),
+                3 => Some((
+                    "Results Output Path".to_string(),
+                    self.execution_settings.results_output_path.clone(),
+                )),
+                4 => Some((
+                    "Verbose Logging".to_string(),
+                    self.execution_settings.verbose_logging.to_string(),
+                )),
+                _ => None,
+            },
+            SettingsTab::Advanced => match self.selected_setting_index {
+                0 => Some((
+                    "Debug Mode".to_string(),
+                    self.advanced_settings.enable_debug_mode.to_string(),
+                )),
+                1 => Some((
+                    "Telemetry".to_string(),
+                    self.advanced_settings.enable_telemetry.to_string(),
+                )),
+                2 => Some((
+                    "Connection Timeout (s)".to_string(),
+                    self.advanced_settings.connection_timeout_secs.to_string(),
+                )),
+                3 => Some((
+                    "Retry Attempts".to_string(),
+                    self.advanced_settings.retry_attempts.to_string(),
+                )),
+                4 => Some((
+                    "Config Path".to_string(),
+                    self.advanced_settings.custom_config_path.clone(),
+                )),
+                _ => None,
+            },
         }
     }
 
     /// Get detailed description of current setting
     pub fn get_setting_description(&self) -> String {
         match self.current_tab {
-            SettingsTab::Display => {
-                match self.selected_setting_index {
-                    0 => "Color scheme: 'dark', 'light', or 'auto' for system default".to_string(),
-                    1 => "Display grid lines in data tables and visualizations".to_string(),
-                    2 => "Use compact layout to reduce whitespace".to_string(),
-                    3 => "Font size in points (8-16)".to_string(),
-                    4 => "Position of status bar: 'top' or 'bottom'".to_string(),
-                    _ => String::new(),
-                }
-            }
-            SettingsTab::Data => {
-                match self.selected_setting_index {
-                    0 => "Automatically refresh data from sources".to_string(),
-                    1 => "Interval between refresh operations (seconds)".to_string(),
-                    2 => "Enable in-memory caching of datasets".to_string(),
-                    3 => "Maximum cache size in megabytes".to_string(),
-                    4 => "Default directory for dataset operations".to_string(),
-                    _ => String::new(),
-                }
-            }
-            SettingsTab::Execution => {
-                match self.selected_setting_index {
-                    0 => "Maximum concurrent batch jobs (1-16)".to_string(),
-                    1 => "Maximum time for a job to complete (seconds)".to_string(),
-                    2 => "Save job results automatically after completion".to_string(),
-                    3 => "Directory for saving operation results".to_string(),
-                    4 => "Enable detailed operation logging".to_string(),
-                    _ => String::new(),
-                }
-            }
-            SettingsTab::Advanced => {
-                match self.selected_setting_index {
-                    0 => "Enable debug mode for development and troubleshooting".to_string(),
-                    1 => "Allow anonymized telemetry collection".to_string(),
-                    2 => "Network connection timeout (seconds)".to_string(),
-                    3 => "Number of retry attempts for failed operations".to_string(),
-                    4 => "Path to custom configuration file (if any)".to_string(),
-                    _ => String::new(),
-                }
-            }
+            SettingsTab::Display => match self.selected_setting_index {
+                0 => "Color scheme: 'dark', 'light', or 'auto' for system default".to_string(),
+                1 => "Display grid lines in data tables and visualizations".to_string(),
+                2 => "Use compact layout to reduce whitespace".to_string(),
+                3 => "Font size in points (8-16)".to_string(),
+                4 => "Position of status bar: 'top' or 'bottom'".to_string(),
+                _ => String::new(),
+            },
+            SettingsTab::Data => match self.selected_setting_index {
+                0 => "Automatically refresh data from sources".to_string(),
+                1 => "Interval between refresh operations (seconds)".to_string(),
+                2 => "Enable in-memory caching of datasets".to_string(),
+                3 => "Maximum cache size in megabytes".to_string(),
+                4 => "Default directory for dataset operations".to_string(),
+                _ => String::new(),
+            },
+            SettingsTab::Execution => match self.selected_setting_index {
+                0 => "Maximum concurrent batch jobs (1-16)".to_string(),
+                1 => "Maximum time for a job to complete (seconds)".to_string(),
+                2 => "Save job results automatically after completion".to_string(),
+                3 => "Directory for saving operation results".to_string(),
+                4 => "Enable detailed operation logging".to_string(),
+                _ => String::new(),
+            },
+            SettingsTab::Advanced => match self.selected_setting_index {
+                0 => "Enable debug mode for development and troubleshooting".to_string(),
+                1 => "Allow anonymized telemetry collection".to_string(),
+                2 => "Network connection timeout (seconds)".to_string(),
+                3 => "Number of retry attempts for failed operations".to_string(),
+                4 => "Path to custom configuration file (if any)".to_string(),
+                _ => String::new(),
+            },
         }
     }
 
@@ -299,31 +339,88 @@ impl SettingsPaneState {
         match self.current_tab {
             SettingsTab::Display => vec![
                 ("Theme".to_string(), self.display_settings.theme.clone()),
-                ("Grid Lines".to_string(), self.display_settings.show_grid_lines.to_string()),
-                ("Compact Mode".to_string(), self.display_settings.compact_mode.to_string()),
-                ("Font Size".to_string(), self.display_settings.font_size.to_string()),
-                ("Status Bar Position".to_string(), self.display_settings.status_bar_position.clone()),
+                (
+                    "Grid Lines".to_string(),
+                    self.display_settings.show_grid_lines.to_string(),
+                ),
+                (
+                    "Compact Mode".to_string(),
+                    self.display_settings.compact_mode.to_string(),
+                ),
+                (
+                    "Font Size".to_string(),
+                    self.display_settings.font_size.to_string(),
+                ),
+                (
+                    "Status Bar Position".to_string(),
+                    self.display_settings.status_bar_position.clone(),
+                ),
             ],
             SettingsTab::Data => vec![
-                ("Auto Refresh".to_string(), self.data_settings.auto_refresh.to_string()),
-                ("Refresh Interval (s)".to_string(), self.data_settings.refresh_interval_secs.to_string()),
-                ("Cache Enabled".to_string(), self.data_settings.cache_enabled.to_string()),
-                ("Cache Size (MB)".to_string(), self.data_settings.cache_size_mb.to_string()),
-                ("Default Dataset Path".to_string(), self.data_settings.default_dataset_path.clone()),
+                (
+                    "Auto Refresh".to_string(),
+                    self.data_settings.auto_refresh.to_string(),
+                ),
+                (
+                    "Refresh Interval (s)".to_string(),
+                    self.data_settings.refresh_interval_secs.to_string(),
+                ),
+                (
+                    "Cache Enabled".to_string(),
+                    self.data_settings.cache_enabled.to_string(),
+                ),
+                (
+                    "Cache Size (MB)".to_string(),
+                    self.data_settings.cache_size_mb.to_string(),
+                ),
+                (
+                    "Default Dataset Path".to_string(),
+                    self.data_settings.default_dataset_path.clone(),
+                ),
             ],
             SettingsTab::Execution => vec![
-                ("Max Parallel Jobs".to_string(), self.execution_settings.max_parallel_jobs.to_string()),
-                ("Job Timeout (s)".to_string(), self.execution_settings.job_timeout_secs.to_string()),
-                ("Auto Save Results".to_string(), self.execution_settings.auto_save_results.to_string()),
-                ("Results Output Path".to_string(), self.execution_settings.results_output_path.clone()),
-                ("Verbose Logging".to_string(), self.execution_settings.verbose_logging.to_string()),
+                (
+                    "Max Parallel Jobs".to_string(),
+                    self.execution_settings.max_parallel_jobs.to_string(),
+                ),
+                (
+                    "Job Timeout (s)".to_string(),
+                    self.execution_settings.job_timeout_secs.to_string(),
+                ),
+                (
+                    "Auto Save Results".to_string(),
+                    self.execution_settings.auto_save_results.to_string(),
+                ),
+                (
+                    "Results Output Path".to_string(),
+                    self.execution_settings.results_output_path.clone(),
+                ),
+                (
+                    "Verbose Logging".to_string(),
+                    self.execution_settings.verbose_logging.to_string(),
+                ),
             ],
             SettingsTab::Advanced => vec![
-                ("Debug Mode".to_string(), self.advanced_settings.enable_debug_mode.to_string()),
-                ("Telemetry".to_string(), self.advanced_settings.enable_telemetry.to_string()),
-                ("Connection Timeout (s)".to_string(), self.advanced_settings.connection_timeout_secs.to_string()),
-                ("Retry Attempts".to_string(), self.advanced_settings.retry_attempts.to_string()),
-                ("Config Path".to_string(), self.advanced_settings.custom_config_path.clone()),
+                (
+                    "Debug Mode".to_string(),
+                    self.advanced_settings.enable_debug_mode.to_string(),
+                ),
+                (
+                    "Telemetry".to_string(),
+                    self.advanced_settings.enable_telemetry.to_string(),
+                ),
+                (
+                    "Connection Timeout (s)".to_string(),
+                    self.advanced_settings.connection_timeout_secs.to_string(),
+                ),
+                (
+                    "Retry Attempts".to_string(),
+                    self.advanced_settings.retry_attempts.to_string(),
+                ),
+                (
+                    "Config Path".to_string(),
+                    self.advanced_settings.custom_config_path.clone(),
+                ),
             ],
         }
     }

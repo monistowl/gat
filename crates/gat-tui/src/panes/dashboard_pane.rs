@@ -6,7 +6,6 @@
 /// - Recent workflow runs
 /// - Quick action shortcuts
 /// - Resource usage metrics
-
 use crate::components::*;
 use crate::ui::{GridInfo, GridStatus};
 
@@ -58,25 +57,28 @@ impl Default for DashboardPaneState {
     fn default() -> Self {
         let mut runs_table = TableWidget::new("dashboard_runs");
         runs_table.columns = vec![
-            Column { header: "Run ID".into(), width: 20 },
-            Column { header: "Status".into(), width: 12 },
-            Column { header: "Owner".into(), width: 12 },
-            Column { header: "Duration".into(), width: 10 },
+            Column {
+                header: "Run ID".into(),
+                width: 20,
+            },
+            Column {
+                header: "Status".into(),
+                width: 12,
+            },
+            Column {
+                header: "Owner".into(),
+                width: 12,
+            },
+            Column {
+                header: "Duration".into(),
+                width: 10,
+            },
         ];
 
         let mut metrics_list = ListWidget::new("dashboard_metrics");
-        metrics_list.add_item(
-            "Deliverability Score".into(),
-            "85.5%".into(),
-        );
-        metrics_list.add_item(
-            "LOLE (h/year)".into(),
-            "9.2".into(),
-        );
-        metrics_list.add_item(
-            "EUE (MWh/year)".into(),
-            "15.3".into(),
-        );
+        metrics_list.add_item("Deliverability Score".into(), "85.5%".into());
+        metrics_list.add_item("LOLE (h/year)".into(), "9.2".into());
+        metrics_list.add_item("EUE (MWh/year)".into(), "15.3".into());
 
         DashboardPaneState {
             overall_status: "Healthy".into(),
@@ -180,13 +182,13 @@ impl DashboardPaneState {
 
     pub fn health_indicator(&self) -> &'static str {
         if self.running_count > 0 || self.queued_count > 0 {
-            "⚙"  // Running/queued
+            "⚙" // Running/queued
         } else if self.kpis.deliverability_score > 90.0 {
-            "✓"  // Healthy
+            "✓" // Healthy
         } else if self.kpis.deliverability_score > 75.0 {
-            "◐"  // Warning
+            "◐" // Warning
         } else {
-            "✗"  // Error
+            "✗" // Error
         }
     }
 
@@ -289,7 +291,12 @@ impl ActionType {
 
 impl QuickAction {
     pub fn new(key: char, label: String, description: String, action_type: ActionType) -> Self {
-        Self { key, label, description, action_type }
+        Self {
+            key,
+            label,
+            description,
+            action_type,
+        }
     }
 
     pub fn all() -> Vec<Self> {
@@ -429,10 +436,16 @@ mod tests {
 
     #[test]
     fn test_action_type_descriptions() {
-        assert!(ActionType::ReliabilityAnalysis.description().contains("reliability"));
-        assert!(ActionType::DeliverabilityScore.description().contains("deliverability"));
+        assert!(ActionType::ReliabilityAnalysis
+            .description()
+            .contains("reliability"));
+        assert!(ActionType::DeliverabilityScore
+            .description()
+            .contains("deliverability"));
         assert!(ActionType::ELCCEstimation.description().contains("ELCC"));
-        assert!(ActionType::PowerFlowAnalysis.description().contains("power"));
+        assert!(ActionType::PowerFlowAnalysis
+            .description()
+            .contains("power"));
         assert!(ActionType::FilterRuns.description().contains("Filter"));
     }
 
@@ -440,7 +453,9 @@ mod tests {
     fn test_analytics_actions() {
         let actions = QuickAction::analytics_actions();
         assert_eq!(actions.len(), 4);
-        assert!(actions.iter().all(|a| a.action_type != ActionType::FilterRuns));
+        assert!(actions
+            .iter()
+            .all(|a| a.action_type != ActionType::FilterRuns));
     }
 
     #[test]

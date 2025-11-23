@@ -43,7 +43,8 @@ mod tests {
         let commands = CommandsPaneState::new();
 
         // Verify we have snippets for all major operations
-        let categories: Vec<String> = commands.snippets
+        let categories: Vec<String> = commands
+            .snippets
             .iter()
             .map(|s| s.category.clone())
             .collect::<std::collections::HashSet<_>>()
@@ -193,10 +194,8 @@ mod tests {
         let all_actions = QuickAction::all();
 
         // Ensure we have all major analysis types
-        let action_types: Vec<ActionType> = all_actions
-            .iter()
-            .map(|a| a.action_type.clone())
-            .collect();
+        let action_types: Vec<ActionType> =
+            all_actions.iter().map(|a| a.action_type.clone()).collect();
 
         assert!(action_types.contains(&ActionType::ReliabilityAnalysis));
         assert!(action_types.contains(&ActionType::DeliverabilityScore));
@@ -440,7 +439,10 @@ mod tests {
         assert!(!pipeline.nodes.is_empty());
 
         // Verify at least one transform node
-        assert!(pipeline.nodes.iter().any(|n| n.node_type == NodeType::Transform));
+        assert!(pipeline
+            .nodes
+            .iter()
+            .any(|n| n.node_type == NodeType::Transform));
     }
 
     // ============================================================================
@@ -593,7 +595,9 @@ mod tests {
         assert!(pipeline.node_count() > 0);
 
         // Pipeline has transform steps
-        let transforms = pipeline.nodes.iter()
+        let transforms = pipeline
+            .nodes
+            .iter()
             .filter(|n| n.node_type == NodeType::Transform)
             .count();
         assert!(transforms > 0);

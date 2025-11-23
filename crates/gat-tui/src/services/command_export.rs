@@ -2,7 +2,6 @@
 ///
 /// Provides functionality to export command execution history to various formats
 /// and calculate statistics for analysis.
-
 use crate::models::ExecutedCommand;
 use std::time::SystemTime;
 
@@ -43,7 +42,9 @@ impl CommandExporter {
             return Ok("id,command,exit_code,stdout_length,stderr_length,duration_ms,timed_out,executed_at\n".to_string());
         }
 
-        let mut csv = String::from("id,command,exit_code,stdout_length,stderr_length,duration_ms,timed_out,executed_at\n");
+        let mut csv = String::from(
+            "id,command,exit_code,stdout_length,stderr_length,duration_ms,timed_out,executed_at\n",
+        );
 
         for cmd in commands {
             let timestamp = match cmd.executed_at.duration_since(SystemTime::UNIX_EPOCH) {
@@ -113,7 +114,10 @@ impl CommandExporter {
 
         let total = commands.len();
         let successful = commands.iter().filter(|c| c.exit_code == 0).count();
-        let failed = commands.iter().filter(|c| c.exit_code != 0 && !c.timed_out).count();
+        let failed = commands
+            .iter()
+            .filter(|c| c.exit_code != 0 && !c.timed_out)
+            .count();
         let timed_out = commands.iter().filter(|c| c.timed_out).count();
 
         let total_duration: u64 = commands.iter().map(|c| c.duration_ms).sum();
@@ -157,9 +161,15 @@ impl CommandExporter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::{UNIX_EPOCH, Duration};
+    use std::time::{Duration, UNIX_EPOCH};
 
-    fn create_test_command(id: &str, command: &str, exit_code: i32, duration_ms: u64, timed_out: bool) -> ExecutedCommand {
+    fn create_test_command(
+        id: &str,
+        command: &str,
+        exit_code: i32,
+        duration_ms: u64,
+        timed_out: bool,
+    ) -> ExecutedCommand {
         ExecutedCommand {
             id: id.to_string(),
             command: command.to_string(),

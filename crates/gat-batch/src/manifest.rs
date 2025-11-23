@@ -29,10 +29,10 @@ pub fn write_batch_manifest(path: &Path, manifest: &BatchManifest) -> Result<()>
 }
 
 pub fn load_batch_manifest(path: &Path) -> Result<BatchManifest> {
-    use std::fs::File;
     use serde_json;
-    let file = File::open(path)
-        .with_context(|| format!("opening batch manifest '{}'", path.display()))?;
+    use std::fs::File;
+    let file =
+        File::open(path).with_context(|| format!("opening batch manifest '{}'", path.display()))?;
     serde_json::from_reader(file)
         .with_context(|| format!("parsing batch manifest '{}'", path.display()))
 }

@@ -154,9 +154,7 @@ impl ConfigFormState {
     /// Move to next option in select field
     pub fn select_next(&mut self) {
         if let FormField::Select {
-            options,
-            selected,
-            ..
+            options, selected, ..
         } = self.get_focused_field_mut()
         {
             if *selected + 1 < options.len() {
@@ -260,22 +258,14 @@ pub fn render_select(
 }
 
 /// Render a multi-line text area
-pub fn render_text_area(
-    label: &str,
-    value: &str,
-    _is_focused: bool,
-    _line_count: usize,
-) -> String {
+pub fn render_text_area(label: &str, value: &str, _is_focused: bool, _line_count: usize) -> String {
     // Simple representation for text area
     let line_count = value.lines().count();
     format!("{}: ({} lines)", label, line_count)
 }
 
 /// Render a form section with title and fields
-pub fn render_form_section(
-    title: &str,
-    field_widgets: Vec<String>,
-) -> (String, Vec<String>) {
+pub fn render_form_section(title: &str, field_widgets: Vec<String>) -> (String, Vec<String>) {
     (format!("▶ {}", title), field_widgets)
 }
 
@@ -312,8 +302,7 @@ pub fn render_form_section_with_fields<'a>(
 
     // Fields
     for (field_idx, field) in section.fields.iter().enumerate() {
-        let is_focused =
-            is_section_focused && form_state.focused_field.1 == field_idx;
+        let is_focused = is_section_focused && form_state.focused_field.1 == field_idx;
 
         let error_msg = form_state
             .errors
@@ -335,7 +324,9 @@ pub fn render_form_section_with_fields<'a>(
                 };
 
                 let style = if is_focused {
-                    Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::White)
                 };
@@ -351,7 +342,9 @@ pub fn render_form_section_with_fields<'a>(
                 let indicator = if is_focused { "▶" } else { " " };
                 let check_char = if *checked { "☑" } else { "☐" };
                 let style = if is_focused {
-                    Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::White)
                 };
@@ -373,7 +366,9 @@ pub fn render_form_section_with_fields<'a>(
                     .map(|s| s.as_str())
                     .unwrap_or("(none)");
                 let style = if is_focused {
-                    Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::White)
                 };
@@ -391,7 +386,9 @@ pub fn render_form_section_with_fields<'a>(
             } => {
                 let indicator = if is_focused { "▶" } else { " " };
                 let style = if is_focused {
-                    Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::White)
                 };

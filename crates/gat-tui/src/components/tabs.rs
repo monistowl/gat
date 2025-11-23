@@ -32,10 +32,7 @@ impl TabsWidget {
     pub fn with_tabs(mut self, tabs: Vec<(String, String)>) -> Self {
         self.tabs = tabs
             .into_iter()
-            .map(|(title, id)| Tab {
-                title,
-                id,
-            })
+            .map(|(title, id)| Tab { title, id })
             .collect();
         self
     }

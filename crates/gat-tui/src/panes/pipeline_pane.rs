@@ -5,7 +5,6 @@
 /// - Transform configuration
 /// - Data flow mapping
 /// - Feature engineering tools
-
 use crate::components::*;
 
 /// Pipeline transformation node
@@ -240,7 +239,11 @@ impl PipelinePaneState {
     }
 
     pub fn update_status(&mut self) {
-        let valid = if self.valid_state { "✓ Valid" } else { "✗ Invalid" };
+        let valid = if self.valid_state {
+            "✓ Valid"
+        } else {
+            "✗ Invalid"
+        };
         self.status_text.set_content(format!(
             "Pipeline: {}\nNodes: {}\nConnected: {}",
             valid,
@@ -250,7 +253,10 @@ impl PipelinePaneState {
     }
 
     fn calculate_connections(&self) -> usize {
-        self.nodes.windows(2).filter(|w| w[0].outputs > 0 && w[1].inputs > 0).count()
+        self.nodes
+            .windows(2)
+            .filter(|w| w[0].outputs > 0 && w[1].inputs > 0)
+            .count()
     }
 }
 

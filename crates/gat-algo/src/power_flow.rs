@@ -174,15 +174,15 @@ pub fn dc_power_flow(
 ) -> Result<()> {
     // Extract net injections (generation - load) for each bus
     let injections = default_pf_injections(network);
-    
+
     // Solve DC power flow: B'θ = P → compute branch flows from bus angles
     // This is a single linear solve (no iteration needed)
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC power flow")?;
-    
+
     // Persist branch flow results to Parquet
     persist_dataframe(&mut df, output_file, partitions, OutputStage::PfDc.as_str())?;
-    
+
     println!(
         "DC power flow summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
         df.height(),
@@ -308,18 +308,18 @@ pub fn ac_power_flow(
 ) -> Result<()> {
     // Extract net injections (generation - load) for each bus
     let injections = default_pf_injections(network);
-    
+
     // Solve AC power flow: compute branch flows from bus injections
     // This internally uses Newton-Raphson iteration to solve the nonlinear equations
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for AC power flow")?;
-    
+
     // Persist branch flow results to Parquet
     persist_dataframe(&mut df, output_file, partitions, OutputStage::PfAc.as_str())?;
-    
+
     // Build bus-level results (voltages, angles) for reporting
     let bus_df = bus_result_dataframe(network).context("building bus table for AC power flow")?;
-    
+
     println!(
         "AC power flow summary: tol={} max_iter={} -> {} buses, branch flow range [{:.3}, {:.3}] MW, persisted to {}",
         tol,

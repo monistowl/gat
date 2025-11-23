@@ -29,8 +29,14 @@ fn document_why_cargo_run_appears_different() {
     let output = app.render();
 
     assert!(!output.is_empty(), "Output should be generated");
-    assert!(output.contains("Dashboard"), "Should show Dashboard content");
-    assert!(output.lines().count() > 20, "Should have substantial content");
+    assert!(
+        output.contains("Dashboard"),
+        "Should show Dashboard content"
+    );
+    assert!(
+        output.lines().count() > 20,
+        "Should have substantial content"
+    );
 
     println!("✓ App renders successfully even without TTY");
     println!("✓ Content is structured and readable");
@@ -51,10 +57,21 @@ fn verify_output_is_properly_formatted_not_gibberish() {
 
     println!("Output structure analysis:");
     println!("  Total lines: {}", lines.len());
-    println!("  Max line width: {} chars", lines.iter().map(|l| l.len()).max().unwrap_or(0));
-    println!("  Min line width: {} chars", lines.iter().map(|l| l.len()).min().unwrap_or(0));
-    println!("  Avg line width: {} chars",
-        if lines.is_empty() { 0 } else { lines.iter().map(|l| l.len()).sum::<usize>() / lines.len() }
+    println!(
+        "  Max line width: {} chars",
+        lines.iter().map(|l| l.len()).max().unwrap_or(0)
+    );
+    println!(
+        "  Min line width: {} chars",
+        lines.iter().map(|l| l.len()).min().unwrap_or(0)
+    );
+    println!(
+        "  Avg line width: {} chars",
+        if lines.is_empty() {
+            0
+        } else {
+            lines.iter().map(|l| l.len()).sum::<usize>() / lines.len()
+        }
     );
 
     // Check for structure
@@ -75,7 +92,10 @@ fn verify_output_is_properly_formatted_not_gibberish() {
     assert!(has_indentation, "Should have proper indentation");
 
     // Check it's not all on one line (that would be gibberish)
-    assert!(lines.len() > 10, "Should have multiple lines, not compressed to one");
+    assert!(
+        lines.len() > 10,
+        "Should have multiple lines, not compressed to one"
+    );
 
     println!("\nConclusion: Output is STRUCTURED, not gibberish!\n");
 }

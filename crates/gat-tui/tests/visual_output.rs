@@ -23,7 +23,10 @@ fn visual_initial_render() {
     // Print metadata
     println!("METADATA:");
     println!("  Total lines: {}", output.lines().count());
-    println!("  Max width: {}", output.lines().map(|l| l.len()).max().unwrap_or(0));
+    println!(
+        "  Max width: {}",
+        output.lines().map(|l| l.len()).max().unwrap_or(0)
+    );
     println!("  Char count: {}", output.len());
     println!("\n════════════════════════════════════════════════════════════════\n");
 }
@@ -101,9 +104,18 @@ fn visual_output_structure_analysis() {
 
     // Check for common keywords
     let keywords = vec![
-        "▶", "▼", "▍", "·", "[*", "Dashboard", "Operations",
-        "Datasets", "Pipeline", "Commands", "Quickstart",
-        "GAT Terminal UI"
+        "▶",
+        "▼",
+        "▍",
+        "·",
+        "[*",
+        "Dashboard",
+        "Operations",
+        "Datasets",
+        "Pipeline",
+        "Commands",
+        "Quickstart",
+        "GAT Terminal UI",
     ];
 
     for keyword in keywords {

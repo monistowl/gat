@@ -158,7 +158,10 @@ impl TuiPilot {
     /// Print screenshot with line numbers (for debugging)
     pub fn show_with_lines(&self) {
         println!("\n╔════════════════════════════════════════════════════════════════╗");
-        println!("║ TUI SCREENSHOT WITH LINE NUMBERS (Step {})", self.history.len());
+        println!(
+            "║ TUI SCREENSHOT WITH LINE NUMBERS (Step {})",
+            self.history.len()
+        );
         println!("║ Active Pane: {:?}", self.app.active_menu_label());
         println!("╚════════════════════════════════════════════════════════════════╝\n");
         for (i, line) in self.current_screenshot.lines().enumerate() {
@@ -174,9 +177,20 @@ impl TuiPilot {
 
         let mut file = File::create(path)?;
         for (i, screenshot) in self.history.iter().enumerate() {
-            writeln!(file, "╔════════════════════════════════════════════════════════════════╗")?;
-            writeln!(file, "║ STEP {} - Active: {:?}", i, self.app.active_menu_label())?;
-            writeln!(file, "╚════════════════════════════════════════════════════════════════╝\n")?;
+            writeln!(
+                file,
+                "╔════════════════════════════════════════════════════════════════╗"
+            )?;
+            writeln!(
+                file,
+                "║ STEP {} - Active: {:?}",
+                i,
+                self.app.active_menu_label()
+            )?;
+            writeln!(
+                file,
+                "╚════════════════════════════════════════════════════════════════╝\n"
+            )?;
             writeln!(file, "{}\n\n", screenshot)?;
         }
         Ok(())
@@ -220,10 +234,14 @@ fn menu_navigation_activates_expected_items() {
     let mut pilot = TuiPilot::new();
     pilot.screenshot();
 
-    pilot.assert_active("Dashboard").assert_contains("[*1] Dashboard");
+    pilot
+        .assert_active("Dashboard")
+        .assert_contains("[*1] Dashboard");
 
     pilot.press('5').screenshot();
-    pilot.assert_active("Commands").assert_contains("[*5] Commands");
+    pilot
+        .assert_active("Commands")
+        .assert_contains("[*5] Commands");
 }
 
 #[test]
@@ -231,10 +249,14 @@ fn pane_switching_changes_layouts() {
     let mut pilot = TuiPilot::new();
 
     pilot.press('3').screenshot();
-    pilot.assert_contains("Data catalog").assert_contains("Public data connectors");
+    pilot
+        .assert_contains("Data catalog")
+        .assert_contains("Public data connectors");
 
     pilot.press('2').screenshot();
-    pilot.assert_contains("DERMS + ADMS actions").assert_contains("Operator notes");
+    pilot
+        .assert_contains("DERMS + ADMS actions")
+        .assert_contains("Operator notes");
 }
 
 #[test]
@@ -295,7 +317,10 @@ fn pilot_workflow_full_navigation() {
     pilot.press('3').screenshot().assert_active("Datasets");
     pilot.press('4').screenshot().assert_active("Pipeline");
     pilot.press('5').screenshot().assert_active("Commands");
-    pilot.press('h').screenshot().assert_active("Help > Quickstart");
+    pilot
+        .press('h')
+        .screenshot()
+        .assert_active("Help > Quickstart");
 
     // Loop back to Dashboard
     pilot.press('1').screenshot().assert_active("Dashboard");
@@ -350,7 +375,8 @@ fn pipeline_shows_new_transform_options() {
     let mut pilot = TuiPilot::new();
 
     pilot.press('4').screenshot();
-    pilot.assert_active("Pipeline")
+    pilot
+        .assert_active("Pipeline")
         .assert_contains("Scenario materialization")
         .assert_contains("Feature engineering")
         .assert_contains("GNN")
@@ -362,13 +388,13 @@ fn operations_shows_batch_and_allocation() {
     let mut pilot = TuiPilot::new();
 
     pilot.press('2').screenshot();
-    pilot.assert_active("Operations")
+    pilot
+        .assert_active("Operations")
         .assert_contains("Batch Operations")
         .assert_contains("Allocation Analysis")
         .assert_contains("Congestion rents")
         .assert_contains("KPI contribution");
 }
-
 
 // Uncomment to use for manual testing:
 //

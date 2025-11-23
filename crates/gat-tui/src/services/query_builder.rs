@@ -64,7 +64,7 @@ impl QueryBuilder for MockQueryBuilder {
     }
 
     async fn get_workflows(&self) -> Result<Vec<crate::data::Workflow>, QueryError> {
-        Ok(vec![])  // Empty for now, will populate with fixtures later
+        Ok(vec![]) // Empty for now, will populate with fixtures later
     }
 
     async fn get_metrics(&self) -> Result<crate::data::SystemMetrics, QueryError> {
@@ -84,7 +84,8 @@ impl QueryBuilder for MockQueryBuilder {
                 { "name": "Power Flow", "type": "analysis" },
                 { "name": "Results Export", "type": "sink" }
             ]
-        }).to_string())
+        })
+        .to_string())
     }
 
     async fn get_commands(&self) -> Result<Vec<String>, QueryError> {
@@ -113,7 +114,7 @@ mod tests {
         let result = qb.get_datasets().await;
         assert!(result.is_ok());
         let datasets = result.unwrap();
-        assert_eq!(datasets.len(), 3);  // Three fixture datasets
+        assert_eq!(datasets.len(), 3); // Three fixture datasets
     }
 
     #[tokio::test]

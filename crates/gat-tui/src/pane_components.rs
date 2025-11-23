@@ -5,8 +5,7 @@ use tuirealm::{
     ratatui::layout::{Constraint, Direction, Layout, Rect},
     ratatui::style::Stylize,
     ratatui::widgets::{Block, Borders, Paragraph},
-    AttrValue, Attribute, Component, Event as TuiEvent, Frame, MockComponent, NoUserEvent,
-    State,
+    AttrValue, Attribute, Component, Event as TuiEvent, Frame, MockComponent, NoUserEvent, State,
 };
 
 // Dummy message type - pane components don't send messages
@@ -29,9 +28,11 @@ impl MockComponent for DashboardComponent {
             .split(area);
 
         // Status Card
-        let status = Paragraph::new("Status\n  Overall: healthy\n  Running: 1 workflow\n  Queued: 2 actions")
-            .block(Block::default().borders(Borders::ALL).title("Status"))
-            .style(Style::default().fg(Color::Green));
+        let status = Paragraph::new(
+            "Status\n  Overall: healthy\n  Running: 1 workflow\n  Queued: 2 actions",
+        )
+        .block(Block::default().borders(Borders::ALL).title("Status"))
+        .style(Style::default().fg(Color::Green));
         frame.render_widget(status, chunks[0]);
 
         // Reliability Metrics
@@ -91,7 +92,11 @@ impl MockComponent for OperationsComponent {
 
         // DERMS/ADMS
         let derms = Paragraph::new("DERMS + ADMS\n  2 queued envelopes\n  1 stress-test running")
-            .block(Block::default().borders(Borders::ALL).title("DERMS/ADMS Queue"))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("DERMS/ADMS Queue"),
+            )
             .style(Style::default().fg(Color::Cyan));
         frame.render_widget(derms, chunks[0]);
 
@@ -271,7 +276,11 @@ impl MockComponent for CommandsComponent {
 
         // Recent Results
         let recent = Paragraph::new("Recent: ✔ datasets list (5 rows), ✔ envelope preview")
-            .block(Block::default().borders(Borders::ALL).title("Recent Results"))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Recent Results"),
+            )
             .style(Style::default().fg(Color::Green));
         frame.render_widget(recent, chunks[2]);
     }

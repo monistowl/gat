@@ -1,5 +1,5 @@
-use crate::models::AppState;
 use crate::events::{AppEvent, KeyEvent};
+use crate::models::AppState;
 
 pub struct Application {
     state: AppState,

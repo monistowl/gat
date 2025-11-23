@@ -22,7 +22,8 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         out,
         out_partitions,
         unserved_threshold,
-    } = command else {
+    } = command
+    else {
         unreachable!();
     };
 
@@ -69,11 +70,17 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
             out
         );
         params.push(("num_scenarios".to_string(), s.num_scenarios.to_string()));
-        params.push(("num_time_periods".to_string(), s.num_time_periods.to_string()));
+        params.push((
+            "num_time_periods".to_string(),
+            s.num_time_periods.to_string(),
+        ));
         params.push(("total_cases".to_string(), s.total_cases.to_string()));
         params.push(("lole_hours".to_string(), s.lole_hours.to_string()));
         params.push(("eue_mwh".to_string(), s.eue_mwh.to_string()));
-        params.push(("thermal_violations".to_string(), s.thermal_violations.to_string()));
+        params.push((
+            "thermal_violations".to_string(),
+            s.thermal_violations.to_string(),
+        ));
     }
     if let Some(ref m) = batch_manifest {
         params.push(("batch_manifest".to_string(), m.to_string()));

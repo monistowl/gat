@@ -1,7 +1,6 @@
 /// Command validation service for validating gat-cli commands before execution
 ///
 /// Validates command syntax, checks against known subcommands, and provides suggestions.
-
 use std::collections::HashMap;
 
 /// Validation error types
@@ -63,8 +62,8 @@ impl CommandSchema {
         valid_flags.insert(
             "datasets",
             vec![
-                "list", "upload", "delete", "search", "info",
-                "--limit", "--offset", "--format", "--output",
+                "list", "upload", "delete", "search", "info", "--limit", "--offset", "--format",
+                "--output",
             ],
         );
 
@@ -72,8 +71,13 @@ impl CommandSchema {
         valid_flags.insert(
             "derms",
             vec![
-                "envelope", "solve", "validate",
-                "--manifest", "--output", "--timeout", "--verbose",
+                "envelope",
+                "solve",
+                "validate",
+                "--manifest",
+                "--output",
+                "--timeout",
+                "--verbose",
             ],
         );
 
@@ -81,8 +85,13 @@ impl CommandSchema {
         valid_flags.insert(
             "opf",
             vec![
-                "analysis", "solve", "validate",
-                "--case", "--output", "--solver", "--timeout",
+                "analysis",
+                "solve",
+                "validate",
+                "--case",
+                "--output",
+                "--solver",
+                "--timeout",
             ],
         );
 
@@ -90,26 +99,21 @@ impl CommandSchema {
         valid_flags.insert(
             "pf",
             vec![
-                "solve", "validate",
-                "--case", "--output", "--solver", "--timeout",
+                "solve",
+                "validate",
+                "--case",
+                "--output",
+                "--solver",
+                "--timeout",
             ],
         );
 
         // Other common subcommands
-        valid_flags.insert(
-            "config",
-            vec!["get", "set", "list", "--key", "--value"],
-        );
+        valid_flags.insert("config", vec!["get", "set", "list", "--key", "--value"]);
 
-        valid_flags.insert(
-            "version",
-            vec!["--verbose", "--json"],
-        );
+        valid_flags.insert("version", vec!["--verbose", "--json"]);
 
-        valid_flags.insert(
-            "help",
-            vec!["--verbose", "--format"],
-        );
+        valid_flags.insert("help", vec!["--verbose", "--format"]);
 
         Self {
             subcommands: vec![
@@ -266,10 +270,7 @@ impl CommandValidator {
             for (j, c2) in s2.chars().enumerate() {
                 let cost = if c1 == c2 { 0 } else { 1 };
                 matrix[i + 1][j + 1] = std::cmp::min(
-                    std::cmp::min(
-                        matrix[i][j + 1] + 1,
-                        matrix[i + 1][j] + 1,
-                    ),
+                    std::cmp::min(matrix[i][j + 1] + 1, matrix[i + 1][j] + 1),
                     matrix[i][j] + cost,
                 );
             }
@@ -428,7 +429,8 @@ mod tests {
     #[test]
     fn test_validate_with_multiple_flags() {
         let validator = CommandValidator::new();
-        let result = validator.validate("gat-cli datasets list --limit 50 --offset 100 --format json");
+        let result =
+            validator.validate("gat-cli datasets list --limit 50 --offset 100 --format json");
 
         assert!(result.is_ok());
         let cmd = result.unwrap();

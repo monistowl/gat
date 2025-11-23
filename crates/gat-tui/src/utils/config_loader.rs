@@ -2,7 +2,6 @@
 ///
 /// Provides a convenient wrapper around config-rs for loading and managing
 /// application configuration from TOML files and environment variables.
-
 use config::{Config, ConfigError, Environment, File};
 use serde::{Deserialize, Serialize};
 use std::path::Path;

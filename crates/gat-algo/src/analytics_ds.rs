@@ -2,7 +2,7 @@ use crate::io::{persist_dataframe, OutputStage};
 use crate::power_flow::branch_flow_dataframe;
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
-use gat_core::{Node, Network, solver::SolverBackend};
+use gat_core::{solver::SolverBackend, Network, Node};
 use polars::prelude::*;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -98,7 +98,7 @@ pub fn deliverability_scores_dc(
     let flows_df = LazyFrame::scan_parquet(flows_parquet.to_str().unwrap(), Default::default())?
         .collect()
         .context("reading flows parquet for DS")?;
-    
+
     // Group flows by case (scenario_id, time) to handle multiple stress scenarios
     let cases = collapse_cases(&flows_df)?;
     if cases.is_empty() {
@@ -110,7 +110,7 @@ pub fn deliverability_scores_dc(
     if bus_ids.is_empty() {
         return Err(anyhow!("network contains no buses"));
     }
-    
+
     // Validate slack bus selection: use provided slack if it exists, otherwise default to first bus
     let slack_bus = if bus_ids.contains(&slack_bus) {
         slack_bus
@@ -136,11 +136,11 @@ pub fn deliverability_scores_dc(
         // Get nameplate capacity for this bus (default to 1.0 MW if not specified)
         let pmax = *limits.get(bus_id).unwrap_or(&1.0);
         let ptdf = ptdf_cache.get(bus_id).expect("PTDF row missing");
-        
+
         // For each stress case, compute how much additional injection is feasible
         for case in &cases {
             let ds_case = compute_ds(pmax, ptdf, &branch_limits, &case.flows);
-            
+
             // Track running sum for mean aggregation
             ds_summary
                 .entry(*bus_id)
@@ -149,7 +149,7 @@ pub fn deliverability_scores_dc(
                     *count += 1;
                 })
                 .or_insert((ds_case, 1));
-            
+
             records.push(DsRecord {
                 bus_id: *bus_id,
                 scenario: case.key.scenario.clone(),
@@ -186,7 +186,10 @@ pub fn deliverability_scores_dc(
         ds_case_col.push(record.ds_case);
         pmax_col.push(record.pmax);
         // Include aggregated mean DS in each row (repeated for all cases of same bus)
-        let mean = ds_means.get(&record.bus_id).copied().unwrap_or(record.ds_case);
+        let mean = ds_means
+            .get(&record.bus_id)
+            .copied()
+            .unwrap_or(record.ds_case);
         ds_mean_col.push(mean);
     }
 
@@ -239,11 +242,11 @@ fn compute_ptdf_row(
     let mut injections = HashMap::new();
     injections.insert(source, 1.0);
     injections.insert(sink, -1.0);
-    
+
     // Solve DC power flow: B'θ = P where P is our injection pattern
     // The resulting branch flows are the PTDF values (since we used 1 MW injection)
     let (df, _, _) = branch_flow_dataframe(network, &injections, None, solver)?;
-    
+
     // Extract branch_id -> flow_mw mapping (these flows are the PTDF coefficients)
     let branch_col = df.column("branch_id")?.i64()?;
     let flow_col = df.column("flow_mw")?.f64()?;
@@ -283,24 +286,24 @@ fn compute_ds(
     if pmax <= 0.0 {
         return 0.0;
     }
-    
+
     // Find the minimum ΔP across all branches (the tightest constraint)
     let mut delta_p = f64::INFINITY;
-    
+
     for (&branch_id, &ptdf_value) in ptdf {
         // Skip branches with zero PTDF (they don't constrain this bus)
         if ptdf_value.abs() < 1e-9 {
             continue;
         }
-        
+
         // Get current flow and thermal limit for this branch
         let flow = *flows.get(&branch_id).unwrap_or(&0.0);
         let limit = *branch_limits.get(&branch_id).unwrap_or(&1e6); // Default to very high limit if missing
-        
+
         if limit <= 0.0 {
             continue; // Invalid limit, skip
         }
-        
+
         // Compute the maximum ΔP that keeps this branch within limits
         // Constraint: |flow + ptdf × ΔP| ≤ limit
         // This gives bounds on ΔP; we take the minimum positive bound across all branches
@@ -308,12 +311,12 @@ fn compute_ds(
             delta_p = delta_p.min(bound);
         }
     }
-    
+
     // If no finite bound found, no capacity is deliverable
     if !delta_p.is_finite() {
         delta_p = 0.0;
     }
-    
+
     // DS is the fraction of nameplate that's deliverable, clamped to [0, 1]
     (delta_p / pmax).clamp(0.0, 1.0)
 }
@@ -332,19 +335,19 @@ fn compute_ds(
 /// **Returns:** Some(ΔP_max) if a positive bound exists, None otherwise
 fn branch_bound(limit: f64, flow: f64, ptdf: f64) -> Option<f64> {
     let mut candidate = f64::INFINITY;
-    
+
     // Helper to check if a computed bound is valid (positive and finite)
     let check = |value: f64, candidate: &mut f64| {
         if value > 0.0 && value.is_finite() {
             *candidate = candidate.min(value);
         }
     };
-    
+
     // Check upper bound: flow + ptdf × ΔP ≤ limit
     check((limit - flow) / ptdf, &mut candidate);
     // Check lower bound: flow + ptdf × ΔP ≥ -limit
     check((-limit - flow) / ptdf, &mut candidate);
-    
+
     if candidate.is_infinite() {
         None // No valid positive bound found
     } else {
@@ -396,11 +399,11 @@ fn load_branch_limits(path: &str) -> Result<HashMap<i64, f64>> {
 fn collapse_cases(df: &DataFrame) -> Result<Vec<CaseData>> {
     let branch_col = df.column("branch_id")?.i64()?;
     let flow_col = df.column("flow_mw")?.f64()?;
-    
+
     // Optional columns: if present, they partition flows into distinct cases
     let scenario_col = df.column("scenario_id").ok();
     let time_col = df.column("time").ok();
-    
+
     // Group flows by case key (scenario_id, time)
     let mut map: HashMap<CaseKey, HashMap<i64, f64>> = HashMap::new();
     for idx in 0..df.height() {
@@ -412,19 +415,19 @@ fn collapse_cases(df: &DataFrame) -> Result<Vec<CaseData>> {
             Some(value) => value,
             None => continue, // Skip rows with missing flow_mw
         };
-        
+
         // Create case key from optional scenario/time columns
         let key = CaseKey {
             scenario: column_to_string(scenario_col, idx)?,
             time: column_to_string(time_col, idx)?,
         };
-        
+
         // Add this branch flow to the appropriate case
         map.entry(key)
             .or_insert_with(HashMap::new)
             .insert(branch, flow);
     }
-    
+
     // Convert map entries into CaseData structs
     Ok(map
         .into_iter()
@@ -435,7 +438,7 @@ fn collapse_cases(df: &DataFrame) -> Result<Vec<CaseData>> {
 /// Extract string value from optional Polars Series at given index.
 ///
 /// **Returns:** Some(String) if column exists and value is non-null, None otherwise.
-/// 
+///
 /// Note: Polars AnyValue represents null as a special variant, and to_string() on null
 /// will produce a string representation. We check for null by comparing the string to "null".
 fn column_to_string(series: Option<&Series>, idx: usize) -> Result<Option<String>> {
@@ -487,7 +490,10 @@ mod tests {
     fn column_to_string_handles_nulls() {
         let series = Series::new("scenario_id", &[Some("base"), None]);
         // Polars stringifies strings with quotes, so we expect "\"base\""
-        assert_eq!(column_to_string(Some(&series), 0).unwrap(), Some("\"base\"".into()));
+        assert_eq!(
+            column_to_string(Some(&series), 0).unwrap(),
+            Some("\"base\"".into())
+        );
         assert!(column_to_string(Some(&series), 1).unwrap().is_none());
     }
 }

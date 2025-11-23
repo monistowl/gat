@@ -3,7 +3,6 @@
 /// This module connects the AsyncEvent dispatcher with the TuiServiceLayer,
 /// allowing background services to fetch data and dispatch results back to
 /// the UI through a clean, decoupled interface.
-
 use crate::services::{AsyncEvent, EventResult, TuiServiceLayer};
 use std::sync::Arc;
 
@@ -46,9 +45,7 @@ impl AsyncServiceIntegration {
                 self.batch_opf(manifest, *max_jobs, solver).await
             }
 
-            AsyncEvent::RunGeoJoin(left, right, output) => {
-                self.geo_join(left, right, output).await
-            }
+            AsyncEvent::RunGeoJoin(left, right, output) => self.geo_join(left, right, output).await,
 
             AsyncEvent::ExecuteCommand(cmd) => self.execute_command(cmd).await,
 
@@ -91,12 +88,10 @@ impl AsyncServiceIntegration {
 
     async fn fetch_metrics(&self) -> EventResult {
         match self.service_layer.get_metrics().await {
-            Ok(metrics) => {
-                EventResult::Success(format!(
-                    "Fetched metrics: DS={:.1}%, LOLE={:.1} h/yr, EUE={:.1} MWh/yr",
-                    metrics.deliverability_score, metrics.lole_hours_per_year, metrics.eue_mwh_per_year
-                ))
-            }
+            Ok(metrics) => EventResult::Success(format!(
+                "Fetched metrics: DS={:.1}%, LOLE={:.1} h/yr, EUE={:.1} MWh/yr",
+                metrics.deliverability_score, metrics.lole_hours_per_year, metrics.eue_mwh_per_year
+            )),
             Err(e) => EventResult::Error(format!("Failed to fetch metrics: {}", e)),
         }
     }
@@ -107,12 +102,10 @@ impl AsyncServiceIntegration {
 
     async fn fetch_pipeline_config(&self) -> EventResult {
         match self.service_layer.get_pipeline_config().await {
-            Ok(config) => {
-                match self.service_layer.parse_pipeline_config(&config) {
-                    Ok(_) => EventResult::Success("Pipeline config fetched and validated".to_string()),
-                    Err(e) => EventResult::Error(format!("Failed to parse config: {}", e)),
-                }
-            }
+            Ok(config) => match self.service_layer.parse_pipeline_config(&config) {
+                Ok(_) => EventResult::Success("Pipeline config fetched and validated".to_string()),
+                Err(e) => EventResult::Error(format!("Failed to parse config: {}", e)),
+            },
             Err(e) => EventResult::Error(format!("Failed to fetch pipeline config: {}", e)),
         }
     }
@@ -123,7 +116,9 @@ impl AsyncServiceIntegration {
 
     async fn fetch_commands(&self) -> EventResult {
         match self.service_layer.get_commands().await {
-            Ok(commands) => EventResult::Success(format!("Fetched {} available commands", commands.len())),
+            Ok(commands) => {
+                EventResult::Success(format!("Fetched {} available commands", commands.len()))
+            }
             Err(e) => EventResult::Error(format!("Failed to fetch commands: {}", e)),
         }
     }
@@ -149,17 +144,29 @@ impl AsyncServiceIntegration {
     // Analytics Operations
     // ============================================================================
 
-    async fn run_analytics(&self, analytics_type: &str, options: &[(String, String)]) -> EventResult {
+    async fn run_analytics(
+        &self,
+        analytics_type: &str,
+        options: &[(String, String)],
+    ) -> EventResult {
         let cmd = self.service_layer.build_analytics_command(
             match analytics_type {
                 "reliability" => crate::services::AnalyticsType::Reliability,
                 "ds" => crate::services::AnalyticsType::DeliverabilityScore,
                 "elcc" => crate::services::AnalyticsType::ELCC,
                 "powerflow" => crate::services::AnalyticsType::PowerFlow,
-                _ => return EventResult::Error(format!("Unknown analytics type: {}", analytics_type)),
+                _ => {
+                    return EventResult::Error(format!(
+                        "Unknown analytics type: {}",
+                        analytics_type
+                    ))
+                }
             },
             "dataset1",
-            &options.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect::<Vec<_>>(),
+            &options
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.as_str()))
+                .collect::<Vec<_>>(),
         );
         EventResult::Success(format!("Analytics command: {}", cmd))
     }
@@ -169,12 +176,16 @@ impl AsyncServiceIntegration {
     // ============================================================================
 
     async fn validate_scenario(&self, spec_path: &str) -> EventResult {
-        let cmd = self.service_layer.build_scenario_validate_command(spec_path);
+        let cmd = self
+            .service_layer
+            .build_scenario_validate_command(spec_path);
         EventResult::Success(format!("Scenario validation: {}", cmd))
     }
 
     async fn materialize_scenario(&self, template: &str, output: &str) -> EventResult {
-        let cmd = self.service_layer.build_scenario_materialize_command(template, output);
+        let cmd = self
+            .service_layer
+            .build_scenario_materialize_command(template, output);
         EventResult::Success(format!("Scenario materialization: {}", cmd))
     }
 
@@ -183,12 +194,16 @@ impl AsyncServiceIntegration {
     // ============================================================================
 
     async fn batch_power_flow(&self, manifest: &str, max_jobs: usize) -> EventResult {
-        let cmd = self.service_layer.build_batch_pf_command(manifest, max_jobs);
+        let cmd = self
+            .service_layer
+            .build_batch_pf_command(manifest, max_jobs);
         EventResult::Success(format!("Batch power flow: {}", cmd))
     }
 
     async fn batch_opf(&self, manifest: &str, max_jobs: usize, solver: &str) -> EventResult {
-        let cmd = self.service_layer.build_batch_opf_command(manifest, max_jobs, solver);
+        let cmd = self
+            .service_layer
+            .build_batch_opf_command(manifest, max_jobs, solver);
         EventResult::Success(format!("Batch OPF: {}", cmd))
     }
 
@@ -197,7 +212,9 @@ impl AsyncServiceIntegration {
     // ============================================================================
 
     async fn geo_join(&self, left: &str, right: &str, output: &str) -> EventResult {
-        let cmd = self.service_layer.build_geo_join_command(left, right, output);
+        let cmd = self
+            .service_layer
+            .build_geo_join_command(left, right, output);
         EventResult::Success(format!("Geo join: {}", cmd))
     }
 }
@@ -260,7 +277,9 @@ mod tests {
         let service = Arc::new(TuiServiceLayer::new(qb));
         let integration = AsyncServiceIntegration::new(service);
 
-        let result = integration.handle_event(&AsyncEvent::FetchPipelineConfig).await;
+        let result = integration
+            .handle_event(&AsyncEvent::FetchPipelineConfig)
+            .await;
         assert!(matches!(result, EventResult::Success(_)));
     }
 
@@ -283,7 +302,11 @@ mod tests {
         let service = Arc::new(TuiServiceLayer::new(qb));
         let integration = AsyncServiceIntegration::new(service);
 
-        let result = integration.handle_event(&AsyncEvent::ExecuteCommand("gat-cli datasets list".to_string())).await;
+        let result = integration
+            .handle_event(&AsyncEvent::ExecuteCommand(
+                "gat-cli datasets list".to_string(),
+            ))
+            .await;
         assert!(matches!(result, EventResult::Success(_)));
     }
 
@@ -293,7 +316,9 @@ mod tests {
         let service = Arc::new(TuiServiceLayer::new(qb));
         let integration = AsyncServiceIntegration::new(service);
 
-        let result = integration.handle_event(&AsyncEvent::ExecuteCommand("invalid_command".to_string())).await;
+        let result = integration
+            .handle_event(&AsyncEvent::ExecuteCommand("invalid_command".to_string()))
+            .await;
         match result {
             EventResult::Error(msg) => assert!(msg.contains("Invalid")),
             _ => panic!("Expected error"),
@@ -306,7 +331,12 @@ mod tests {
         let service = Arc::new(TuiServiceLayer::new(qb));
         let integration = AsyncServiceIntegration::new(service);
 
-        let result = integration.handle_event(&AsyncEvent::RunBatchPowerFlow("manifest.json".to_string(), 10)).await;
+        let result = integration
+            .handle_event(&AsyncEvent::RunBatchPowerFlow(
+                "manifest.json".to_string(),
+                10,
+            ))
+            .await;
         match result {
             EventResult::Success(msg) => assert!(msg.contains("Batch power flow")),
             _ => panic!("Expected success"),
@@ -319,7 +349,13 @@ mod tests {
         let service = Arc::new(TuiServiceLayer::new(qb));
         let integration = AsyncServiceIntegration::new(service);
 
-        let result = integration.handle_event(&AsyncEvent::RunGeoJoin("left.geo".to_string(), "right.geo".to_string(), "out.geo".to_string())).await;
+        let result = integration
+            .handle_event(&AsyncEvent::RunGeoJoin(
+                "left.geo".to_string(),
+                "right.geo".to_string(),
+                "out.geo".to_string(),
+            ))
+            .await;
         match result {
             EventResult::Success(msg) => assert!(msg.contains("geo join")),
             _ => panic!("Expected success"),

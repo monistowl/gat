@@ -2,9 +2,9 @@ use anyhow::Result;
 use gat_cli::cli::AnalyticsCommands;
 
 pub mod ds;
+pub mod elcc;
 pub mod ptdf;
-pub mod reliability;
-pub mod elcc; // NEW
+pub mod reliability; // NEW
 
 pub fn handle(command: &AnalyticsCommands) -> Result<()> {
     match command {

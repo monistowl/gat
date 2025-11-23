@@ -52,7 +52,7 @@ pub fn apply_scenario_to_network(
             network.graph.remove_edge(edge);
         }
     }
-    
+
     // Step 2: Apply generator outages and other non-branch outages
     for outage in &scenario.outages {
         match outage {
@@ -71,7 +71,7 @@ pub fn apply_scenario_to_network(
             }
         }
     }
-    
+
     // Step 3: Scale loads and renewable generation according to scenario multipliers
     // This models demand growth scenarios, renewable penetration scenarios, etc.
     for node_idx in network.graph.node_indices() {

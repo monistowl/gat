@@ -1,4 +1,4 @@
-use crate::models::{AppState, PaneId, ExecutionMode};
+use crate::models::{AppState, ExecutionMode, PaneId};
 
 /// All possible events in the application
 #[derive(Clone, Debug)]
@@ -100,59 +100,57 @@ pub fn reduce(mut state: AppState, event: AppEvent) -> AppState {
         }
         AppEvent::ShowModal(modal_type) => {
             state.modal_state = Some(match modal_type {
-                ModalType::CommandExecution => crate::models::ModalState::CommandExecution(
-                    crate::models::CommandModalState {
+                ModalType::CommandExecution => {
+                    crate::models::ModalState::CommandExecution(crate::models::CommandModalState {
                         command_text: String::new(),
                         execution_mode: ExecutionMode::Full,
                         output: Vec::new(),
-                    },
-                ),
-                ModalType::Settings => crate::models::ModalState::Settings(
-                    crate::models::SettingsModalState {
+                    })
+                }
+                ModalType::Settings => {
+                    crate::models::ModalState::Settings(crate::models::SettingsModalState {
                         selected_field: 0,
                         theme: state.settings.theme,
                         auto_save: state.settings.auto_save_on_pane_switch,
                         confirm_delete: state.settings.confirm_on_delete,
-                    },
-                ),
-                ModalType::Confirmation(msg) => crate::models::ModalState::Confirmation(
-                    crate::models::ConfirmationState {
+                    })
+                }
+                ModalType::Confirmation(msg) => {
+                    crate::models::ModalState::Confirmation(crate::models::ConfirmationState {
                         message: msg,
                         yes_label: "Yes".to_string(),
                         no_label: "No".to_string(),
-                    },
-                ),
-                ModalType::Info(title, msg) => crate::models::ModalState::Info(
-                    crate::models::InfoState {
+                    })
+                }
+                ModalType::Info(title, msg) => {
+                    crate::models::ModalState::Info(crate::models::InfoState {
                         title,
                         message: msg,
                         details: None,
-                    },
-                ),
+                    })
+                }
             });
         }
         AppEvent::CloseModal => {
             state.modal_state = Some(crate::models::ModalState::None);
         }
-        AppEvent::UpdateSetting(key, value) => {
-            match key.as_str() {
-                "auto_save" => {
-                    state.settings.auto_save_on_pane_switch = value == "true";
-                }
-                "confirm_delete" => {
-                    state.settings.confirm_on_delete = value == "true";
-                }
-                "gat_cli_path" => {
-                    state.settings.gat_cli_path = value;
-                }
-                "command_timeout" => {
-                    if let Ok(timeout) = value.parse() {
-                        state.settings.command_timeout_secs = timeout;
-                    }
-                }
-                _ => {}
+        AppEvent::UpdateSetting(key, value) => match key.as_str() {
+            "auto_save" => {
+                state.settings.auto_save_on_pane_switch = value == "true";
             }
-        }
+            "confirm_delete" => {
+                state.settings.confirm_on_delete = value == "true";
+            }
+            "gat_cli_path" => {
+                state.settings.gat_cli_path = value;
+            }
+            "command_timeout" => {
+                if let Ok(timeout) = value.parse() {
+                    state.settings.command_timeout_secs = timeout;
+                }
+            }
+            _ => {}
+        },
         AppEvent::Tick => {
             // Handle periodic updates
         }
