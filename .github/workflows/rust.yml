@@ -19,6 +19,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
       - name: Cache cargo builds
         uses: Swatinem/rust-cache@v2
         with:
