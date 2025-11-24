@@ -139,7 +139,6 @@ scripts/install.sh
 
 # Or explicitly request a different variant:
 scripts/install.sh --variant headless  # Minimal footprint
-scripts/install.sh --variant analyst   # CLI + ADMS/DERMS/analytics
 scripts/install.sh --variant full      # Everything (default)
 ```
 

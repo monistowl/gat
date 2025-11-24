@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        variant: [headless, analyst, full]
+        variant: [headless, full]
     steps:
       - uses: actions/checkout@v4
 
@@ -112,7 +112,6 @@ jobs:
           ### Available Variants
 
           - **full** (recommended) - All features: CLI, TUI, ADMS, DERMS, analytics
-          - **analyst** - CLI + ADMS, DERMS, analytics (no TUI/GUI)
           - **headless** - Core CLI only, minimal dependencies for embedded systems
 
           ## What's Changed
