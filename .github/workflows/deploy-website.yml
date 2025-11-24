@@ -7,22 +7,23 @@ on:
       - 'website/**'
       - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to deploy (for testing)'
-        required: false
-        default: 'main'
-        type: string
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 env:
   ZOLA_VERSION: 0.18.0
 
 jobs:
-  build-and-deploy:
-    name: Build and deploy website
+  build:
+    name: Build website
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +35,7 @@ jobs:
           sudo mv zola /usr/local/bin/
           zola --version
 
-      - name: Build website with integrated docs
+      - name: Build website
         run: |
           cd website
           zola build
@@ -43,21 +44,28 @@ jobs:
           echo "Site structure:"
           find public -maxdepth 2 -type f | head -20
 
-      - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./website/public
-          publish_branch: gh-pages
-          cname: # Add your custom domain here if you have one
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy website from ${{ github.ref_name }} (${{ github.sha }})'
+          path: ./website/public
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Summary
         run: |
           echo "## Website Deployment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed to:** ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -65,6 +73,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Homepage:** https://monistowl.github.io/gat/" >> $GITHUB_STEP_SUMMARY
           echo "- **Documentation:** https://monistowl.github.io/gat/docs/" >> $GITHUB_STEP_SUMMARY
-          echo "- **Source:** https://github.com/${{ github.repository }}/tree/${{ github.ref_name }}/website" >> $GITHUB_STEP_SUMMARY
+          echo "- **Blog:** https://monistowl.github.io/gat/blog/" >> $GITHUB_STEP_SUMMARY
+          echo "- **AI Lab:** https://monistowl.github.io/gat/ai-experiments/" >> $GITHUB_STEP_SUMMARY
+          echo "- **Command Builder:** https://monistowl.github.io/gat/command-builder/" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Site should be live in ~1 minute." >> $GITHUB_STEP_SUMMARY
