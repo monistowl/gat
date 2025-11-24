@@ -160,3 +160,33 @@ fn import_cim_rdf_zip_sample() {
     assert_eq!(network.graph.node_count(), 2);
     assert_eq!(network.graph.edge_count(), 1);
 }
+
+#[test]
+fn test_cim_operational_limits_parsing() {
+    use crate::importers::cim::parse_cim_documents;
+
+    // Create a minimal CIM RDF with bus only (no limits for now)
+    let cim_xml = concat!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>"#, "\n",
+        r#"<rdf:RDF xmlns:cim="http://iec.ch/TC57/2013/CIM-schema-v2_4_0" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">"#, "\n",
+        r#"  <cim:BusbarSection rdf:ID="bus1">"#, "\n",
+        r#"    <cim:IdentifiedObject.name>Bus 1</cim:IdentifiedObject.name>"#, "\n",
+        r#"  </cim:BusbarSection>"#, "\n",
+        r#"</rdf:RDF>"#
+    );
+
+    // Parse and verify new return signature works
+    let documents = vec![cim_xml.to_string()];
+    let result = parse_cim_documents(&documents);
+
+    assert!(result.is_ok());
+    let (buses, _, _, _, limits, volt_limits, transformers) = result.unwrap();
+
+    // Verify we got the bus
+    assert_eq!(buses.len(), 1);
+
+    // Verify the new limit types are returned correctly (empty for now)
+    assert!(limits.is_empty());
+    assert!(volt_limits.is_empty());
+    assert!(transformers.is_empty());
+}

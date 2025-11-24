@@ -17,40 +17,66 @@ pub fn import_cim_rdf(rdf_path: &str, output_file: &str) -> Result<Network> {
     println!("Importing CIM from {} to {}", rdf_path, output_file);
     let path = Path::new(rdf_path);
     let documents = collect_cim_documents(path)?;
-    let (buses, lines, loads, gens) = parse_cim_documents(&documents)?;
-    let network = build_network_from_cim(buses, lines, loads, gens)?;
+    let (buses, lines, loads, gens, limits, volt_limits, transformers) = parse_cim_documents(&documents)?;
+    let network = build_network_from_cim(buses, lines, loads, gens, limits, volt_limits, transformers)?;
     write_network_to_arrow(&network, output_file)?;
     Ok(network)
 }
 
-struct CimBus {
-    id: String,
-    name: String,
+pub(crate) struct CimBus {
+    pub id: String,
+    pub name: String,
 }
 
-struct CimLine {
-    name: String,
-    from: String,
-    to: String,
-    resistance: f64,
-    reactance: f64,
+pub(crate) struct CimLine {
+    pub name: String,
+    pub from: String,
+    pub to: String,
+    pub resistance: f64,
+    pub reactance: f64,
 }
 
-struct CimLoad {
-    name: String,
-    bus_id: String,
-    active_power_mw: f64,
-    reactive_power_mvar: f64,
+pub(crate) struct CimLoad {
+    pub name: String,
+    pub bus_id: String,
+    pub active_power_mw: f64,
+    pub reactive_power_mvar: f64,
 }
 
-struct CimGen {
-    name: String,
-    bus_id: String,
-    active_power_mw: f64,
-    reactive_power_mvar: f64,
+pub(crate) struct CimGen {
+    pub name: String,
+    pub bus_id: String,
+    pub active_power_mw: f64,
+    pub reactive_power_mvar: f64,
 }
 
-type CimImportResult = (Vec<CimBus>, Vec<CimLine>, Vec<CimLoad>, Vec<CimGen>);
+#[derive(Debug, Clone)]
+pub struct CimOperationalLimit {
+    pub equipment_id: String,
+    pub limit_type: String,  // "ThermalLimit", "VoltageLimit", "FrequencyLimit"
+    pub value: f64,
+    pub unit: String,  // "MW", "kV", "Hz"
+}
+
+#[derive(Debug, Clone)]
+pub struct CimVoltageLimit {
+    pub bus_id: String,
+    pub min_voltage: f64,
+    pub max_voltage: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct CimTransformer {
+    pub id: String,
+    pub name: String,
+    pub from_bus: String,
+    pub to_bus: String,
+    pub r: f64,
+    pub x: f64,
+    pub rated_mva: f64,
+}
+
+type CimImportResult = (Vec<CimBus>, Vec<CimLine>, Vec<CimLoad>, Vec<CimGen>, Vec<CimOperationalLimit>, Vec<CimVoltageLimit>, Vec<CimTransformer>);
 
 struct PendingCimGen {
     name: String,
@@ -162,11 +188,14 @@ fn collect_cim_documents(path: &Path) -> Result<Vec<String>> {
     }
 }
 
-fn parse_cim_documents(documents: &[String]) -> Result<CimImportResult> {
+pub(crate) fn parse_cim_documents(documents: &[String]) -> Result<CimImportResult> {
     let mut buses: Vec<CimBus> = Vec::new();
     let mut lines: Vec<CimLine> = Vec::new();
     let mut loads: Vec<CimLoad> = Vec::new();
     let mut gens: Vec<CimGen> = Vec::new();
+    let operational_limits = Vec::new();
+    let voltage_limits = Vec::new();
+    let transformers = Vec::new();
 
     for doc in documents {
         let mut reader = Reader::from_str(doc);
@@ -216,6 +245,10 @@ fn parse_cim_documents(documents: &[String]) -> Result<CimImportResult> {
                             if let Some(id) = attribute_value(e, "ID")? {
                                 current_terminal = Some(PendingCimTerminal::new(id));
                             }
+                        }
+                        "OperationalLimit" => {
+                            // Operational limit parsing - basic structure for now
+                            // Will be fully implemented when we have proper test data
                         }
                         _ => {}
                     }
@@ -405,7 +438,7 @@ fn parse_cim_documents(documents: &[String]) -> Result<CimImportResult> {
     if buses.is_empty() {
         Err(anyhow!("no bus definitions discovered in CIM documents"))
     } else {
-        Ok((buses, lines, loads, gens))
+        Ok((buses, lines, loads, gens, operational_limits, voltage_limits, transformers))
     }
 }
 
@@ -414,6 +447,9 @@ fn build_network_from_cim(
     lines: Vec<CimLine>,
     loads: Vec<CimLoad>,
     gens: Vec<CimGen>,
+    limits: Vec<CimOperationalLimit>,
+    voltage_limits: Vec<CimVoltageLimit>,
+    transformers: Vec<CimTransformer>,
 ) -> Result<Network> {
     let mut network = Network::new();
     let mut node_map: HashMap<String, (BusId, NodeIndex)> = HashMap::new();
@@ -496,6 +532,33 @@ fn build_network_from_cim(
             .graph
             .add_edge(*from_idx, *to_idx, Edge::Branch(branch));
     }
+
+    // Apply voltage limits to buses
+    // Note: Bus struct does not yet have min_voltage/max_voltage fields
+    // These will be applied once the struct is extended
+    for _volt_limit in voltage_limits {
+        // Future: Apply to bus when fields are added
+        // if let Some(bus) = network.buses.iter_mut().find(|b| b.name == volt_limit.bus_id) {
+        //     bus.min_voltage = volt_limit.min_voltage;
+        //     bus.max_voltage = volt_limit.max_voltage;
+        // }
+    }
+
+    // Apply thermal limits to branches
+    // Note: Branch struct does not yet have rate_a field
+    // These will be applied once the struct is extended
+    for _limit in limits {
+        // Future: Apply to branch when fields are added
+        // if limit.limit_type == "ThermalLimit" {
+        //     if let Some(branch) = network.branches.iter_mut().find(|br| br.name == limit.equipment_id) {
+        //         branch.rate_a = limit.value;
+        //     }
+        // }
+    }
+
+    // Transformers are collected but not yet used
+    // Future: Add transformer handling once Transformer node type is added
+    let _ = transformers;
 
     Ok(network)
 }
