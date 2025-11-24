@@ -1715,6 +1715,7 @@ dependencies = [
  "clap-markdown",
  "clap_complete",
  "clap_mangen",
+ "csv",
  "dirs",
  "gat-adms",
  "gat-algo",

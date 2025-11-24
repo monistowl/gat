@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source "$ROOT_DIR/scripts/release-utils.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/release-utils.sh" ]]; then
+  source "$SCRIPT_DIR/release-utils.sh"
+else
+  ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+  source "$ROOT_DIR/scripts/release-utils.sh"
+fi
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   echo "This script is intended to be sourced, not executed." >&2
