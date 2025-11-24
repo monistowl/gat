@@ -3,6 +3,7 @@ pub mod alloc_kpi;
 pub mod alloc_rents;
 pub mod analytics_ds;
 pub mod analytics_reliability;
+pub mod canos_multiarea;
 pub mod elcc;
 pub mod featurize_geo;
 pub mod featurize_gnn;
@@ -18,6 +19,9 @@ pub use alloc_kpi::*;
 pub use alloc_rents::*;
 pub use analytics_ds::*;
 pub use analytics_reliability::*;
+pub use canos_multiarea::{
+    AreaId, Corridor, MultiAreaSystem, MultiAreaOutageScenario, AreaLoleMetrics, MultiAreaMonteCarlo,
+};
 pub use elcc::*;
 pub use featurize_geo::*;
 pub use featurize_gnn::*;
