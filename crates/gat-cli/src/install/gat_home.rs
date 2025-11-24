@@ -1,7 +1,7 @@
 //! GAT home directory structure and helpers
 
 use anyhow::{anyhow, Result};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Represents the ~/.gat directory structure
 #[derive(Debug, Clone)]

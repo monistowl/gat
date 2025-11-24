@@ -2,7 +2,6 @@
 
 use crate::install::Component;
 use anyhow::{anyhow, Result};
-use serde_json::Value;
 
 /// Fetch latest release info from GitHub API using curl (via shell command)
 pub fn fetch_latest_release(repo_owner: &str, repo_name: &str) -> Result<String> {
