@@ -12,20 +12,20 @@ GAT (Grid Analysis Toolkit) is licensed under the **PolyForm Shield License 1.0.
 
 ## What You Can Do (Free)
 
-✅ **Academic Research** - Use GAT for research, thesis work, and publications
-✅ **Personal Projects** - Build tools and applications for personal use
-✅ **Internal Business Use** - Use GAT internally within your organization
-✅ **Open Source Development** - Contribute to GAT or use it in open-source projects
-✅ **Education** - Teaching, training, and learning power systems analysis
-✅ **Prototyping** - Building proof-of-concepts and MVPs
+- ✅ **Academic Research** - Use GAT for research, thesis work, and publications
+- ✅ **Personal Projects** - Build tools and applications for personal use
+- ✅ **Internal Business Use** - Use GAT internally within your organization
+- ✅ **Open Source Development** - Contribute to GAT or use it in open-source projects
+- ✅ **Education** - Teaching, training, and learning power systems analysis
+- ✅ **Prototyping** - Building proof-of-concepts and MVPs
 
 ## What Requires a Commercial License
 
-❌ **Selling Access** - Offering GAT as a paid product or service
-❌ **Hosted Services** - Running GAT as a cloud/SaaS offering for customers
-❌ **Competitive Products** - Building commercial products that compete with GAT
-❌ **Paid Integration** - Bundling GAT into commercial software for sale
-❌ **Consulting Services** - Using GAT to provide paid professional services
+- ❌ **Selling Access** - Offering GAT as a paid product or service
+- ❌ **Hosted Services** - Running GAT as a cloud/SaaS offering for customers
+- ❌ **Competitive Products** - Building commercial products that compete with GAT
+- ❌ **Paid Integration** - Bundling GAT into commercial software for sale
+- ❌ **Consulting Services** - Using GAT to provide paid professional services
 
 ## License Details
 
@@ -78,8 +78,8 @@ If your use case requires a commercial license, we offer:
 
 Contact us to discuss commercial licensing:
 
-- **Email:** [Contact through GitHub Issues]({{ config.extra.repo_url }}/issues/new)
-- **GitHub:** [{{ config.extra.repo_url }}]({{ config.extra.repo_url }})
+- **Email:** [Contact through GitHub Issues](https://github.com/monistowl/gat/issues/new)
+- **GitHub:** [https://github.com/monistowl/gat](https://github.com/monistowl/gat)
 
 We work with startups and enterprises to find licensing that fits your budget and use case.
 
@@ -119,7 +119,7 @@ See our [Contributing Guide](/contributing/) for details.
 
 The complete PolyForm Shield License 1.0.0 text is available at:
 
-**Repository:** [LICENSE.txt]({{ config.extra.repo_url }}/blob/main/LICENSE.txt)
+**Repository:** [LICENSE.txt](https://github.com/monistowl/gat/blob/main/LICENSE.txt)
 
 ## Summary
 
@@ -137,4 +137,4 @@ The complete PolyForm Shield License 1.0.0 text is available at:
 
 ---
 
-**Questions?** Open an issue on [GitHub]({{ config.extra.repo_url }}/issues) or check our [discussions]({{ config.extra.repo_url }}/discussions).
+**Questions?** Open an issue on [GitHub](https://github.com/monistowl/gat/issues) or check our [discussions](https://github.com/monistowl/gat/discussions).
