@@ -17,10 +17,16 @@ impl AnalyticsPane {
             .bar_width(35)
             .with_legend();
 
-        let reliability_table = TableView::new(["Scenario", "LOLE (h/yr)", "EUE (MWh)", "Violations", "Status"])
-            .add_row(["Summer Peak", "2.5", "125.0", "3", "◐ Warning"])
-            .add_row(["Winter Peak", "0.5", "18.5", "1", "✓ Good"])
-            .add_row(["Spring Average", "0.0", "0.0", "0", "✓ Good"]);
+        let reliability_table = TableView::new([
+            "Scenario",
+            "LOLE (h/yr)",
+            "EUE (MWh)",
+            "Violations",
+            "Status",
+        ])
+        .add_row(["Summer Peak", "2.5", "125.0", "3", "◐ Warning"])
+        .add_row(["Winter Peak", "0.5", "18.5", "1", "✓ Good"])
+        .add_row(["Spring Average", "0.0", "0.0", "0", "✓ Good"]);
 
         let reliability_pane = Pane::new("Reliability Analysis")
             .body([
@@ -64,10 +70,16 @@ impl AnalyticsPane {
             .bar_width(35)
             .with_legend();
 
-        let elcc_table = TableView::new(["Resource", "Capacity (MW)", "ELCC (MW)", "Margin %", "Status"])
-            .add_row(["Wind Farm A", "100.0", "28.5", "71.5%", "◐ Warning"])
-            .add_row(["Solar Array B", "50.0", "8.2", "83.6%", "◐ Warning"])
-            .add_row(["Battery C", "75.0", "72.0", "4.0%", "✓ Good"]);
+        let elcc_table = TableView::new([
+            "Resource",
+            "Capacity (MW)",
+            "ELCC (MW)",
+            "Margin %",
+            "Status",
+        ])
+        .add_row(["Wind Farm A", "100.0", "28.5", "71.5%", "◐ Warning"])
+        .add_row(["Solar Array B", "50.0", "8.2", "83.6%", "◐ Warning"])
+        .add_row(["Battery C", "75.0", "72.0", "4.0%", "✓ Good"]);
 
         let elcc_pane = Pane::new("ELCC Analysis")
             .body([
@@ -88,10 +100,11 @@ impl AnalyticsPane {
             .bar_width(35)
             .with_legend();
 
-        let pf_table = TableView::new(["Branch", "Flow (MW)", "Limit (MW)", "Utilization", "Status"])
-            .add_row(["Line_001", "450.0", "500.0", "90.0%", "⚠ Elevated"])
-            .add_row(["Line_002", "520.0", "500.0", "104.0%", "⚡ Congested"])
-            .add_row(["Line_003", "250.0", "1000.0", "25.0%", "— Normal"]);
+        let pf_table =
+            TableView::new(["Branch", "Flow (MW)", "Limit (MW)", "Utilization", "Status"])
+                .add_row(["Line_001", "450.0", "500.0", "90.0%", "⚠ Elevated"])
+                .add_row(["Line_002", "520.0", "500.0", "104.0%", "⚡ Congested"])
+                .add_row(["Line_003", "250.0", "1000.0", "25.0%", "— Normal"]);
 
         let pf_pane = Pane::new("Power Flow Results")
             .body([
@@ -115,30 +128,26 @@ impl AnalyticsPane {
             .with_tabs(analytics_tabs)
             .mark_visual();
 
-        let summary = Pane::new("Summary")
-            .body([
-                "Analysis completed: 4 scenarios processed",
-                "Valid results: All metrics passed validation",
-                "Timestamp: 2025-01-15 14:32:00 UTC",
-            ]);
+        let summary = Pane::new("Summary").body([
+            "Analysis completed: 4 scenarios processed",
+            "Valid results: All metrics passed validation",
+            "Timestamp: 2025-01-15 14:32:00 UTC",
+        ]);
 
-        let export = Pane::new("Export Options")
-            .body([
-                "Button: [Ctrl+E] Export to CSV",
-                "Button: [Ctrl+P] Generate PDF report",
-                "Button: [Ctrl+J] Save as JSON",
-            ]);
+        let export = Pane::new("Export Options").body([
+            "Button: [Ctrl+E] Export to CSV",
+            "Button: [Ctrl+P] Generate PDF report",
+            "Button: [Ctrl+J] Save as JSON",
+        ]);
 
         PaneLayout::new(main_content)
             .with_secondary(Pane::new("Actions").with_child(summary).with_child(export))
-            .with_sidebar(
-                Sidebar::new("Analysis Tips", false).lines([
-                    "Use arrow keys to navigate between tabs",
-                    "Bar charts show relative magnitudes at a glance",
-                    "Table data provides precise numerical values",
-                    "Export results for detailed offline analysis",
-                ]),
-            )
+            .with_sidebar(Sidebar::new("Analysis Tips", false).lines([
+                "Use arrow keys to navigate between tabs",
+                "Bar charts show relative magnitudes at a glance",
+                "Table data provides precise numerical values",
+                "Export results for detailed offline analysis",
+            ]))
             .with_subtabs(SubTabs::new(["Metrics", "Trends", "Compare"], 0))
             .with_responsive_rules(ResponsiveRules {
                 wide_threshold: 100,

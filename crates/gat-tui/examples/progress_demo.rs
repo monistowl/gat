@@ -2,7 +2,6 @@
 ///
 /// Run with:
 /// cargo run --example progress_demo --features fancy-ui
-
 use gat_tui::ui::{ProgressBarView, ProgressStatus, SpinnerStyle, SpinnerView};
 
 fn main() {

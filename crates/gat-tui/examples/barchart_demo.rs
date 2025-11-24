@@ -2,7 +2,6 @@
 ///
 /// Run with:
 /// cargo run --example barchart_demo --features fancy-ui
-
 use gat_tui::ui::{BarChartView, ColorHint};
 
 fn main() {

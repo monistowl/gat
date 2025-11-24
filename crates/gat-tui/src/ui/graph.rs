@@ -2,7 +2,6 @@
 ///
 /// Renders pipeline nodes and edges using box-drawing characters
 /// for a visual representation of data flow.
-
 use super::{EmptyState, THEME};
 
 /// A node in the graph
@@ -11,7 +10,7 @@ pub struct GraphNode {
     pub id: String,
     pub label: String,
     pub symbol: String,
-    pub level: usize,  // Depth in the DAG (0 = source, increases downstream)
+    pub level: usize, // Depth in the DAG (0 = source, increases downstream)
 }
 
 /// An edge connecting two nodes
@@ -116,9 +115,9 @@ impl GraphView {
             // Render all nodes at this level
             for (node_idx, node) in level_nodes.iter().enumerate() {
                 let prefix = if node_idx == 0 && level_idx > 0 {
-                    "    │"  // Vertical connector from previous level
+                    "    │" // Vertical connector from previous level
                 } else if node_idx > 0 {
-                    "     "  // Indent for subsequent nodes at same level
+                    "     " // Indent for subsequent nodes at same level
                 } else {
                     ""
                 };
@@ -126,16 +125,16 @@ impl GraphView {
                 let node_line = if self.compact {
                     format!("{} {} {}", prefix, node.symbol, node.label)
                 } else {
-                    format!("{}  ┌─ {} {} ─ {}", prefix, node.symbol, node.label, node.id)
+                    format!(
+                        "{}  ┌─ {} {} ─ {}",
+                        prefix, node.symbol, node.label, node.id
+                    )
                 };
                 lines.push(node_line);
 
                 // Show connection to next level if this isn't the last level
                 if level_idx < max_level && !self.edges.is_empty() {
-                    let has_outgoing = self
-                        .edges
-                        .iter()
-                        .any(|e| e.from_id == node.id);
+                    let has_outgoing = self.edges.iter().any(|e| e.from_id == node.id);
 
                     if has_outgoing {
                         lines.push("    │".to_string());
@@ -157,8 +156,15 @@ impl GraphView {
             lines.push("".to_string());
             lines.push("Legend:".to_string());
 
-            let mut symbols: Vec<_> = self.nodes.iter()
-                .map(|n| (n.symbol.clone(), format!("{} = {}", n.symbol, self.get_node_type_label(&n.symbol))))
+            let mut symbols: Vec<_> = self
+                .nodes
+                .iter()
+                .map(|n| {
+                    (
+                        n.symbol.clone(),
+                        format!("{} = {}", n.symbol, self.get_node_type_label(&n.symbol)),
+                    )
+                })
                 .collect();
             symbols.sort();
             symbols.dedup_by(|a, b| a.0 == b.0);
@@ -186,7 +192,10 @@ impl GraphView {
         // Simple list rendering without fancy graphics
         lines.push("Pipeline nodes:".to_string());
         for node in &self.nodes {
-            lines.push(format!("  {} {} (level {})", node.symbol, node.label, node.level));
+            lines.push(format!(
+                "  {} {} (level {})",
+                node.symbol, node.label, node.level
+            ));
         }
 
         if !self.edges.is_empty() {
@@ -229,8 +238,7 @@ mod tests {
 
     #[test]
     fn test_graph_single_node() {
-        let graph = GraphView::new()
-            .add_node("n1", "Load Data", "◆", 0);
+        let graph = GraphView::new().add_node("n1", "Load Data", "◆", 0);
 
         let lines = graph.render_lines();
         assert!(lines.iter().any(|l| l.contains("Load Data")));
@@ -266,9 +274,7 @@ mod tests {
 
     #[test]
     fn test_graph_compact_mode() {
-        let graph = GraphView::new()
-            .add_node("n1", "Load", "◆", 0)
-            .compact();
+        let graph = GraphView::new().add_node("n1", "Load", "◆", 0).compact();
 
         let lines = graph.render_lines();
         // Compact mode should produce shorter lines

@@ -2,7 +2,6 @@
 ///
 /// Run with:
 /// cargo run --example graph_demo --features fancy-ui
-
 use gat_tui::ui::GraphView;
 
 fn main() {

@@ -7,6 +7,7 @@ mod dataset;
 mod runs;
 
 use crate::commands::batch as command_batch;
+use crate::commands::benchmark as command_benchmark;
 #[cfg(feature = "gui")]
 use crate::commands::gui;
 use crate::commands::runs as command_runs;
@@ -41,6 +42,9 @@ fn main() {
         }
         Some(Commands::Batch { command }) => {
             run_and_log("batch", || command_batch::handle(command))
+        }
+        Some(Commands::Benchmark { command }) => {
+            run_and_log("benchmark", || command_benchmark::handle(command))
         }
         Some(Commands::Dataset { command }) => run_and_log("dataset", || datasets::handle(command)),
         Some(Commands::Analytics { command }) => {

@@ -66,6 +66,8 @@ copy_common_files() {
   local dest="$1"
   cp README.md "$dest"
   cp scripts/install.sh "$dest/"
+  cp scripts/release-utils.sh "$dest/"
+  cp scripts/solver-discovery.sh "$dest/"
   cp LICENSE.txt "$dest/"
 }
 

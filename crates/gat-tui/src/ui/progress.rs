@@ -1,14 +1,13 @@
 /// Progress bars and spinners for ongoing operations
 ///
 /// Provides visual feedback for batch jobs, uploads, and long-running tasks
-
 use super::{EmptyState, THEME};
 
 /// A single progress bar
 #[derive(Clone, Debug)]
 pub struct ProgressBar {
     pub label: String,
-    pub value: f64,      // 0.0 to 1.0
+    pub value: f64, // 0.0 to 1.0
     pub show_percent: bool,
     pub status: ProgressStatus,
 }
@@ -16,10 +15,10 @@ pub struct ProgressBar {
 /// Progress status affecting color/symbol
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProgressStatus {
-    Active,     // In progress
-    Complete,   // Finished successfully
-    Failed,     // Finished with error
-    Paused,     // Temporarily stopped
+    Active,   // In progress
+    Complete, // Finished successfully
+    Failed,   // Finished with error
+    Paused,   // Temporarily stopped
 }
 
 impl ProgressStatus {
@@ -212,12 +211,12 @@ pub struct SpinnerView {
 /// Spinner animation styles
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SpinnerStyle {
-    Dots,       // ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏
-    Line,       // -\|/
-    Arrow,      // ←↖↑↗→↘↓↙
-    Box,        // ◰◳◲◱
-    Circle,     // ◐◓◑◒
-    Custom,     // Custom frames
+    Dots,   // ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏
+    Line,   // -\|/
+    Arrow,  // ←↖↑↗→↘↓↙
+    Box,    // ◰◳◲◱
+    Circle, // ◐◓◑◒
+    Custom, // Custom frames
 }
 
 impl SpinnerStyle {
@@ -269,8 +268,7 @@ mod tests {
 
     #[test]
     fn test_progress_single_bar() {
-        let view = ProgressBarView::new()
-            .add_progress("Task 1", 0.5, ProgressStatus::Active);
+        let view = ProgressBarView::new().add_progress("Task 1", 0.5, ProgressStatus::Active);
 
         let lines = view.render_lines();
         assert!(lines.iter().any(|l| l.contains("Task 1")));
