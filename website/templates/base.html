@@ -109,17 +109,31 @@
       @apply text-xl font-semibold text-orange-300 mb-3 mt-6;
     }
     .prose p {
-      @apply text-slate-300 mb-6 leading-loose;
+      @apply text-slate-300 mb-8 leading-relaxed;
       font-size: 1.0625rem;
     }
+    /* Reduce spacing after lists when followed by more content */
+    .prose ul + p,
+    .prose ol + p {
+      @apply mt-6;
+    }
+    /* Reduce spacing between list items for compact appearance */
+    .prose li + li {
+      @apply mt-1.5;
+    }
     .prose a { @apply text-orange-500 hover:text-orange-400 transition-colors underline; }
+    /* Reduce top spacing for lists that follow paragraphs */
+    .prose p + ul,
+    .prose p + ol {
+      @apply mt-2;
+    }
     .prose ul {
-      @apply list-disc text-slate-300 mb-6 space-y-2;
+      @apply list-disc text-slate-300 mb-6 space-y-1.5;
       list-style-position: outside;
       padding-left: 2rem;
     }
     .prose ol {
-      @apply list-decimal text-slate-300 mb-6 space-y-2;
+      @apply list-decimal text-slate-300 mb-6 space-y-1.5;
       list-style-position: outside;
       padding-left: 2rem;
     }
