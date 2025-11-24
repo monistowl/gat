@@ -1,6 +1,7 @@
 pub mod cli;
 #[cfg(feature = "docs")]
 pub mod docs;
+pub mod install;
 pub mod manifest;
 
 #[cfg(feature = "gui")]
