@@ -9,12 +9,14 @@ mod grid_components;
 mod layout;
 mod modal;
 mod navigation;
+mod progress;
 mod registry;
 mod theme;
 
 pub use ansi::{StyledText, BOLD, COLOR_CYAN, COLOR_GREEN, COLOR_RED, COLOR_YELLOW, DIM, REVERSE};
 pub use barchart::{BarChartView, BarData, ColorHint};
 pub use graph::{GraphEdge, GraphNode, GraphView};
+pub use progress::{ProgressBar, ProgressBarView, ProgressStatus, SpinnerStyle, SpinnerView};
 
 pub use command_components::{CommandOutputViewer, CommandResultModal};
 /// The root container for the terminal experience.
@@ -129,6 +131,7 @@ pub struct Pane {
     pub table: Option<TableView>,
     pub graph: Option<GraphView>,
     pub barchart: Option<BarChartView>,
+    pub progressbar: Option<ProgressBarView>,
     pub collapsible: Option<Collapsible>,
     pub visual: bool,
     pub empty: Option<EmptyState>,
@@ -144,6 +147,7 @@ impl Pane {
             table: None,
             graph: None,
             barchart: None,
+            progressbar: None,
             collapsible: None,
             visual: false,
             empty: None,
@@ -185,6 +189,11 @@ impl Pane {
         self
     }
 
+    pub fn with_progressbar(mut self, progressbar: ProgressBarView) -> Self {
+        self.progressbar = Some(progressbar);
+        self
+    }
+
     pub fn with_collapsible(mut self, collapsible: Collapsible) -> Self {
         self.collapsible = Some(collapsible);
         self
@@ -217,6 +226,7 @@ impl Pane {
             && self.table.as_ref().map_or(true, |table| !table.has_rows())
             && self.graph.as_ref().map_or(true, |graph| !graph.has_nodes())
             && self.barchart.as_ref().map_or(true, |chart| !chart.has_bars())
+            && self.progressbar.as_ref().map_or(true, |pb| !pb.has_bars())
         {
             if let Some(empty) = &self.empty {
                 for line in empty.render_lines(&THEME) {
@@ -247,6 +257,12 @@ impl Pane {
 
         if let Some(barchart) = &self.barchart {
             for line in barchart.render_lines() {
+                let _ = writeln!(output, "{}  {}", pad, line);
+            }
+        }
+
+        if let Some(progressbar) = &self.progressbar {
+            for line in progressbar.render_lines() {
                 let _ = writeln!(output, "{}  {}", pad, line);
             }
         }
