@@ -1,5 +1,5 @@
 use crate::ui::{
-    ContextButton, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar, SubTabs,
+    ContextButton, GraphView, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar, SubTabs,
     TableView, Tabs, Tooltip,
 };
 
@@ -50,6 +50,19 @@ impl PipelinePane {
             "Inline hint: Outputs inherit naming from the selected source and template.",
         ]);
 
+        // Visual DAG graph representation (fancy-ui feature)
+        let graph = GraphView::new()
+            .add_node("n1", "Live telemetry", "◆", 0)
+            .add_node("n2", "Resample", "▲", 1)
+            .add_node("n3", "Gap fill", "▲", 2)
+            .add_node("n4", "Validate", "○", 3)
+            .add_node("n5", "Warehouse", "■", 4)
+            .add_edge("n1", "n2")
+            .add_edge("n2", "n3")
+            .add_edge("n3", "n4")
+            .add_edge("n4", "n5")
+            .with_legend();
+
         let preview_table = TableView::new(["Step", "From", "To"])
             .add_row(["Source: Live telemetry", "edge-collector", "Normalizer"])
             .add_row(["Transform: Resample", "Normalizer", "Gap fill"])
@@ -61,6 +74,7 @@ impl PipelinePane {
                 "Auto-refreshes as you add or reorder steps; aligns with dropdown choices.",
                 "Helpful for confirming fan-in/fan-out before dispatching a run.",
             ])
+            .with_graph(graph)
             .with_table(preview_table);
 
         let controls = Pane::new("Controls")

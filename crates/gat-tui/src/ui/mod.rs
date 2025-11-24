@@ -3,6 +3,7 @@ use std::fmt::Write;
 mod ansi;
 mod command_components;
 mod components;
+mod graph;
 mod grid_components;
 mod layout;
 mod modal;
@@ -11,6 +12,7 @@ mod registry;
 mod theme;
 
 pub use ansi::{StyledText, BOLD, COLOR_CYAN, COLOR_GREEN, COLOR_RED, COLOR_YELLOW, DIM, REVERSE};
+pub use graph::{GraphEdge, GraphNode, GraphView};
 
 pub use command_components::{CommandOutputViewer, CommandResultModal};
 /// The root container for the terminal experience.
@@ -123,6 +125,7 @@ pub struct Pane {
     pub children: Vec<Pane>,
     pub tabs: Option<Tabs>,
     pub table: Option<TableView>,
+    pub graph: Option<GraphView>,
     pub collapsible: Option<Collapsible>,
     pub visual: bool,
     pub empty: Option<EmptyState>,
@@ -136,6 +139,7 @@ impl Pane {
             children: Vec::new(),
             tabs: None,
             table: None,
+            graph: None,
             collapsible: None,
             visual: false,
             empty: None,
@@ -164,6 +168,11 @@ impl Pane {
 
     pub fn with_table(mut self, table: TableView) -> Self {
         self.table = Some(table);
+        self
+    }
+
+    pub fn with_graph(mut self, graph: GraphView) -> Self {
+        self.graph = Some(graph);
         self
     }
 
@@ -197,6 +206,7 @@ impl Pane {
         if self.body.is_empty()
             && self.children.is_empty()
             && self.table.as_ref().map_or(true, |table| !table.has_rows())
+            && self.graph.as_ref().map_or(true, |graph| !graph.has_nodes())
         {
             if let Some(empty) = &self.empty {
                 for line in empty.render_lines(&THEME) {
@@ -215,6 +225,12 @@ impl Pane {
 
         if let Some(table) = &self.table {
             for line in table.render_lines() {
+                let _ = writeln!(output, "{}  {}", pad, line);
+            }
+        }
+
+        if let Some(graph) = &self.graph {
+            for line in graph.render_lines() {
                 let _ = writeln!(output, "{}  {}", pad, line);
             }
         }
