@@ -59,10 +59,7 @@ impl OperationsPane {
             .with_legend();
 
         let alloc_ops = Pane::new("Allocation Analysis")
-            .body([
-                "Cost attribution and sensitivity analysis",
-                "",
-            ])
+            .body(["Cost attribution and sensitivity analysis", ""])
             .with_barchart(rents_chart)
             .with_child(Pane::new("KPI Contribution").with_barchart(contribution_chart))
             .with_tabs(crate::ui::Tabs::new(["Rents", "Contribution"], 0));

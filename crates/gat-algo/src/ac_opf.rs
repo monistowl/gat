@@ -1,6 +1,6 @@
-use std::time::Duration;
+use gat_core::{Edge, Network, Node};
 use std::collections::HashMap;
-use gat_core::{Network, Node, Edge};
+use std::time::Duration;
 
 /// AC OPF solver errors
 #[derive(Debug, Clone)]
@@ -16,10 +16,7 @@ pub enum AcOpfError {
     /// Input data validation error
     DataValidation(String),
     /// Convergence failure with residual info
-    ConvergenceFailure {
-        iterations: usize,
-        residual: f64,
-    },
+    ConvergenceFailure { iterations: usize, residual: f64 },
 }
 
 impl std::fmt::Display for AcOpfError {
@@ -30,8 +27,15 @@ impl std::fmt::Display for AcOpfError {
             AcOpfError::SolverTimeout(dur) => write!(f, "AC OPF timeout after {:?}", dur),
             AcOpfError::NumericalIssue(msg) => write!(f, "AC OPF numerical issue: {}", msg),
             AcOpfError::DataValidation(msg) => write!(f, "AC OPF data validation: {}", msg),
-            AcOpfError::ConvergenceFailure { iterations, residual } => {
-                write!(f, "AC OPF failed to converge after {} iterations (residual: {})", iterations, residual)
+            AcOpfError::ConvergenceFailure {
+                iterations,
+                residual,
+            } => {
+                write!(
+                    f,
+                    "AC OPF failed to converge after {} iterations (residual: {})",
+                    iterations, residual
+                )
             }
         }
     }
@@ -111,27 +115,33 @@ impl AcOpfSolver {
                 Node::Bus(bus) => {
                     has_bus = true;
                     if bus.name.is_empty() {
-                        return Err(AcOpfError::DataValidation("Bus with empty name".to_string()));
+                        return Err(AcOpfError::DataValidation(
+                            "Bus with empty name".to_string(),
+                        ));
                     }
 
                     // Basic voltage validation
                     if bus.voltage_kv <= 0.0 {
-                        return Err(AcOpfError::DataValidation(
-                            format!("Bus {}: voltage_kv must be positive", bus.name)
-                        ));
+                        return Err(AcOpfError::DataValidation(format!(
+                            "Bus {}: voltage_kv must be positive",
+                            bus.name
+                        )));
                     }
                 }
                 Node::Gen(gen) => {
                     has_generator = true;
                     if gen.name.is_empty() {
-                        return Err(AcOpfError::DataValidation("Generator with empty name".to_string()));
+                        return Err(AcOpfError::DataValidation(
+                            "Generator with empty name".to_string(),
+                        ));
                     }
 
                     // Generators should have non-negative active power
                     if gen.active_power_mw < 0.0 {
-                        return Err(AcOpfError::DataValidation(
-                            format!("Generator {} has negative active_power_mw ({})", gen.name, gen.active_power_mw)
-                        ));
+                        return Err(AcOpfError::DataValidation(format!(
+                            "Generator {} has negative active_power_mw ({})",
+                            gen.name, gen.active_power_mw
+                        )));
                     }
                 }
                 Node::Load(_load) => {
@@ -141,11 +151,15 @@ impl AcOpfSolver {
         }
 
         if !has_bus {
-            return Err(AcOpfError::DataValidation("Network has no buses".to_string()));
+            return Err(AcOpfError::DataValidation(
+                "Network has no buses".to_string(),
+            ));
         }
 
         if !has_generator {
-            return Err(AcOpfError::DataValidation("Network has no generators".to_string()));
+            return Err(AcOpfError::DataValidation(
+                "Network has no generators".to_string(),
+            ));
         }
 
         // Validate edges
@@ -153,26 +167,32 @@ impl AcOpfSolver {
             match &network.graph[edge_idx] {
                 Edge::Branch(branch) => {
                     if branch.name.is_empty() {
-                        return Err(AcOpfError::DataValidation("Branch with empty name".to_string()));
+                        return Err(AcOpfError::DataValidation(
+                            "Branch with empty name".to_string(),
+                        ));
                     }
 
                     // Resistance and reactance should be non-negative
                     if branch.resistance < 0.0 || branch.reactance < 0.0 {
-                        return Err(AcOpfError::DataValidation(
-                            format!("Branch {}: resistance and reactance must be non-negative", branch.name)
-                        ));
+                        return Err(AcOpfError::DataValidation(format!(
+                            "Branch {}: resistance and reactance must be non-negative",
+                            branch.name
+                        )));
                     }
                 }
                 Edge::Transformer(tx) => {
                     if tx.name.is_empty() {
-                        return Err(AcOpfError::DataValidation("Transformer with empty name".to_string()));
+                        return Err(AcOpfError::DataValidation(
+                            "Transformer with empty name".to_string(),
+                        ));
                     }
 
                     // Transformer ratio should be positive
                     if tx.ratio <= 0.0 {
-                        return Err(AcOpfError::DataValidation(
-                            format!("Transformer {}: ratio must be positive", tx.name)
-                        ));
+                        return Err(AcOpfError::DataValidation(format!(
+                            "Transformer {}: ratio must be positive",
+                            tx.name
+                        )));
                     }
                 }
             }
@@ -182,7 +202,10 @@ impl AcOpfSolver {
     }
 
     /// Build penalty formulation from network
-    fn build_penalty_formulation(&self, network: &Network) -> Result<PenaltyFormulation, AcOpfError> {
+    fn build_penalty_formulation(
+        &self,
+        network: &Network,
+    ) -> Result<PenaltyFormulation, AcOpfError> {
         let mut formulation = PenaltyFormulation::new();
 
         // Index buses and generators
@@ -206,7 +229,11 @@ impl AcOpfSolver {
     }
 
     /// Solve using Clarabel via DC approximation
-    fn solve_with_clarabel(&self, network: &Network, _formulation: &PenaltyFormulation) -> Result<AcOpfSolution, AcOpfError> {
+    fn solve_with_clarabel(
+        &self,
+        network: &Network,
+        _formulation: &PenaltyFormulation,
+    ) -> Result<AcOpfSolution, AcOpfError> {
         let start = std::time::Instant::now();
 
         // For now, implement a simple DC approximation for the 2-bus test case
@@ -229,7 +256,9 @@ impl AcOpfSolver {
         }
 
         if generators.is_empty() {
-            return Err(AcOpfError::DataValidation("No generators in network".to_string()));
+            return Err(AcOpfError::DataValidation(
+                "No generators in network".to_string(),
+            ));
         }
 
         let mut solution = AcOpfSolution {
@@ -256,14 +285,16 @@ impl AcOpfSolver {
         if gen_supply > gen_pmax * generators.len() as f64 {
             return Err(AcOpfError::Infeasible(format!(
                 "Generator capacity insufficient: need {} MW, max {} MW",
-                gen_supply, gen_pmax * generators.len() as f64
+                gen_supply,
+                gen_pmax * generators.len() as f64
             )));
         }
 
         if gen_supply < gen_pmin * generators.len() as f64 {
             return Err(AcOpfError::Infeasible(format!(
                 "Load too low for minimum generation: need {} MW, min {} MW",
-                gen_supply, gen_pmin * generators.len() as f64
+                gen_supply,
+                gen_pmin * generators.len() as f64
             )));
         }
 
@@ -272,7 +303,9 @@ impl AcOpfSolver {
 
         for gen in &generators {
             solution.objective_value += gen_cost * gen_output;
-            solution.generator_outputs.insert(gen.name.clone(), gen_output);
+            solution
+                .generator_outputs
+                .insert(gen.name.clone(), gen_output);
         }
 
         // Set voltages to nominal (1.0 pu)
@@ -313,9 +346,9 @@ struct PenaltyFormulation {
     /// Generator indices
     gen_indices: Vec<usize>,
     /// Bus voltage variables (magnitude)
-    bus_voltages: Vec<String>,  // Variable names for debug
+    bus_voltages: Vec<String>, // Variable names for debug
     /// Generator power variables
-    gen_powers: Vec<String>,    // Variable names for debug
+    gen_powers: Vec<String>, // Variable names for debug
 }
 
 impl PenaltyFormulation {

@@ -18,11 +18,12 @@ pub fn handle(command: &DatasetCommands) -> Result<()> {
         DatasetCommands::Pras { path, out } => {
             formats::handle_pras(Path::new(path), Path::new(out))
         }
-        DatasetCommands::Eia { api_key, output } => {
-            sources::handle_eia(api_key, output)
-        }
-        DatasetCommands::Ember { region, start_date, end_date, output } => {
-            sources::handle_ember(region, start_date, end_date, output)
-        }
+        DatasetCommands::Eia { api_key, output } => sources::handle_eia(api_key, output),
+        DatasetCommands::Ember {
+            region,
+            start_date,
+            end_date,
+            output,
+        } => sources::handle_ember(region, start_date, end_date, output),
     }
 }

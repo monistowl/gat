@@ -11,7 +11,7 @@ use std::path::Path;
 
 pub mod reliability_integration;
 pub use reliability_integration::{
-    FlisrRestoration, ReliabilityAwareVvo, MaintenanceSchedule, ReliabilityOrchestrator,
+    FlisrRestoration, MaintenanceSchedule, ReliabilityAwareVvo, ReliabilityOrchestrator,
 };
 
 /// Reliability element metadata for distribution grid components (branches, transformers, switches).

@@ -1,8 +1,8 @@
 use gat_algo::{
-    MonteCarlo, MultiAreaMonteCarlo, DeliverabilityScoreConfig, DeliverabilityScore, AreaId,
-    MultiAreaSystem, Corridor,
+    AreaId, Corridor, DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo,
+    MultiAreaMonteCarlo, MultiAreaSystem,
 };
-use gat_core::{Bus, Branch, Gen, Load, Network, Node, Edge, BusId, GenId, LoadId, BranchId};
+use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
 /// Create a standard test network with configurable capacity ratio
 fn create_benchmark_network(
@@ -90,16 +90,18 @@ fn test_capacity_margin_effect() {
     let tight_metrics = mc.compute_reliability(&tight_network).unwrap();
 
     // Loose system should have lower or equal LOLE
-    assert!(loose_metrics.lole <= tight_metrics.lole ||
-            (loose_metrics.lole - tight_metrics.lole).abs() < 0.1,
-            "Loose system (1.5x) should have lower LOLE than tight (1.2x)");
+    assert!(
+        loose_metrics.lole <= tight_metrics.lole
+            || (loose_metrics.lole - tight_metrics.lole).abs() < 0.1,
+        "Loose system (1.5x) should have lower LOLE than tight (1.2x)"
+    );
 }
 
 #[test]
 fn test_deliverability_score_range() {
     // Deliverability score should always be 0-100
-    let network1 = create_benchmark_network("test1", 200.0, 80.0, 4);  // Very reliable
-    let network2 = create_benchmark_network("test2", 80.0, 100.0, 1);  // Tight
+    let network1 = create_benchmark_network("test1", 200.0, 80.0, 4); // Very reliable
+    let network2 = create_benchmark_network("test2", 80.0, 100.0, 1); // Tight
 
     let mc = MonteCarlo::new(300);
     let mc_very_reliable = mc.compute_reliability(&network1).unwrap();
@@ -160,15 +162,14 @@ fn test_flisr_effectiveness_sensitivity() {
     // Loose system with mitigation: low LOLE
 
     let tight = create_benchmark_network("tight", 100.0, 100.0, 1);
-    let with_flisr = create_benchmark_network("flisr", 120.0, 100.0, 2);  // Simulates FLISR restoration
+    let with_flisr = create_benchmark_network("flisr", 120.0, 100.0, 2); // Simulates FLISR restoration
 
     let mc = MonteCarlo::new(300);
     let lole_tight = mc.compute_reliability(&tight).unwrap().lole;
     let lole_restored = mc.compute_reliability(&with_flisr).unwrap().lole;
 
     // FLISR (simulated by extra capacity) should reduce LOLE
-    assert!(lole_restored <= lole_tight ||
-            (lole_tight - lole_restored).abs() < lole_tight * 0.2);
+    assert!(lole_restored <= lole_tight || (lole_tight - lole_restored).abs() < lole_tight * 0.2);
 }
 
 #[test]
@@ -190,7 +191,11 @@ fn test_multiarea_zone_to_zone_lole() {
 
     // Each area should have zone-to-zone LOLE >= 0
     for (area_id, z2z_lole) in &metrics.zone_to_zone_lole {
-        assert!(*z2z_lole >= 0.0, "Zone-to-zone LOLE for {:?} should be >= 0", area_id);
+        assert!(
+            *z2z_lole >= 0.0,
+            "Zone-to-zone LOLE for {:?} should be >= 0",
+            area_id
+        );
     }
 }
 
@@ -236,7 +241,8 @@ fn test_vvo_reliability_tradeoff() {
     let conservative = DeliverabilityScoreConfig::new().with_lole_max(2.0);
     let aggressive = DeliverabilityScoreConfig::new().with_lole_max(5.0);
 
-    let score_conservative = DeliverabilityScore::from_metrics(metrics.clone(), &conservative).unwrap();
+    let score_conservative =
+        DeliverabilityScore::from_metrics(metrics.clone(), &conservative).unwrap();
     let score_aggressive = DeliverabilityScore::from_metrics(metrics, &aggressive).unwrap();
 
     // More conservative config (lower LOLE_max) should give lower score for same LOLE
@@ -359,7 +365,10 @@ fn test_reliability_metrics_non_negative() {
 
         assert!(metrics.lole >= 0.0, "LOLE must be non-negative");
         assert!(metrics.eue >= 0.0, "EUE must be non-negative");
-        assert!(metrics.average_shortfall >= 0.0, "Average shortfall must be non-negative");
+        assert!(
+            metrics.average_shortfall >= 0.0,
+            "Average shortfall must be non-negative"
+        );
         assert!(metrics.scenarios_analyzed > 0);
         assert!(metrics.scenarios_with_shortfall <= metrics.scenarios_analyzed);
     }

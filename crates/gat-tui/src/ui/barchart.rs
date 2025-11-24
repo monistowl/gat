@@ -2,7 +2,6 @@
 ///
 /// Renders horizontal bar charts using Unicode block characters
 /// for visual representation of metrics and analytics results.
-
 use super::{EmptyState, THEME};
 
 /// A single bar in the chart
@@ -16,8 +15,8 @@ pub struct BarData {
 /// Color hint for bar styling
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ColorHint {
-    Good,    // Green tones
-    Warning, // Yellow tones
+    Good,     // Green tones
+    Warning,  // Yellow tones
     Critical, // Red tones
     Neutral,  // Default
 }
@@ -74,12 +73,7 @@ impl BarChartView {
         self
     }
 
-    pub fn add_bar(
-        mut self,
-        label: impl Into<String>,
-        value: f64,
-        color_hint: ColorHint,
-    ) -> Self {
+    pub fn add_bar(mut self, label: impl Into<String>, value: f64, color_hint: ColorHint) -> Self {
         self.bars.push(BarData {
             label: label.into(),
             value,
@@ -150,12 +144,7 @@ impl BarChartView {
         });
 
         // Find longest label for alignment
-        let max_label_len = self
-            .bars
-            .iter()
-            .map(|b| b.label.len())
-            .max()
-            .unwrap_or(0);
+        let max_label_len = self.bars.iter().map(|b| b.label.len()).max().unwrap_or(0);
 
         // Render each bar
         for bar in &self.bars {
@@ -205,9 +194,7 @@ impl BarChartView {
             lines.push("".to_string());
             lines.push("Legend:".to_string());
 
-            let mut hints: Vec<_> = self.bars.iter()
-                .map(|b| b.color_hint)
-                .collect();
+            let mut hints: Vec<_> = self.bars.iter().map(|b| b.color_hint).collect();
             hints.sort_by_key(|h| *h as u8);
             hints.dedup();
 
@@ -266,8 +253,7 @@ mod tests {
 
     #[test]
     fn test_barchart_single_bar() {
-        let chart = BarChartView::new()
-            .add_bar("Test", 50.0, ColorHint::Good);
+        let chart = BarChartView::new().add_bar("Test", 50.0, ColorHint::Good);
 
         let lines = chart.render_lines();
         assert!(lines.iter().any(|l| l.contains("Test")));
@@ -290,9 +276,10 @@ mod tests {
 
     #[test]
     fn test_barchart_with_title() {
-        let chart = BarChartView::new()
-            .with_title("Test Chart")
-            .add_bar("Data", 100.0, ColorHint::Neutral);
+        let chart =
+            BarChartView::new()
+                .with_title("Test Chart")
+                .add_bar("Data", 100.0, ColorHint::Neutral);
 
         let lines = chart.render_lines();
         assert!(lines.iter().any(|l| l.contains("Test Chart")));

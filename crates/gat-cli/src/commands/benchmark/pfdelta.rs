@@ -1,10 +1,10 @@
-use anyhow::{Result, anyhow, Context};
+use anyhow::{anyhow, Context, Result};
+use csv::Writer;
+use rayon::prelude::*;
+use serde::Serialize;
 use std::fs::File;
 use std::path::Path;
 use std::time::Instant;
-use csv::Writer;
-use serde::Serialize;
-use rayon::prelude::*;
 
 use gat_io::sources::pfdelta::{list_pfdelta_cases, load_pfdelta_case};
 
@@ -19,6 +19,20 @@ struct BenchmarkResult {
     num_branches: usize,
 }
 
+/// Configuration for PFDelta benchmark runs
+#[derive(Debug)]
+struct BenchmarkConfig {
+    pfdelta_root: String,
+    case_filter: Option<String>,
+    contingency_filter: String,
+    max_cases: usize,
+    out: String,
+    threads: String,
+    tol: f64,
+    max_iter: u32,
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn handle(
     pfdelta_root: &str,
     case_filter: Option<&str>,
@@ -29,9 +43,24 @@ pub fn handle(
     tol: f64,
     max_iter: u32,
 ) -> Result<()> {
+    let config = BenchmarkConfig {
+        pfdelta_root: pfdelta_root.to_string(),
+        case_filter: case_filter.map(|s| s.to_string()),
+        contingency_filter: contingency_filter.to_string(),
+        max_cases,
+        out: out.to_string(),
+        threads: threads.to_string(),
+        tol,
+        max_iter,
+    };
+
+    run_benchmark(&config)
+}
+
+fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     // Configure threads
-    if threads != "auto" {
-        if let Ok(n) = threads.parse::<usize>() {
+    if config.threads != "auto" {
+        if let Ok(n) = config.threads.parse::<usize>() {
             rayon::ThreadPoolBuilder::new()
                 .num_threads(n)
                 .build_global()
@@ -40,34 +69,41 @@ pub fn handle(
     }
 
     // List available test cases
-    let root_path = Path::new(pfdelta_root);
+    let root_path = Path::new(&config.pfdelta_root);
     if !root_path.exists() {
-        return Err(anyhow!("PFDelta root directory not found: {}", pfdelta_root));
+        return Err(anyhow!(
+            "PFDelta root directory not found: {}",
+            config.pfdelta_root
+        ));
     }
 
-    let mut all_cases = list_pfdelta_cases(root_path)
-        .context("Failed to list PFDelta test cases")?;
+    let mut all_cases =
+        list_pfdelta_cases(root_path).context("Failed to list PFDelta test cases")?;
 
     // Filter by case if specified
-    if let Some(case) = case_filter {
+    if let Some(case) = &config.case_filter {
         all_cases.retain(|tc| tc.case_name.contains(case));
     }
 
     // Filter by contingency type
-    if contingency_filter != "all" {
-        all_cases.retain(|tc| tc.contingency_type.starts_with(contingency_filter));
+    if config.contingency_filter != "all" {
+        all_cases.retain(|tc| tc.contingency_type.starts_with(&config.contingency_filter));
     }
 
     // Limit number of cases
-    let limit = if max_cases > 0 { max_cases } else { all_cases.len() };
+    let limit = if config.max_cases > 0 {
+        config.max_cases
+    } else {
+        all_cases.len()
+    };
     all_cases.truncate(limit);
 
     eprintln!(
         "Found {} test cases to benchmark (case_filter={:?}, contingency={}, max_cases={})",
         all_cases.len(),
-        case_filter,
-        contingency_filter,
-        max_cases
+        config.case_filter,
+        config.contingency_filter,
+        config.max_cases
     );
 
     // Run benchmarks in parallel
@@ -75,12 +111,12 @@ pub fn handle(
         .par_iter()
         .enumerate()
         .filter_map(|(idx, test_case)| {
-            benchmark_case(test_case, idx, tol, max_iter).ok()
+            benchmark_case(test_case, idx, config.tol, config.max_iter).ok()
         })
         .collect();
 
     // Write results to CSV
-    let out_path = Path::new(out);
+    let out_path = Path::new(&config.out);
     if let Some(parent) = out_path.parent() {
         if parent != Path::new("") {
             std::fs::create_dir_all(parent).ok();
@@ -88,7 +124,7 @@ pub fn handle(
     }
 
     let file = File::create(out_path)
-        .context(format!("Failed to create output file: {}", out))?;
+        .context(format!("Failed to create output file: {}", config.out))?;
     let mut writer = Writer::from_writer(file);
 
     for result in &results {
@@ -110,7 +146,7 @@ pub fn handle(
         "\nBenchmark Results:\n  Total cases: {}\n  Avg time: {:.2}ms\n  Output: {}",
         results.len(),
         avg_time,
-        out
+        config.out
     );
 
     Ok(())

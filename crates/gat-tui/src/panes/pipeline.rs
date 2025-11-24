@@ -1,6 +1,6 @@
 use crate::ui::{
-    ContextButton, GraphView, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar, SubTabs,
-    TableView, Tabs, Tooltip,
+    ContextButton, GraphView, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar,
+    SubTabs, TableView, Tabs, Tooltip,
 };
 
 pub struct PipelinePane;

@@ -1,5 +1,5 @@
-use gat_algo::{AcOpfSolver, AcOpfError};
-use gat_core::{Bus, Branch, Gen, Load, Network, Node, Edge, BusId, GenId, LoadId, BranchId};
+use gat_algo::{AcOpfError, AcOpfSolver};
+use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
 /// Helper to create a simple test network
 fn create_simple_network() -> Network {
@@ -117,7 +117,7 @@ fn test_ac_opf_validate_invalid_voltage() {
     network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: -100.0,  // Invalid: negative voltage
+        voltage_kv: -100.0, // Invalid: negative voltage
     }));
 
     network.graph.add_node(Node::Gen(Gen {
@@ -154,7 +154,7 @@ fn test_ac_opf_validate_negative_gen_power() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: -10.0,  // Invalid: negative
+        active_power_mw: -10.0, // Invalid: negative
         reactive_power_mvar: 0.0,
     }));
 
@@ -202,7 +202,7 @@ fn test_ac_opf_validate_negative_resistance() {
             name: "br1_2".to_string(),
             from_bus: BusId::new(0),
             to_bus: BusId::new(1),
-            resistance: -0.01,  // Invalid: negative
+            resistance: -0.01, // Invalid: negative
             reactance: 0.05,
         }),
     );
@@ -212,7 +212,9 @@ fn test_ac_opf_validate_negative_resistance() {
 
     if let Err(e) = result {
         match e {
-            AcOpfError::DataValidation(msg) => assert!(msg.contains("resistance and reactance must be non-negative")),
+            AcOpfError::DataValidation(msg) => {
+                assert!(msg.contains("resistance and reactance must be non-negative"))
+            }
             _ => panic!("Expected DataValidation error"),
         }
     }
@@ -233,11 +235,19 @@ fn test_ac_opf_simple_network_accepts_valid_data() {
     // Generator should produce ~100 MW (load) + small losses
     assert!(!solution.generator_outputs.is_empty());
     let gen_output = solution.generator_outputs.get("gen1").unwrap();
-    assert!(*gen_output >= 99.0 && *gen_output <= 102.0, "Generator output {} not in expected range [99, 102]", gen_output);
+    assert!(
+        *gen_output >= 99.0 && *gen_output <= 102.0,
+        "Generator output {} not in expected range [99, 102]",
+        gen_output
+    );
 
     // Voltage should be nominal (1.0 pu)
     let bus_voltage = solution.bus_voltages.get("bus1").unwrap();
-    assert!((*bus_voltage - 1.0).abs() < 0.01, "Bus voltage {} not close to 1.0", bus_voltage);
+    assert!(
+        (*bus_voltage - 1.0).abs() < 0.01,
+        "Bus voltage {} not close to 1.0",
+        bus_voltage
+    );
 }
 
 #[test]
@@ -250,7 +260,7 @@ fn test_ac_opf_infeasible_case() {
         id: LoadId::new(1),
         name: "load_large".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 200.0,  // Total load now 300 MW, exceeds 200 MW capacity
+        active_power_mw: 200.0, // Total load now 300 MW, exceeds 200 MW capacity
         reactive_power_mvar: 0.0,
     }));
 
@@ -259,7 +269,9 @@ fn test_ac_opf_infeasible_case() {
 
     if let Err(e) = result {
         match e {
-            AcOpfError::Infeasible(msg) => assert!(msg.contains("insufficient") || msg.contains("capacity")),
+            AcOpfError::Infeasible(msg) => {
+                assert!(msg.contains("insufficient") || msg.contains("capacity"))
+            }
             _ => panic!("Expected Infeasible error, got: {:?}", e),
         }
     }
@@ -273,7 +285,10 @@ fn test_ac_opf_error_display() {
     let err = AcOpfError::Unbounded;
     assert!(format!("{}", err).contains("unbounded"));
 
-    let err = AcOpfError::ConvergenceFailure { iterations: 100, residual: 0.001 };
+    let err = AcOpfError::ConvergenceFailure {
+        iterations: 100,
+        residual: 0.001,
+    };
     assert!(format!("{}", err).contains("100"));
 }
 
@@ -302,17 +317,37 @@ fn test_ac_opf_ieee_30bus_feasibility() {
             id: GenId::new(idx),
             name: format!("gen{}", idx + 1),
             bus: BusId::new(bus_num - 1),
-            active_power_mw: 40.0,  // ~200 MW total capacity
+            active_power_mw: 40.0, // ~200 MW total capacity
             reactive_power_mvar: 0.0,
         }));
     }
 
     // Add loads at various buses (total ~190 MW)
-    let load_buses = vec![(2, 21.7), (3, 2.4), (4, 7.6), (5, 94.2), (6, 0.0),
-                          (7, 22.8), (8, 30.0), (9, 5.8), (10, 9.2), (12, 11.2),
-                          (14, 6.2), (15, 8.2), (16, 3.5), (17, 9.0), (18, 3.2),
-                          (19, 9.5), (20, 2.2), (21, 17.5), (23, 3.2), (24, 8.7),
-                          (26, 3.5), (29, 2.4), (30, 10.6)];
+    let load_buses = vec![
+        (2, 21.7),
+        (3, 2.4),
+        (4, 7.6),
+        (5, 94.2),
+        (6, 0.0),
+        (7, 22.8),
+        (8, 30.0),
+        (9, 5.8),
+        (10, 9.2),
+        (12, 11.2),
+        (14, 6.2),
+        (15, 8.2),
+        (16, 3.5),
+        (17, 9.0),
+        (18, 3.2),
+        (19, 9.5),
+        (20, 2.2),
+        (21, 17.5),
+        (23, 3.2),
+        (24, 8.7),
+        (26, 3.5),
+        (29, 2.4),
+        (30, 10.6),
+    ];
 
     for (load_idx, (bus_num, load_mw)) in load_buses.iter().enumerate() {
         if *load_mw > 0.0 {
@@ -371,7 +406,10 @@ fn test_ac_opf_ieee_30bus_feasibility() {
     let result = solver.solve(&network);
 
     // Should succeed for a feasible case
-    assert!(result.is_ok(), "IEEE 30-bus should produce feasible solution");
+    assert!(
+        result.is_ok(),
+        "IEEE 30-bus should produce feasible solution"
+    );
 
     let solution = result.unwrap();
     assert!(solution.converged, "Solver should converge");
@@ -382,18 +420,32 @@ fn test_ac_opf_ieee_30bus_feasibility() {
 
     // Allow 3% difference for losses and approximation
     let load_mismatch = (total_gen - total_load).abs() / total_load;
-    assert!(load_mismatch < 0.03, "Generation should match load (±3%): gen={}, load={}", total_gen, total_load);
+    assert!(
+        load_mismatch < 0.03,
+        "Generation should match load (±3%): gen={}, load={}",
+        total_gen,
+        total_load
+    );
 
     // Voltages should be reasonable (0.9-1.1 pu)
     for voltage in solution.bus_voltages.values() {
-        assert!(voltage >= &0.9 && voltage <= &1.1, "Voltage {} outside normal range", voltage);
+        assert!(
+            voltage >= &0.9 && voltage <= &1.1,
+            "Voltage {} outside normal range",
+            voltage
+        );
     }
 
     // Cost should be positive
-    assert!(solution.objective_value > 0.0, "Objective should be positive");
+    assert!(
+        solution.objective_value > 0.0,
+        "Objective should be positive"
+    );
 
-    println!("IEEE 30-bus test: {} MW generation, {} MW load, cost ${:.2}/hr",
-             total_gen, total_load, solution.objective_value);
+    println!(
+        "IEEE 30-bus test: {} MW generation, {} MW load, cost ${:.2}/hr",
+        total_gen, total_load, solution.objective_value
+    );
 }
 
 #[test]
@@ -476,7 +528,10 @@ fn test_ac_opf_10bus_accuracy() {
     let total_gen: f64 = solution.generator_outputs.values().sum();
     let total_load: f64 = loads.iter().map(|(_, load_mw)| load_mw).sum();
 
-    println!("10-bus test: {} MW generation, {} MW load", total_gen, total_load);
+    println!(
+        "10-bus test: {} MW generation, {} MW load",
+        total_gen, total_load
+    );
     assert!((total_gen - total_load).abs() / total_load < 0.05);
 }
 
@@ -509,7 +564,7 @@ fn test_ac_opf_capacity_boundary() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 195.0,  // Near capacity (200 MW max - 1% losses)
+        active_power_mw: 195.0, // Near capacity (200 MW max - 1% losses)
         reactive_power_mvar: 0.0,
     }));
 
@@ -560,7 +615,7 @@ fn test_ac_opf_capacity_boundary() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 210.0,  // Exceeds 200 MW capacity + losses
+        active_power_mw: 210.0, // Exceeds 200 MW capacity + losses
         reactive_power_mvar: 0.0,
     }));
 
@@ -578,5 +633,8 @@ fn test_ac_opf_capacity_boundary() {
     );
 
     let result2 = solver.solve(&network2);
-    assert!(result2.is_err(), "Should be infeasible at 210 MW demand with 200 MW generator capacity");
+    assert!(
+        result2.is_err(),
+        "Should be infeasible at 210 MW demand with 200 MW generator capacity"
+    );
 }

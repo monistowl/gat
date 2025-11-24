@@ -54,17 +54,13 @@ impl EmberDataFetcher {
             self.base_url, region, start_date, end_date
         );
 
-        let response = ureq::get(&url)
-            .call()
-            .context("Failed to call Ember API")?;
+        let response = ureq::get(&url).call().context("Failed to call Ember API")?;
 
         if response.status() != 200 {
             return Err(anyhow!("Ember API returned status {}", response.status()));
         }
 
-        let body: serde_json::Value = response
-            .into_json()
-            .context("Failed to parse Ember JSON")?;
+        let body: serde_json::Value = response.into_json().context("Failed to parse Ember JSON")?;
 
         let mut points = Vec::new();
 
@@ -81,15 +77,9 @@ impl EmberDataFetcher {
                 let point = EmberDataPoint {
                     timestamp,
                     region: region.to_string(),
-                    carbon_intensity_g_per_kwh: item["carbonIntensity"]
-                        .as_f64()
-                        .unwrap_or(0.0),
-                    renewable_pct: item["renewablePercentage"]
-                        .as_f64()
-                        .unwrap_or(0.0),
-                    fossil_pct: item["fossilPercentage"]
-                        .as_f64()
-                        .unwrap_or(0.0),
+                    carbon_intensity_g_per_kwh: item["carbonIntensity"].as_f64().unwrap_or(0.0),
+                    renewable_pct: item["renewablePercentage"].as_f64().unwrap_or(0.0),
+                    fossil_pct: item["fossilPercentage"].as_f64().unwrap_or(0.0),
                 };
                 points.push(point);
             }
@@ -107,21 +97,14 @@ impl EmberDataFetcher {
     /// - renewable_pct (f64)
     /// - fossil_pct (f64)
     pub fn to_arrow(&self, points: Vec<EmberDataPoint>) -> Result<DataFrame> {
-        let timestamps: Vec<String> = points.iter()
-            .map(|p| p.timestamp.to_rfc3339())
-            .collect();
-        let regions: Vec<String> = points.iter()
-            .map(|p| p.region.clone())
-            .collect();
-        let carbon_intensity: Vec<f64> = points.iter()
+        let timestamps: Vec<String> = points.iter().map(|p| p.timestamp.to_rfc3339()).collect();
+        let regions: Vec<String> = points.iter().map(|p| p.region.clone()).collect();
+        let carbon_intensity: Vec<f64> = points
+            .iter()
             .map(|p| p.carbon_intensity_g_per_kwh)
             .collect();
-        let renewable: Vec<f64> = points.iter()
-            .map(|p| p.renewable_pct)
-            .collect();
-        let fossil: Vec<f64> = points.iter()
-            .map(|p| p.fossil_pct)
-            .collect();
+        let renewable: Vec<f64> = points.iter().map(|p| p.renewable_pct).collect();
+        let fossil: Vec<f64> = points.iter().map(|p| p.fossil_pct).collect();
 
         let df = DataFrame::new(vec![
             Series::new("timestamp", timestamps),
@@ -155,15 +138,13 @@ mod tests {
     fn test_ember_to_arrow() {
         let fetcher = EmberDataFetcher::new();
 
-        let points = vec![
-            EmberDataPoint {
-                timestamp: Utc::now(),
-                region: "US-West".to_string(),
-                carbon_intensity_g_per_kwh: 150.0,
-                renewable_pct: 50.0,
-                fossil_pct: 50.0,
-            }
-        ];
+        let points = vec![EmberDataPoint {
+            timestamp: Utc::now(),
+            region: "US-West".to_string(),
+            carbon_intensity_g_per_kwh: 150.0,
+            renewable_pct: 50.0,
+            fossil_pct: 50.0,
+        }];
 
         let df = fetcher.to_arrow(points).unwrap();
         assert_eq!(df.height(), 1);
@@ -188,7 +169,7 @@ mod tests {
                 carbon_intensity_g_per_kwh: 200.0,
                 renewable_pct: 40.0,
                 fossil_pct: 60.0,
-            }
+            },
         ];
 
         let df = fetcher.to_arrow(points).unwrap();

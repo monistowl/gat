@@ -1,8 +1,7 @@
 use gat_algo::{
-    AreaId, Corridor, MultiAreaSystem, MultiAreaOutageScenario, MultiAreaMonteCarlo,
-    OutageScenario,
+    AreaId, Corridor, MultiAreaMonteCarlo, MultiAreaOutageScenario, MultiAreaSystem, OutageScenario,
 };
-use gat_core::{Bus, Branch, Gen, Load, Network, Node, Edge, BusId, GenId, LoadId, BranchId};
+use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
 fn create_simple_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Network {
     let mut network = Network::new();
@@ -63,8 +62,7 @@ fn test_corridor_creation() {
 
 #[test]
 fn test_corridor_failure_rate() {
-    let corridor = Corridor::new(0, AreaId(0), AreaId(1), 100.0)
-        .with_failure_rate(0.05);
+    let corridor = Corridor::new(0, AreaId(0), AreaId(1), 100.0).with_failure_rate(0.05);
     assert_eq!(corridor.failure_rate, 0.05);
 }
 

@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
-use serde::{Deserialize, Serialize};
 use polars::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Represents a U.S. generator from EIA data
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -57,9 +57,7 @@ impl EiaDataFetcher {
             self.base_url, self.api_key
         );
 
-        let response = ureq::get(&url)
-            .call()
-            .context("Failed to call EIA API")?;
+        let response = ureq::get(&url).call().context("Failed to call EIA API")?;
 
         if response.status() != 200 {
             return Err(anyhow!("EIA API returned status {}", response.status()));
@@ -75,17 +73,9 @@ impl EiaDataFetcher {
             for (idx, item) in data_array.iter().enumerate() {
                 let gen = EiaGeneratorData {
                     id: format!("GEN-{}", idx),
-                    name: item["plantName"]
-                        .as_str()
-                        .unwrap_or("Unknown")
-                        .to_string(),
-                    fuel_type: item["fuelType"]
-                        .as_str()
-                        .unwrap_or("Other")
-                        .to_string(),
-                    capacity_mw: item["capacityMw"]
-                        .as_f64()
-                        .unwrap_or(0.0),
+                    name: item["plantName"].as_str().unwrap_or("Unknown").to_string(),
+                    fuel_type: item["fuelType"].as_str().unwrap_or("Other").to_string(),
+                    capacity_mw: item["capacityMw"].as_f64().unwrap_or(0.0),
                     latitude: item["latitude"].as_f64().unwrap_or(0.0),
                     longitude: item["longitude"].as_f64().unwrap_or(0.0),
                 };
@@ -137,16 +127,14 @@ mod tests {
     #[test]
     fn test_generators_to_arrow() {
         let fetcher = EiaDataFetcher::new("test".to_string());
-        let gens = vec![
-            EiaGeneratorData {
-                id: "gen1".to_string(),
-                name: "Plant A".to_string(),
-                fuel_type: "Natural Gas".to_string(),
-                capacity_mw: 500.0,
-                latitude: 40.0,
-                longitude: -75.0,
-            }
-        ];
+        let gens = vec![EiaGeneratorData {
+            id: "gen1".to_string(),
+            name: "Plant A".to_string(),
+            fuel_type: "Natural Gas".to_string(),
+            capacity_mw: 500.0,
+            latitude: 40.0,
+            longitude: -75.0,
+        }];
 
         let df = fetcher.generators_to_arrow(gens).unwrap();
         assert_eq!(df.height(), 1);
@@ -172,7 +160,7 @@ mod tests {
                 capacity_mw: 800.0,
                 latitude: 41.0,
                 longitude: -76.0,
-            }
+            },
         ];
 
         let df = fetcher.generators_to_arrow(gens).unwrap();

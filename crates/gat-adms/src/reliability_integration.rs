@@ -1,7 +1,7 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use gat_algo::{
-    DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, MultiAreaMonteCarlo,
-    MultiAreaSystem, AreaId,
+    AreaId, DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, MultiAreaMonteCarlo,
+    MultiAreaSystem,
 };
 use gat_core::Network;
 
@@ -60,13 +60,19 @@ impl FlisrRestoration {
         self.lole_before = before;
         self.lole_after = after;
         let diff = (before - after).max(0.0);
-        self.lole_reduction_pct = if before > 0.0 { (diff / before) * 100.0 } else { 0.0 };
+        self.lole_reduction_pct = if before > 0.0 {
+            (diff / before) * 100.0
+        } else {
+            0.0
+        };
     }
 
     /// Effectiveness: reduction in LOLE as fraction
     pub fn effectiveness(&self) -> f64 {
         if self.lole_before > 0.0 {
-            ((self.lole_before - self.lole_after) / self.lole_before).max(0.0).min(1.0)
+            ((self.lole_before - self.lole_after) / self.lole_before)
+                .max(0.0)
+                .min(1.0)
         } else {
             0.0
         }
@@ -95,7 +101,7 @@ impl ReliabilityAwareVvo {
     /// Create new VVO configuration
     pub fn new() -> Self {
         Self {
-            min_deliverability_score: 80.0,  // Target "Good" reliability
+            min_deliverability_score: 80.0, // Target "Good" reliability
             loss_weight: 0.6,
             voltage_weight: 0.4,
             aggressive_mode: false,
@@ -123,13 +129,17 @@ impl ReliabilityAwareVvo {
     pub fn compute_objective_weight(&self, current_score: f64) -> f64 {
         if current_score < self.min_deliverability_score {
             // Score is below threshold: heavily penalize loss minimization
-            0.1  // Favor reliability (weight losses only 10%)
+            0.1 // Favor reliability (weight losses only 10%)
         } else if current_score < self.min_deliverability_score + 10.0 {
             // Score is near threshold: balanced approach
             0.5
         } else {
             // Score is healthy: focus on loss minimization
-            if self.aggressive_mode { 0.8 } else { 0.6 }
+            if self.aggressive_mode {
+                0.8
+            } else {
+                0.6
+            }
         }
     }
 }
@@ -183,7 +193,10 @@ impl MaintenanceSchedule {
             std::collections::HashMap::new();
 
         for (area, day, _) in &self.maintenance_windows {
-            days_by_area.entry(*day).or_insert_with(Vec::new).push(*area);
+            days_by_area
+                .entry(*day)
+                .or_insert_with(Vec::new)
+                .push(*area);
         }
 
         // Check if multiple areas on same day
@@ -244,7 +257,7 @@ impl MaintenanceSchedule {
         // EUE reduction: well-scheduled maintenance reduces congestion-related outages
         // Assume 5% EUE reduction per well-coordinated window
         let reduction_per_window = 5.0 * self.maintenance_windows.len() as f64;
-        self.eue_reduction_pct = reduction_per_window.min(15.0);  // Cap at 15%
+        self.eue_reduction_pct = reduction_per_window.min(15.0); // Cap at 15%
 
         Ok(())
     }
@@ -299,7 +312,8 @@ impl ReliabilityOrchestrator {
         let metrics_post = mc.compute_reliability(network_post_restoration)?;
 
         let op_id = self.flisr_operations.len();
-        let mut operation = FlisrRestoration::new(op_id, faulted_component, 2.0, 5.0, 8.0, load_restored);
+        let mut operation =
+            FlisrRestoration::new(op_id, faulted_component, 2.0, 5.0, 8.0, load_restored);
         operation.set_lole_metrics(metrics_pre.lole, metrics_post.lole);
 
         self.flisr_operations.push(operation.clone());
@@ -345,9 +359,17 @@ impl ReliabilityOrchestrator {
         if self.flisr_operations.is_empty() {
             return (0.0, 0);
         }
-        let total_effectiveness: f64 = self.flisr_operations.iter().map(|op| op.effectiveness()).sum();
+        let total_effectiveness: f64 = self
+            .flisr_operations
+            .iter()
+            .map(|op| op.effectiveness())
+            .sum();
         let avg_effectiveness = total_effectiveness / self.flisr_operations.len() as f64;
-        let effective_ops = self.flisr_operations.iter().filter(|op| op.was_effective()).count();
+        let effective_ops = self
+            .flisr_operations
+            .iter()
+            .filter(|op| op.was_effective())
+            .count();
         (avg_effectiveness, effective_ops)
     }
 }

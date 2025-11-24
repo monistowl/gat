@@ -1,7 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use anyhow::{Result, anyhow};
+use crate::{OutageScenario, ReliabilityMetrics};
+use anyhow::{anyhow, Result};
 use gat_core::{Network, Node, NodeIndex};
-use crate::{ReliabilityMetrics, OutageScenario};
+use std::collections::{HashMap, HashSet};
 
 /// Area identifier for multi-area systems
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -30,7 +30,7 @@ impl Corridor {
             area_a,
             area_b,
             capacity_mw,
-            failure_rate: 0.01,  // 1% failure rate by default
+            failure_rate: 0.01, // 1% failure rate by default
         }
     }
 
@@ -244,7 +244,9 @@ impl MultiAreaMonteCarlo {
 
             for (area_id, network) in &system.areas {
                 // Collect generator and branch indices for this area
-                let gen_nodes: Vec<NodeIndex> = network.graph.node_indices()
+                let gen_nodes: Vec<NodeIndex> = network
+                    .graph
+                    .node_indices()
                     .filter(|&idx| matches!(network.graph.node_weight(idx), Some(Node::Gen(_))))
                     .collect();
 
@@ -255,7 +257,8 @@ impl MultiAreaMonteCarlo {
                 for &gen_idx in &gen_nodes {
                     rng_state = rng_state.wrapping_mul(1103515245).wrapping_add(12345);
                     let r = ((rng_state >> 16) & 0x7fff) as f64 / 32768.0;
-                    if r < 0.05 {  // 5% generator failure rate
+                    if r < 0.05 {
+                        // 5% generator failure rate
                         offline_generators.insert(gen_idx);
                     }
                 }
@@ -264,7 +267,8 @@ impl MultiAreaMonteCarlo {
                 for idx in 0..branch_count {
                     rng_state = rng_state.wrapping_mul(1103515245).wrapping_add(12345);
                     let r = ((rng_state >> 16) & 0x7fff) as f64 / 32768.0;
-                    if r < 0.02 {  // 2% branch failure rate
+                    if r < 0.02 {
+                        // 2% branch failure rate
                         offline_branches.insert(idx);
                     }
                 }
@@ -384,7 +388,10 @@ impl MultiAreaMonteCarlo {
             // Update corridor utilization (assumed average 60% in normal scenarios)
             for corridor in &system.corridors {
                 if corridor.is_online(&scenario.offline_corridors) {
-                    *metrics.corridor_utilization.entry(corridor.id).or_insert(0.0) += 60.0;
+                    *metrics
+                        .corridor_utilization
+                        .entry(corridor.id)
+                        .or_insert(0.0) += 60.0;
                 }
             }
         }
@@ -420,9 +427,13 @@ impl MultiAreaMonteCarlo {
     ) -> Result<ReliabilityMetrics> {
         let multiarea_metrics = self.compute_multiarea_reliability(system)?;
 
-        let lole = *multiarea_metrics.area_lole.get(&area_id)
+        let lole = *multiarea_metrics
+            .area_lole
+            .get(&area_id)
             .ok_or_else(|| anyhow!("Area {:?} not found", area_id))?;
-        let eue = *multiarea_metrics.area_eue.get(&area_id)
+        let eue = *multiarea_metrics
+            .area_eue
+            .get(&area_id)
             .ok_or_else(|| anyhow!("Area {:?} not found", area_id))?;
 
         Ok(ReliabilityMetrics {

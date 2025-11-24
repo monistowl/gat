@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
-use std::fs::File;
-use std::path::Path;
 use gat_io::sources::{EiaDataFetcher, EiaGeneratorData, EmberDataFetcher, EmberDataPoint};
-use polars::prelude::{CsvWriter, DataFrame, SerWriter};
 #[cfg(feature = "polars-parquet")]
 use polars::prelude::ParquetWriter;
+use polars::prelude::{CsvWriter, DataFrame, SerWriter};
+use std::fs::File;
+use std::path::Path;
 
 /// Handle EIA dataset command
 pub fn handle_eia(api_key: &str, output: &str) -> Result<()> {
@@ -15,16 +15,14 @@ pub fn handle_eia(api_key: &str, output: &str) -> Result<()> {
     // let generators = fetcher.fetch_generators()?;
 
     // For now, use mock data (infrastructure ready for live API)
-    let generators = vec![
-        EiaGeneratorData {
-            id: "gen-1".to_string(),
-            name: "Sample Plant".to_string(),
-            fuel_type: "Natural Gas".to_string(),
-            capacity_mw: 500.0,
-            latitude: 40.0,
-            longitude: -75.0,
-        }
-    ];
+    let generators = vec![EiaGeneratorData {
+        id: "gen-1".to_string(),
+        name: "Sample Plant".to_string(),
+        fuel_type: "Natural Gas".to_string(),
+        capacity_mw: 500.0,
+        latitude: 40.0,
+        longitude: -75.0,
+    }];
 
     let mut df = fetcher.generators_to_arrow(generators)?;
     println!("Fetched {} generators", df.height());
@@ -42,15 +40,13 @@ pub fn handle_ember(region: &str, _start_date: &str, _end_date: &str, output: &s
     let fetcher = EmberDataFetcher::new();
 
     // For now, we'll create a mock dataset since live API requires valid key
-    let points = vec![
-        EmberDataPoint {
-            timestamp: chrono::Utc::now(),
-            region: region.to_string(),
-            carbon_intensity_g_per_kwh: 150.0,
-            renewable_pct: 50.0,
-            fossil_pct: 50.0,
-        }
-    ];
+    let points = vec![EmberDataPoint {
+        timestamp: chrono::Utc::now(),
+        region: region.to_string(),
+        carbon_intensity_g_per_kwh: 150.0,
+        renewable_pct: 50.0,
+        fossil_pct: 50.0,
+    }];
 
     let mut df = fetcher.to_arrow(points)?;
     println!("Fetched {} data points", df.height());

@@ -6,13 +6,12 @@
 ///
 /// This module provides utilities to load PFDelta JSON instances and convert them
 /// to GAT's Network representation for AC OPF solving and reliability analysis.
-
-use anyhow::{Result, anyhow, Context};
+use anyhow::{anyhow, Context, Result};
+use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use gat_core::{Network, Node, Edge, Bus, Gen, Load, Branch, BusId, GenId, LoadId, BranchId};
 
 /// PFDelta test case metadata
 #[derive(Debug, Clone)]
@@ -56,9 +55,7 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
             .with_context(|| format!("Invalid bus index: {}", bus_idx_str))?;
 
         let bus_name = format!("bus_{}", bus_idx);
-        let voltage_kv = bus_data["vn"]
-            .as_f64()
-            .unwrap_or(100.0); // Default to 100 kV
+        let voltage_kv = bus_data["vn"].as_f64().unwrap_or(100.0); // Default to 100 kV
 
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(bus_idx),
@@ -77,12 +74,10 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                 .parse()
                 .with_context(|| format!("Invalid gen index: {}", gen_idx_str))?;
 
-            let bus_id = gen["bus"]
-                .as_u64()
-                .unwrap_or(0) as usize;
+            let bus_id = gen["bus"].as_u64().unwrap_or(0) as usize;
 
-            let pg = gen["pg"].as_f64().unwrap_or(0.0);  // Active power (MW)
-            let qg = gen["qg"].as_f64().unwrap_or(0.0);  // Reactive power (MVAr)
+            let pg = gen["pg"].as_f64().unwrap_or(0.0); // Active power (MW)
+            let qg = gen["qg"].as_f64().unwrap_or(0.0); // Reactive power (MVAr)
 
             let gen_name = format!("gen_{}", gen_idx);
 
@@ -104,12 +99,10 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                 .parse()
                 .with_context(|| format!("Invalid load index: {}", load_idx_str))?;
 
-            let bus_id = load["bus"]
-                .as_u64()
-                .unwrap_or(0) as usize;
+            let bus_id = load["bus"].as_u64().unwrap_or(0) as usize;
 
-            let pd = load["pd"].as_f64().unwrap_or(0.0);  // Active power (MW)
-            let qd = load["qd"].as_f64().unwrap_or(0.0);  // Reactive power (MVAr)
+            let pd = load["pd"].as_f64().unwrap_or(0.0); // Active power (MW)
+            let qd = load["qd"].as_f64().unwrap_or(0.0); // Reactive power (MVAr)
 
             let load_name = format!("load_{}", load_idx);
 
@@ -131,16 +124,12 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                 .parse()
                 .with_context(|| format!("Invalid branch index: {}", branch_idx_str))?;
 
-            let from_bus_id = branch["fbus"]
-                .as_u64()
-                .unwrap_or(0) as usize;
+            let from_bus_id = branch["fbus"].as_u64().unwrap_or(0) as usize;
 
-            let to_bus_id = branch["tbus"]
-                .as_u64()
-                .unwrap_or(0) as usize;
+            let to_bus_id = branch["tbus"].as_u64().unwrap_or(0) as usize;
 
-            let r = branch["r"].as_f64().unwrap_or(0.0);      // Resistance (p.u.)
-            let x = branch["x"].as_f64().unwrap_or(0.01);     // Reactance (p.u.)
+            let r = branch["r"].as_f64().unwrap_or(0.0); // Resistance (p.u.)
+            let x = branch["x"].as_f64().unwrap_or(0.01); // Reactance (p.u.)
 
             let branch_name = format!("br_{}_{}", from_bus_id, to_bus_id);
 

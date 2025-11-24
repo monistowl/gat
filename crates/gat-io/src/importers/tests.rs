@@ -167,11 +167,16 @@ fn test_cim_operational_limits_parsing() {
 
     // Create a minimal CIM RDF with bus only (no limits for now)
     let cim_xml = concat!(
-        r#"<?xml version="1.0" encoding="UTF-8"?>"#, "\n",
-        r#"<rdf:RDF xmlns:cim="http://iec.ch/TC57/2013/CIM-schema-v2_4_0" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">"#, "\n",
-        r#"  <cim:BusbarSection rdf:ID="bus1">"#, "\n",
-        r#"    <cim:IdentifiedObject.name>Bus 1</cim:IdentifiedObject.name>"#, "\n",
-        r#"  </cim:BusbarSection>"#, "\n",
+        r#"<?xml version="1.0" encoding="UTF-8"?>"#,
+        "\n",
+        r#"<rdf:RDF xmlns:cim="http://iec.ch/TC57/2013/CIM-schema-v2_4_0" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">"#,
+        "\n",
+        r#"  <cim:BusbarSection rdf:ID="bus1">"#,
+        "\n",
+        r#"    <cim:IdentifiedObject.name>Bus 1</cim:IdentifiedObject.name>"#,
+        "\n",
+        r#"  </cim:BusbarSection>"#,
+        "\n",
         r#"</rdf:RDF>"#
     );
 
@@ -214,7 +219,7 @@ fn test_cim_validation_invalid_voltage() {
     let bus = Bus {
         id: BusId::new(1),
         name: "bus1".to_string(),
-        voltage_kv: -10.0,  // Invalid negative voltage
+        voltage_kv: -10.0, // Invalid negative voltage
     };
     network.graph.add_node(Node::Bus(bus));
 
@@ -267,7 +272,7 @@ fn test_cim_validation_warnings() {
     let bus = Bus {
         id: BusId::new(1),
         name: "bus1".to_string(),
-        voltage_kv: 1500.0,  // Unusual high voltage, should generate warning
+        voltage_kv: 1500.0, // Unusual high voltage, should generate warning
     };
     network.graph.add_node(Node::Bus(bus));
 

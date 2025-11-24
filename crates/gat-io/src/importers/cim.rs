@@ -17,8 +17,10 @@ pub fn import_cim_rdf(rdf_path: &str, output_file: &str) -> Result<Network> {
     println!("Importing CIM from {} to {}", rdf_path, output_file);
     let path = Path::new(rdf_path);
     let documents = collect_cim_documents(path)?;
-    let (buses, lines, loads, gens, limits, volt_limits, transformers) = parse_cim_documents(&documents)?;
-    let network = build_network_from_cim(buses, lines, loads, gens, limits, volt_limits, transformers)?;
+    let (buses, lines, loads, gens, limits, volt_limits, transformers) =
+        parse_cim_documents(&documents)?;
+    let network =
+        build_network_from_cim(buses, lines, loads, gens, limits, volt_limits, transformers)?;
 
     // Validate the network
     super::cim_validator::validate_network_from_cim(&network)?;
@@ -61,9 +63,9 @@ pub(crate) struct CimGen {
 #[derive(Debug, Clone)]
 pub struct CimOperationalLimit {
     pub equipment_id: String,
-    pub limit_type: String,  // "ThermalLimit", "VoltageLimit", "FrequencyLimit"
+    pub limit_type: String, // "ThermalLimit", "VoltageLimit", "FrequencyLimit"
     pub value: f64,
-    pub unit: String,  // "MW", "kV", "Hz"
+    pub unit: String, // "MW", "kV", "Hz"
 }
 
 #[derive(Debug, Clone)]
@@ -84,7 +86,15 @@ pub struct CimTransformer {
     pub rated_mva: f64,
 }
 
-type CimImportResult = (Vec<CimBus>, Vec<CimLine>, Vec<CimLoad>, Vec<CimGen>, Vec<CimOperationalLimit>, Vec<CimVoltageLimit>, Vec<CimTransformer>);
+type CimImportResult = (
+    Vec<CimBus>,
+    Vec<CimLine>,
+    Vec<CimLoad>,
+    Vec<CimGen>,
+    Vec<CimOperationalLimit>,
+    Vec<CimVoltageLimit>,
+    Vec<CimTransformer>,
+);
 
 struct PendingCimGen {
     name: String,
@@ -446,7 +456,15 @@ pub(crate) fn parse_cim_documents(documents: &[String]) -> Result<CimImportResul
     if buses.is_empty() {
         Err(anyhow!("no bus definitions discovered in CIM documents"))
     } else {
-        Ok((buses, lines, loads, gens, operational_limits, voltage_limits, transformers))
+        Ok((
+            buses,
+            lines,
+            loads,
+            gens,
+            operational_limits,
+            voltage_limits,
+            transformers,
+        ))
     }
 }
 

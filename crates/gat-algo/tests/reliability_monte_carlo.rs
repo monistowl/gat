@@ -1,5 +1,8 @@
-use gat_algo::{MonteCarlo, OutageScenario, OutageGenerator, DeliverabilityScoreConfig, DeliverabilityScore, ReliabilityMetrics};
-use gat_core::{Bus, Branch, Gen, Load, Network, Node, Edge, BusId, GenId, LoadId, BranchId};
+use gat_algo::{
+    DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
+    ReliabilityMetrics,
+};
+use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
 fn create_simple_network() -> Network {
     let mut network = Network::new();
@@ -71,7 +74,7 @@ fn test_outage_scenario_capacity_check() {
     // Should not have capacity at higher load
     let high_load_scenario = OutageScenario {
         demand_scale: 1.5,
-        .. scenario.clone()
+        ..scenario.clone()
     };
     assert!(!high_load_scenario.has_capacity(&network, 80.0));
 }
@@ -100,7 +103,7 @@ fn test_outage_generator_creates_scenarios() {
 fn test_monte_carlo_init() {
     let mc = MonteCarlo::new(1000);
     assert_eq!(mc.num_scenarios, 1000);
-    assert!(mc.hours_per_year > 8700.0);  // ~365.25 * 24
+    assert!(mc.hours_per_year > 8700.0); // ~365.25 * 24
 }
 
 #[test]
@@ -214,8 +217,14 @@ fn test_monte_carlo_tight_reliability() {
     // (generator offline scenarios + demand variations will cause shortfall)
     // With 100 MW gen and 100 MW load, any demand > 100 MW causes shortfall
     assert!(metrics.lole > 0.0, "Tight system should have some LOLE");
-    assert!(metrics.lole < 10000.0, "LOLE should be reasonable (less than full year)");
-    assert!(metrics.scenarios_with_shortfall > 0, "Should have some shortfall scenarios");
+    assert!(
+        metrics.lole < 10000.0,
+        "LOLE should be reasonable (less than full year)"
+    );
+    assert!(
+        metrics.scenarios_with_shortfall > 0,
+        "Should have some shortfall scenarios"
+    );
 }
 
 #[test]
@@ -339,7 +348,7 @@ fn test_deliverability_score_config_validate() {
 #[test]
 fn test_deliverability_score_perfect_reliability() {
     let metrics = ReliabilityMetrics {
-        lole: 0.0,  // Perfect LOLE
+        lole: 0.0, // Perfect LOLE
         eue: 0.0,
         scenarios_analyzed: 1000,
         scenarios_with_shortfall: 0,
@@ -357,7 +366,7 @@ fn test_deliverability_score_perfect_reliability() {
 #[test]
 fn test_deliverability_score_poor_reliability() {
     let metrics = ReliabilityMetrics {
-        lole: 10.0,  // Much higher than LOLE_MAX (3.0)
+        lole: 10.0, // Much higher than LOLE_MAX (3.0)
         eue: 50.0,
         scenarios_analyzed: 1000,
         scenarios_with_shortfall: 500,
@@ -368,7 +377,10 @@ fn test_deliverability_score_poor_reliability() {
     let score = DeliverabilityScore::from_metrics(metrics, &config).unwrap();
 
     // Poor reliability should give score around 0
-    assert!(score.score < 50.0, "Score should be low for poor reliability");
+    assert!(
+        score.score < 50.0,
+        "Score should be low for poor reliability"
+    );
     assert!(score.score >= 0.0, "Score should be clamped to >= 0");
 }
 
@@ -376,7 +388,7 @@ fn test_deliverability_score_poor_reliability() {
 fn test_deliverability_score_clamps_to_range() {
     // Create a scenario that would theoretically exceed 100
     let metrics = ReliabilityMetrics {
-        lole: 100.0,  // Very high
+        lole: 100.0, // Very high
         eue: 500.0,
         scenarios_analyzed: 1000,
         scenarios_with_shortfall: 1000,
@@ -439,6 +451,12 @@ fn test_deliverability_score_meets_threshold() {
     let config = DeliverabilityScoreConfig::new();
     let score = DeliverabilityScore::from_metrics(metrics, &config).unwrap();
 
-    assert!(score.meets_threshold(80.0), "Good reliability should meet 80% threshold");
-    assert!(!score.meets_threshold(99.0), "Should not meet impossible threshold");
+    assert!(
+        score.meets_threshold(80.0),
+        "Good reliability should meet 80% threshold"
+    );
+    assert!(
+        !score.meets_threshold(99.0),
+        "Should not meet impossible threshold"
+    );
 }

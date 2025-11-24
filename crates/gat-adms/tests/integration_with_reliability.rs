@@ -1,6 +1,8 @@
-use gat_adms::{FlisrRestoration, ReliabilityAwareVvo, MaintenanceSchedule, ReliabilityOrchestrator};
+use gat_adms::{
+    FlisrRestoration, MaintenanceSchedule, ReliabilityAwareVvo, ReliabilityOrchestrator,
+};
 use gat_algo::{AreaId, Corridor, MultiAreaSystem};
-use gat_core::{Bus, Branch, Gen, Load, Network, Node, Edge, BusId, GenId, LoadId, BranchId};
+use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
 fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Network {
     let mut network = Network::new();
@@ -53,14 +55,14 @@ fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Net
 fn test_flisr_restoration_creation() {
     let mut op = FlisrRestoration::new(0, "branch_123".to_string(), 2.0, 5.0, 8.0, 50.0);
     assert_eq!(op.operation_id, 0);
-    assert_eq!(op.total_duration, 15.0);  // 2 + 5 + 8
+    assert_eq!(op.total_duration, 15.0); // 2 + 5 + 8
     assert_eq!(op.load_restored, 50.0);
 
     // Set LOLE metrics
     op.set_lole_metrics(5.0, 2.0);
     assert_eq!(op.lole_before, 5.0);
     assert_eq!(op.lole_after, 2.0);
-    assert!((op.lole_reduction_pct - 60.0).abs() < 0.1);  // (5-2)/5 * 100 = 60%
+    assert!((op.lole_reduction_pct - 60.0).abs() < 0.1); // (5-2)/5 * 100 = 60%
 }
 
 #[test]
@@ -172,13 +174,17 @@ fn test_maintenance_schedule_validate_multiarea() {
     let mut bad_schedule = MaintenanceSchedule::new(5.0);
     bad_schedule.add_window(AreaId(0), 150, 8.0).unwrap();
     bad_schedule.add_window(AreaId(1), 150, 8.0).unwrap();
-    assert!(bad_schedule.validate_multiarea_coordination(&system).is_err());
+    assert!(bad_schedule
+        .validate_multiarea_coordination(&system)
+        .is_err());
 
     // Valid: same day for non-neighboring areas
     let mut good_schedule = MaintenanceSchedule::new(5.0);
     good_schedule.add_window(AreaId(0), 150, 8.0).unwrap();
-    good_schedule.add_window(AreaId(2), 150, 8.0).unwrap();  // Area 2 not neighbors with 0
-    assert!(good_schedule.validate_multiarea_coordination(&system).is_ok());
+    good_schedule.add_window(AreaId(2), 150, 8.0).unwrap(); // Area 2 not neighbors with 0
+    assert!(good_schedule
+        .validate_multiarea_coordination(&system)
+        .is_ok());
 }
 
 #[test]
@@ -220,12 +226,8 @@ fn test_reliability_orchestrator_flisr_operation() {
     let network_pre = create_test_network("test", 150.0, 80.0);
     let network_post = create_test_network("test", 150.0, 80.0);
 
-    let result = orch.execute_flisr_operation(
-        &network_pre,
-        &network_post,
-        "branch_123".to_string(),
-        50.0,
-    );
+    let result =
+        orch.execute_flisr_operation(&network_pre, &network_post, "branch_123".to_string(), 50.0);
 
     assert!(result.is_ok());
     let op = result.unwrap();
@@ -260,7 +262,7 @@ fn test_reliability_orchestrator_flisr_stats() {
 #[test]
 fn test_reliability_orchestrator_check_vvo_reliability() {
     let orch = ReliabilityOrchestrator::new();
-    let network = create_test_network("test", 200.0, 80.0);  // Very reliable system
+    let network = create_test_network("test", 200.0, 80.0); // Very reliable system
 
     let result = orch.check_vvo_reliability(&network);
     assert!(result.is_ok());
@@ -324,15 +326,12 @@ fn test_flisr_multiple_operations_tracking() {
 #[test]
 fn test_maintenance_schedule_eue_reduction() {
     let schedule = MaintenanceSchedule {
-        maintenance_windows: vec![
-            (AreaId(0), 150, 8.0),
-            (AreaId(1), 160, 8.0),
-        ],
+        maintenance_windows: vec![(AreaId(0), 150, 8.0), (AreaId(1), 160, 8.0)],
         baseline_lole: 10.0,
         peak_lole_during_maintenance: 12.0,
-        eue_reduction_pct: 10.0,  // 2 windows * 5%
+        eue_reduction_pct: 10.0, // 2 windows * 5%
     };
 
     assert!(schedule.eue_reduction_pct > 0.0);
-    assert!(schedule.eue_reduction_pct <= 15.0);  // Capped at 15%
+    assert!(schedule.eue_reduction_pct <= 15.0); // Capped at 15%
 }

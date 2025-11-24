@@ -1,6 +1,6 @@
-use std::collections::HashSet;
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use gat_core::{Network, Node, NodeIndex};
+use std::collections::HashSet;
 
 /// Represents a single outage scenario (which generators/lines are offline)
 #[derive(Debug, Clone)]
@@ -59,15 +59,19 @@ impl OutageGenerator {
     /// Create new scenario generator with default rates
     pub fn new() -> Self {
         Self {
-            gen_failure_rate: 0.05,      // 5% failure rate per year
-            branch_failure_rate: 0.02,   // 2% failure rate per year
+            gen_failure_rate: 0.05,    // 5% failure rate per year
+            branch_failure_rate: 0.02, // 2% failure rate per year
             demand_range: (0.8, 1.2),
             seed: 42,
         }
     }
 
     /// Generate N random outage scenarios
-    pub fn generate_scenarios(&self, network: &Network, num_scenarios: usize) -> Vec<OutageScenario> {
+    pub fn generate_scenarios(
+        &self,
+        network: &Network,
+        num_scenarios: usize,
+    ) -> Vec<OutageScenario> {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
@@ -77,7 +81,9 @@ impl OutageGenerator {
         let mut rng_state = hasher.finish();
 
         // Collect all generator node indices
-        let gen_nodes: Vec<NodeIndex> = network.graph.node_indices()
+        let gen_nodes: Vec<NodeIndex> = network
+            .graph
+            .node_indices()
             .filter(|&idx| matches!(network.graph.node_weight(idx), Some(Node::Gen(_))))
             .collect();
 
@@ -110,7 +116,8 @@ impl OutageGenerator {
             // Demand scaling
             rng_state = rng_state.wrapping_mul(1103515245).wrapping_add(12345);
             let demand_r = ((rng_state >> 16) & 0x7fff) as f64 / 32768.0;
-            let demand_scale = self.demand_range.0 + (self.demand_range.1 - self.demand_range.0) * demand_r;
+            let demand_scale =
+                self.demand_range.0 + (self.demand_range.1 - self.demand_range.0) * demand_r;
 
             scenarios.push(OutageScenario {
                 offline_generators,
@@ -180,7 +187,9 @@ impl MonteCarlo {
         }
 
         // Generate scenarios
-        let scenarios = self.scenario_gen.generate_scenarios(network, self.num_scenarios);
+        let scenarios = self
+            .scenario_gen
+            .generate_scenarios(network, self.num_scenarios);
 
         // Analyze each scenario
         let mut shortfall_hours = 0.0;
@@ -274,7 +283,7 @@ impl DeliverabilityScoreConfig {
             weight_lole: 1.0,
             weight_voltage: 0.0,
             weight_thermal: 0.0,
-            lole_max: 3.0,  // NERC benchmark: ~0.5-3 hrs/year
+            lole_max: 3.0, // NERC benchmark: ~0.5-3 hrs/year
             max_violations: 10.0,
             max_overloads: 5.0,
         }

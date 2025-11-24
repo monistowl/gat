@@ -1,17 +1,21 @@
 use anyhow::{anyhow, Result};
-use gat_core::{Network, Node, Edge};
+use gat_core::{Edge, Network, Node};
 
 /// Represents a validation error or warning from CIM data
 #[derive(Debug, Clone)]
 pub struct CimValidationError {
-    pub entity_type: String,  // "Bus", "Branch", "Generator"
+    pub entity_type: String, // "Bus", "Branch", "Generator"
     pub entity_id: String,
     pub issue: String,
 }
 
 impl std::fmt::Display for CimValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {} ({})", self.entity_type, self.entity_id, self.issue)
+        write!(
+            f,
+            "{}: {} ({})",
+            self.entity_type, self.entity_id, self.issue
+        )
     }
 }
 
@@ -20,7 +24,9 @@ pub fn validate_network_from_cim(network: &Network) -> Result<()> {
     let mut errors = Vec::new();
 
     // Check that network has at least one bus
-    let bus_count = network.graph.node_indices()
+    let bus_count = network
+        .graph
+        .node_indices()
         .filter(|idx| matches!(network.graph[*idx], Node::Bus(_)))
         .count();
 
@@ -106,7 +112,8 @@ pub fn validate_network_from_cim(network: &Network) -> Result<()> {
     }
 
     if !errors.is_empty() {
-        let error_msg = errors.iter()
+        let error_msg = errors
+            .iter()
             .map(|e| e.to_string())
             .collect::<Vec<_>>()
             .join("\n");
@@ -140,7 +147,10 @@ pub fn validate_cim_with_warnings(network: &Network) -> Vec<CimValidationError> 
                 warnings.push(CimValidationError {
                     entity_type: "Branch".to_string(),
                     entity_id: branch.name.clone(),
-                    issue: format!("Unusual R/X ratio: {:.2}", branch.resistance / branch.reactance.abs()),
+                    issue: format!(
+                        "Unusual R/X ratio: {:.2}",
+                        branch.resistance / branch.reactance.abs()
+                    ),
                 });
             }
         }

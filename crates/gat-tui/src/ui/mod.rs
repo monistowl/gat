@@ -225,7 +225,10 @@ impl Pane {
             && self.children.is_empty()
             && self.table.as_ref().map_or(true, |table| !table.has_rows())
             && self.graph.as_ref().map_or(true, |graph| !graph.has_nodes())
-            && self.barchart.as_ref().map_or(true, |chart| !chart.has_bars())
+            && self
+                .barchart
+                .as_ref()
+                .map_or(true, |chart| !chart.has_bars())
             && self.progressbar.as_ref().map_or(true, |pb| !pb.has_bars())
         {
             if let Some(empty) = &self.empty {
