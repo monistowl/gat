@@ -33,12 +33,12 @@
         {{ term.name }}
       </h1>
       <p class="text-xl text-slate-400 mb-12">
-        {{ pages | length }} post{% if pages | length != 1 %}s{% endif %} tagged with "{{ term.name }}"
+        {{ term.pages | length }} post{% if term.pages | length != 1 %}s{% endif %} tagged with "{{ term.name }}"
       </p>
 
       <!-- Posts List -->
       <div class="space-y-6">
-        {% for page in pages %}
+        {% for page in term.pages %}
         <article class="p-6 bg-slate-900/50 border border-slate-800 hover:border-orange-500/50 rounded-lg transition-all hover:-translate-y-1">
           <div class="flex justify-between items-start mb-3">
             <a href="{{ page.permalink }}" class="group">
