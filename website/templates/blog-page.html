@@ -20,12 +20,23 @@
     <!-- Article -->
     <article class="bg-slate-900/20 border border-slate-800 rounded-lg p-8 lg:p-12">
       <!-- Metadata -->
-      <div class="flex items-center gap-3 text-sm text-slate-500 mb-6">
+      <div class="flex items-center gap-3 text-sm text-slate-500 mb-6 flex-wrap">
         <time datetime="{{ page.date }}">{{ page.date | date(format="%B %d, %Y") }}</time>
         {% if page.extra.author %}
         <span>•</span>
         <span>{{ page.extra.author }}</span>
         {% endif %}
+        <!-- Reading time -->
+        <span>•</span>
+        <span>
+          {% set word_count = page.content | striptags | split(pat=" ") | length %}
+          {% set reading_time = ((word_count / 200) | round)%1 %}
+          {% if reading_time < 1 %}
+            &lt; 1 min read
+          {% else %}
+            {{ reading_time | round }} min read
+          {% endif %}
+        </span>
         {% if page.taxonomies.tags %}
         <span>•</span>
         <div class="flex gap-2">
