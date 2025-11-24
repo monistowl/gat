@@ -87,6 +87,12 @@ The TUI is a 7-pane interactive dashboard built with Ratatui:
 Launch it with:
 
 ```bash
+gat-tui
+```
+
+Or, if running from source during development:
+
+```bash
 cargo run -p gat-tui --release
 ```
 
@@ -100,75 +106,90 @@ Coming in Horizon 7 (planned).
 
 ## Installation
 
-### 1. Install Rust (Required)
+### Quick Install (Recommended)
 
-Go to https://rustup.rs. This installs `cargo` and the toolchain helpers used across the workspace.
-
-### 2. Optional Helpers
-
-These tools make documentation changes and CLI workflows easier:
-
-* `bd` — the beads issue tracker (run `bd ready` before you start work)
-* `beads-mcp` — so MCP-compatible agents can inspect docs via `gat-mcp-docs`
-* `jq` — required by `scripts/package.sh`
-
-### 3. Shell Completions (After Installation)
-
-Generate shell completions once `gat` is installed:
+The modular installer lets you choose components on the fly and installs to `~/.gat` with no dependency on Rust:
 
 ```bash
-gat completions bash | sudo tee /etc/bash_completion.d/gat > /dev/null
-gat completions zsh --out ~/.local/share/zsh/site-functions/_gat
-gat completions fish --out ~/.config/fish/completions/gat.fish
-gat completions powershell --out ~/gat.ps1
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh | bash
 ```
 
-Or source them on the fly:
+Then add to your PATH:
 
 ```bash
-source <(gat completions bash)
+export PATH="$HOME/.gat/bin:$PATH"
 ```
 
-### 4. Binary-First Install (Recommended)
+#### Component Selection
 
-The installer fetches the right tarball for your OS/arch and only compiles from source when no binary is available.
+By default, only the CLI is installed. Choose additional components:
+
+```bash
+# CLI + TUI (interactive dashboard)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+
+# CLI + TUI + GUI dashboard (future)
+GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+
+# Everything (CLI + TUI + GUI + solvers)
+GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+```
+
+Or from the downloaded script:
+
+```bash
+bash scripts/install-modular.sh --components cli,tui
+bash scripts/install-modular.sh --prefix /opt/gat --components cli,tui,solvers
+```
+
+#### Installation Directory Structure
+
+Everything installs under `~/.gat/`:
+
+```
+~/.gat/
+├── bin/           # Executables (gat, gat-tui, gat-gui, gat-cli)
+├── config/        # Configuration (gat.toml, tui.toml, gui.toml)
+├── lib/solvers/   # Solver binaries and data
+└── cache/         # Dataset cache, run history
+```
+
+### Alternative: Bundle Variants (Full Tarball)
+
+If you prefer bundled releases with docs, download and unpack a variant:
+
+```bash
+# Full variant (CLI + TUI + all features)
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/gat-0.3.1-linux-x86_64-full.tar.gz | tar xz
+cd gat-0.3.1-linux-x86_64-full
+./install.sh
+
+# Headless variant (CLI only, minimal footprint)
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/gat-0.3.1-linux-x86_64-headless.tar.gz | tar xz
+cd gat-0.3.1-linux-x86_64-headless
+./install.sh --variant headless
+```
+
+### Build from Source (Fallback)
+
+If no binary is available for your platform, both installers fall back to a source build. This requires Rust:
+
+Go to https://rustup.rs to install the Rust toolchain.
+
+Then:
 
 ```bash
 # Full variant (default): CLI + TUI + all features
-scripts/install.sh
+cargo build -p gat-cli --release --all-features
 
-# Or explicitly request a different variant:
-scripts/install.sh --variant headless  # Minimal footprint
-scripts/install.sh --variant full      # Everything (default)
+# Headless (CLI only, minimal dependencies)
+cargo build -p gat-cli --release --no-default-features --features minimal-io
+
+# Analyst (CLI + visualization/analysis tools)
+cargo build -p gat-cli --release --no-default-features --features "minimal-io,viz,all-backends"
 ```
 
-**Why full by default?** The binaries are small (~few MB), so we give you the complete toolkit out of the box. You can always opt into minimal variants for embedded systems if needed.
-
-Environment variables:
-
-* `GAT_VARIANT` — choose variant (headless, analyst, full); defaults to `full`
-* `GAT_RELEASE_BASE` — override the release bucket (default: GitHub releases)
-* `GAT_VERSION` — pin a specific version; `latest` fetches from GitHub API
-* `GAT_PREFIX` — change the install location (defaults to `~/.local`)
-
-If your platform is not covered by prebuilt binaries, the installer falls back to a cargo build with the appropriate feature set for the variant you requested.
-
-### 5. Build from Source (Fallback)
-
-Headless (no TUI) builds keep the dependency footprint small:
-
-```bash
-cargo build -p gat-cli --no-default-features --features minimal-io
-```
-
-Enable optional UI and analysis tools:
-
-```bash
-cargo build -p gat-cli --features "viz"
-cargo build -p gat-cli --all-features
-```
-
-GAT produces a `gat` binary under `target/debug/` or `target/release/`.
+The binary lands under `target/release/gat-cli`.
 
 #### Feature Flags
 
@@ -184,16 +205,34 @@ GAT produces a `gat` binary under `target/debug/` or `target/release/`.
   cargo build -p gat-cli --no-default-features --features "minimal-io"
   ```
 
-### 6. Package Artifacts Locally
+### Shell Completions (After Installation)
+
+Generate shell completions once `gat` is in your PATH:
 
 ```bash
-scripts/package.sh
+gat completions bash | sudo tee /etc/bash_completion.d/gat > /dev/null
+gat completions zsh --out ~/.local/share/zsh/site-functions/_gat
+gat completions fish --out ~/.config/fish/completions/gat.fish
+gat completions powershell --out ~/gat.ps1
 ```
 
-This produces both variants under `dist/`:
+Or source them on the fly:
 
-* `gat-<version>-<os>-<arch>-headless.tar.gz` (CLI + core)
-* `gat-<version>-<os>-<arch>-full.tar.gz` (CLI + TUI + docs)
+```bash
+source <(gat completions bash)
+```
+
+### For Development
+
+If you're contributing to GAT:
+
+1. Install Rust: https://rustup.rs
+2. Clone the repository and run `cargo build`
+3. Optional helpers:
+   * `bd` — the beads issue tracker (run `bd ready` before you start work)
+   * `beads-mcp` — so MCP-compatible agents can inspect docs via `gat-mcp-docs`
+   * `jq` — required by `scripts/package.sh`
+4. See `RELEASE_PROCESS.md` for our branch strategy (experimental → staging → main)
 
 ---
 
@@ -247,7 +286,7 @@ Graduate from the linear DC baseline to Newton–Raphson solves.
 ### 4. Interactive Exploration with TUI
 
 ```bash
-cargo run -p gat-tui --release
+gat-tui
 ```
 
 Browse datasets, check pipeline status, run commands with dry-run mode, view reliability metrics.
@@ -332,7 +371,7 @@ gat pf dc grid.arrow --out flows.parquet
 ### Explore Interactively with TUI
 
 ```bash
-cargo run -p gat-tui --release
+gat-tui
 # Then: Browse datasets, check pipeline, view reliability metrics
 ```
 
@@ -474,6 +513,191 @@ Downloaded datasets default to `~/.cache/gat/datasets` (or `data/public` if unav
 Available datasets include:
 - `opsd-time-series-2020` — Open Power System Data time series (CC-BY-SA 4.0)
 - `airtravel` — lightweight US air travel CSV for time-series examples
+
+---
+
+## FAQ & Migration Guide
+
+### Installation & Upgrades
+
+**Q: I have v0.1. How do I upgrade to v0.3.1?**
+
+A: The v0.3.1 release introduces a new modular installation system. Upgrade simply by re-running the installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh | bash
+```
+
+This installs to `~/.gat/bin/` by default (changed from `~/.local/bin/` in v0.1). Update your PATH:
+
+```bash
+export PATH="$HOME/.gat/bin:$PATH"
+```
+
+**Q: Can I keep both v0.1 and v0.3.1 installed?**
+
+A: Yes. Use the `--prefix` flag to install v0.3.1 elsewhere:
+
+```bash
+bash scripts/install-modular.sh --prefix /opt/gat-0.3.1
+```
+
+Then choose which to use in your PATH by ordering the paths or using full paths.
+
+**Q: What changed between v0.1 and v0.3.1?**
+
+A: Major improvements include:
+
+* **Modular installation** — Install only what you need (CLI, TUI, GUI, solvers)
+* **Centralized config** — All config in `~/.gat/config/` instead of scattered locations
+* **New TUI** — Interactive 7-pane dashboard for exploration and batch jobs
+* **Distribution tools** — ADMS, DERMS, hosting-capacity analysis
+* **Binary-first delivery** — Pre-built binaries for Linux/macOS x86_64 and ARM64
+* **Improved CLI** — Better error messages, more commands, faster execution
+
+See the release notes for the full changelog.
+
+### Components & Features
+
+**Q: Do I need the TUI?**
+
+A: No. The CLI is fully featured and standalone. The TUI is optional and great for:
+- Interactive data exploration
+- Workflow visualization
+- Running batch jobs with live status monitoring
+- Checking reliability metrics on-the-fly
+
+Install it with:
+
+```bash
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+```
+
+**Q: What are the solver components for?**
+
+A: The `solvers` component includes additional solver backends (CBC, HiGHS) beyond the default Clarabel. Install with:
+
+```bash
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+```
+
+Then use them with:
+
+```bash
+gat opf dc grid.arrow --solver cbc  # Use CBC instead of default Clarabel
+```
+
+**Q: What features are in the "headless" variant?**
+
+A: `headless` includes the core CLI without TUI/GUI and minimal I/O dependencies. It's great for:
+- Embedded systems or minimal containers
+- Server-side batch jobs where no UI is needed
+- Minimal binary size (~5 MB vs ~20 MB for full)
+
+Install with:
+
+```bash
+bash scripts/install.sh --variant headless
+```
+
+### Configuration
+
+**Q: Where does GAT store configuration?**
+
+A: All config is in `~/.gat/config/`:
+
+* `gat.toml` — Core CLI settings (data paths, solver preferences, logging)
+* `tui.toml` — Terminal UI display and behavior
+* `gui.toml` — GUI dashboard preferences (future)
+
+Edit these files directly or use the TUI Settings pane.
+
+**Q: How do I use a custom solver?**
+
+A: Edit `~/.gat/config/gat.toml`:
+
+```toml
+[solver]
+default_backend = "cbc"  # or "highs", "clarabel"
+```
+
+Or pass it per-command:
+
+```bash
+gat opf dc grid.arrow --solver highs
+```
+
+### Data & Output
+
+**Q: Where does GAT store datasets and cache?**
+
+A: Under `~/.gat/`:
+
+* `lib/solvers/` — Solver binaries (read-only)
+* `cache/` — Downloaded datasets and run history
+
+Override with environment variables:
+
+```bash
+GAT_PREFIX=/data/gat  # Use different install location
+GAT_CACHE_DIR=/var/cache/gat  # Custom cache
+GAT_CONFIG_DIR=/etc/gat  # Custom config location
+```
+
+**Q: Can I pipe data between GAT commands?**
+
+A: Yes. GAT outputs Arrow/Parquet, which is pipe-friendly:
+
+```bash
+gat pf dc grid.arrow | gat opf dc --in - --out dispatch.parquet
+```
+
+However, most workflows use intermediate files (faster, debuggable):
+
+```bash
+gat pf dc grid.arrow --out flows.parquet
+gat opf dc grid.arrow --pf-file flows.parquet --out dispatch.parquet
+```
+
+### Troubleshooting
+
+**Q: `gat` command not found after install?**
+
+A: Add `~/.gat/bin/` to your PATH:
+
+```bash
+export PATH="$HOME/.gat/bin:$PATH"
+```
+
+Add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to make it permanent.
+
+**Q: How do I uninstall GAT?**
+
+A: Simply remove the install directory:
+
+```bash
+rm -rf ~/.gat/
+```
+
+Or, if you installed elsewhere:
+
+```bash
+rm -rf /opt/gat/  # Or whatever prefix you used
+```
+
+**Q: I'm getting solver errors. How do I fix it?**
+
+A: Install the solver binaries:
+
+```bash
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+```
+
+Or build from source (slower but self-contained):
+
+```bash
+bash scripts/install.sh
+```
 
 ---
 
