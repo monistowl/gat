@@ -9,6 +9,10 @@ build_search_index = true
 generate_feed = true
 feed_filename = "rss.xml"
 
+[taxonomies]
+tags = "tags"
+categories = "categories"
+
 [markdown]
 highlight_code = true
 highlight_theme = "nord"
