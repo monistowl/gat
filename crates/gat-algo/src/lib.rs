@@ -1,3 +1,4 @@
+pub mod ac_opf;
 pub mod alloc_kpi;
 pub mod alloc_rents;
 pub mod analytics_ds;
@@ -11,6 +12,7 @@ pub mod io;
 pub mod power_flow;
 pub mod test_utils;
 
+pub use ac_opf::{AcOpfSolver, AcOpfSolution, AcOpfError};
 pub use alloc_kpi::*;
 pub use alloc_rents::*;
 pub use analytics_ds::*;
