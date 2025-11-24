@@ -113,6 +113,11 @@ resolve_version() {
       exit 1
     fi
   fi
+
+  # Strip 'v' prefix from version tag to match artifact naming convention
+  if [[ "$VERSION" == v* ]]; then
+    VERSION="${VERSION#v}"
+  fi
 }
 
 # Parse command-line arguments
@@ -164,16 +169,16 @@ install_component() {
   local artifact_name
   case "$component" in
     cli)
-      artifact_name="gat-v${VERSION}-${os}-${arch}.tar.gz"
+      artifact_name="gat-${VERSION}-${os}-${arch}.tar.gz"
       ;;
     tui)
-      artifact_name="gat-tui-v${VERSION}-${os}-${arch}.tar.gz"
+      artifact_name="gat-tui-${VERSION}-${os}-${arch}.tar.gz"
       ;;
     gui)
-      artifact_name="gat-gui-v${VERSION}-${os}-${arch}.tar.gz"
+      artifact_name="gat-gui-${VERSION}-${os}-${arch}.tar.gz"
       ;;
     solvers)
-      artifact_name="gat-solvers-v${VERSION}-${os}-${arch}.tar.gz"
+      artifact_name="gat-solvers-${VERSION}-${os}-${arch}.tar.gz"
       ;;
     *)
       echo "Unknown component: $component" >&2
