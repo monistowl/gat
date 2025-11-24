@@ -14,6 +14,7 @@ pub mod settings_pane;
 pub mod integration_tests;
 
 // Legacy pane implementations (to be replaced)
+pub mod analytics;
 pub mod commands;
 pub mod dashboard;
 pub mod datasets;
