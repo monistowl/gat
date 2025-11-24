@@ -1,5 +1,6 @@
 use crate::ui::{
-    ContextButton, Pane, PaneContext, PaneLayout, PaneView, Sidebar, SubTabs, Tooltip,
+    BarChartView, ColorHint, ContextButton, Pane, PaneContext, PaneLayout, PaneView,
+    ProgressBarView, ProgressStatus, Sidebar, SubTabs, Tooltip,
 };
 
 pub struct OperationsPane;
@@ -17,28 +18,50 @@ impl OperationsPane {
                 Pane::new("DERMS queue").body(["2 queued envelopes", "1 stress-test running"]),
             );
 
-        // Batch operations section
+        // Batch operations section with live progress tracking
+        let batch_progress = ProgressBarView::new()
+            .with_title("Running Jobs")
+            .add_progress("Power Flow Analysis", 0.75, ProgressStatus::Active)
+            .add_progress("Contingency N-1", 0.42, ProgressStatus::Active)
+            .add_progress("State Estimation", 1.0, ProgressStatus::Complete)
+            .add_progress("Dataset Upload", 0.0, ProgressStatus::Failed)
+            .bar_width(40);
+
         let batch_ops = Pane::new("Batch Operations")
             .body([
                 "Run power flow across scenario manifests",
-                "Status: Ready",
+                "Status: 2 active, 1 complete, 1 failed",
                 "",
-                "Active jobs: 0/4 (max parallelism: 4)",
-                "Last run: scenarios_2024-11-21.json - 0s elapsed",
             ])
+            .with_progressbar(batch_progress)
             .with_tabs(crate::ui::Tabs::new(["Power Flow", "Optimal Flow"], 0));
 
-        // Allocation section
+        // Allocation section with bar charts for cost attribution
+        let rents_chart = BarChartView::new()
+            .with_title("Congestion Rents by Line")
+            .add_bar("Line_101", 45000.0, ColorHint::Warning)
+            .add_bar("Line_203", 28500.0, ColorHint::Good)
+            .add_bar("Line_305", 67200.0, ColorHint::Critical)
+            .add_bar("Line_408", 12100.0, ColorHint::Good)
+            .value_suffix(" $/hr")
+            .bar_width(35)
+            .with_legend();
+
+        let contribution_chart = BarChartView::new()
+            .with_title("KPI Contribution Analysis")
+            .add_bar("Gen_A", 85.0, ColorHint::Good)
+            .add_bar("Gen_B", 92.0, ColorHint::Good)
+            .add_bar("Gen_C", 78.0, ColorHint::Warning)
+            .add_bar("Load_1", 65.0, ColorHint::Warning)
+            .max_value(100.0)
+            .value_suffix("%")
+            .bar_width(35)
+            .with_legend();
+
         let alloc_ops = Pane::new("Allocation Analysis")
-            .body([
-                "Cost attribution and sensitivity analysis",
-                "",
-                "Available results:",
-                "  • Congestion rents decomposition",
-                "  • KPI contribution sensitivity",
-                "",
-                "Ready to load OPF results for analysis",
-            ])
+            .body(["Cost attribution and sensitivity analysis", ""])
+            .with_barchart(rents_chart)
+            .with_child(Pane::new("KPI Contribution").with_barchart(contribution_chart))
             .with_tabs(crate::ui::Tabs::new(["Rents", "Contribution"], 0));
 
         PaneLayout::new(

@@ -1715,6 +1715,7 @@ dependencies = [
  "clap-markdown",
  "clap_complete",
  "clap_mangen",
+ "csv",
  "dirs",
  "gat-adms",
  "gat-algo",
@@ -1730,6 +1731,7 @@ dependencies = [
  "gat-tui",
  "gat-viz",
  "num_cpus",
+ "polars",
  "predicates",
  "rayon",
  "schemars",
@@ -1794,6 +1796,7 @@ version = "0.1.3"
 dependencies = [
  "anyhow",
  "caseformat",
+ "chrono",
  "gat-core",
  "polars",
  "power_flow_data",
@@ -1802,6 +1805,7 @@ dependencies = [
  "serde_json",
  "sophia",
  "tempfile",
+ "ureq",
  "zip",
 ]
 
@@ -5094,6 +5098,8 @@ dependencies = [
  "once_cell",
  "rustls",
  "rustls-pki-types",
+ "serde",
+ "serde_json",
  "url",
  "webpki-roots 0.26.11",
 ]

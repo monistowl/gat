@@ -73,3 +73,4 @@ The website includes links to:
 - Issues and discussions
 
 All links are configured in `config.toml` under `[extra]` and used in templates via `{{ config.extra.repo_url }}`.
+# Force rebuild

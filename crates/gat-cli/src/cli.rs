@@ -120,6 +120,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: BatchCommands,
     },
+    /// Benchmarking suites for OPF/PF solvers
+    Benchmark {
+        #[command(subcommand)]
+        command: BenchmarkCommands,
+    },
     /// GUI dashboard
     #[cfg(feature = "gui")]
     Gui {
@@ -302,6 +307,37 @@ pub enum BatchCommands {
         /// Maximum iterations
         #[arg(long, default_value_t = 50)]
         max_iter: usize,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BenchmarkCommands {
+    /// Run PFDelta AC OPF benchmark suite
+    Pfdelta {
+        /// Root directory containing PFDelta dataset
+        #[arg(long, value_hint = ValueHint::DirPath)]
+        pfdelta_root: String,
+        /// Specific test case to benchmark (14, 30, 57, 118, 500, 2000)
+        #[arg(long)]
+        case: Option<String>,
+        /// Contingency type to run (n, n-1, n-2, or all)
+        #[arg(long, default_value = "all")]
+        contingency: String,
+        /// Maximum number of test cases to run (0 = all)
+        #[arg(long, default_value_t = 0)]
+        max_cases: usize,
+        /// Output CSV path for results
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Number of parallel solver threads (auto = CPU count)
+        #[arg(long, default_value = "auto")]
+        threads: String,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum AC solver iterations
+        #[arg(long, default_value_t = 20)]
+        max_iter: u32,
     },
 }
 
@@ -728,6 +764,36 @@ pub enum DatasetCommands {
     Public {
         #[command(subcommand)]
         command: PublicDatasetCommands,
+    },
+    /// Fetch generator capacity and location data from EIA API
+    #[command(about = "Download U.S. generator data from EIA")]
+    Eia {
+        /// EIA API key
+        #[arg(long)]
+        api_key: String,
+
+        /// Output file path (supports .csv, .parquet)
+        #[arg(short, long)]
+        output: String,
+    },
+    /// Fetch carbon intensity data from Ember Climate API
+    #[command(about = "Download carbon intensity and renewable data from Ember")]
+    Ember {
+        /// Region code (e.g., "US-West", "GB", "DE")
+        #[arg(long)]
+        region: String,
+
+        /// Start date in YYYY-MM-DD format
+        #[arg(long)]
+        start_date: String,
+
+        /// End date in YYYY-MM-DD format
+        #[arg(long)]
+        end_date: String,
+
+        /// Output file path (supports .csv, .parquet)
+        #[arg(short, long)]
+        output: String,
     },
 }
 

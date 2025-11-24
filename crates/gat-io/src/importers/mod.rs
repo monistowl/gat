@@ -5,8 +5,12 @@ mod arrow_disabled;
 #[cfg(not(feature = "ipc"))]
 use arrow_disabled as arrow;
 pub mod cim;
+mod cim_validator;
 pub mod matpower;
 pub mod psse;
+pub use cim_validator::{
+    validate_cim_with_warnings, validate_network_from_cim, CimValidationError,
+};
 
 #[cfg(feature = "ipc")]
 pub use arrow::export_network_to_arrow;

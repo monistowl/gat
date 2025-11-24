@@ -21,6 +21,8 @@ serde = { version = "1.0", features = ["derive"] }
 sophia = "0.8"
 zip = "0.6"
 serde_json = "1.0"
+ureq = { version = "2.10", features = ["json"] }
+chrono = { version = "0.4.42", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "3"

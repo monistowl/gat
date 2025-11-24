@@ -6,6 +6,11 @@ authors = ["Grid Team <grid@example.com>"]
 description = "Terminal UI for inspecting GAT workflows"
 license = "MIT OR Apache-2.0"
 
+[features]
+default = ["fancy-ui"]
+fancy-ui = []  # Visual enhancements: graphs, charts, animations
+minimal = []   # Stripped down build for minimal footprint
+
 [dependencies]
 anyhow = "1.0"
 iocraft = { path = "../iocraft" }

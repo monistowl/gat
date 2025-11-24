@@ -157,22 +157,22 @@ function copyCommand() {
   <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-8">
-        <a href="/gat/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <a href="{{ config.base_url }}/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
             G
           </div>
           <span class="font-bold text-xl tracking-tight">GAT</span>
         </a>
-        <a href="/gat/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
           Documentation
         </a>
-        <a href="/gat/blog/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/blog/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
           Blog
         </a>
-        <a href="/gat/ai-experiments/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/ai-experiments/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
           AI Lab
         </a>
-        <a href="/gat/command-builder/" class="text-sm text-orange-500 font-medium">
+        <a href="{{ config.base_url }}/command-builder/" class="text-sm text-orange-500 font-medium">
           Command Builder
         </a>
       </div>

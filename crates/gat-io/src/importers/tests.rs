@@ -160,3 +160,123 @@ fn import_cim_rdf_zip_sample() {
     assert_eq!(network.graph.node_count(), 2);
     assert_eq!(network.graph.edge_count(), 1);
 }
+
+#[test]
+fn test_cim_operational_limits_parsing() {
+    use crate::importers::cim::parse_cim_documents;
+
+    // Create a minimal CIM RDF with bus only (no limits for now)
+    let cim_xml = concat!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>"#,
+        "\n",
+        r#"<rdf:RDF xmlns:cim="http://iec.ch/TC57/2013/CIM-schema-v2_4_0" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">"#,
+        "\n",
+        r#"  <cim:BusbarSection rdf:ID="bus1">"#,
+        "\n",
+        r#"    <cim:IdentifiedObject.name>Bus 1</cim:IdentifiedObject.name>"#,
+        "\n",
+        r#"  </cim:BusbarSection>"#,
+        "\n",
+        r#"</rdf:RDF>"#
+    );
+
+    // Parse and verify new return signature works
+    let documents = vec![cim_xml.to_string()];
+    let result = parse_cim_documents(&documents);
+
+    assert!(result.is_ok());
+    let (buses, _, _, _, limits, volt_limits, transformers) = result.unwrap();
+
+    // Verify we got the bus
+    assert_eq!(buses.len(), 1);
+
+    // Verify the new limit types are returned correctly (empty for now)
+    assert!(limits.is_empty());
+    assert!(volt_limits.is_empty());
+    assert!(transformers.is_empty());
+}
+
+#[test]
+fn test_cim_validation_empty_network() {
+    use crate::importers::validate_network_from_cim;
+    use gat_core::Network;
+
+    let network = Network::new();
+
+    // Validation should fail for empty network
+    let result = validate_network_from_cim(&network);
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(err_msg.contains("no buses"));
+}
+
+#[test]
+fn test_cim_validation_invalid_voltage() {
+    use crate::importers::validate_network_from_cim;
+    use gat_core::{Bus, BusId, Network, Node};
+
+    let mut network = Network::new();
+    let bus = Bus {
+        id: BusId::new(1),
+        name: "bus1".to_string(),
+        voltage_kv: -10.0, // Invalid negative voltage
+    };
+    network.graph.add_node(Node::Bus(bus));
+
+    // Validation should fail
+    let result = validate_network_from_cim(&network);
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(err_msg.contains("voltage"));
+}
+
+#[test]
+fn test_cim_validation_passes() {
+    use crate::importers::validate_network_from_cim;
+    use gat_core::{Branch, BranchId, Bus, BusId, Edge, Network, Node};
+
+    let mut network = Network::new();
+    let bus1 = network.graph.add_node(Node::Bus(Bus {
+        id: BusId::new(1),
+        name: "bus1".to_string(),
+        voltage_kv: 138.0,
+    }));
+    let bus2 = network.graph.add_node(Node::Bus(Bus {
+        id: BusId::new(2),
+        name: "bus2".to_string(),
+        voltage_kv: 138.0,
+    }));
+    network.graph.add_edge(
+        bus1,
+        bus2,
+        Edge::Branch(Branch {
+            id: BranchId::new(0),
+            name: "br1".to_string(),
+            from_bus: BusId::new(1),
+            to_bus: BusId::new(2),
+            resistance: 0.01,
+            reactance: 0.1,
+        }),
+    );
+
+    let result = validate_network_from_cim(&network);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_cim_validation_warnings() {
+    use crate::importers::validate_cim_with_warnings;
+    use gat_core::{Bus, BusId, Network, Node};
+
+    let mut network = Network::new();
+    let bus = Bus {
+        id: BusId::new(1),
+        name: "bus1".to_string(),
+        voltage_kv: 1500.0, // Unusual high voltage, should generate warning
+    };
+    network.graph.add_node(Node::Bus(bus));
+
+    let warnings = validate_cim_with_warnings(&network);
+    assert!(!warnings.is_empty());
+    assert!(warnings[0].issue.contains("Unusual voltage"));
+}
