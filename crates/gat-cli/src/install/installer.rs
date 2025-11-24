@@ -5,7 +5,6 @@ use crate::install::{
     GatDirs,
 };
 use anyhow::{anyhow, Result};
-use std::path::PathBuf;
 use std::process::Command;
 
 /// Install or upgrade a component
@@ -51,7 +50,7 @@ fn download_and_extract(url: &str, gat_dirs: &GatDirs, component: Component) -> 
 
     let tarball = tmpdir.join("component.tar.gz");
     let status = Command::new("curl")
-        .args(&["-fL", url, "-o"])
+        .args(["-fL", url, "-o"])
         .arg(&tarball)
         .status()?;
 
@@ -62,7 +61,7 @@ fn download_and_extract(url: &str, gat_dirs: &GatDirs, component: Component) -> 
 
     // Extract
     let extract_status = Command::new("tar")
-        .args(&["-xzf"])
+        .args(["-xzf"])
         .arg(&tarball)
         .arg("-C")
         .arg(&tmpdir)
@@ -112,16 +111,16 @@ fn build_from_source(component: Component, gat_dirs: &GatDirs) -> Result<()> {
 
     // Find the root directory (go up from current executable)
     let exe_path = std::env::current_exe()?;
-    let exe_dir = exe_path
+    let exe_parent = exe_path
         .parent()
-        .ok_or_else(|| anyhow!("Cannot determine executable directory"))?;
-    let root_dir = exe_dir
+        .ok_or_else(|| anyhow!("Cannot determine executable directory"))?
         .parent()
         .ok_or_else(|| anyhow!("Cannot determine root directory"))?;
+    let root_dir = exe_parent.to_path_buf();
 
     let status = Command::new("cargo")
-        .args(&["build", "-p", crate_name, "--release"])
-        .current_dir(root_dir)
+        .args(["build", "-p", crate_name, "--release"])
+        .current_dir(&root_dir)
         .status()?;
 
     if !status.success() {
