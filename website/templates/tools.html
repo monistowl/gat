@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} | {{ config.title }}{% endblock title %}
+{% block description %}{{ page.description }}{% endblock description %}
+
+{% block content %}
+<div class="relative z-10">
+  {% include "partials/header.html" %}
+
+  <div class="max-w-7xl mx-auto px-6 py-12">
+    <!-- Breadcrumbs -->
+    <div class="text-sm text-slate-500 mb-8">
+      <a href="{{ config.base_url }}/" class="hover:text-orange-500 transition-colors">Home</a>
+      <span class="mx-2">/</span>
+      <span class="text-white">{{ page.title }}</span>
+    </div>
+
+    <!-- Header -->
+    <div class="mb-16">
+      <h1 class="text-5xl font-bold text-white mb-4">{{ page.title }}</h1>
+      <p class="text-xl text-slate-400">{{ page.description }}</p>
+    </div>
+
+    <!-- Tools Grid -->
+    <div class="grid md:grid-cols-2 gap-8 mb-16">
+      <!-- Command Builder -->
+      <a href="{{ config.base_url }}/command-builder/" class="bg-slate-900/40 border border-slate-800 rounded-xl p-8 hover:border-orange-500/50 transition-all card-hover group">
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-14 h-14 bg-slate-950 rounded-lg flex items-center justify-center border border-slate-800 text-3xl">
+            🔧
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-white">Command Builder</h2>
+            <p class="text-sm text-slate-400">Interactive CLI generator</p>
+          </div>
+        </div>
+        <p class="text-slate-400 leading-relaxed mb-6">
+          Visually build GAT commands without memorizing syntax. Select analysis type, configure parameters, and copy the command with a single click. Perfect for learning the CLI or rapid prototyping.
+        </p>
+        <div class="flex items-center gap-2 text-orange-500 font-medium group-hover:gap-3 transition-all">
+          <span>Open Builder</span>
+          <span class="text-lg">→</span>
+        </div>
+      </a>
+
+      <!-- AI Lab -->
+      <a href="{{ config.base_url }}/ai-experiments/" class="bg-slate-900/40 border border-slate-800 rounded-xl p-8 hover:border-orange-500/50 transition-all card-hover group">
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-14 h-14 bg-slate-950 rounded-lg flex items-center justify-center border border-slate-800 text-3xl">
+            ✨
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-white">AI Lab</h2>
+            <p class="text-sm text-slate-400">LLM-powered analysis</p>
+          </div>
+        </div>
+        <p class="text-slate-400 leading-relaxed mb-6">
+          Use Claude or Gemini to analyze grid scenarios. Describe your analysis goals in natural language and get a complete GAT command. Great for exploration and discovering analysis patterns.
+        </p>
+        <div class="flex items-center gap-2 text-orange-500 font-medium group-hover:gap-3 transition-all">
+          <span>Launch Lab</span>
+          <span class="text-lg">→</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- Resources Section -->
+    <div class="mb-16">
+      <h2 class="text-3xl font-bold text-white mb-8">Resources</h2>
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Examples -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+          <div class="text-3xl mb-4">💡</div>
+          <h3 class="text-lg font-bold text-white mb-3">Examples</h3>
+          <p class="text-slate-400 text-sm mb-4">
+            Real-world examples demonstrating different analysis types and workflows.
+          </p>
+          <a href="{{ config.extra.repo_url }}/tree/main/examples" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
+            View Examples →
+          </a>
+        </div>
+
+        <!-- Datasets -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+          <div class="text-3xl mb-4">📊</div>
+          <h3 class="text-lg font-bold text-white mb-3">Sample Data</h3>
+          <p class="text-slate-400 text-sm mb-4">
+            Use built-in sample grids and test data to learn GAT without setting up your own data.
+          </p>
+          <a href="{{ config.base_url }}/docs/guide/datasets/" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
+            Learn More →
+          </a>
+        </div>
+
+        <!-- Benchmarks -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+          <div class="text-3xl mb-4">🏃</div>
+          <h3 class="text-lg font-bold text-white mb-3">Performance</h3>
+          <p class="text-slate-400 text-sm mb-4">
+            See how GAT compares to other tools on speed, accuracy, and feature coverage.
+          </p>
+          <a href="{{ config.base_url }}/docs/guide/benchmark/" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
+            View Benchmarks →
+          </a>
+        </div>
+
+        <!-- Documentation -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+          <div class="text-3xl mb-4">📖</div>
+          <h3 class="text-lg font-bold text-white mb-3">Documentation</h3>
+          <p class="text-slate-400 text-sm mb-4">
+            Complete guides for every GAT feature, from basics to advanced configuration.
+          </p>
+          <a href="{{ config.base_url }}/docs/" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
+            Read Docs →
+          </a>
+        </div>
+
+        <!-- API Reference -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+          <div class="text-3xl mb-4">⚙️</div>
+          <h3 class="text-lg font-bold text-white mb-3">MCP Server</h3>
+          <p class="text-slate-400 text-sm mb-4">
+            Integrate GAT as an AI tool. Full MCP server implementation for Claude and other agents.
+          </p>
+          <a href="{{ config.base_url }}/docs/guide/mcp-onboarding/" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
+            Setup Guide →
+          </a>
+        </div>
+
+        <!-- Community -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+          <div class="text-3xl mb-4">👥</div>
+          <h3 class="text-lg font-bold text-white mb-3">Community</h3>
+          <p class="text-slate-400 text-sm mb-4">
+            Join discussions, share your work, and contribute to GAT's development.
+          </p>
+          <a href="{{ config.extra.repo_url }}/discussions" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
+            Visit Community →
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Tips -->
+    <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-8">
+      <h2 class="text-2xl font-bold text-white mb-6">Quick Tips</h2>
+      <div class="grid md:grid-cols-2 gap-6 text-slate-300">
+        <div>
+          <h3 class="text-orange-500 font-bold mb-2">🚀 Getting Started?</h3>
+          <p class="text-sm">Start with the <a href="{{ config.base_url }}/docs/guide/quickstart/" class="text-orange-500 hover:underline">5-minute quickstart</a>, then use the <a href="{{ config.base_url }}/command-builder/" class="text-orange-500 hover:underline">Command Builder</a> to explore.</p>
+        </div>
+        <div>
+          <h3 class="text-orange-500 font-bold mb-2">🤖 Using with AI?</h3>
+          <p class="text-sm">Try the <a href="{{ config.base_url }}/ai-experiments/" class="text-orange-500 hover:underline">AI Lab</a> to generate commands, or setup the <a href="{{ config.base_url }}/docs/guide/mcp-onboarding/" class="text-orange-500 hover:underline">MCP server</a> for agent integration.</p>
+        </div>
+        <div>
+          <h3 class="text-orange-500 font-bold mb-2">🔍 Need a Reference?</h3>
+          <p class="text-sm">Check the <a href="{{ config.base_url }}/faq/" class="text-orange-500 hover:underline">FAQ</a> for common questions, or browse <a href="{{ config.extra.repo_url }}/tree/main/examples" class="text-orange-500 hover:underline">examples</a> on GitHub.</p>
+        </div>
+        <div>
+          <h3 class="text-orange-500 font-bold mb-2">📊 Loading Data?</h3>
+          <p class="text-sm">See the <a href="{{ config.base_url }}/docs/guide/datasets/" class="text-orange-500 hover:underline">datasets guide</a> for supported formats, or use <a href="{{ config.extra.repo_url }}/tree/main/examples" class="text-orange-500 hover:underline">sample data</a> to start quick.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include "partials/footer.html" %}
+</div>
+{% endblock content %}

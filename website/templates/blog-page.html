@@ -8,12 +8,13 @@
   {% include "partials/header.html" %}
 
   <div class="max-w-4xl mx-auto px-6 py-12">
-    <!-- Back Link -->
-    <div class="mb-8">
-      <a href="{{ config.base_url }}/blog/" class="inline-flex items-center gap-2 text-slate-400 hover:text-orange-500 transition-colors">
-        <span>←</span>
-        Back to Blog
-      </a>
+    <!-- Breadcrumbs -->
+    <div class="mb-8 text-sm text-slate-500">
+      <a href="{{ config.base_url }}/" class="hover:text-orange-500 transition-colors">Home</a>
+      <span class="mx-2">/</span>
+      <a href="{{ config.base_url }}/blog/" class="hover:text-orange-500 transition-colors">Blog</a>
+      <span class="mx-2">/</span>
+      <span class="text-white">{{ page.title }}</span>
     </div>
 
     <!-- Article -->
