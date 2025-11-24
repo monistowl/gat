@@ -41,11 +41,11 @@
         <a href="#features" class="hover:text-orange-500 transition-colors">Features</a>
         <a href="#use-cases" class="hover:text-orange-500 transition-colors">Use Cases</a>
         <a href="#docs" class="hover:text-orange-500 transition-colors">Docs</a>
-        <a href="/gat/blog/" class="hover:text-orange-500 transition-colors">Blog</a>
-        <a href="/gat/command-builder/" class="hover:text-orange-500 transition-colors flex items-center gap-1">
+        <a href="{{ config.base_url }}/blog/" class="hover:text-orange-500 transition-colors">Blog</a>
+        <a href="{{ config.base_url }}/command-builder/" class="hover:text-orange-500 transition-colors flex items-center gap-1">
           <span class="text-xs">🔧</span> Builder
         </a>
-        <a href="/gat/ai-experiments/" class="hover:text-orange-500 transition-colors flex items-center gap-1">
+        <a href="{{ config.base_url }}/ai-experiments/" class="hover:text-orange-500 transition-colors flex items-center gap-1">
           <span class="text-xs">✨</span> AI Lab
         </a>
         <a href="{{ config.extra.repo_url }}" class="hover:text-white transition-colors">GitHub</a>
@@ -329,7 +329,7 @@
       </div>
 
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <a href="/gat/about/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
+        <a href="{{ config.base_url }}/about/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-800 card-icon">
               📚
@@ -341,7 +341,7 @@
           </p>
         </a>
 
-        <a href="/gat/docs/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
+        <a href="{{ config.base_url }}/docs/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-800 card-icon">
               📖
@@ -365,7 +365,7 @@
           </p>
         </a>
 
-        <a href="/gat/contributing/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
+        <a href="{{ config.base_url }}/contributing/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-800 card-icon">
               🚀
@@ -412,7 +412,7 @@
         Join the researchers, startups, and operators replacing legacy toolchains with GAT.
       </p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-        <a href="/gat/docs/" class="bg-white text-slate-900 hover:bg-slate-200 px-8 py-3 rounded-lg font-bold transition-colors">
+        <a href="{{ config.base_url }}/docs/" class="bg-white text-slate-900 hover:bg-slate-200 px-8 py-3 rounded-lg font-bold transition-colors">
           Read the Docs
         </a>
         <a href="{{ config.extra.repo_url }}" class="bg-slate-800 text-white hover:bg-slate-700 border border-slate-700 px-8 py-3 rounded-lg font-medium transition-colors">
@@ -433,7 +433,7 @@
         <div>
           <h4 class="text-white font-bold mb-4">Resources</h4>
           <ul class="space-y-2 text-sm text-slate-500">
-            <li><a href="/gat/docs/" class="hover:text-orange-500 transition-colors">Documentation</a></li>
+            <li><a href="{{ config.base_url }}/docs/" class="hover:text-orange-500 transition-colors">Documentation</a></li>
             <li><a href="{{ config.extra.repo_url }}/tree/main/docs" class="hover:text-orange-500 transition-colors">API Reference</a></li>
             <li><a href="{{ config.extra.repo_url }}/tree/main/examples" class="hover:text-orange-500 transition-colors">Case Studies</a></li>
             <li><a href="{{ config.extra.repo_url }}/discussions" class="hover:text-orange-500 transition-colors">Community</a></li>
@@ -442,10 +442,10 @@
         <div>
           <h4 class="text-white font-bold mb-4">Project</h4>
           <ul class="space-y-2 text-sm text-slate-500">
-            <li><a href="/gat/about/" class="hover:text-orange-500 transition-colors">About</a></li>
-            <li><a href="/gat/contributing/" class="hover:text-orange-500 transition-colors">Contributing</a></li>
-            <li><a href="/gat/license/" class="hover:text-orange-500 transition-colors">License</a></li>
-            <li><a href="/gat/security/" class="hover:text-orange-500 transition-colors">Security</a></li>
+            <li><a href="{{ config.base_url }}/about/" class="hover:text-orange-500 transition-colors">About</a></li>
+            <li><a href="{{ config.base_url }}/contributing/" class="hover:text-orange-500 transition-colors">Contributing</a></li>
+            <li><a href="{{ config.base_url }}/license/" class="hover:text-orange-500 transition-colors">License</a></li>
+            <li><a href="{{ config.base_url }}/security/" class="hover:text-orange-500 transition-colors">Security</a></li>
           </ul>
         </div>
         <div>

@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container mx-auto px-6 py-12 max-w-7xl">
-  <a href="/" class="inline-block mb-8 text-orange-500 hover:text-orange-400 transition-colors">
+  <a href="{{ config.base_url }}/" class="inline-block mb-8 text-orange-500 hover:text-orange-400 transition-colors">
     ← Back to Homepage
   </a>
 
@@ -15,7 +15,7 @@
   <section class="mb-16">
     <h2 class="text-3xl font-bold text-white mb-6">Quick Links</h2>
     <div class="grid md:grid-cols-3 gap-6">
-      <a href="/docs/guide/overview/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all group">
+      <a href="{{ config.base_url }}/docs/guide/overview/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all group">
         <div class="flex items-center gap-3 mb-4">
           <div class="text-3xl">📋</div>
           <h3 class="text-lg font-bold text-white">Overview</h3>
@@ -45,27 +45,27 @@
   <section class="mb-16">
     <h2 class="text-3xl font-bold text-white mb-6">Analysis Guides</h2>
     <div class="grid md:grid-cols-3 gap-6">
-      <a href="/docs/guide/pf/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/pf/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🔌 Power Flow</h3>
         <p class="text-slate-400 text-sm">DC and AC power flow analysis</p>
       </a>
-      <a href="/docs/guide/opf/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/opf/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">⚙️ Optimal Power Flow</h3>
         <p class="text-slate-400 text-sm">Economic dispatch and optimization</p>
       </a>
-      <a href="/docs/guide/ts/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/ts/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">📈 Time Series</h3>
         <p class="text-slate-400 text-sm">Multi-period and forecasting workflows</p>
       </a>
-      <a href="/docs/guide/se/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/se/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🔍 State Estimation</h3>
         <p class="text-slate-400 text-sm">Observability and state estimation</p>
       </a>
-      <a href="/docs/guide/analytics/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/analytics/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">⚡ Reliability Metrics</h3>
         <p class="text-slate-400 text-sm">LOLE, EUE, and reliability analysis</p>
       </a>
-      <a href="/docs/guide/graph/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/graph/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🗺️ Graph Analysis</h3>
         <p class="text-slate-400 text-sm">Network topology and connectivity</p>
       </a>
@@ -76,15 +76,15 @@
   <section class="mb-16">
     <h2 class="text-3xl font-bold text-white mb-6">Domain-Specific Workflows</h2>
     <div class="grid md:grid-cols-3 gap-6">
-      <a href="/docs/guide/adms/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/adms/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🏢 ADMS Integration</h3>
         <p class="text-slate-400 text-sm">Advanced Distribution Management Systems</p>
       </a>
-      <a href="/docs/guide/derms/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/derms/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🔋 DERMS Workflows</h3>
         <p class="text-slate-400 text-sm">Distributed Energy Resource Management</p>
       </a>
-      <a href="/docs/guide/dist/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/dist/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">⚡ Distribution Analysis</h3>
         <p class="text-slate-400 text-sm">Distribution system workflows</p>
       </a>
@@ -95,27 +95,27 @@
   <section class="mb-16">
     <h2 class="text-3xl font-bold text-white mb-6">Integration & Development</h2>
     <div class="grid md:grid-cols-3 gap-6">
-      <a href="/docs/guide/mcp-onboarding/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/mcp-onboarding/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🤖 MCP Server Setup</h3>
         <p class="text-slate-400 text-sm">Model Context Protocol integration for AI agents</p>
       </a>
-      <a href="/docs/guide/datasets/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/datasets/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🗄️ Dataset Management</h3>
         <p class="text-slate-400 text-sm">Working with Arrow/Parquet datasets</p>
       </a>
-      <a href="/docs/guide/ci-cd/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/ci-cd/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🚀 CI/CD Workflows</h3>
         <p class="text-slate-400 text-sm">Release process and automation</p>
       </a>
-      <a href="/docs/guide/feature-matrix/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/feature-matrix/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🎯 Feature Matrix</h3>
         <p class="text-slate-400 text-sm">Complete feature comparison</p>
       </a>
-      <a href="/docs/guide/cli-architecture/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/cli-architecture/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">🏗️ CLI Architecture</h3>
         <p class="text-slate-400 text-sm">Understanding the CLI design</p>
       </a>
-      <a href="/docs/guide/scaling/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+      <a href="{{ config.base_url }}/docs/guide/scaling/" class="bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
         <h3 class="text-lg font-bold text-white mb-2">📈 Scaling Guide</h3>
         <p class="text-slate-400 text-sm">Performance and scaling best practices</p>
       </a>

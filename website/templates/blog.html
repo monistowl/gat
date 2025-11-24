@@ -9,16 +9,16 @@
   <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-8">
-        <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <a href="{{ config.base_url }}/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
             G
           </div>
           <span class="font-bold text-xl tracking-tight">GAT</span>
         </a>
-        <a href="/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
           Documentation
         </a>
-        <a href="/blog/" class="text-sm text-orange-500 font-medium">
+        <a href="{{ config.base_url }}/blog/" class="text-sm text-orange-500 font-medium">
           Blog
         </a>
       </div>
@@ -36,7 +36,7 @@
 
       <!-- RSS Link -->
       <div class="mt-6">
-        <a href="/gat/rss.xml" class="inline-flex items-center gap-2 text-orange-500 hover:text-orange-400 transition-colors">
+        <a href="{{ config.base_url }}/rss.xml" class="inline-flex items-center gap-2 text-orange-500 hover:text-orange-400 transition-colors">
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path d="M6.503 20.752c0 1.794-1.456 3.248-3.251 3.248-1.796 0-3.252-1.454-3.252-3.248 0-1.794 1.456-3.248 3.252-3.248 1.795.001 3.251 1.454 3.251 3.248zm-6.503-12.572v4.811c6.05.062 10.96 4.966 11.022 11.009h4.817c-.062-8.71-7.118-15.758-15.839-15.82zm0-3.368c10.58.046 19.152 8.594 19.183 19.188h4.817c-.03-13.231-10.755-23.954-24-24v4.812z"/>
           </svg>

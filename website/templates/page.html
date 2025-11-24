@@ -9,13 +9,13 @@
   <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-8">
-        <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <a href="{{ config.base_url }}/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
             G
           </div>
           <span class="font-bold text-xl tracking-tight">GAT</span>
         </a>
-        <a href="/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
           Documentation
         </a>
       </div>
@@ -31,7 +31,7 @@
       <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6">
         <h3 class="text-sm font-bold text-orange-500 uppercase tracking-wider mb-4">Navigation</h3>
         <nav class="space-y-2">
-          <a href="/docs/" class="block text-slate-400 hover:text-white transition-colors py-1">
+          <a href="{{ config.base_url }}/docs/" class="block text-slate-400 hover:text-white transition-colors py-1">
             ← Back to Docs
           </a>
           <div class="border-t border-slate-800 my-4"></div>
@@ -39,34 +39,34 @@
           <!-- Guide Section -->
           <div class="mb-4">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Analysis</div>
-            <a href="/docs/guide/pf/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Power Flow</a>
-            <a href="/docs/guide/opf/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Optimal Power Flow</a>
-            <a href="/docs/guide/ts/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Time Series</a>
-            <a href="/docs/guide/se/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">State Estimation</a>
-            <a href="/docs/guide/analytics/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Reliability</a>
-            <a href="/docs/guide/graph/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Graph Analysis</a>
+            <a href="{{ config.base_url }}/docs/guide/pf/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Power Flow</a>
+            <a href="{{ config.base_url }}/docs/guide/opf/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Optimal Power Flow</a>
+            <a href="{{ config.base_url }}/docs/guide/ts/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Time Series</a>
+            <a href="{{ config.base_url }}/docs/guide/se/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">State Estimation</a>
+            <a href="{{ config.base_url }}/docs/guide/analytics/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Reliability</a>
+            <a href="{{ config.base_url }}/docs/guide/graph/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Graph Analysis</a>
           </div>
 
           <div class="mb-4">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Domain</div>
-            <a href="/docs/guide/adms/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">ADMS</a>
-            <a href="/docs/guide/derms/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">DERMS</a>
-            <a href="/docs/guide/dist/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Distribution</a>
+            <a href="{{ config.base_url }}/docs/guide/adms/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">ADMS</a>
+            <a href="{{ config.base_url }}/docs/guide/derms/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">DERMS</a>
+            <a href="{{ config.base_url }}/docs/guide/dist/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Distribution</a>
           </div>
 
           <div class="mb-4">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Integration</div>
-            <a href="/docs/guide/mcp-onboarding/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">MCP Server</a>
-            <a href="/docs/guide/datasets/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Datasets</a>
-            <a href="/docs/guide/ci-cd/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">CI/CD</a>
-            <a href="/docs/guide/feature-matrix/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Features</a>
+            <a href="{{ config.base_url }}/docs/guide/mcp-onboarding/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">MCP Server</a>
+            <a href="{{ config.base_url }}/docs/guide/datasets/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Datasets</a>
+            <a href="{{ config.base_url }}/docs/guide/ci-cd/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">CI/CD</a>
+            <a href="{{ config.base_url }}/docs/guide/feature-matrix/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Features</a>
           </div>
 
           <div class="mb-4">
             <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Reference</div>
-            <a href="/docs/guide/cli-architecture/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">CLI Architecture</a>
-            <a href="/docs/guide/gat-tui/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">TUI Reference</a>
-            <a href="/docs/guide/scaling/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Scaling</a>
+            <a href="{{ config.base_url }}/docs/guide/cli-architecture/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">CLI Architecture</a>
+            <a href="{{ config.base_url }}/docs/guide/gat-tui/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">TUI Reference</a>
+            <a href="{{ config.base_url }}/docs/guide/scaling/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Scaling</a>
           </div>
         </nav>
 
@@ -84,9 +84,9 @@
       <article class="bg-slate-900/20 border border-slate-800 rounded-lg p-8 lg:p-12">
         <!-- Breadcrumbs -->
         <div class="text-sm text-slate-500 mb-6">
-          <a href="/" class="hover:text-orange-500 transition-colors">Home</a>
+          <a href="{{ config.base_url }}/" class="hover:text-orange-500 transition-colors">Home</a>
           <span class="mx-2">/</span>
-          <a href="/docs/" class="hover:text-orange-500 transition-colors">Docs</a>
+          <a href="{{ config.base_url }}/docs/" class="hover:text-orange-500 transition-colors">Docs</a>
           {% if page.ancestors %}
             {% for ancestor in page.ancestors %}
               {% set section = get_section(path=ancestor) %}
