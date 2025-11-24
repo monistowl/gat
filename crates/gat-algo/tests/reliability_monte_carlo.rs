@@ -1,4 +1,4 @@
-use gat_algo::{MonteCarlo, OutageScenario, OutageGenerator};
+use gat_algo::{MonteCarlo, OutageScenario, OutageGenerator, DeliverabilityScoreConfig, DeliverabilityScore, ReliabilityMetrics};
 use gat_core::{Bus, Branch, Gen, Load, Network, Node, Edge, BusId, GenId, LoadId, BranchId};
 
 fn create_simple_network() -> Network {
@@ -285,4 +285,160 @@ fn test_monte_carlo_multiple_networks() {
     assert_eq!(results.len(), 2);
     // network2 should have lower LOLE due to higher capacity
     assert!(results[1].lole <= results[0].lole);
+}
+
+#[test]
+fn test_deliverability_score_config_defaults() {
+    let config = DeliverabilityScoreConfig::new();
+    assert_eq!(config.weight_lole, 1.0);
+    assert_eq!(config.weight_voltage, 0.0);
+    assert_eq!(config.weight_thermal, 0.0);
+    assert_eq!(config.lole_max, 3.0);
+}
+
+#[test]
+fn test_deliverability_score_config_builder() {
+    let config = DeliverabilityScoreConfig::new()
+        .with_weight_lole(0.7)
+        .with_weight_voltage(0.2)
+        .with_weight_thermal(0.1)
+        .with_lole_max(5.0);
+
+    assert_eq!(config.weight_lole, 0.7);
+    assert_eq!(config.weight_voltage, 0.2);
+    assert_eq!(config.weight_thermal, 0.1);
+    assert_eq!(config.lole_max, 5.0);
+}
+
+#[test]
+fn test_deliverability_score_config_validate() {
+    let valid_config = DeliverabilityScoreConfig::new();
+    assert!(valid_config.validate().is_ok());
+
+    let invalid_zero_weights = DeliverabilityScoreConfig {
+        weight_lole: 0.0,
+        weight_voltage: 0.0,
+        weight_thermal: 0.0,
+        lole_max: 3.0,
+        max_violations: 10.0,
+        max_overloads: 5.0,
+    };
+    assert!(invalid_zero_weights.validate().is_err());
+
+    let invalid_zero_max = DeliverabilityScoreConfig {
+        weight_lole: 1.0,
+        weight_voltage: 0.0,
+        weight_thermal: 0.0,
+        lole_max: 0.0,
+        max_violations: 10.0,
+        max_overloads: 5.0,
+    };
+    assert!(invalid_zero_max.validate().is_err());
+}
+
+#[test]
+fn test_deliverability_score_perfect_reliability() {
+    let metrics = ReliabilityMetrics {
+        lole: 0.0,  // Perfect LOLE
+        eue: 0.0,
+        scenarios_analyzed: 1000,
+        scenarios_with_shortfall: 0,
+        average_shortfall: 0.0,
+    };
+
+    let config = DeliverabilityScoreConfig::new();
+    let score = DeliverabilityScore::from_metrics(metrics, &config).unwrap();
+
+    // Perfect reliability should give score close to 100
+    assert!(score.score > 95.0);
+    assert_eq!(score.status(), "Excellent");
+}
+
+#[test]
+fn test_deliverability_score_poor_reliability() {
+    let metrics = ReliabilityMetrics {
+        lole: 10.0,  // Much higher than LOLE_MAX (3.0)
+        eue: 50.0,
+        scenarios_analyzed: 1000,
+        scenarios_with_shortfall: 500,
+        average_shortfall: 5.0,
+    };
+
+    let config = DeliverabilityScoreConfig::new();
+    let score = DeliverabilityScore::from_metrics(metrics, &config).unwrap();
+
+    // Poor reliability should give score around 0
+    assert!(score.score < 50.0, "Score should be low for poor reliability");
+    assert!(score.score >= 0.0, "Score should be clamped to >= 0");
+}
+
+#[test]
+fn test_deliverability_score_clamps_to_range() {
+    // Create a scenario that would theoretically exceed 100
+    let metrics = ReliabilityMetrics {
+        lole: 100.0,  // Very high
+        eue: 500.0,
+        scenarios_analyzed: 1000,
+        scenarios_with_shortfall: 1000,
+        average_shortfall: 50.0,
+    };
+
+    let config = DeliverabilityScoreConfig::new();
+    let score = DeliverabilityScore::from_metrics(metrics, &config).unwrap();
+
+    // Score should be clamped to 0-100 range
+    assert!(score.score >= 0.0);
+    assert!(score.score <= 100.0);
+}
+
+#[test]
+fn test_deliverability_score_status_levels() {
+    let config = DeliverabilityScoreConfig::new();
+
+    let excellent = ReliabilityMetrics {
+        lole: 0.1,
+        eue: 0.5,
+        scenarios_analyzed: 1000,
+        scenarios_with_shortfall: 10,
+        average_shortfall: 0.05,
+    };
+    let score_excellent = DeliverabilityScore::from_metrics(excellent, &config).unwrap();
+    assert_eq!(score_excellent.status(), "Excellent");
+
+    let good = ReliabilityMetrics {
+        lole: 0.5,
+        eue: 2.5,
+        scenarios_analyzed: 1000,
+        scenarios_with_shortfall: 50,
+        average_shortfall: 0.05,
+    };
+    let score_good = DeliverabilityScore::from_metrics(good, &config).unwrap();
+    assert_eq!(score_good.status(), "Good");
+
+    let critical = ReliabilityMetrics {
+        lole: 50.0,
+        eue: 250.0,
+        scenarios_analyzed: 1000,
+        scenarios_with_shortfall: 1000,
+        average_shortfall: 25.0,
+    };
+    let score_critical = DeliverabilityScore::from_metrics(critical, &config).unwrap();
+    assert_eq!(score_critical.status(), "Critical");
+}
+
+#[test]
+fn test_deliverability_score_meets_threshold() {
+    let metrics = ReliabilityMetrics {
+        lole: 0.5,
+        eue: 2.5,
+        scenarios_analyzed: 1000,
+        scenarios_with_shortfall: 50,
+        average_shortfall: 0.05,
+    };
+
+    let config = DeliverabilityScoreConfig::new();
+    let score = DeliverabilityScore::from_metrics(metrics, &config).unwrap();
+
+    assert!(score.meets_threshold(80.0), "Good reliability should meet 80% threshold");
+    assert!(!score.meets_threshold(99.0), "Should not meet impossible threshold");
 }

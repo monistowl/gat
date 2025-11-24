@@ -244,3 +244,149 @@ impl Default for MonteCarlo {
         Self::new(1000)
     }
 }
+
+/// Deliverability Score configuration
+///
+/// Composite reliability metric combining multiple failure modes into a 0-100 score.
+/// Formula: DeliverabilityScore = 100 * [1 - w_lole * (LOLE/LOLE_max)
+///                                         - w_voltage * (violations/max_violations)
+///                                         - w_thermal * (overloads/max_overloads)]
+#[derive(Debug, Clone)]
+pub struct DeliverabilityScoreConfig {
+    /// Weight for LOLE component (0.0-1.0)
+    pub weight_lole: f64,
+    /// Weight for voltage violations component (0.0-1.0)
+    pub weight_voltage: f64,
+    /// Weight for thermal overloads component (0.0-1.0)
+    pub weight_thermal: f64,
+    /// Maximum acceptable LOLE (hours/year) for scoring
+    pub lole_max: f64,
+    /// Maximum acceptable voltage violations for scoring
+    pub max_violations: f64,
+    /// Maximum acceptable thermal overloads for scoring
+    pub max_overloads: f64,
+}
+
+impl DeliverabilityScoreConfig {
+    /// Create new configuration with default values
+    pub fn new() -> Self {
+        Self {
+            weight_lole: 1.0,
+            weight_voltage: 0.0,
+            weight_thermal: 0.0,
+            lole_max: 3.0,  // NERC benchmark: ~0.5-3 hrs/year
+            max_violations: 10.0,
+            max_overloads: 5.0,
+        }
+    }
+
+    /// Builder: Set LOLE weight
+    pub fn with_weight_lole(mut self, weight: f64) -> Self {
+        self.weight_lole = weight;
+        self
+    }
+
+    /// Builder: Set voltage violations weight
+    pub fn with_weight_voltage(mut self, weight: f64) -> Self {
+        self.weight_voltage = weight;
+        self
+    }
+
+    /// Builder: Set thermal overloads weight
+    pub fn with_weight_thermal(mut self, weight: f64) -> Self {
+        self.weight_thermal = weight;
+        self
+    }
+
+    /// Builder: Set maximum LOLE threshold
+    pub fn with_lole_max(mut self, lole_max: f64) -> Self {
+        self.lole_max = lole_max;
+        self
+    }
+
+    /// Validate that weights sum to something reasonable
+    pub fn validate(&self) -> Result<()> {
+        let total_weight = self.weight_lole + self.weight_voltage + self.weight_thermal;
+        if total_weight <= 0.0 {
+            return Err(anyhow!("Deliverability score: total weight must be > 0"));
+        }
+        if self.lole_max <= 0.0 {
+            return Err(anyhow!("Deliverability score: lole_max must be > 0"));
+        }
+        Ok(())
+    }
+}
+
+impl Default for DeliverabilityScoreConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Deliverability Score: composite reliability metric (0-100)
+#[derive(Debug, Clone)]
+pub struct DeliverabilityScore {
+    /// Score value 0-100 (higher = more reliable)
+    pub score: f64,
+    /// LOLE contribution to score reduction (0.0-1.0)
+    pub lole_factor: f64,
+    /// Voltage violations contribution to score reduction (0.0-1.0)
+    pub voltage_factor: f64,
+    /// Thermal overloads contribution to score reduction (0.0-1.0)
+    pub thermal_factor: f64,
+    /// Underlying reliability metrics
+    pub metrics: ReliabilityMetrics,
+}
+
+impl DeliverabilityScore {
+    /// Compute Deliverability Score from reliability metrics
+    ///
+    /// Currently only supports LOLE-based scoring (Phase 3.11).
+    /// Voltage violations and thermal overloads will be integrated in Task 13.
+    pub fn from_metrics(
+        metrics: ReliabilityMetrics,
+        config: &DeliverabilityScoreConfig,
+    ) -> Result<Self> {
+        config.validate()?;
+
+        // Normalized LOLE factor (0.0 = perfect, 1.0+ = exceeded max)
+        let lole_factor = (metrics.lole / config.lole_max).min(1.0);
+
+        // Voltage and thermal factors currently 0 (no OPF integration yet)
+        let voltage_factor = 0.0;
+        let thermal_factor = 0.0;
+
+        // Calculate weighted score reduction
+        let total_weight = config.weight_lole + config.weight_voltage + config.weight_thermal;
+        let weighted_reduction = (config.weight_lole * lole_factor
+            + config.weight_voltage * voltage_factor
+            + config.weight_thermal * thermal_factor)
+            / total_weight;
+
+        let score = 100.0 * (1.0 - weighted_reduction);
+
+        Ok(Self {
+            score: score.max(0.0).min(100.0), // Clamp to 0-100
+            lole_factor,
+            voltage_factor,
+            thermal_factor,
+            metrics,
+        })
+    }
+
+    /// Determine reliability status based on score
+    pub fn status(&self) -> &'static str {
+        match self.score {
+            90.0..=100.0 => "Excellent",
+            80.0..90.0 => "Good",
+            70.0..80.0 => "Fair",
+            60.0..70.0 => "Poor",
+            _ => "Critical",
+        }
+    }
+
+    /// Check if score meets minimum threshold
+    pub fn meets_threshold(&self, min_score: f64) -> bool {
+        self.score >= min_score
+    }
+}

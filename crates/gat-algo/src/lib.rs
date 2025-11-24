@@ -25,7 +25,10 @@ pub use featurize_kpi::*;
 pub use geo_join::*;
 pub use io::*;
 pub use power_flow::*;
-pub use reliability_monte_carlo::{MonteCarlo, ReliabilityMetrics, OutageScenario, OutageGenerator};
+pub use reliability_monte_carlo::{
+    MonteCarlo, ReliabilityMetrics, OutageScenario, OutageGenerator,
+    DeliverabilityScore, DeliverabilityScoreConfig,
+};
 
 pub fn run_algorithm() -> String {
     "algorithm result".to_string()
