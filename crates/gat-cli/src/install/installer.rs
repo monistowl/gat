@@ -5,6 +5,7 @@ use crate::install::{
     GatDirs,
 };
 use anyhow::{anyhow, Result};
+use std::path::PathBuf;
 use std::process::Command;
 
 /// Install or upgrade a component
@@ -41,6 +42,30 @@ pub fn install_component(component: Component) -> Result<()> {
     }
 }
 
+/// Find a binary by name in a directory, searching subdirectories if needed
+fn find_binary_in_dir(dir: &std::path::Path, binary_name: &str) -> Option<PathBuf> {
+    // Try direct path first
+    let direct = dir.join(binary_name);
+    if direct.exists() && direct.is_file() {
+        return Some(direct);
+    }
+
+    // Search in first-level subdirectories
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let candidate = path.join(binary_name);
+                if candidate.exists() && candidate.is_file() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Download and extract component binary
 fn download_and_extract(url: &str, gat_dirs: &GatDirs, component: Component) -> Result<()> {
     let tmpdir = std::env::temp_dir().join(format!("gat-install-{}", uuid::Uuid::new_v4()));
@@ -72,25 +97,51 @@ fn download_and_extract(url: &str, gat_dirs: &GatDirs, component: Component) -> 
         return Err(anyhow!("Failed to extract tarball"));
     }
 
-    // Move binary to ~/.gat/bin/
-    let binary_name = component.binary_name();
-    let src_binary = tmpdir.join(binary_name);
-    let dest_binary = gat_dirs.bin.join(binary_name);
+    // Extract to appropriate location based on component type
+    match component {
+        Component::Solvers => {
+            // Solvers are extracted to lib/solvers directory
+            let src_solvers = tmpdir.join("solvers");
+            if !src_solvers.exists() {
+                // Try searching in subdirectories
+                let found = std::fs::read_dir(&tmpdir)?
+                    .flatten()
+                    .find(|e| e.path().is_dir() && e.file_name() == "solvers");
 
-    if !src_binary.exists() {
-        std::fs::remove_dir_all(&tmpdir)?;
-        return Err(anyhow!(
-            "Binary not found in extracted archive: {}",
-            binary_name
-        ));
-    }
+                if found.is_none() {
+                    std::fs::remove_dir_all(&tmpdir)?;
+                    return Err(anyhow!("Solvers directory not found in extracted archive"));
+                }
+            }
 
-    std::fs::copy(&src_binary, &dest_binary)?;
+            let dest_solvers = gat_dirs.lib.join("solvers");
+            std::fs::create_dir_all(&gat_dirs.lib)?;
+            // Remove existing solvers directory if it exists
+            let _ = std::fs::remove_dir_all(&dest_solvers);
+            std::fs::rename(src_solvers, dest_solvers)?;
+        }
+        _ => {
+            // TUI and GUI are binaries extracted to bin directory
+            let binary_name = component.binary_name();
+            let dest_binary = gat_dirs.bin.join(binary_name);
 
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&dest_binary, std::fs::Permissions::from_mode(0o755))?;
+            // Try direct path first
+            let mut src_binary = tmpdir.join(binary_name);
+            if !src_binary.exists() {
+                // Search in subdirectories
+                src_binary = find_binary_in_dir(&tmpdir, binary_name).ok_or_else(|| {
+                    anyhow!("Binary not found in extracted archive: {}", binary_name)
+                })?;
+            }
+
+            std::fs::copy(&src_binary, &dest_binary)?;
+
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&dest_binary, std::fs::Permissions::from_mode(0o755))?;
+            }
+        }
     }
 
     // Cleanup
@@ -101,12 +152,19 @@ fn download_and_extract(url: &str, gat_dirs: &GatDirs, component: Component) -> 
 
 /// Fallback: build component from source
 fn build_from_source(component: Component, gat_dirs: &GatDirs) -> Result<()> {
+    // Solvers cannot be built from source - they must be pre-built binaries
+    if matches!(component, Component::Solvers) {
+        return Err(anyhow!(
+            "Solvers must be installed via binary download - source build not supported"
+        ));
+    }
+
     println!("Building {} from source...", component);
 
     let crate_name = match component {
         Component::Tui => "gat-tui",
         Component::Gui => "gat-gui",
-        Component::Solvers => "gat-algo", // Solvers are part of gat-algo
+        Component::Solvers => unreachable!(),
     };
 
     // Find the root directory (go up from current executable)

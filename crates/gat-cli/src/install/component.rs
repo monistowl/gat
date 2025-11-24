@@ -62,7 +62,7 @@ impl Component {
     }
 
     /// Parse a component from a string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "gat-tui" => Some(Component::Tui),
             "gat-gui" => Some(Component::Gui),
@@ -106,11 +106,11 @@ mod tests {
     }
 
     #[test]
-    fn test_component_from_str() {
-        assert_eq!(Component::from_str("gat-tui"), Some(Component::Tui));
-        assert_eq!(Component::from_str("gat-gui"), Some(Component::Gui));
-        assert_eq!(Component::from_str("solvers"), Some(Component::Solvers));
-        assert_eq!(Component::from_str("invalid"), None);
+    fn test_component_parse() {
+        assert_eq!(Component::parse("gat-tui"), Some(Component::Tui));
+        assert_eq!(Component::parse("gat-gui"), Some(Component::Gui));
+        assert_eq!(Component::parse("solvers"), Some(Component::Solvers));
+        assert_eq!(Component::parse("invalid"), None);
     }
 
     #[test]
