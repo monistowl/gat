@@ -1,0 +1,13 @@
+# GAT GUI Configuration
+# Location: ~/.gat/config/gui.toml
+
+# Display settings
+[display]
+theme = "light"
+window_width = 1400
+window_height = 900
+
+# Features
+[features]
+enable_analytics = true
+enable_export = true

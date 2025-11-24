@@ -1,0 +1,22 @@
+# GAT Configuration
+# Location: ~/.gat/config/gat.toml
+
+# Data directories
+[data]
+# Cache grid models here
+grid_cache = "~/.gat/cache/grids"
+# Store results here
+results_dir = "~/.gat/cache/results"
+
+# Solver preferences
+[solvers]
+# Default solver: cbc, highs, or custom
+default = "cbc"
+# CBC binary path (relative to ~/.gat/lib/solvers)
+cbc_path = "cbc"
+# HIGHS binary path
+highs_path = "highs"
+
+# Logging
+[logging]
+level = "info"
