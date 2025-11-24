@@ -10,6 +10,7 @@ pub mod featurize_kpi;
 pub mod geo_join;
 pub mod io;
 pub mod power_flow;
+pub mod reliability_monte_carlo;
 pub mod test_utils;
 
 pub use ac_opf::{AcOpfSolver, AcOpfSolution, AcOpfError};
@@ -24,6 +25,7 @@ pub use featurize_kpi::*;
 pub use geo_join::*;
 pub use io::*;
 pub use power_flow::*;
+pub use reliability_monte_carlo::{MonteCarlo, ReliabilityMetrics, OutageScenario, OutageGenerator};
 
 pub fn run_algorithm() -> String {
     "algorithm result".to_string()
