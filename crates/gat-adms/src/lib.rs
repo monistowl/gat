@@ -9,6 +9,11 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::fs::{self, File};
 use std::path::Path;
 
+pub mod reliability_integration;
+pub use reliability_integration::{
+    FlisrRestoration, ReliabilityAwareVvo, MaintenanceSchedule, ReliabilityOrchestrator,
+};
+
 /// Reliability element metadata for distribution grid components (branches, transformers, switches).
 ///
 /// **Reliability Data:**
