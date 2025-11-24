@@ -67,7 +67,7 @@ async function loadSearchIndex() {
   if (searchIndex) return;
 
   try {
-    const response = await fetch('/gat/search_index.en.json');
+    const response = await fetch('{{ config.base_url }}/search_index.en.json');
     const data = await response.json();
     searchData = data;
 
