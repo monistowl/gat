@@ -21,3 +21,6 @@ PHASE_*.md
 *_PLAN.md
 *_ROADMAP.md
 docs/plans/
+
+# Git worktrees (isolated development workspaces)
+.worktrees/
