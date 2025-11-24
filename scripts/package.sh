@@ -38,7 +38,7 @@ case "$VARIANT" in
     BUILD_FLAGS="--no-default-features --features minimal-io"
     ;;
   analyst)
-    BUILD_FLAGS="--no-default-features --features minimal-io,adms,derms,dist,analytics,featurize"
+    BUILD_FLAGS="--no-default-features --features minimal-io,viz,all-backends"
     ;;
   full)
     BUILD_FLAGS="--all-features"
