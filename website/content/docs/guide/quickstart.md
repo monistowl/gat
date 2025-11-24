@@ -270,7 +270,7 @@ cd gat
 ✅ Examined results in Parquet format
 ✅ Understood basic power systems concepts
 
-You're ready to explore deeper! Pick a topic from [Next Steps](#next-steps) or check the full [Documentation](/docs/).
+You're ready to explore deeper! Pick a topic from [Next Steps](#6-next-steps) or check the full [Documentation](/docs/).
 
 ## Get Help
 
