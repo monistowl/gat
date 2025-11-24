@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} | {{ config.title }}{% endblock title %}
+{% block description %}{{ page.description }}{% endblock description %}
+
+{% block extra_head %}
+<script>
+const COMMANDS = {
+  pf_dc: {
+    name: "DC Power Flow",
+    icon: "⚡",
+    description: "Fast linearized power flow analysis",
+    template: "gat pf dc",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow", help: "Arrow/Parquet file with network data" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "flows.parquet", help: "Where to save results" },
+      { id: "solver", label: "Solver", type: "select", flag: "--solver", options: ["gauss", "faer"], help: "Linear solver backend" },
+      { id: "threads", label: "Threads", type: "number", flag: "--threads", help: "Number of parallel threads (auto by default)" }
+    ]
+  },
+  pf_ac: {
+    name: "AC Power Flow",
+    icon: "⚡",
+    description: "Full nonlinear AC power flow with Newton-Raphson",
+    template: "gat pf ac",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "flows.parquet" },
+      { id: "tol", label: "Tolerance", type: "number", flag: "--tol", default: "1e-6", help: "Convergence tolerance" },
+      { id: "max-iter", label: "Max Iterations", type: "number", flag: "--max-iter", default: "20", help: "Maximum Newton iterations" },
+      { id: "solver", label: "Solver", type: "select", flag: "--solver", options: ["gauss", "faer"] }
+    ]
+  },
+  opf_dc: {
+    name: "DC Optimal Power Flow",
+    icon: "🎯",
+    description: "Economic dispatch with linearized power flow",
+    template: "gat opf dc",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "cost", label: "Cost File", type: "text", required: true, flag: "--cost", default: "costs.csv", help: "CSV with gen_id,cost_per_mw" },
+      { id: "limits", label: "Limits File", type: "text", flag: "--limits", default: "limits.csv", help: "CSV with gen_id,p_min,p_max" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "dispatch.parquet" },
+      { id: "solver", label: "Solver", type: "select", flag: "--solver", options: ["clarabel", "highs", "cbc"] }
+    ]
+  },
+  opf_ac: {
+    name: "AC Optimal Power Flow",
+    icon: "🎯",
+    description: "Full AC OPF with reactive power optimization",
+    template: "gat opf ac",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "cost", label: "Cost File", type: "text", required: true, flag: "--cost", default: "costs.csv" },
+      { id: "limits", label: "Limits File", type: "text", flag: "--limits", default: "limits.csv" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "dispatch.parquet" },
+      { id: "tol", label: "Tolerance", type: "number", flag: "--tol", default: "1e-6" },
+      { id: "max-iter", label: "Max Iterations", type: "number", flag: "--max-iter", default: "20" }
+    ]
+  },
+  contingency: {
+    name: "N-1 Contingency Analysis",
+    icon: "🔍",
+    description: "Screen system for reliability violations",
+    template: "gat contingency n1",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "violations.parquet" },
+      { id: "parallel", label: "Parallel Execution", type: "checkbox", flag: "--parallel", help: "Run contingencies in parallel" },
+      { id: "limit-violations", label: "Violation Threshold", type: "number", flag: "--limit-violations", default: "0.95", help: "Flag violations above this p.u." }
+    ]
+  },
+  ts_resample: {
+    name: "Time Series Resampling",
+    icon: "📈",
+    description: "Resample time series data to different frequency",
+    template: "gat ts resample",
+    params: [
+      { id: "input", label: "Input Time Series", type: "text", required: true, default: "timeseries.parquet" },
+      { id: "freq", label: "Frequency", type: "select", required: true, flag: "--freq", options: ["1min", "5min", "15min", "1h", "1d"], help: "Target sampling frequency" },
+      { id: "agg", label: "Aggregation", type: "select", required: true, flag: "--agg", options: ["mean", "sum", "min", "max", "first", "last"] },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "resampled.parquet" }
+    ]
+  },
+  batch_pf: {
+    name: "Batch Power Flow",
+    icon: "🔄",
+    description: "Run power flow on multiple scenarios",
+    template: "gat batch pf",
+    params: [
+      { id: "manifest", label: "Manifest File", type: "text", required: true, flag: "--manifest", default: "scenarios.json", help: "JSON with scenario list" },
+      { id: "out", label: "Output Directory", type: "text", required: true, flag: "--out", default: "results/" },
+      { id: "parallel", label: "Parallel Jobs", type: "number", flag: "--parallel", default: "4", help: "Number of concurrent scenarios" }
+    ]
+  },
+  derms_aggregate: {
+    name: "DER Aggregation",
+    icon: "🔋",
+    description: "Aggregate distributed energy resources",
+    template: "gat derms aggregate",
+    params: [
+      { id: "input", label: "DER Data File", type: "text", required: true, default: "ders.parquet" },
+      { id: "method", label: "Method", type: "select", required: true, flag: "--method", options: ["envelope", "centroid"], help: "Aggregation methodology" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "aggregated.parquet" }
+    ]
+  }
+};
+
+function buildCommand(cmdKey) {
+  const cmd = COMMANDS[cmdKey];
+  let parts = [cmd.template];
+
+  cmd.params.forEach(param => {
+    const elem = document.getElementById(`param-${param.id}`);
+    if (!elem) return;
+
+    let value = null;
+
+    if (param.type === 'checkbox') {
+      if (elem.checked && param.flag) {
+        parts.push(param.flag);
+      }
+    } else {
+      value = elem.value.trim();
+
+      if (value) {
+        if (param.flag) {
+          parts.push(`${param.flag} ${value}`);
+        } else {
+          // Positional argument
+          parts.push(value);
+        }
+      }
+    }
+  });
+
+  return parts.join(' ');
+}
+
+function copyCommand() {
+  const command = document.getElementById('commandPreview').textContent;
+  navigator.clipboard.writeText(command);
+
+  const btn = document.getElementById('copyBtn');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '✅ Copied!';
+  setTimeout(() => {
+    btn.innerHTML = originalText;
+  }, 2000);
+}
+</script>
+{% endblock extra_head %}
+
+{% block content %}
+<div class="relative z-10">
+  <!-- Navigation Bar -->
+  <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-8">
+        <a href="/gat/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
+            G
+          </div>
+          <span class="font-bold text-xl tracking-tight">GAT</span>
+        </a>
+        <a href="/gat/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+          Documentation
+        </a>
+        <a href="/gat/blog/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+          Blog
+        </a>
+        <a href="/gat/ai-experiments/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+          AI Lab
+        </a>
+        <a href="/gat/command-builder/" class="text-sm text-orange-500 font-medium">
+          Command Builder
+        </a>
+      </div>
+      <a href="{{ config.extra.repo_url }}" class="text-sm text-slate-400 hover:text-white transition-colors">
+        GitHub
+      </a>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto px-6 py-12">
+    <!-- Header -->
+    <div class="mb-12">
+      {{ page.content | safe }}
+    </div>
+
+    <!-- Command Type Selection -->
+    <div class="mb-12">
+      <h2 class="text-2xl font-bold text-white mb-6">Select Command Type</h2>
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <button onclick="loadCommand('pf_dc')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
+          <div class="text-3xl mb-3">⚡</div>
+          <h3 class="text-lg font-bold text-white mb-1">DC Power Flow</h3>
+          <p class="text-slate-400 text-sm">Fast linearized analysis</p>
+        </button>
+
+        <button onclick="loadCommand('pf_ac')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
+          <div class="text-3xl mb-3">⚡</div>
+          <h3 class="text-lg font-bold text-white mb-1">AC Power Flow</h3>
+          <p class="text-slate-400 text-sm">Full nonlinear AC</p>
+        </button>
+
+        <button onclick="loadCommand('opf_dc')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
+          <div class="text-3xl mb-3">🎯</div>
+          <h3 class="text-lg font-bold text-white mb-1">DC OPF</h3>
+          <p class="text-slate-400 text-sm">Economic dispatch</p>
+        </button>
+
+        <button onclick="loadCommand('opf_ac')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
+          <div class="text-3xl mb-3">🎯</div>
+          <h3 class="text-lg font-bold text-white mb-1">AC OPF</h3>
+          <p class="text-slate-400 text-sm">Full AC optimization</p>
+        </button>
+
+        <button onclick="loadCommand('contingency')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
+          <div class="text-3xl mb-3">🔍</div>
+          <h3 class="text-lg font-bold text-white mb-1">N-1 Contingency</h3>
+          <p class="text-slate-400 text-sm">Reliability screening</p>
+        </button>
+
+        <button onclick="loadCommand('ts_resample')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
+          <div class="text-3xl mb-3">📈</div>
+          <h3 class="text-lg font-bold text-white mb-1">Time Series</h3>
+          <p class="text-slate-400 text-sm">Resample data</p>
+        </button>
+
+        <button onclick="loadCommand('batch_pf')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
+          <div class="text-3xl mb-3">🔄</div>
+          <h3 class="text-lg font-bold text-white mb-1">Batch Analysis</h3>
+          <p class="text-slate-400 text-sm">Multiple scenarios</p>
+        </button>
+
+        <button onclick="loadCommand('derms_aggregate')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
+          <div class="text-3xl mb-3">🔋</div>
+          <h3 class="text-lg font-bold text-white mb-1">DER Analysis</h3>
+          <p class="text-slate-400 text-sm">Aggregate resources</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- Command Builder Interface -->
+    <div id="builderInterface" class="hidden">
+      <div class="grid lg:grid-cols-2 gap-8">
+        <!-- Form Panel -->
+        <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <div id="cmdIcon" class="text-4xl"></div>
+            <div>
+              <h2 id="cmdName" class="text-2xl font-bold text-white"></h2>
+              <p id="cmdDescription" class="text-slate-400 text-sm"></p>
+            </div>
+          </div>
+
+          <div id="paramsForm" class="space-y-4"></div>
+        </div>
+
+        <!-- Preview Panel -->
+        <div class="space-y-6">
+          <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-8 sticky top-24">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-white">Command Preview</h3>
+              <button
+                id="copyBtn"
+                onclick="copyCommand()"
+                class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors text-sm"
+              >
+                📋 Copy to Clipboard
+              </button>
+            </div>
+
+            <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto"><code id="commandPreview" class="text-sm text-green-400 font-mono"></code></pre>
+
+            <div class="mt-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+              <div class="text-sm text-slate-300 space-y-2">
+                <p class="font-medium text-white">💡 Next Steps:</p>
+                <ol class="list-decimal list-inside space-y-1 text-slate-400">
+                  <li>Copy the command above</li>
+                  <li>Prepare your input files</li>
+                  <li>Run in your terminal</li>
+                  <li>Check output files</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentCommand = null;
+
+function loadCommand(cmdKey) {
+  currentCommand = cmdKey;
+  const cmd = COMMANDS[cmdKey];
+
+  document.getElementById('cmdIcon').textContent = cmd.icon;
+  document.getElementById('cmdName').textContent = cmd.name;
+  document.getElementById('cmdDescription').textContent = cmd.description;
+
+  // Build form
+  const form = document.getElementById('paramsForm');
+  form.innerHTML = '';
+
+  cmd.params.forEach(param => {
+    const div = document.createElement('div');
+
+    const label = document.createElement('label');
+    label.className = 'block text-sm font-medium text-slate-300 mb-2';
+    label.textContent = param.label;
+    if (param.required) {
+      const req = document.createElement('span');
+      req.className = 'text-orange-500';
+      req.textContent = ' *';
+      label.appendChild(req);
+    }
+    div.appendChild(label);
+
+    if (param.type === 'text' || param.type === 'number') {
+      const input = document.createElement('input');
+      input.type = param.type;
+      input.id = `param-${param.id}`;
+      input.className = 'w-full bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none';
+      if (param.default) input.value = param.default;
+      input.oninput = updatePreview;
+      div.appendChild(input);
+    } else if (param.type === 'select') {
+      const select = document.createElement('select');
+      select.id = `param-${param.id}`;
+      select.className = 'w-full bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none';
+
+      const emptyOption = document.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = '-- Select --';
+      select.appendChild(emptyOption);
+
+      param.options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        if (param.default === opt) option.selected = true;
+        select.appendChild(option);
+      });
+
+      select.onchange = updatePreview;
+      div.appendChild(select);
+    } else if (param.type === 'checkbox') {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `param-${param.id}`;
+      checkbox.className = 'mr-2';
+      checkbox.onchange = updatePreview;
+
+      const checkLabel = document.createElement('label');
+      checkLabel.className = 'flex items-center text-slate-300 cursor-pointer';
+      checkLabel.appendChild(checkbox);
+      checkLabel.appendChild(document.createTextNode(param.label));
+
+      div.innerHTML = '';
+      div.appendChild(checkLabel);
+    }
+
+    if (param.help) {
+      const help = document.createElement('p');
+      help.className = 'text-xs text-slate-500 mt-1';
+      help.textContent = param.help;
+      div.appendChild(help);
+    }
+
+    form.appendChild(div);
+  });
+
+  document.getElementById('builderInterface').classList.remove('hidden');
+  updatePreview();
+
+  // Scroll to builder
+  document.getElementById('builderInterface').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updatePreview() {
+  if (!currentCommand) return;
+  const command = buildCommand(currentCommand);
+  document.getElementById('commandPreview').textContent = command;
+}
+</script>
+{% endblock content %}
