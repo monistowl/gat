@@ -48,6 +48,50 @@
     <!-- Blog Posts -->
     <div class="space-y-8">
       {% for page in section.pages %}
+      {% if page.extra.external_url %}
+      <!-- External Article Card -->
+      <article class="bg-gradient-to-br from-slate-900/60 to-slate-900/40 border-2 border-slate-700 rounded-lg p-8 hover:border-orange-500/50 transition-all relative overflow-hidden">
+        <!-- External indicator badge -->
+        <div class="absolute top-4 right-4">
+          <div class="flex items-center gap-2 bg-slate-800/80 backdrop-blur px-3 py-1 rounded-full border border-slate-600">
+            <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+            <span class="text-xs text-slate-400 uppercase tracking-wider font-medium">{{ page.extra.source_type | default(value="External") }}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 text-sm text-slate-500 mb-3">
+          <time datetime="{{ page.date }}">{{ page.date | date(format="%B %d, %Y") }}</time>
+          {% if page.extra.source %}
+          <span>•</span>
+          <span class="text-slate-400">{{ page.extra.source }}</span>
+          {% endif %}
+          {% if page.taxonomies.tags %}
+          <span>•</span>
+          <div class="flex gap-2">
+            {% for tag in page.taxonomies.tags %}
+            <span class="text-orange-500">#{{ tag }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <h2 class="text-2xl font-bold text-white mb-3 pr-24">
+          {{ page.title }}
+        </h2>
+
+        <p class="text-slate-400 mb-6">{{ page.description }}</p>
+
+        <a href="{{ page.extra.external_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-orange-600 text-white rounded-lg transition-colors">
+          Read on {{ page.extra.source | default(value="source") }}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+        </a>
+      </article>
+      {% else %}
+      <!-- Regular Blog Post Card -->
       <article class="bg-slate-900/40 border border-slate-800 rounded-lg p-8 hover:border-orange-500/50 transition-all">
         <div class="flex items-center gap-3 text-sm text-slate-500 mb-3">
           <time datetime="{{ page.date }}">{{ page.date | date(format="%B %d, %Y") }}</time>
@@ -74,6 +118,7 @@
           <span>→</span>
         </a>
       </article>
+      {% endif %}
       {% endfor %}
     </div>
 

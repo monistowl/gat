@@ -14,7 +14,7 @@ USAGE
 }
 
 PREFIX="${GAT_PREFIX:-$HOME/.local}"
-VARIANT="${GAT_VARIANT:-headless}"
+VARIANT="${GAT_VARIANT:-full}"
 VERSION="${GAT_VERSION:-latest}"
 RELEASE_BASE="${GAT_RELEASE_BASE:-https://github.com/monistowl/gat/releases/download}"
 GITHUB_LATEST_API="${GAT_GITHUB_LATEST_API:-https://api.github.com/repos/monistowl/gat/releases/latest}"

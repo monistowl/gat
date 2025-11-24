@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        variant: [headless, analyst, full]
+        variant: [headless, full]
     steps:
       - uses: actions/checkout@v4
 
@@ -96,22 +96,23 @@ jobs:
           ### Quick Install (Linux/macOS)
 
           \`\`\`bash
-          # Headless (minimal dependencies)
-          curl -fsSL https://github.com/monistowl/gat/releases/download/${VERSION}/gat-${CLEAN_VERSION}-linux-x86_64-headless.tar.gz | tar xz
-          cd gat-${CLEAN_VERSION}-linux-x86_64-headless
+          # Recommended: Full variant (CLI + TUI + all features)
+          curl -fsSL https://github.com/monistowl/gat/releases/download/${VERSION}/gat-${CLEAN_VERSION}-linux-x86_64-full.tar.gz | tar xz
+          cd gat-${CLEAN_VERSION}-linux-x86_64-full
           ./install.sh
 
           # Or for macOS
-          curl -fsSL https://github.com/monistowl/gat/releases/download/${VERSION}/gat-${CLEAN_VERSION}-darwin-x86_64-headless.tar.gz | tar xz
-          cd gat-${CLEAN_VERSION}-darwin-x86_64-headless
+          curl -fsSL https://github.com/monistowl/gat/releases/download/${VERSION}/gat-${CLEAN_VERSION}-darwin-x86_64-full.tar.gz | tar xz
+          cd gat-${CLEAN_VERSION}-darwin-x86_64-full
           ./install.sh
           \`\`\`
 
+          **Note:** Binaries are small (~few MB), so we ship the complete toolkit by default.
+
           ### Available Variants
 
-          - **headless** - Core CLI functionality, minimal dependencies
-          - **analyst** - Includes ADMS, DERMS, analytics, and feature engineering
-          - **full** - All features including GUI and TUI (when available)
+          - **full** (recommended) - All features: CLI, TUI, ADMS, DERMS, analytics
+          - **headless** - Core CLI only, minimal dependencies for embedded systems
 
           ## What's Changed
 

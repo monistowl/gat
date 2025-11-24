@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} | {{ config.title }}{% endblock title %}
+{% block description %}{{ page.description }}{% endblock description %}
+
+{% block extra_head %}
+<script>
+const GAT_PROMPTS = {
+  powerflow: {
+    title: "Power Flow Analysis",
+    icon: "⚡",
+    description: "Generate scripts for DC/AC power flow analysis",
+    prompt: `You are an expert in power systems analysis using the GAT (Grid Analysis Toolkit) command-line tool.
+
+## GAT Power Flow Commands
+
+DC Power Flow:
+\`\`\`bash
+gat pf dc <grid.arrow> --out flows.parquet [--solver gauss|faer] [--threads N]
+\`\`\`
+
+AC Power Flow:
+\`\`\`bash
+gat pf ac <grid.arrow> --out flows.parquet [--tol 1e-6] [--max-iter 20]
+\`\`\`
+
+Input format: Arrow/Parquet files with columns: bus_id, p_mw, q_mvar, v_pu, etc.
+Output format: Parquet with branch flows, bus voltages, losses
+
+## User Request
+Generate a complete bash script that:
+{USER_REQUEST}
+
+Requirements:
+- Use proper error handling
+- Include comments explaining each step
+- Output results to well-named files
+- Show how to inspect results with basic tools (head, wc -l, etc.)
+- Keep it simple and runnable`
+  },
+  opf: {
+    title: "Optimal Power Flow",
+    icon: "🎯",
+    description: "Generate OPF optimization scripts with costs and constraints",
+    prompt: `You are an expert in power systems optimization using GAT (Grid Analysis Toolkit).
+
+## GAT OPF Commands
+
+DC OPF:
+\`\`\`bash
+gat opf dc <grid.arrow> --cost costs.csv --limits limits.csv --out dispatch.parquet
+\`\`\`
+
+AC OPF:
+\`\`\`bash
+gat opf ac <grid.arrow> --cost costs.csv --limits limits.csv --out dispatch.parquet --tol 1e-6
+\`\`\`
+
+Cost file format (CSV): gen_id,cost_per_mw,startup_cost
+Limits file format (CSV): gen_id,p_min,p_max,q_min,q_max
+
+## User Request
+Generate a complete workflow script that:
+{USER_REQUEST}
+
+Include:
+- Data preparation steps
+- OPF execution with appropriate flags
+- Post-processing to extract key results (total cost, generator dispatch, congestion)
+- Error handling for infeasible solutions`
+  },
+  contingency: {
+    title: "N-1 Contingency Analysis",
+    icon: "🔍",
+    description: "Generate scripts for reliability and contingency screening",
+    prompt: `You are an expert in power systems reliability analysis using GAT.
+
+## GAT Contingency Commands
+
+N-1 Screening:
+\`\`\`bash
+gat contingency n1 <grid.arrow> --out violations.parquet [--parallel] [--limit-violations 0.95]
+\`\`\`
+
+Reliability Metrics:
+\`\`\`bash
+gat reliability lole <scenarios.arrow> --out metrics.parquet
+gat reliability eue <scenarios.arrow> --demand demand.csv --out eue.parquet
+\`\`\`
+
+Output includes: violated branches, overloads, voltage violations
+
+## User Request
+Create a script that:
+{USER_REQUEST}
+
+Ensure the script:
+- Runs N-1 analysis efficiently
+- Filters and reports critical violations
+- Summarizes reliability metrics
+- Outputs results suitable for downstream analysis`
+  },
+  timeseries: {
+    title: "Time Series Processing",
+    icon: "📈",
+    description: "Generate scripts for load forecasting and temporal analysis",
+    prompt: `You are an expert in time-series analysis for power systems using GAT.
+
+## GAT Time Series Commands
+
+Resampling:
+\`\`\`bash
+gat ts resample <timeseries.parquet> --freq 15min --agg mean --out resampled.parquet
+\`\`\`
+
+Joining:
+\`\`\`bash
+gat ts join <left.parquet> <right.parquet> --on timestamp --out joined.parquet
+\`\`\`
+
+Forecasting:
+\`\`\`bash
+gat ts forecast <historical.parquet> --horizon 24h --model arima --out forecast.parquet
+\`\`\`
+
+## User Request
+Build a time-series analysis pipeline that:
+{USER_REQUEST}
+
+The script should:
+- Handle missing data appropriately
+- Apply correct resampling/aggregation
+- Generate forecasts if needed
+- Export results in a useful format`
+  },
+  batch: {
+    title: "Batch Scenario Analysis",
+    icon: "🔄",
+    description: "Generate scripts for running multiple scenarios in parallel",
+    prompt: `You are an expert in batch processing for power systems analysis using GAT.
+
+## GAT Batch Commands
+
+Batch Power Flow:
+\`\`\`bash
+gat batch pf --manifest scenarios.json --out results/ [--parallel 4]
+\`\`\`
+
+Batch OPF:
+\`\`\`bash
+gat batch opf --manifest scenarios.json --cost-dir costs/ --out results/
+\`\`\`
+
+Manifest format (JSON):
+\`\`\`json
+{
+  "scenarios": [
+    {"name": "base", "grid": "base.arrow"},
+    {"name": "high_load", "grid": "high_load.arrow"}
+  ]
+}
+\`\`\`
+
+## User Request
+Create a batch processing workflow that:
+{USER_REQUEST}
+
+Include:
+- Manifest file generation
+- Parallel execution setup
+- Results aggregation
+- Summary statistics across all scenarios`
+  },
+  derms: {
+    title: "DER Analysis (DERMS)",
+    icon: "🔋",
+    description: "Generate scripts for distributed energy resource analysis",
+    prompt: `You are an expert in distributed energy resources analysis using GAT.
+
+## GAT DERMS Commands
+
+DER Aggregation:
+\`\`\`bash
+gat derms aggregate <ders.parquet> --method envelope --out aggregated.parquet
+\`\`\`
+
+Price-Based Scheduling:
+\`\`\`bash
+gat derms schedule <ders.parquet> --prices prices.csv --out schedule.parquet
+\`\`\`
+
+Hosting Capacity:
+\`\`\`bash
+gat dist hosting-capacity <feeder.arrow> --der-config der.json --out capacity.parquet
+\`\`\`
+
+## User Request
+Build a DER analysis workflow that:
+{USER_REQUEST}
+
+Ensure coverage of:
+- DER data preparation
+- Aggregation or scheduling logic
+- Integration with grid analysis
+- Results interpretation`
+  }
+};
+
+function fillPrompt(promptTemplate, userRequest) {
+  return promptTemplate.replace('{USER_REQUEST}', userRequest);
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    console.log('Copied to clipboard');
+  });
+}
+
+async function generateWithGemini(apiKey, prompt) {
+  const response = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=\${apiKey}\`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(\`Gemini API error: \${response.status}\`);
+  }
+
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
+}
+</script>
+{% endblock extra_head %}
+
+{% block content %}
+<div class="relative z-10">
+  <!-- Navigation Bar -->
+  <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-8">
+        <a href="/gat/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
+            G
+          </div>
+          <span class="font-bold text-xl tracking-tight">GAT</span>
+        </a>
+        <a href="/gat/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+          Documentation
+        </a>
+        <a href="/gat/blog/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+          Blog
+        </a>
+        <a href="/gat/ai-experiments/" class="text-sm text-orange-500 font-medium">
+          AI Experiments
+        </a>
+      </div>
+      <a href="{{ config.extra.repo_url }}" class="text-sm text-slate-400 hover:text-white transition-colors">
+        GitHub
+      </a>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto px-6 py-12">
+    <!-- Header -->
+    <div class="mb-12">
+      {{ page.content | safe }}
+    </div>
+
+    <!-- API Key Setup -->
+    <div class="mb-8 bg-slate-900/40 border border-slate-800 rounded-lg p-6">
+      <h2 class="text-xl font-bold text-white mb-4">🔑 Optional: Gemini API Key</h2>
+      <p class="text-slate-400 mb-4">
+        Add your free Gemini API key to generate scripts directly in the browser.
+        <a href="https://makersuite.google.com/app/apikey" target="_blank" class="text-orange-500 hover:text-orange-400">Get a free key →</a>
+      </p>
+      <div class="flex gap-3">
+        <input
+          type="password"
+          id="geminiApiKey"
+          placeholder="Paste your Gemini API key (optional)"
+          class="flex-1 bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none"
+        />
+        <button
+          onclick="localStorage.setItem('gemini_api_key', document.getElementById('geminiApiKey').value); alert('API key saved!')"
+          class="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors"
+        >
+          Save Key
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">
+        Key stored locally in your browser. Never sent to our servers.
+      </p>
+    </div>
+
+    <!-- Prompt Templates -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group cursor-pointer" onclick="loadPrompt('powerflow')">
+        <div class="text-4xl mb-4">⚡</div>
+        <h3 class="text-xl font-bold text-white mb-2">Power Flow Analysis</h3>
+        <p class="text-slate-400 text-sm">DC/AC power flow scripts with solver options</p>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group cursor-pointer" onclick="loadPrompt('opf')">
+        <div class="text-4xl mb-4">🎯</div>
+        <h3 class="text-xl font-bold text-white mb-2">Optimal Power Flow</h3>
+        <p class="text-slate-400 text-sm">OPF optimization with costs and constraints</p>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group cursor-pointer" onclick="loadPrompt('contingency')">
+        <div class="text-4xl mb-4">🔍</div>
+        <h3 class="text-xl font-bold text-white mb-2">N-1 Contingency</h3>
+        <p class="text-slate-400 text-sm">Reliability and contingency screening</p>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group cursor-pointer" onclick="loadPrompt('timeseries')">
+        <div class="text-4xl mb-4">📈</div>
+        <h3 class="text-xl font-bold text-white mb-2">Time Series</h3>
+        <p class="text-slate-400 text-sm">Load forecasting and temporal analysis</p>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group cursor-pointer" onclick="loadPrompt('batch')">
+        <div class="text-4xl mb-4">🔄</div>
+        <h3 class="text-xl font-bold text-white mb-2">Batch Scenarios</h3>
+        <p class="text-slate-400 text-sm">Multiple scenarios in parallel</p>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group cursor-pointer" onclick="loadPrompt('derms')">
+        <div class="text-4xl mb-4">🔋</div>
+        <h3 class="text-xl font-bold text-white mb-2">DER Analysis</h3>
+        <p class="text-slate-400 text-sm">Distributed energy resource workflows</p>
+      </div>
+    </div>
+
+    <!-- Generator Interface -->
+    <div id="generatorInterface" class="hidden">
+      <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-8 mb-8">
+        <h2 class="text-2xl font-bold text-white mb-6" id="promptTitle"></h2>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-slate-300 mb-2">Describe what you want to do:</label>
+          <textarea
+            id="userRequest"
+            rows="3"
+            placeholder="e.g., Analyze a 118-bus system for voltage violations and export results to CSV"
+            class="w-full bg-slate-950 border border-slate-700 rounded px-4 py-3 text-white focus:border-orange-500 focus:outline-none resize-none"
+          ></textarea>
+        </div>
+
+        <div class="flex gap-3 mb-6">
+          <button
+            onclick="generateScript()"
+            class="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <span>✨</span> Generate with Gemini
+          </button>
+          <button
+            onclick="copyPromptToClipboard()"
+            class="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <span>📋</span> Copy Prompt for ChatGPT/Claude
+          </button>
+        </div>
+
+        <div id="outputArea" class="hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-bold text-white">Generated Script</h3>
+            <button
+              onclick="copyOutput()"
+              class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded text-sm transition-colors"
+            >
+              Copy to Clipboard
+            </button>
+          </div>
+          <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto"><code id="outputCode" class="text-sm text-slate-300"></code></pre>
+        </div>
+
+        <div id="loadingIndicator" class="hidden text-center py-8">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-orange-500 border-t-transparent"></div>
+          <p class="text-slate-400 mt-4">Generating your script...</p>
+        </div>
+
+        <div id="errorMessage" class="hidden bg-red-900/20 border border-red-700 rounded-lg p-4 mt-4">
+          <p class="text-red-400"><strong>Error:</strong> <span id="errorText"></span></p>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6">
+        <h3 class="text-lg font-bold text-white mb-3">💡 Full Prompt Context</h3>
+        <p class="text-slate-400 text-sm mb-4">This is the complete prompt sent to the AI with GAT context pre-loaded:</p>
+        <pre class="bg-slate-950 border border-slate-700 rounded p-4 overflow-x-auto text-xs"><code id="fullPrompt" class="text-slate-400"></code></pre>
+      </div>
+    </div>
+
+    <!-- Comments -->
+    {% include "partials/giscus.html" %}
+  </div>
+</div>
+
+<script>
+let currentPromptKey = null;
+
+function loadPrompt(key) {
+  currentPromptKey = key;
+  const prompt = GAT_PROMPTS[key];
+
+  document.getElementById('promptTitle').textContent = prompt.icon + ' ' + prompt.title;
+  document.getElementById('userRequest').value = '';
+  document.getElementById('fullPrompt').textContent = prompt.prompt;
+  document.getElementById('generatorInterface').classList.remove('hidden');
+  document.getElementById('outputArea').classList.add('hidden');
+  document.getElementById('errorMessage').classList.add('hidden');
+
+  // Scroll to generator
+  document.getElementById('generatorInterface').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyPromptToClipboard() {
+  const userRequest = document.getElementById('userRequest').value || 'Analyze my power system';
+  const fullPrompt = fillPrompt(GAT_PROMPTS[currentPromptKey].prompt, userRequest);
+
+  copyToClipboard(fullPrompt);
+  alert('Prompt copied! Paste it into ChatGPT, Claude, or DeepSeek.');
+}
+
+async function generateScript() {
+  const apiKey = localStorage.getItem('gemini_api_key') || document.getElementById('geminiApiKey').value;
+
+  if (!apiKey) {
+    document.getElementById('errorText').textContent = 'Please provide a Gemini API key above.';
+    document.getElementById('errorMessage').classList.remove('hidden');
+    return;
+  }
+
+  const userRequest = document.getElementById('userRequest').value || 'Analyze my power system';
+  const fullPrompt = fillPrompt(GAT_PROMPTS[currentPromptKey].prompt, userRequest);
+
+  document.getElementById('loadingIndicator').classList.remove('hidden');
+  document.getElementById('outputArea').classList.add('hidden');
+  document.getElementById('errorMessage').classList.add('hidden');
+
+  try {
+    const result = await generateWithGemini(apiKey, fullPrompt);
+    document.getElementById('outputCode').textContent = result;
+    document.getElementById('loadingIndicator').classList.add('hidden');
+    document.getElementById('outputArea').classList.remove('hidden');
+  } catch (error) {
+    document.getElementById('errorText').textContent = error.message + ' - Try copying the prompt instead.';
+    document.getElementById('errorMessage').classList.remove('hidden');
+    document.getElementById('loadingIndicator').classList.add('hidden');
+  }
+}
+
+function copyOutput() {
+  const output = document.getElementById('outputCode').textContent;
+  copyToClipboard(output);
+  alert('Script copied to clipboard!');
+}
+
+// Load API key on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const savedKey = localStorage.getItem('gemini_api_key');
+  if (savedKey) {
+    document.getElementById('geminiApiKey').value = savedKey;
+  }
+});
+</script>
+{% endblock content %}
