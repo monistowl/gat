@@ -113,9 +113,23 @@
       font-size: 1.0625rem;
     }
     .prose a { @apply text-orange-500 hover:text-orange-400 transition-colors underline; }
-    .prose ul { @apply list-disc list-inside text-slate-300 mb-6 space-y-2; }
-    .prose ol { @apply list-decimal list-inside text-slate-300 mb-6 space-y-2; }
-    .prose li { @apply ml-4; }
+    .prose ul {
+      @apply list-disc text-slate-300 mb-6 space-y-2;
+      list-style-position: outside;
+      padding-left: 2rem;
+    }
+    .prose ol {
+      @apply list-decimal text-slate-300 mb-6 space-y-2;
+      list-style-position: outside;
+      padding-left: 2rem;
+    }
+    .prose li {
+      @apply pl-2;
+      text-indent: 0;
+    }
+    .prose li::marker {
+      color: #fb923c;
+    }
     .prose blockquote {
       @apply border-l-4 border-orange-500 pl-6 italic text-slate-400 my-6 py-2;
       background: rgba(251, 146, 60, 0.05);
