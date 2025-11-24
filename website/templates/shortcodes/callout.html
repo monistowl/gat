@@ -1,23 +1,26 @@
 {% set callout_type = type | default(value="info") %}
-{% set icon_map = {
-  "info": "ℹ️",
-  "tip": "💡",
-  "warning": "⚠️",
-  "danger": "🚨",
-  "success": "✅"
-} %}
-{% set color_map = {
-  "info": "blue",
-  "tip": "green",
-  "warning": "yellow",
-  "danger": "red",
-  "success": "emerald"
-} %}
 
-<div class="callout callout-{{ callout_type }} border-l-4 border-{{ color_map[callout_type] | default(value="blue") }}-500 bg-{{ color_map[callout_type] | default(value="blue") }}-900/20 p-4 my-4 rounded-r">
+{% if callout_type == "tip" %}
+  {% set icon = "💡" %}
+  {% set color = "green" %}
+{% elif callout_type == "warning" %}
+  {% set icon = "⚠️" %}
+  {% set color = "yellow" %}
+{% elif callout_type == "danger" %}
+  {% set icon = "🚨" %}
+  {% set color = "red" %}
+{% elif callout_type == "success" %}
+  {% set icon = "✅" %}
+  {% set color = "emerald" %}
+{% else %}
+  {% set icon = "ℹ️" %}
+  {% set color = "blue" %}
+{% endif %}
+
+<div class="callout callout-{{ callout_type }} border-l-4 border-{{ color }}-500 bg-{{ color }}-900/20 p-4 my-4 rounded-r">
   <div class="flex gap-3">
     <div class="callout-icon text-2xl flex-shrink-0">
-      {{ icon_map[callout_type] | default(value="ℹ️") }}
+      {{ icon }}
     </div>
     <div class="callout-content flex-grow text-slate-300 prose-sm">
       {{ body | markdown | safe }}
