@@ -1,6 +1,9 @@
 //! Component installation logic
 
-use crate::install::{Component, GatDirs, build_download_url, detect_arch, detect_os, ensure_gat_dirs, fetch_latest_release};
+use crate::install::{
+    build_download_url, detect_arch, detect_os, ensure_gat_dirs, fetch_latest_release, Component,
+    GatDirs,
+};
 use anyhow::{anyhow, Result};
 use std::path::PathBuf;
 use std::process::Command;

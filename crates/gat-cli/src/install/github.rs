@@ -24,9 +24,7 @@ pub fn fetch_latest_release(repo_owner: &str, repo_name: &str) -> Result<String>
         return Err(anyhow!("Failed to fetch releases from GitHub"));
     }
 
-    let tag = String::from_utf8(output.stdout)?
-        .trim()
-        .to_string();
+    let tag = String::from_utf8(output.stdout)?.trim().to_string();
 
     if tag.is_empty() {
         return Err(anyhow!("No tag_name in GitHub release response"));
@@ -59,13 +57,9 @@ pub fn build_download_url(
 
 /// Detect operating system
 pub fn detect_os() -> Result<String> {
-    let output = std::process::Command::new("uname")
-        .arg("-s")
-        .output()?;
+    let output = std::process::Command::new("uname").arg("-s").output()?;
 
-    let os = String::from_utf8(output.stdout)?
-        .trim()
-        .to_lowercase();
+    let os = String::from_utf8(output.stdout)?.trim().to_lowercase();
 
     match os.as_str() {
         "linux" => Ok("linux".to_string()),
@@ -76,13 +70,9 @@ pub fn detect_os() -> Result<String> {
 
 /// Detect CPU architecture
 pub fn detect_arch() -> Result<String> {
-    let output = std::process::Command::new("uname")
-        .arg("-m")
-        .output()?;
+    let output = std::process::Command::new("uname").arg("-m").output()?;
 
-    let arch = String::from_utf8(output.stdout)?
-        .trim()
-        .to_string();
+    let arch = String::from_utf8(output.stdout)?.trim().to_string();
 
     match arch.as_str() {
         "x86_64" | "amd64" => Ok("x86_64".to_string()),

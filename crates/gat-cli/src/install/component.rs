@@ -39,7 +39,11 @@ impl Component {
                 // Solvers are checked in lib directory
                 gat_bin
                     .parent()
-                    .map(|p| p.parent().map(|pp| pp.join("lib/solvers").exists()).unwrap_or(false))
+                    .map(|p| {
+                        p.parent()
+                            .map(|pp| pp.join("lib/solvers").exists())
+                            .unwrap_or(false)
+                    })
                     .unwrap_or(false)
             }
             _ => {
