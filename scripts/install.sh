@@ -6,14 +6,14 @@ usage() {
 Usage: install.sh [--prefix DIR] [--variant headless|analyst|full] [--version VERSION]
 
 Environment variables:
-  GAT_PREFIX        Install prefix (defaults to ~/.local)
+  GAT_PREFIX        Install prefix (defaults to ~/.gat)
   GAT_VARIANT       Variant to install (headless, analyst, or full)
   GAT_VERSION       Version to install (defaults to latest release)
   GAT_RELEASE_BASE  Base URL for release artifacts
 USAGE
 }
 
-PREFIX="${GAT_PREFIX:-$HOME/.local}"
+PREFIX="${GAT_PREFIX:-$HOME/.gat}"
 VARIANT="${GAT_VARIANT:-full}"
 VERSION="${GAT_VERSION:-latest}"
 RELEASE_BASE="${GAT_RELEASE_BASE:-https://github.com/monistowl/gat/releases/download}"

@@ -81,6 +81,15 @@ package_headless() {
 
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat-cli"
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat"
+
+  # Include modular components if available
+  if [[ -x "$ROOT_DIR/target/release/gat-tui" ]]; then
+    cp "$ROOT_DIR/target/release/gat-tui" "$dest/bin/gat-tui"
+  fi
+  if [[ -x "$ROOT_DIR/target/release/gat-gui" ]]; then
+    cp "$ROOT_DIR/target/release/gat-gui" "$dest/bin/gat-gui"
+  fi
+
   copy_common_files "$dest"
 
   tar -czf "$dest.tar.gz" -C "$DIST_DIR" "$(basename "$dest")"
@@ -96,6 +105,15 @@ package_analyst() {
 
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat-cli"
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat"
+
+  # Include modular components if available
+  if [[ -x "$ROOT_DIR/target/release/gat-tui" ]]; then
+    cp "$ROOT_DIR/target/release/gat-tui" "$dest/bin/gat-tui"
+  fi
+  if [[ -x "$ROOT_DIR/target/release/gat-gui" ]]; then
+    cp "$ROOT_DIR/target/release/gat-gui" "$dest/bin/gat-gui"
+  fi
+
   copy_common_files "$dest"
 
   tar -czf "$dest.tar.gz" -C "$DIST_DIR" "$(basename "$dest")"
