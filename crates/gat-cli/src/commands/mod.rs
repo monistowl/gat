@@ -2,6 +2,7 @@ pub mod adms;
 pub mod alloc;
 pub mod analytics;
 pub mod batch;
+pub mod benchmark;
 pub mod completions;
 pub mod datasets;
 pub mod derms;
