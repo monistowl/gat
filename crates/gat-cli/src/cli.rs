@@ -729,6 +729,36 @@ pub enum DatasetCommands {
         #[command(subcommand)]
         command: PublicDatasetCommands,
     },
+    /// Fetch generator capacity and location data from EIA API
+    #[command(about = "Download U.S. generator data from EIA")]
+    Eia {
+        /// EIA API key
+        #[arg(long)]
+        api_key: String,
+
+        /// Output file path (supports .csv, .parquet)
+        #[arg(short, long)]
+        output: String,
+    },
+    /// Fetch carbon intensity data from Ember Climate API
+    #[command(about = "Download carbon intensity and renewable data from Ember")]
+    Ember {
+        /// Region code (e.g., "US-West", "GB", "DE")
+        #[arg(long)]
+        region: String,
+
+        /// Start date in YYYY-MM-DD format
+        #[arg(long)]
+        start_date: String,
+
+        /// End date in YYYY-MM-DD format
+        #[arg(long)]
+        end_date: String,
+
+        /// Output file path (supports .csv, .parquet)
+        #[arg(short, long)]
+        output: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]

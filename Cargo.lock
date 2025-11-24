@@ -1730,6 +1730,7 @@ dependencies = [
  "gat-tui",
  "gat-viz",
  "num_cpus",
+ "polars",
  "predicates",
  "rayon",
  "schemars",
@@ -1794,6 +1795,7 @@ version = "0.1.3"
 dependencies = [
  "anyhow",
  "caseformat",
+ "chrono",
  "gat-core",
  "polars",
  "power_flow_data",
