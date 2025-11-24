@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{{ term.name }} - {{ taxonomy.name | title }} - {{ config.title }}{% endblock title %}
+
+{% block content %}
+<div class="relative z-10">
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <a href="/gat/" class="text-2xl font-bold text-white hover:text-orange-500 transition-colors">
+        GAT
+      </a>
+      <nav class="flex gap-6 items-center">
+        <a href="/gat/blog" class="text-slate-400 hover:text-white transition-colors">Blog</a>
+        <a href="https://github.com/monistowl/gat" class="text-slate-400 hover:text-white transition-colors">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-6 py-16">
+    <div class="max-w-4xl mx-auto">
+      <!-- Breadcrumb -->
+      <div class="mb-6 flex items-center gap-2 text-sm text-slate-500">
+        <a href="/gat/blog" class="hover:text-orange-500 transition-colors">Blog</a>
+        <span>/</span>
+        <a href="{{ taxonomy.permalink }}" class="hover:text-orange-500 transition-colors">{{ taxonomy.name | title }}</a>
+        <span>/</span>
+        <span class="text-white">{{ term.name }}</span>
+      </div>
+
+      <h1 class="text-5xl font-bold text-white mb-4">
+        {{ term.name }}
+      </h1>
+      <p class="text-xl text-slate-400 mb-12">
+        {{ pages | length }} post{% if pages | length != 1 %}s{% endif %} tagged with "{{ term.name }}"
+      </p>
+
+      <!-- Posts List -->
+      <div class="space-y-6">
+        {% for page in pages %}
+        <article class="p-6 bg-slate-900/50 border border-slate-800 hover:border-orange-500/50 rounded-lg transition-all hover:-translate-y-1">
+          <div class="flex justify-between items-start mb-3">
+            <a href="{{ page.permalink }}" class="group">
+              <h2 class="text-2xl font-bold text-white group-hover:text-orange-500 transition-colors mb-2">
+                {{ page.title }}
+              </h2>
+            </a>
+          </div>
+
+          <div class="flex items-center gap-4 text-sm text-slate-500 mb-3">
+            <time datetime="{{ page.date }}">
+              {{ page.date | date(format="%B %d, %Y") }}
+            </time>
+            {% if page.extra.external_url %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 border border-orange-500/30 rounded text-orange-400 text-xs">
+              {{ page.extra.source_type | default(value="External") }}
+            </span>
+            {% endif %}
+          </div>
+
+          {% if page.description %}
+          <p class="text-slate-300 mb-4">{{ page.description }}</p>
+          {% endif %}
+
+          {% if page.taxonomies.tags %}
+          <div class="flex flex-wrap gap-2">
+            {% for tag in page.taxonomies.tags %}
+            <span class="px-3 py-1 bg-slate-800 text-slate-400 rounded-full text-sm">
+              {{ tag }}
+            </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 py-8 text-center text-slate-500">
+    <p>© 2025 GAT – Grid Analysis Toolkit</p>
+  </footer>
+</div>
+{% endblock content %}
