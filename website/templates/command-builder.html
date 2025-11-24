@@ -153,34 +153,7 @@ function copyCommand() {
 
 {% block content %}
 <div class="relative z-10">
-  <!-- Navigation Bar -->
-  <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-8">
-        <a href="{{ config.base_url }}/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
-            G
-          </div>
-          <span class="font-bold text-xl tracking-tight">GAT</span>
-        </a>
-        <a href="{{ config.base_url }}/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
-          Documentation
-        </a>
-        <a href="{{ config.base_url }}/blog/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
-          Blog
-        </a>
-        <a href="{{ config.base_url }}/ai-experiments/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
-          AI Lab
-        </a>
-        <a href="{{ config.base_url }}/command-builder/" class="text-sm text-orange-500 font-medium">
-          Command Builder
-        </a>
-      </div>
-      <a href="{{ config.extra.repo_url }}" class="text-sm text-slate-400 hover:text-white transition-colors">
-        GitHub
-      </a>
-    </div>
-  </nav>
+  {% include "partials/header.html" %}
 
   <div class="max-w-7xl mx-auto px-6 py-12">
     <!-- Header -->
@@ -244,48 +217,127 @@ function copyCommand() {
 
     <!-- Command Builder Interface -->
     <div id="builderInterface" class="hidden">
-      <div class="grid lg:grid-cols-2 gap-8">
-        <!-- Form Panel -->
-        <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-8">
-          <div class="flex items-center gap-3 mb-6">
+      <!-- Command Header -->
+      <div class="mb-8 p-6 bg-slate-900/60 border border-slate-700 rounded-lg">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
             <div id="cmdIcon" class="text-4xl"></div>
             <div>
               <h2 id="cmdName" class="text-2xl font-bold text-white"></h2>
               <p id="cmdDescription" class="text-slate-400 text-sm"></p>
             </div>
           </div>
+          <button
+            id="changeBtn"
+            onclick="resetBuilder()"
+            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded font-medium transition-colors text-sm whitespace-nowrap"
+          >
+            ← Change
+          </button>
+        </div>
+      </div>
 
-          <div id="paramsForm" class="space-y-4"></div>
+      <div class="grid lg:grid-cols-3 gap-8">
+        <!-- Form Panel -->
+        <div class="lg:col-span-2 space-y-6">
+          <!-- Required Fields Section -->
+          <div id="requiredSection" class="bg-slate-900/60 border border-slate-700 rounded-lg p-6">
+            <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <span class="text-orange-500">*</span>
+              Required Parameters
+            </h3>
+            <div id="requiredFields" class="space-y-4"></div>
+          </div>
+
+          <!-- Optional Fields Section -->
+          <div id="optionalSection" class="bg-slate-900/60 border border-slate-700 rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleOptional()">
+              <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                ⚙️ Optional Parameters
+              </h3>
+              <span id="optionalToggle" class="text-slate-400">▼</span>
+            </div>
+            <div id="optionalFields" class="space-y-4"></div>
+          </div>
+
+          <!-- Validation Feedback -->
+          <div id="validationFeedback" class="hidden p-4 bg-yellow-900/30 border border-yellow-700 rounded-lg">
+            <p class="text-sm text-yellow-200" id="validationMessage"></p>
+          </div>
         </div>
 
-        <!-- Preview Panel -->
-        <div class="space-y-6">
-          <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-8 sticky top-24">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg font-bold text-white">Command Preview</h3>
+        <!-- Preview & Actions Panel -->
+        <div class="lg:col-span-1">
+          <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-6 sticky top-24 space-y-4">
+            <div>
+              <h3 class="text-lg font-bold text-white mb-4">Command Preview</h3>
+              <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto mb-4 max-h-40 text-xs"><code id="commandPreview" class="text-green-400 font-mono"></code></pre>
+            </div>
+
+            <div class="space-y-3">
               <button
                 id="copyBtn"
                 onclick="copyCommand()"
-                class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors text-sm"
+                class="w-full px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors text-sm"
               >
                 📋 Copy to Clipboard
               </button>
+
+              <button
+                id="executeBtn"
+                onclick="showExecutionGuide()"
+                class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium transition-colors text-sm"
+              >
+                ▶ How to Run
+              </button>
             </div>
 
-            <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto"><code id="commandPreview" class="text-sm text-green-400 font-mono"></code></pre>
-
-            <div class="mt-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-              <div class="text-sm text-slate-300 space-y-2">
-                <p class="font-medium text-white">💡 Next Steps:</p>
-                <ol class="list-decimal list-inside space-y-1 text-slate-400">
-                  <li>Copy the command above</li>
-                  <li>Prepare your input files</li>
-                  <li>Run in your terminal</li>
-                  <li>Check output files</li>
-                </ol>
+            <div class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 text-xs text-slate-400 space-y-2">
+              <div>
+                <span class="text-orange-400 font-medium">Input Files:</span>
+                <span id="inputFileHint" class="text-slate-500"></span>
+              </div>
+              <div>
+                <span class="text-orange-400 font-medium">Output:</span>
+                <span id="outputFileHint" class="text-slate-500"></span>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Execution Guide Modal (Hidden) -->
+      <div id="executionModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-lg max-w-md w-full p-6">
+          <h3 class="text-xl font-bold text-white mb-4">How to Run This Command</h3>
+          <ol class="space-y-3 text-sm text-slate-300">
+            <li class="flex gap-3">
+              <span class="text-orange-500 font-bold">1.</span>
+              <span>Copy the command using the button above</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="text-orange-500 font-bold">2.</span>
+              <span>Prepare your input files (see hints in the preview panel)</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="text-orange-500 font-bold">3.</span>
+              <span>Open your terminal and paste the command</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="text-orange-500 font-bold">4.</span>
+              <span>Press Enter to execute</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="text-orange-500 font-bold">5.</span>
+              <span>Check output files in your current directory</span>
+            </li>
+          </ol>
+          <button
+            onclick="closeExecutionModal()"
+            class="mt-6 w-full px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors"
+          >
+            Got it, close
+          </button>
         </div>
       </div>
     </div>
@@ -295,6 +347,7 @@ function copyCommand() {
 
 <script>
 let currentCommand = null;
+let optionalCollapsed = false;
 
 function loadCommand(cmdKey) {
   currentCommand = cmdKey;
@@ -304,12 +357,15 @@ function loadCommand(cmdKey) {
   document.getElementById('cmdName').textContent = cmd.name;
   document.getElementById('cmdDescription').textContent = cmd.description;
 
-  // Build form
-  const form = document.getElementById('paramsForm');
-  form.innerHTML = '';
+  // Build form - separate required and optional
+  const requiredContainer = document.getElementById('requiredFields');
+  const optionalContainer = document.getElementById('optionalFields');
+  requiredContainer.innerHTML = '';
+  optionalContainer.innerHTML = '';
 
   cmd.params.forEach(param => {
     const div = document.createElement('div');
+    div.className = 'field-group';
 
     const label = document.createElement('label');
     label.className = 'block text-sm font-medium text-slate-300 mb-2';
@@ -326,14 +382,15 @@ function loadCommand(cmdKey) {
       const input = document.createElement('input');
       input.type = param.type;
       input.id = `param-${param.id}`;
-      input.className = 'w-full bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none';
+      input.className = 'w-full bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none transition-colors';
+      input.placeholder = param.default || '';
       if (param.default) input.value = param.default;
       input.oninput = updatePreview;
       div.appendChild(input);
     } else if (param.type === 'select') {
       const select = document.createElement('select');
       select.id = `param-${param.id}`;
-      select.className = 'w-full bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none';
+      select.className = 'w-full bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none transition-colors';
 
       const emptyOption = document.createElement('option');
       emptyOption.value = '';
@@ -351,14 +408,15 @@ function loadCommand(cmdKey) {
       select.onchange = updatePreview;
       div.appendChild(select);
     } else if (param.type === 'checkbox') {
+      const checkLabel = document.createElement('label');
+      checkLabel.className = 'flex items-center text-slate-300 cursor-pointer gap-2';
+
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.id = `param-${param.id}`;
-      checkbox.className = 'mr-2';
+      checkbox.className = 'w-4 h-4 accent-orange-500 cursor-pointer';
       checkbox.onchange = updatePreview;
 
-      const checkLabel = document.createElement('label');
-      checkLabel.className = 'flex items-center text-slate-300 cursor-pointer';
       checkLabel.appendChild(checkbox);
       checkLabel.appendChild(document.createTextNode(param.label));
 
@@ -373,20 +431,110 @@ function loadCommand(cmdKey) {
       div.appendChild(help);
     }
 
-    form.appendChild(div);
+    if (param.required) {
+      requiredContainer.appendChild(div);
+    } else {
+      optionalContainer.appendChild(div);
+    }
   });
 
+  // Hide optional section if empty
+  const optionalCount = optionalContainer.children.length;
+  if (optionalCount === 0) {
+    document.getElementById('optionalSection').classList.add('hidden');
+  } else {
+    document.getElementById('optionalSection').classList.remove('hidden');
+  }
+
   document.getElementById('builderInterface').classList.remove('hidden');
+  optionalCollapsed = false;
+  document.getElementById('optionalToggle').textContent = '▼';
+  document.getElementById('optionalFields').style.display = 'grid';
   updatePreview();
 
   // Scroll to builder
   document.getElementById('builderInterface').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function toggleOptional() {
+  optionalCollapsed = !optionalCollapsed;
+  const toggle = document.getElementById('optionalToggle');
+  const fields = document.getElementById('optionalFields');
+
+  if (optionalCollapsed) {
+    toggle.textContent = '▶';
+    fields.style.display = 'none';
+  } else {
+    toggle.textContent = '▼';
+    fields.style.display = 'grid';
+  }
+}
+
 function updatePreview() {
   if (!currentCommand) return;
   const command = buildCommand(currentCommand);
+  const cmd = COMMANDS[currentCommand];
+
   document.getElementById('commandPreview').textContent = command;
+
+  // Update file hints
+  const inputFiles = [];
+  const outputFiles = [];
+
+  cmd.params.forEach(param => {
+    if (param.id === 'input' || param.id === 'manifest' || param.id === 'cost' || param.id === 'limits') {
+      const elem = document.getElementById(`param-${param.id}`);
+      if (elem?.value) inputFiles.push(elem.value);
+    }
+    if (param.id === 'out' && param.flag === '--out') {
+      const elem = document.getElementById(`param-${param.id}`);
+      if (elem?.value) outputFiles.push(elem.value);
+    }
+  });
+
+  document.getElementById('inputFileHint').textContent = inputFiles.length > 0 ? inputFiles.join(', ') : 'See form above';
+  document.getElementById('outputFileHint').textContent = outputFiles.length > 0 ? outputFiles.join(', ') : 'See form above';
+
+  // Validation feedback
+  const requiredFields = Array.from(document.querySelectorAll('.field-group')).filter((group, idx) => {
+    const parent = group.parentElement;
+    return parent.id === 'requiredFields';
+  });
+
+  const allValid = requiredFields.every(group => {
+    const input = group.querySelector('input:not([type="checkbox"]), select');
+    return input && input.value.trim();
+  });
+
+  const feedback = document.getElementById('validationFeedback');
+  if (!allValid) {
+    feedback.classList.remove('hidden');
+    document.getElementById('validationMessage').textContent = '⚠ Fill in all required fields (*) to build the command';
+  } else {
+    feedback.classList.add('hidden');
+  }
 }
+
+function resetBuilder() {
+  document.getElementById('builderInterface').classList.add('hidden');
+  document.querySelector('.grid.md\\:grid-cols-2').scrollIntoView({ behavior: 'smooth' });
+  currentCommand = null;
+}
+
+function showExecutionGuide() {
+  document.getElementById('executionModal').classList.remove('hidden');
+}
+
+function closeExecutionModal() {
+  document.getElementById('executionModal').classList.add('hidden');
+}
+
+// Close modal on outside click
+document.addEventListener('click', function(event) {
+  const modal = document.getElementById('executionModal');
+  if (event.target === modal) {
+    closeExecutionModal();
+  }
+});
 </script>
 {% endblock content %}
