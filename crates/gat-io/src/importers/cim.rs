@@ -19,6 +19,14 @@ pub fn import_cim_rdf(rdf_path: &str, output_file: &str) -> Result<Network> {
     let documents = collect_cim_documents(path)?;
     let (buses, lines, loads, gens, limits, volt_limits, transformers) = parse_cim_documents(&documents)?;
     let network = build_network_from_cim(buses, lines, loads, gens, limits, volt_limits, transformers)?;
+
+    // Validate the network
+    super::cim_validator::validate_network_from_cim(&network)?;
+    let warnings = super::cim_validator::validate_cim_with_warnings(&network);
+    for w in warnings {
+        eprintln!("⚠ Warning: {}", w);
+    }
+
     write_network_to_arrow(&network, output_file)?;
     Ok(network)
 }
