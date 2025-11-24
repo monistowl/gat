@@ -5,28 +5,7 @@
 
 {% block content %}
 <div class="relative z-10">
-  <!-- Navigation Bar -->
-  <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-8">
-        <a href="{{ config.base_url }}/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
-            G
-          </div>
-          <span class="font-bold text-xl tracking-tight">GAT</span>
-        </a>
-        <a href="{{ config.base_url }}/docs/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
-          Documentation
-        </a>
-        <a href="{{ config.base_url }}/blog/" class="text-sm text-orange-500 font-medium">
-          Blog
-        </a>
-      </div>
-      <a href="{{ config.extra.repo_url }}" class="text-sm text-slate-400 hover:text-white transition-colors">
-        GitHub
-      </a>
-    </div>
-  </nav>
+  {% include "partials/header.html" %}
 
   <div class="max-w-4xl mx-auto px-6 py-12">
     <!-- Header -->
@@ -128,5 +107,7 @@
     </div>
     {% endif %}
   </div>
+
+  {% include "partials/footer.html" %}
 </div>
 {% endblock content %}
