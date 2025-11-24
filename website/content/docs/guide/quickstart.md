@@ -2,6 +2,13 @@
 title = "Quickstart"
 description = "Get started with GAT in 5 minutes"
 weight = 2
+
+[extra]
+next_steps = [
+  { title = "Power Flow Analysis", description = "Learn about DC and AC power flow analysis", link = "/docs/guide/pf/" },
+  { title = "Command Builder", description = "Visually build commands without memorizing syntax", link = "/tools/" },
+  { title = "Explore Examples", description = "See real-world examples and use cases", link = "https://github.com/monistowl/gat/tree/main/examples" }
+]
 +++
 
 # Quickstart: Your First Power Flow Analysis

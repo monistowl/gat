@@ -3,6 +3,13 @@ title = "Installation Verification"
 description = "Verify your GAT installation and test basic functionality"
 slug = "install-verify"
 weight = 5
+
+[extra]
+next_steps = [
+  { title = "Quickstart Guide", description = "Run your first power flow analysis in 5 minutes", link = "/docs/guide/quickstart/" },
+  { title = "Power Flow Analysis", description = "Deep dive into power flow analysis options", link = "/docs/guide/pf/" },
+  { title = "Command Builder", description = "Interactively build commands", link = "/tools/" }
+]
 +++
 
 After running the modular installer, verify that everything is working correctly with these quick tests.

@@ -1,0 +1,19 @@
+<!-- Next Steps Suggestion -->
+{% if page.extra.next_steps %}
+<div class="mt-8 p-6 bg-slate-900/40 border border-slate-800 rounded-lg">
+  <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+    <span class="text-orange-500">→</span>
+    Next Steps
+  </h3>
+  <div class="space-y-3">
+    {% for step in page.extra.next_steps %}
+    <div>
+      <a href="{{ step.link }}" class="text-orange-500 hover:text-orange-400 font-medium transition-colors">
+        {{ step.title }}
+      </a>
+      <p class="text-slate-400 text-sm mt-1">{{ step.description }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
