@@ -29,37 +29,7 @@
   </div>
 
   <!-- Navigation -->
-  <nav class="relative z-50 border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
-          G
-        </div>
-        <span class="font-bold text-xl tracking-tight">GAT</span>
-      </div>
-      <div class="hidden md:flex gap-8 text-sm font-medium text-slate-400">
-        <a href="#features" class="hover:text-orange-500 transition-colors">Features</a>
-        <a href="#use-cases" class="hover:text-orange-500 transition-colors">Use Cases</a>
-        <a href="{{ config.base_url }}/docs/" class="hover:text-orange-500 transition-colors">Docs</a>
-        <a href="{{ config.base_url }}/faq/" class="hover:text-orange-500 transition-colors">FAQ</a>
-        <a href="{{ config.base_url }}/blog/" class="hover:text-orange-500 transition-colors">Blog</a>
-        <a href="{{ config.base_url }}/command-builder/" class="hover:text-orange-500 transition-colors flex items-center gap-1">
-          <span class="text-xs">🔧</span> Builder
-        </a>
-        <a href="{{ config.base_url }}/ai-experiments/" class="hover:text-orange-500 transition-colors flex items-center gap-1">
-          <span class="text-xs">✨</span> AI Lab
-        </a>
-        <a href="{{ config.extra.repo_url }}" class="hover:text-white transition-colors">GitHub</a>
-      </div>
-      <div class="flex items-center gap-3">
-        {% include "partials/search.html" %}
-        <button class="hidden md:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-all border border-slate-700">
-          <span class="text-xs">⌘</span>
-          <span>{{ config.extra.version }} Beta</span>
-        </button>
-      </div>
-    </div>
-  </nav>
+  {% include "partials/header.html" %}
 
   <!-- Hero Section -->
   <section class="relative z-10 pt-20 pb-32 px-6">
@@ -425,9 +395,9 @@
         <div>
           <h4 class="text-white font-bold mb-4">Product</h4>
           <ul class="space-y-2 text-sm text-slate-500">
-            <li><a href="#features" class="hover:text-orange-500 transition-colors">Features</a></li>
+            <li><a href="{{ config.base_url }}/docs/" class="hover:text-orange-500 transition-colors">Features</a></li>
             <li><a href="{{ config.extra.repo_url }}/tree/main/docs" class="hover:text-orange-500 transition-colors">Integrations</a></li>
-            <li><a href="#use-cases" class="hover:text-orange-500 transition-colors">Enterprise</a></li>
+            <li><a href="{{ config.base_url }}/docs/guide/adms/" class="hover:text-orange-500 transition-colors">Enterprise</a></li>
             <li><a href="{{ config.extra.repo_url }}/releases" class="hover:text-orange-500 transition-colors">Changelog</a></li>
           </ul>
         </div>
