@@ -11,7 +11,10 @@ pub fn handle_eia(api_key: &str, output: &str) -> Result<()> {
     println!("Fetching EIA generator data...");
     let fetcher = EiaDataFetcher::new(api_key.to_string());
 
-    // For now, we'll create a mock dataset since live API requires valid key
+    // TODO: Switch to live API once key is activated
+    // let generators = fetcher.fetch_generators()?;
+
+    // For now, use mock data (infrastructure ready for live API)
     let generators = vec![
         EiaGeneratorData {
             id: "gen-1".to_string(),
