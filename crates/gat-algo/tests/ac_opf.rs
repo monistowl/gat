@@ -223,12 +223,46 @@ fn test_ac_opf_simple_network_accepts_valid_data() {
     let solver = AcOpfSolver::new();
     let network = create_simple_network();
 
-    // Should succeed validation (placeholder solve returns false but no error)
+    // Should solve successfully
     let result = solver.solve(&network);
     assert!(result.is_ok());
 
     let solution = result.unwrap();
-    assert!(!solution.converged);  // Placeholder doesn't converge yet
+    assert!(solution.converged);
+
+    // Generator should produce ~100 MW (load) + small losses
+    assert!(!solution.generator_outputs.is_empty());
+    let gen_output = solution.generator_outputs.get("gen1").unwrap();
+    assert!(*gen_output >= 99.0 && *gen_output <= 102.0, "Generator output {} not in expected range [99, 102]", gen_output);
+
+    // Voltage should be nominal (1.0 pu)
+    let bus_voltage = solution.bus_voltages.get("bus1").unwrap();
+    assert!((*bus_voltage - 1.0).abs() < 0.01, "Bus voltage {} not close to 1.0", bus_voltage);
+}
+
+#[test]
+fn test_ac_opf_infeasible_case() {
+    let solver = AcOpfSolver::new();
+    let mut network = create_simple_network();
+
+    // Add more load to exceed generator capacity (assumed max 200 MW per gen)
+    network.graph.add_node(Node::Load(Load {
+        id: LoadId::new(1),
+        name: "load_large".to_string(),
+        bus: BusId::new(1),
+        active_power_mw: 200.0,  // Total load now 300 MW, exceeds 200 MW capacity
+        reactive_power_mvar: 0.0,
+    }));
+
+    let result = solver.solve(&network);
+    assert!(result.is_err());
+
+    if let Err(e) = result {
+        match e {
+            AcOpfError::Infeasible(msg) => assert!(msg.contains("insufficient") || msg.contains("capacity")),
+            _ => panic!("Expected Infeasible error, got: {:?}", e),
+        }
+    }
 }
 
 #[test]
