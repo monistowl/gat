@@ -30,11 +30,11 @@
         <span>•</span>
         <span>
           {% set word_count = page.content | striptags | split(pat=" ") | length %}
-          {% set reading_time = ((word_count / 200) | round)%1 %}
+          {% set reading_time = (word_count / 200) | round %}
           {% if reading_time < 1 %}
             &lt; 1 min read
           {% else %}
-            {{ reading_time | round }} min read
+            {{ reading_time }} min read
           {% endif %}
         </span>
         {% if page.taxonomies.tags %}
