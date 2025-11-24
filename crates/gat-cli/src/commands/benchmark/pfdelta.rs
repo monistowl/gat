@@ -6,6 +6,7 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Instant;
 
+use gat_algo::AcOpfSolver;
 use gat_io::sources::pfdelta::{list_pfdelta_cases, load_pfdelta_case};
 
 /// Benchmark result for a single test case
@@ -14,7 +15,11 @@ struct BenchmarkResult {
     case_name: String,
     contingency_type: String,
     case_index: usize,
+    load_time_ms: f64,
     solve_time_ms: f64,
+    total_time_ms: f64,
+    converged: bool,
+    iterations: u32,
     num_buses: usize,
     num_branches: usize,
 }
@@ -155,22 +160,36 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
 fn benchmark_case(
     test_case: &gat_io::sources::pfdelta::PFDeltaTestCase,
     idx: usize,
-    _tol: f64,
-    _max_iter: u32,
+    tol: f64,
+    max_iter: u32,
 ) -> Result<BenchmarkResult> {
     // Time the network loading
-    let start = Instant::now();
+    let load_start = Instant::now();
     let network = load_pfdelta_case(Path::new(&test_case.file_path))?;
-    let elapsed = start.elapsed();
+    let load_time_ms = load_start.elapsed().as_secs_f64() * 1000.0;
 
     let num_buses = network.graph.node_indices().count();
     let num_branches = network.graph.edge_indices().count();
+
+    // Create solver with provided parameters using builder pattern
+    let solver = AcOpfSolver::new()
+        .with_max_iterations(max_iter as usize)
+        .with_tolerance(tol);
+
+    // Time the AC OPF solve
+    let solve_start = Instant::now();
+    let solution = solver.solve(&network)?;
+    let solve_time_ms = solve_start.elapsed().as_secs_f64() * 1000.0;
 
     Ok(BenchmarkResult {
         case_name: test_case.case_name.clone(),
         contingency_type: test_case.contingency_type.clone(),
         case_index: idx,
-        solve_time_ms: elapsed.as_secs_f64() * 1000.0,
+        load_time_ms,
+        solve_time_ms,
+        total_time_ms: load_time_ms + solve_time_ms,
+        converged: solution.converged,
+        iterations: solution.iterations as u32,
         num_buses,
         num_branches,
     })
