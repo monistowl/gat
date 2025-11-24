@@ -93,7 +93,36 @@ jobs:
 
           ## Installation
 
-          ### Quick Install (Linux/macOS)
+          ### Modular Installation (Recommended)
+
+          Install GAT with on-demand component selection:
+
+          \`\`\`bash
+          # CLI only
+          curl -fsSL https://raw.githubusercontent.com/monistowl/gat/${VERSION}/scripts/install-modular.sh | bash
+
+          # CLI + TUI interface
+          GAT_COMPONENTS=cli,tui \\
+            curl -fsSL https://raw.githubusercontent.com/monistowl/gat/${VERSION}/scripts/install-modular.sh | bash
+
+          # CLI + TUI + GUI dashboard
+          GAT_COMPONENTS=cli,tui,gui \\
+            curl -fsSL https://raw.githubusercontent.com/monistowl/gat/${VERSION}/scripts/install-modular.sh | bash
+
+          # Everything
+          GAT_COMPONENTS=cli,tui,gui,solvers \\
+            curl -fsSL https://raw.githubusercontent.com/monistowl/gat/${VERSION}/scripts/install-modular.sh | bash
+          \`\`\`
+
+          Components install to **~/.gat/** by default. Add it to your PATH:
+
+          \`\`\`bash
+          export PATH="\$HOME/.gat/bin:\$PATH"
+          \`\`\`
+
+          ### Quick Install (Bundle Variants)
+
+          Or download and install pre-built bundles:
 
           \`\`\`bash
           # Recommended: Full variant (CLI + TUI + all features)
@@ -102,16 +131,15 @@ jobs:
           ./install.sh
 
           # Or for macOS
-          curl -fsSL https://github.com/monistowl/gat/releases/download/${VERSION}/gat-${CLEAN_VERSION}-darwin-x86_64-full.tar.gz | tar xz
-          cd gat-${CLEAN_VERSION}-darwin-x86_64-full
+          curl -fsSL https://github.com/monistowl/gat/releases/download/${VERSION}/gat-${CLEAN_VERSION}-macos-arm64-full.tar.gz | tar xz
+          cd gat-${CLEAN_VERSION}-macos-arm64-full
           ./install.sh
           \`\`\`
-
-          **Note:** Binaries are small (~few MB), so we ship the complete toolkit by default.
 
           ### Available Variants
 
           - **full** (recommended) - All features: CLI, TUI, ADMS, DERMS, analytics
+          - **analyst** - CLI + visualization and analysis tools
           - **headless** - Core CLI only, minimal dependencies for embedded systems
 
           ## What's Changed
