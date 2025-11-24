@@ -197,15 +197,9 @@ impl MonteCarlo {
         let mut scenarios_with_shortfall = 0;
 
         for scenario in &scenarios {
-            // Calculate available generation
-            let mut available_gen = 0.0;
-            for node_idx in network.graph.node_indices() {
-                if let Some(Node::Gen(gen)) = network.graph.node_weight(node_idx) {
-                    if !scenario.offline_generators.contains(&node_idx) {
-                        available_gen += gen.active_power_mw;
-                    }
-                }
-            }
+            // Calculate available generation accounting for branch outages
+            // When a branch is offline, it may disconnect generators from loads
+            let available_gen = self.calculate_deliverable_generation(network, scenario)?;
 
             // Calculate demand for this scenario
             let demand = total_demand * scenario.demand_scale;
@@ -236,6 +230,104 @@ impl MonteCarlo {
             scenarios_with_shortfall,
             average_shortfall,
         })
+    }
+
+    /// Calculate generation available to serve load considering branch connectivity
+    ///
+    /// This function determines which generators can actually reach the load nodes
+    /// through available (online) branches. If critical branches are offline,
+    /// some generators may be isolated and unable to contribute to supply.
+    fn calculate_deliverable_generation(
+        &self,
+        network: &Network,
+        scenario: &OutageScenario,
+    ) -> Result<f64> {
+        use std::collections::VecDeque;
+
+        // Find all load nodes
+        let load_nodes: Vec<NodeIndex> = network
+            .graph
+            .node_indices()
+            .filter(|&idx| matches!(network.graph.node_weight(idx), Some(Node::Load(_))))
+            .collect();
+
+        if load_nodes.is_empty() {
+            return Ok(0.0);
+        }
+
+        // Find all generator nodes that are online
+        let available_gens: Vec<(NodeIndex, f64)> = network
+            .graph
+            .node_indices()
+            .filter_map(|idx| {
+                if let Some(Node::Gen(gen)) = network.graph.node_weight(idx) {
+                    if !scenario.offline_generators.contains(&idx) {
+                        return Some((idx, gen.active_power_mw));
+                    }
+                }
+                None
+            })
+            .collect();
+
+        if available_gens.is_empty() {
+            return Ok(0.0);
+        }
+
+        // Build connectivity map: for each node, which other nodes can it reach through online branches?
+        let mut reachable_from = std::collections::HashMap::new();
+
+        for start_node in network.graph.node_indices() {
+            let mut visited = std::collections::HashSet::new();
+            let mut queue = VecDeque::new();
+            queue.push_back(start_node);
+            visited.insert(start_node);
+
+            while let Some(current) = queue.pop_front() {
+                reachable_from
+                    .entry(start_node)
+                    .or_insert_with(Vec::new)
+                    .push(current);
+
+                // Explore neighbors through online branches
+                // Check all edges in the graph and see which ones are incident to current node
+                for edge_idx in network.graph.edge_indices() {
+                    if let Some((source, target)) = network.graph.edge_endpoints(edge_idx) {
+                        // Check if this edge is incident to the current node
+                        let neighbor_opt = if source == current {
+                            Some(target)
+                        } else if target == current {
+                            Some(source)
+                        } else {
+                            None
+                        };
+
+                        if let Some(neighbor) = neighbor_opt {
+                            // Only traverse online branches to unvisited nodes
+                            if !scenario.offline_branches.contains(&edge_idx.index())
+                                && !visited.contains(&neighbor)
+                            {
+                                visited.insert(neighbor);
+                                queue.push_back(neighbor);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Calculate generation deliverable to at least one load
+        let mut total_deliverable = 0.0;
+
+        for (gen_node, gen_capacity) in available_gens {
+            // Check if this generator can reach any load node
+            if let Some(reachable) = reachable_from.get(&gen_node) {
+                if reachable.iter().any(|n| load_nodes.contains(n)) {
+                    total_deliverable += gen_capacity;
+                }
+            }
+        }
+
+        Ok(total_deliverable)
     }
 
     /// Compute LOLE for multiple networks (e.g., different scenarios)

@@ -123,8 +123,8 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
         }
     }
 
-    let file = File::create(out_path)
-        .context(format!("Failed to create output file: {}", config.out))?;
+    let file =
+        File::create(out_path).context(format!("Failed to create output file: {}", config.out))?;
     let mut writer = Writer::from_writer(file);
 
     for result in &results {
