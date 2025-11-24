@@ -1,0 +1,233 @@
+<!-- Search Modal -->
+<div id="searchModal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm">
+  <div class="min-h-screen px-4 flex items-start justify-center pt-20">
+    <div class="bg-slate-900 border border-slate-700 rounded-lg shadow-2xl w-full max-w-3xl">
+      <!-- Search Input -->
+      <div class="p-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search documentation..."
+            class="flex-1 bg-transparent text-white placeholder-slate-500 focus:outline-none text-lg"
+            autocomplete="off"
+          />
+          <button
+            onclick="closeSearch()"
+            class="text-slate-400 hover:text-white px-2 py-1 rounded text-sm border border-slate-700 hover:border-slate-500 transition-colors"
+          >
+            ESC
+          </button>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="searchResults" class="max-h-96 overflow-y-auto">
+        <div id="searchResultsList" class="divide-y divide-slate-800">
+          <!-- Results populated by JS -->
+        </div>
+        <div id="searchEmpty" class="hidden p-8 text-center text-slate-500">
+          <p>No results found. Try a different search term.</p>
+        </div>
+        <div id="searchHelp" class="p-8 text-center text-slate-500">
+          <p>Start typing to search documentation, blog posts, and guides...</p>
+          <div class="mt-4 flex justify-center gap-4 text-xs text-slate-600">
+            <span>💡 Try: "power flow"</span>
+            <span>⚡ Try: "optimal"</span>
+            <span>🔋 Try: "DER"</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Search Trigger Button -->
+<button
+  onclick="openSearch()"
+  class="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-md text-slate-400 hover:text-white transition-all text-sm"
+>
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+  </svg>
+  <span class="hidden md:inline">Search</span>
+  <span class="hidden md:inline text-xs bg-slate-800 px-2 py-0.5 rounded border border-slate-700">⌘K</span>
+</button>
+
+<script src="https://unpkg.com/elasticlunr@0.9.5/elasticlunr.min.js"></script>
+<script>
+let searchIndex = null;
+let searchData = null;
+
+// Load search index
+async function loadSearchIndex() {
+  if (searchIndex) return;
+
+  try {
+    const response = await fetch('/gat/search_index.en.json');
+    const data = await response.json();
+    searchData = data;
+
+    // Build elasticlunr index
+    searchIndex = elasticlunr(function() {
+      this.addField('title');
+      this.addField('body');
+      this.setRef('ref');
+    });
+
+    // Add documents to index
+    Object.keys(data).forEach(ref => {
+      searchIndex.addDoc({
+        ref: ref,
+        title: data[ref].title,
+        body: data[ref].body
+      });
+    });
+  } catch (error) {
+    console.error('Failed to load search index:', error);
+  }
+}
+
+function openSearch() {
+  document.getElementById('searchModal').classList.remove('hidden');
+  document.getElementById('searchInput').focus();
+  loadSearchIndex();
+}
+
+function closeSearch() {
+  document.getElementById('searchModal').classList.add('hidden');
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResultsList').innerHTML = '';
+  document.getElementById('searchHelp').classList.remove('hidden');
+  document.getElementById('searchEmpty').classList.add('hidden');
+}
+
+function performSearch(query) {
+  if (!searchIndex || !query.trim()) {
+    document.getElementById('searchResultsList').innerHTML = '';
+    document.getElementById('searchHelp').classList.remove('hidden');
+    document.getElementById('searchEmpty').classList.add('hidden');
+    return;
+  }
+
+  document.getElementById('searchHelp').classList.add('hidden');
+
+  const results = searchIndex.search(query, {
+    fields: {
+      title: { boost: 2 },
+      body: { boost: 1 }
+    },
+    expand: true
+  });
+
+  const resultsList = document.getElementById('searchResultsList');
+  resultsList.innerHTML = '';
+
+  if (results.length === 0) {
+    document.getElementById('searchEmpty').classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('searchEmpty').classList.add('hidden');
+
+  results.slice(0, 10).forEach(result => {
+    const doc = searchData[result.ref];
+    const snippet = getSnippet(doc.body, query, 120);
+
+    const item = document.createElement('a');
+    item.href = doc.url || result.ref;
+    item.className = 'block p-4 hover:bg-slate-800/50 transition-colors cursor-pointer';
+    item.onclick = closeSearch;
+
+    item.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="flex-1">
+          <h3 class="text-white font-medium mb-1">${highlightText(doc.title, query)}</h3>
+          <p class="text-slate-400 text-sm line-clamp-2">${highlightText(snippet, query)}</p>
+          <div class="mt-2 text-xs text-slate-600">${doc.url || result.ref}</div>
+        </div>
+        <svg class="w-4 h-4 text-slate-600 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    `;
+
+    resultsList.appendChild(item);
+  });
+}
+
+function getSnippet(text, query, maxLength) {
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const index = lowerText.indexOf(lowerQuery);
+
+  if (index === -1) {
+    return text.substring(0, maxLength) + '...';
+  }
+
+  const start = Math.max(0, index - 40);
+  const end = Math.min(text.length, index + maxLength - 40);
+
+  let snippet = text.substring(start, end);
+  if (start > 0) snippet = '...' + snippet;
+  if (end < text.length) snippet = snippet + '...';
+
+  return snippet;
+}
+
+function highlightText(text, query) {
+  if (!query) return text;
+
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.replace(regex, '<mark class="bg-orange-500/30 text-orange-300 px-1 rounded">$1</mark>');
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // Cmd/Ctrl + K to open search
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    openSearch();
+  }
+
+  // ESC to close
+  if (e.key === 'Escape') {
+    closeSearch();
+  }
+});
+
+// Live search as user types
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      performSearch(e.target.value);
+    });
+  }
+});
+</script>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  #searchModal {
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+</style>
