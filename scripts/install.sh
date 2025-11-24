@@ -13,7 +13,7 @@ Environment variables:
 USAGE
 }
 
-PREFIX="${GAT_PREFIX:-$HOME/.gat}"
+GAT_PREFIX="${GAT_PREFIX:-$HOME/.gat}"
 VARIANT="${GAT_VARIANT:-full}"
 VERSION="${GAT_VERSION:-latest}"
 RELEASE_BASE="${GAT_RELEASE_BASE:-https://github.com/monistowl/gat/releases/download}"
@@ -38,7 +38,7 @@ parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --prefix)
-        PREFIX="$2"
+        GAT_PREFIX="$2"
         shift 2
         ;;
       --variant)
@@ -66,7 +66,7 @@ parse_args() {
         exit 0
         ;;
       *)
-        PREFIX="$1"
+        GAT_PREFIX="$1"
         shift
         ;;
     esac
@@ -157,6 +157,7 @@ build_from_source() {
   popd >/dev/null
 
   mkdir -p "$BINDIR"
+  mkdir -p "$GAT_PREFIX/config" "$GAT_PREFIX/lib" "$GAT_PREFIX/cache"
   install_binary "$ROOT_DIR/target/release/gat-cli" "gat-cli"
   install_binary "$ROOT_DIR/target/release/gat-cli" "gat"
   if [[ "$VARIANT" == "full" ]]; then
@@ -208,11 +209,13 @@ download_and_install() {
 main() {
   parse_args "$@"
   trim_variant
-  BINDIR="$PREFIX/bin"
+  BINDIR="$GAT_PREFIX/bin"
   resolve_version
 
   if download_and_install; then
+    mkdir -p "$GAT_PREFIX/config" "$GAT_PREFIX/lib" "$GAT_PREFIX/cache"
     echo "Installed GAT ($VARIANT) binaries to $BINDIR"
+    echo "Add $BINDIR to your PATH: export PATH=\"\$PATH:$BINDIR\""
     exit 0
   fi
 

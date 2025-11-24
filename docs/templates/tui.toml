@@ -1,0 +1,16 @@
+# GAT TUI Configuration
+# Location: ~/.gat/config/tui.toml
+
+# Display settings
+[display]
+theme = "dark"
+width = 200
+height = 50
+
+# Default panes to show on startup
+[startup]
+active_pane = "dashboard"
+
+# Command history
+[history]
+max_items = 100
