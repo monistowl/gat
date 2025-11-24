@@ -1,4 +1,29 @@
 # GRID ANALYSIS TOOLKIT (GAT)
+
+## v0.3 Status (Current)
+
+**Completed Features:**
+
+✅ **Monte Carlo Reliability Analysis** (LOLE, EUE, Deliverability Score)
+✅ **Multi-Area Coordination** (CANOS framework with zone-to-zone metrics)
+✅ **FLISR Integration** (Fault Location, Isolation, Service Restoration with reliability tracking)
+✅ **VVO with Reliability Constraints** (Volt-Var Optimization respecting min deliverability scores)
+✅ **Maintenance Scheduling** (Multi-area outage coordination with LOLE thresholds)
+✅ **AC OPF Solver** (Newton-Raphson with configurable tolerance/iterations)
+✅ **PFDelta Integration** (Data loader for 859,800 test cases)
+✅ **Benchmark Command** (AC OPF benchmarking against IEEE test cases)
+✅ **Comprehensive Test Suite** (51+ reliability tests, 14+ integration tests)
+
+**Documentation:**
+- `docs/guide/reliability.md` — Monte Carlo algorithms and LOLE/EUE metrics
+- `docs/guide/adms.md` — Updated with reliability integration details
+- `docs/guide/benchmark.md` — PFDelta integration and benchmarking workflow
+- `docs/guide/overview.md` — Cross-references for new capabilities
+
+---
+
+## Roadmap Overview
+
 This roadmap documents the CLI-first workspace, the milestone plan, and the surrounding tooling/infrastructure needed to keep the docs, schema exports, and `bd` issue graph honest.
 
 ## 0) Workspace layout
