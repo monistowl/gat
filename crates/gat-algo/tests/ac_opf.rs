@@ -688,3 +688,24 @@ fn test_ac_opf_capacity_boundary() {
         "Should be infeasible at 210 MW demand with 200 MW generator capacity"
     );
 }
+
+// === DC-OPF via OpfSolver ===
+
+use gat_algo::{OpfMethod, OpfSolver};
+
+#[test]
+fn test_opf_solver_dc_method() {
+    let network = create_simple_network();
+    let solver = OpfSolver::new().with_method(OpfMethod::DcOpf);
+
+    let result = solver.solve(&network);
+    assert!(result.is_ok(), "DC-OPF should converge on simple network");
+
+    let solution = result.unwrap();
+    assert!(solution.converged);
+    assert_eq!(solution.method_used, OpfMethod::DcOpf);
+
+    // Generator should produce ~100 MW (matching load)
+    let gen_p = solution.generator_p.get("gen1").expect("gen1 output");
+    assert!((*gen_p - 100.0).abs() < 2.0, "gen1 should produce ~100 MW, got {}", gen_p);
+}
