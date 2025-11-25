@@ -51,6 +51,7 @@ fn create_simple_network(name: &str, gen_capacity: f64, load_capacity: f64) -> N
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 

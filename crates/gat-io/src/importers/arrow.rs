@@ -46,6 +46,12 @@ fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
     let mut to_bus: Vec<Option<i64>> = Vec::new();
     let mut resistance: Vec<Option<f64>> = Vec::new();
     let mut reactance: Vec<Option<f64>> = Vec::new();
+    let mut tap_ratio: Vec<Option<f64>> = Vec::new();
+    let mut phase_shift_rad: Vec<Option<f64>> = Vec::new();
+    let mut charging_b_pu: Vec<Option<f64>> = Vec::new();
+    let mut s_max_mva: Vec<Option<f64>> = Vec::new();
+    let mut status: Vec<Option<bool>> = Vec::new();
+    let mut rating_a_mva: Vec<Option<f64>> = Vec::new();
     let mut active_power: Vec<Option<f64>> = Vec::new();
     let mut reactive_power: Vec<Option<f64>> = Vec::new();
 
@@ -60,6 +66,12 @@ fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
                 to_bus.push(None);
                 resistance.push(None);
                 reactance.push(None);
+                tap_ratio.push(None);
+                phase_shift_rad.push(None);
+                charging_b_pu.push(None);
+                s_max_mva.push(None);
+                status.push(None);
+                rating_a_mva.push(None);
                 active_power.push(None);
                 reactive_power.push(None);
             }
@@ -72,6 +84,12 @@ fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
                 to_bus.push(None);
                 resistance.push(None);
                 reactance.push(None);
+                tap_ratio.push(None);
+                phase_shift_rad.push(None);
+                charging_b_pu.push(None);
+                s_max_mva.push(None);
+                status.push(None);
+                rating_a_mva.push(None);
                 active_power.push(Some(gen.active_power_mw));
                 reactive_power.push(Some(gen.reactive_power_mvar));
             }
@@ -84,6 +102,12 @@ fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
                 to_bus.push(None);
                 resistance.push(None);
                 reactance.push(None);
+                tap_ratio.push(None);
+                phase_shift_rad.push(None);
+                charging_b_pu.push(None);
+                s_max_mva.push(None);
+                status.push(None);
+                rating_a_mva.push(None);
                 active_power.push(Some(load.active_power_mw));
                 reactive_power.push(Some(load.reactive_power_mvar));
             }
@@ -102,6 +126,12 @@ fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
                 to_bus.push(Some(branch.to_bus.value() as i64));
                 resistance.push(Some(branch.resistance));
                 reactance.push(Some(branch.reactance));
+                tap_ratio.push(Some(branch.tap_ratio));
+                phase_shift_rad.push(Some(branch.phase_shift_rad));
+                charging_b_pu.push(Some(branch.charging_b_pu));
+                s_max_mva.push(branch.s_max_mva);
+                status.push(Some(branch.status));
+                rating_a_mva.push(branch.rating_a_mva);
                 active_power.push(None);
                 reactive_power.push(None);
             }
@@ -114,6 +144,12 @@ fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
                 to_bus.push(Some(tx.to_bus.value() as i64));
                 resistance.push(None);
                 reactance.push(None);
+                tap_ratio.push(None);
+                phase_shift_rad.push(None);
+                charging_b_pu.push(None);
+                s_max_mva.push(None);
+                status.push(None);
+                rating_a_mva.push(None);
                 active_power.push(None);
                 reactive_power.push(None);
             }
@@ -129,6 +165,12 @@ fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
         Series::new("to_bus", to_bus),
         Series::new("resistance", resistance),
         Series::new("reactance", reactance),
+        Series::new("tap_ratio", tap_ratio),
+        Series::new("phase_shift_rad", phase_shift_rad),
+        Series::new("charging_b_pu", charging_b_pu),
+        Series::new("s_max_mva", s_max_mva),
+        Series::new("status", status),
+        Series::new("rating_a_mva", rating_a_mva),
         Series::new("active_power_mw", active_power),
         Series::new("reactive_power_mvar", reactive_power),
     ])
@@ -175,6 +217,30 @@ fn dataframe_to_network(df: &DataFrame) -> Result<Network> {
         .context("missing 'reactance' column in grid arrow file")?
         .f64()
         .context("'reactance' column must be float64")?;
+    let tap_ratio_col = df
+        .column("tap_ratio")
+        .ok()
+        .and_then(|series| series.f64().ok());
+    let phase_shift_col = df
+        .column("phase_shift_rad")
+        .ok()
+        .and_then(|series| series.f64().ok());
+    let charging_b_col = df
+        .column("charging_b_pu")
+        .ok()
+        .and_then(|series| series.f64().ok());
+    let s_max_col = df
+        .column("s_max_mva")
+        .ok()
+        .and_then(|series| series.f64().ok());
+    let status_col = df
+        .column("status")
+        .ok()
+        .and_then(|series| series.bool().ok());
+    let rating_a_col = df
+        .column("rating_a_mva")
+        .ok()
+        .and_then(|series| series.f64().ok());
     let active_power_col = df
         .column("active_power_mw")
         .ok()
@@ -294,6 +360,24 @@ fn dataframe_to_network(df: &DataFrame) -> Result<Network> {
                 let to_bus = to_col.get(row).context("branch row missing to_bus")?;
                 let resistance = resistance_col.get(row).unwrap_or(0.0);
                 let reactance = reactance_col.get(row).unwrap_or(0.0);
+                let tap = tap_ratio_col
+                    .as_ref()
+                    .and_then(|col| col.get(row))
+                    .unwrap_or(1.0);
+                let phase_shift = phase_shift_col
+                    .as_ref()
+                    .and_then(|col| col.get(row))
+                    .unwrap_or(0.0);
+                let charging = charging_b_col
+                    .as_ref()
+                    .and_then(|col| col.get(row))
+                    .unwrap_or(0.0);
+                let s_max = s_max_col.as_ref().and_then(|col| col.get(row));
+                let rating_a = rating_a_col.as_ref().and_then(|col| col.get(row));
+                let branch_status = status_col
+                    .as_ref()
+                    .and_then(|col| col.get(row))
+                    .unwrap_or(true);
                 let from_idx = bus_index_map
                     .get(&from_bus)
                     .with_context(|| format!("branch references unknown from bus {}", from_bus))?;
@@ -312,6 +396,13 @@ fn dataframe_to_network(df: &DataFrame) -> Result<Network> {
                     ),
                     resistance,
                     reactance,
+                    tap_ratio: tap,
+                    phase_shift_rad: phase_shift,
+                    charging_b_pu: charging,
+                    s_max_mva: s_max,
+                    status: branch_status,
+                    rating_a_mva: rating_a,
+                    ..Branch::default()
                 };
 
                 network

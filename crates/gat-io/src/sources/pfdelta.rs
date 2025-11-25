@@ -284,6 +284,7 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                         to_bus: BusId::new(to_bus_id),
                         resistance: r,
                         reactance: x,
+                        ..Branch::default()
                     }),
                 );
             }
