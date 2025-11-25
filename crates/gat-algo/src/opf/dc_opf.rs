@@ -5,12 +5,10 @@
 //! - Assumes flat voltage magnitudes (|V| = 1.0 p.u.)
 //! - Linearizes branch flows: P_ij = (θ_i - θ_j) / x_ij
 
-use crate::opf::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution};
+use crate::opf::{OpfMethod, OpfSolution};
 use crate::OpfError;
-use gat_core::{Branch, BusId, Edge, Gen, Load, Network, Node};
-use good_lp::{
-    constraint, variable, variables, Expression, ProblemVariables, Solution, SolverModel, Variable,
-};
+use gat_core::{BusId, Edge, Network, Node};
+use good_lp::{constraint, variable, variables, Expression, Solution, SolverModel, Variable};
 use good_lp::solvers::clarabel::clarabel;
 use sprs::{CsMat, TriMat};
 use std::collections::HashMap;
@@ -43,10 +41,11 @@ struct BranchData {
     susceptance: f64,  // b = 1/x (per unit)
 }
 
+/// Return type for network data extraction
+type NetworkData = (Vec<BusData>, Vec<GenData>, Vec<BranchData>, HashMap<BusId, f64>);
+
 /// Extract network data into solver-friendly format
-fn extract_network_data(
-    network: &Network,
-) -> Result<(Vec<BusData>, Vec<GenData>, Vec<BranchData>, HashMap<BusId, f64>), OpfError> {
+fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
     let mut buses = Vec::new();
     let mut generators = Vec::new();
     let mut loads: HashMap<BusId, f64> = HashMap::new();
@@ -273,7 +272,7 @@ pub fn solve(
 
         // Find generator cost coeffs
         if let Some(gen) = generators.iter().find(|g| &g.name == name) {
-            let c0 = gen.cost_coeffs.get(0).copied().unwrap_or(0.0);
+            let c0 = gen.cost_coeffs.first().copied().unwrap_or(0.0);
             let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
             let c2 = gen.cost_coeffs.get(2).copied().unwrap_or(0.0);
             total_cost += c0 + c1 * p + c2 * p * p;
