@@ -122,6 +122,34 @@ fn build_bus_index_map(buses: &[BusData]) -> HashMap<BusId, usize> {
     buses.iter().map(|b| (b.id, b.index)).collect()
 }
 
+/// Build the B' susceptance matrix (sparse)
+///
+/// B'[i,j] = -b_ij for i ≠ j (off-diagonal = -susceptance of branch i-j)
+/// B'[i,i] = Σ b_ik for all k (diagonal = sum of susceptances of all branches at bus i)
+fn build_b_prime_matrix(
+    n_bus: usize,
+    branches: &[BranchData],
+    bus_map: &HashMap<BusId, usize>,
+) -> CsMat<f64> {
+    let mut triplets = TriMat::new((n_bus, n_bus));
+
+    for branch in branches {
+        let i = *bus_map.get(&branch.from_bus).expect("from_bus in map");
+        let j = *bus_map.get(&branch.to_bus).expect("to_bus in map");
+        let b = branch.susceptance;
+
+        // Off-diagonal: B'[i,j] = B'[j,i] = -b
+        triplets.add_triplet(i, j, -b);
+        triplets.add_triplet(j, i, -b);
+
+        // Diagonal: B'[i,i] += b, B'[j,j] += b
+        triplets.add_triplet(i, i, b);
+        triplets.add_triplet(j, j, b);
+    }
+
+    triplets.to_csr()
+}
+
 /// Solve DC-OPF for the given network
 pub fn solve(
     network: &Network,
@@ -135,7 +163,9 @@ pub fn solve(
     let bus_map = build_bus_index_map(&buses);
     let n_bus = buses.len();
 
-    // TODO: Build B' matrix
+    // Build B' susceptance matrix
+    let b_prime = build_b_prime_matrix(n_bus, &branches, &bus_map);
+
     // TODO: Formulate LP
     // TODO: Solve and extract results
 
