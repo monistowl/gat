@@ -316,5 +316,45 @@ pub fn solve(
     let total_load: f64 = loads.values().sum();
     result.total_losses_mw = total_load * 0.01;
 
+    // LMP extraction: For LP, LMP = marginal cost of serving load at each bus
+    // In the absence of congestion, all LMPs equal the system marginal price
+    // With binding constraints, LMPs diverge
+    //
+    // Since good_lp/Clarabel doesn't expose dual variables directly,
+    // we approximate LMP as the marginal cost of the marginal generator.
+    // TODO: When good_lp supports dual extraction, use actual shadow prices.
+
+    // Find the marginal generator (one with slack between Pmin and Pmax)
+    let mut system_lmp = 0.0;
+    for (name, _, p_var) in &gen_vars {
+        let p = solution.value(*p_var);
+        if let Some(gen) = generators.iter().find(|g| &g.name == name) {
+            let at_min = (p - gen.pmin_mw).abs() < 1e-3;
+            let at_max = (p - gen.pmax_mw).abs() < 1e-3;
+            if !at_min && !at_max {
+                // This is the marginal generator
+                let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
+                let c2 = gen.cost_coeffs.get(2).copied().unwrap_or(0.0);
+                system_lmp = c1 + 2.0 * c2 * p;  // Marginal cost = dC/dP
+                break;
+            }
+        }
+    }
+
+    // If no marginal generator found (all at limits), use highest cost generator
+    if system_lmp == 0.0 {
+        for gen in &generators {
+            let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
+            if c1 > system_lmp {
+                system_lmp = c1;
+            }
+        }
+    }
+
+    // Assign LMPs (uniform without congestion)
+    for bus in &buses {
+        result.bus_lmp.insert(bus.name.clone(), system_lmp);
+    }
+
     Ok(result)
 }
