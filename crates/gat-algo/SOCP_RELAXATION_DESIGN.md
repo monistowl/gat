@@ -32,13 +32,19 @@ for radial and lightly meshed networks:
   - Generator bounds for `P/Q`.
 
 ## Data Extraction Layer
-Re-use the patterns from `dc_opf.rs`:
-- Build `BusData`, `GenData`, and `BranchData` structs but include resistance `r`,
-  reactance `x`, shunt admittance, and thermal limits.
+- Reuse the patterns from `dc_opf.rs` but add AC quantities:
+  - Build `BusData` with nominal voltage, shunt admittance, aggregated load, and
+    Slack/PV/PQ typing.
+  - Build `GenData` with `p_min`, `p_max`, `q_min`, `q_max`, cost curve, and
+    reference to connected bus.
+  - Build `BranchData` with `r`, `x`, half-shunts, tap ratio, phase shift, and
+    thermal limits for both directions.
 - Precompute load aggregation per bus for both `P` and `Q`.
 - Validate assumptions: non-zero impedance, voltage setpoints within limits, and
   connectivity (warn if mesh cycles appear because relaxation is tightest on radial
   graphs).
+- Provide a thin adapter that converts extraction errors into `OpfError` with
+  user-facing context for the CLI.
 
 ## Solver Construction (good_lp with Clarabel)
 1. **Variables**
@@ -49,17 +55,21 @@ Re-use the patterns from `dc_opf.rs`:
    - Sum polynomial generator costs using linear/quadratic terms supported by
      `good_lp` (Clarabel handles convex quadratics).
    - Add optional loss penalty `sum(r_ij * l_ij)` to promote tightness.
+   - Support a debug flag that drops all quadratic terms to check feasibility only.
 3. **Constraints**
    - Linear equalities for nodal power balance (active/reactive).
-   - Voltage drop equations along each branch.
+   - Voltage drop equations along each branch, respecting tap and phase shifters.
    - Bounds for voltages, generator P/Q, and current magnitudes.
    - SOCP constraints via `constraint!(p_flow[i]*p_flow[i] + q_flow[i]*q_flow[i] <= v[from]*l_current[i])`.
+   - Optional tightening: McCormick envelopes on `v*l` if Clarabel signals numerical
+     issues; exposed via feature flag.
 4. **Reference bus handling**
    - Fix `v` at slack bus to nominal (`|V|^2 = 1.0`) and optionally fix angle to
      zero for reporting.
 5. **Solve**
    - Use `clarabel()` backend; capture solve time and status. Provide graceful
-     error mapping for infeasibility/unbounded cases.
+     error mapping for infeasibility/unbounded cases and log solver diagnostics via
+     `tracing` for CLI verbosity levels.
 
 ## Solution Mapping
 - Populate `OpfSolution` fields from variable values:
@@ -71,6 +81,17 @@ Re-use the patterns from `dc_opf.rs`:
   duals). Store under `bus_lmp`.
 - Record `binding_constraints` by checking proximity to limits (e.g., 1e-4 gap) and
   carrying the dual shadow prices.
+- Propagate solver termination status, iteration count, and timing into
+  `OpfTelemetry` for CLI reporting.
+
+## Integration Plan
+- Add a new module `src/opf/socp.rs` alongside `dc_opf.rs` with a public
+  `solve_socp` function returning `OpfSolution` + `OpfTelemetry`.
+- Wire `OpfSolver::solve` to call `solve_socp` when `OpfMethod::SocpRelaxation`
+  is selected, mirroring the existing DC path.
+- Keep the public API stable by reusing `OpfConfig` for tolerances; add
+  SOCP-specific knobs (loss weight, feasibility-only mode, tightened constraints)
+  with sensible defaults.
 
 ## Testing Strategy
 - Unit tests on toy radial feeders to verify feasibility, voltage limits, and loss
@@ -79,6 +100,8 @@ Re-use the patterns from `dc_opf.rs`:
   tolerance checks (e.g., <=3% gap) and ensure solver convergence.
 - Property tests for invariants: zero-impedance branches rejected; removing all
   reactive loads reduces to DC-OPF within tolerance.
+- CLI smoke test: `gat opf ac --method socp-relaxation` on `ieee14` fixture should
+  return a feasible solution and produce telemetry JSON.
 
 ## Incremental Delivery Steps
 1. Implement network extraction structs and validation helpers.
