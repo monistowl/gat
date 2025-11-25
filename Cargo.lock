@@ -1679,7 +1679,7 @@ dependencies = [
 
 [[package]]
 name = "gat-adms"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -1692,10 +1692,11 @@ dependencies = [
 
 [[package]]
 name = "gat-algo"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "chrono",
+ "clarabel",
  "csv",
  "gat-core",
  "good_lp",
@@ -1710,7 +1711,7 @@ dependencies = [
 
 [[package]]
 name = "gat-batch"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1727,7 +1728,7 @@ dependencies = [
 
 [[package]]
 name = "gat-cli"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1771,7 +1772,7 @@ dependencies = [
 
 [[package]]
 name = "gat-core"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "faer",
@@ -1781,7 +1782,7 @@ dependencies = [
 
 [[package]]
 name = "gat-derms"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "polars",
@@ -1790,7 +1791,7 @@ dependencies = [
 
 [[package]]
 name = "gat-dist"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -1803,7 +1804,7 @@ dependencies = [
 
 [[package]]
 name = "gat-gui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "gat-core",
@@ -1813,7 +1814,7 @@ dependencies = [
 
 [[package]]
 name = "gat-io"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "caseformat",
@@ -1832,7 +1833,7 @@ dependencies = [
 
 [[package]]
 name = "gat-mcp-docs"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -1846,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "gat-scenarios"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1862,11 +1863,11 @@ dependencies = [
 
 [[package]]
 name = "gat-schemas"
-version = "0.3.2"
+version = "0.3.3"
 
 [[package]]
 name = "gat-ts"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "gat-core",
@@ -1876,7 +1877,7 @@ dependencies = [
 
 [[package]]
 name = "gat-tui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1906,7 +1907,7 @@ dependencies = [
 
 [[package]]
 name = "gat-viz"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "fdg-sim",
  "gat-core",
@@ -2493,7 +2494,7 @@ dependencies = [
 
 [[package]]
 name = "iocraft"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "termios",
 ]

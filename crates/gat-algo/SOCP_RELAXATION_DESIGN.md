@@ -1,17 +1,32 @@
 # SOCP Relaxation Solver Blueprint
 
-This note captures a concrete implementation plan for the `OpfMethod::SocpRelaxation`
-path in `gat_algo`. The goal is to move from the current placeholder to a production
-solver that fits the existing OPF API while keeping numerical robustness and observability
-for the CLI.
+This note captures the implementation plan and current status for the `OpfMethod::SocpRelaxation`
+path in `gat_algo`.
 
-## Current State
-- The OPF facade (`opf/mod.rs`) wires `OpfMethod::SocpRelaxation` to a
-  `NotImplemented` error.
-- `OpfSolution` already carries fields for P/Q injections, voltages, flows, LMPs,
-  and constraint metadata that a convex AC relaxation can populate.
-- The DC-OPF module demonstrates the expected control flow: extract network data,
-  build a convex program with `good_lp`, solve, and map the result into `OpfSolution`.
+## Implementation Status: ✅ COMPLETE (v0.3.2)
+
+The SOCP relaxation solver is now fully implemented in `src/opf/socp.rs` with:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Branch-flow model | ✅ | Baran-Wu / Farivar-Low formulation |
+| Quadratic costs | ✅ | Full `c₀ + c₁·P + c₂·P²` support |
+| Phase-shifting transformers | ✅ | Angle-coupled linearized formulation |
+| Tap ratio transformers | ✅ | τ² voltage transformation |
+| Line charging (π-model) | ✅ | Half-shunt at each end |
+| Thermal limits | ✅ | From `s_max_mva` or `rating_a_mva` |
+| Voltage bounds | ✅ | Default [0.9, 1.1] p.u. |
+| LMP computation | ✅ | From power balance duals |
+| Binding constraints | ✅ | With shadow prices |
+| Clarabel backend | ✅ | Interior-point conic solver |
+
+**Test coverage:** 8 tests in `tests/socp.rs` covering basic feasibility, quadratic costs,
+phase shifters, tap ratios, thermal limits, meshed networks, and line charging.
+
+**Documentation:** Extensive didactic comments (~1600 lines) with DOI citations for
+academic references.
+
+## Original Design (for reference)
 
 ## Target Model
 Implement the standard branch-flow SOCP relaxation (Baran-Wu / Farivar-Low style)

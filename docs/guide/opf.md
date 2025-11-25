@@ -6,14 +6,14 @@ This reference describes the OPF solver architecture, solution methods, and CLI 
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods with varying accuracy/speed tradeoffs:
 
-| Method | Accuracy | Speed | Use Case |
-|--------|----------|-------|----------|
-| `EconomicDispatch` | ~20% gap | Fastest | Quick estimates, screening |
-| `DcOpf` | ~3-5% gap | Fast | Planning studies |
-| `SocpRelaxation` | ~1-3% gap | Moderate | Research benchmarking |
-| `AcOpf` | <1% gap | Slowest | High-fidelity analysis |
+| Method | Accuracy | Speed | Use Case | Status |
+|--------|----------|-------|----------|--------|
+| `EconomicDispatch` | ~20% gap | Fastest | Quick estimates, screening | Implemented |
+| `DcOpf` | ~3-5% gap | Fast | Planning studies | Implemented |
+| `SocpRelaxation` | ~1-3% gap | Moderate | Research, convex lower bounds | **Implemented** |
+| `AcOpf` | <1% gap | Slowest | High-fidelity analysis | Planned |
 
-**Current Status:** Economic dispatch is fully implemented. DC-OPF, SOCP, and AC-OPF methods return `NotImplemented` errors (planned for future releases).
+**Current Status:** Economic dispatch, DC-OPF, and SOCP relaxation are fully implemented. AC-OPF (nonlinear interior point) is planned for a future release.
 
 ## Rust API
 
@@ -128,6 +128,72 @@ impl CostModel {
     pub fn has_cost(&self) -> bool;
 }
 ```
+
+## SOCP Relaxation Details
+
+The SOCP (Second-Order Cone Programming) relaxation provides a convex approximation to AC-OPF that:
+
+- **Guarantees global optimality** within the relaxed problem
+- **Provides valid lower bounds** on the true AC-OPF objective
+- **Often yields AC-feasible solutions** directly (exactness for radial networks)
+- **Runs in polynomial time** via interior-point methods
+
+### Mathematical Foundation
+
+The solver implements the Baran-Wu / Farivar-Low branch-flow model:
+
+```
+Variables per branch:
+  P_ij, Q_ij  = real/reactive power flow
+  ℓ_ij        = |I_ij|² (squared current magnitude)
+  v_i         = |V_i|² (squared voltage magnitude)
+
+Key constraint (relaxed):
+  P² + Q² ≤ v · ℓ    (SOCP relaxation of P² + Q² = v · ℓ)
+```
+
+**References:**
+- Farivar & Low (2013): [DOI:10.1109/TPWRS.2013.2255317](https://doi.org/10.1109/TPWRS.2013.2255317)
+- Low (2014): [DOI:10.1109/TCNS.2014.2309732](https://doi.org/10.1109/TCNS.2014.2309732)
+
+### Supported Features
+
+| Feature | Support |
+|---------|---------|
+| Quadratic cost curves | ✅ `c₀ + c₁·P + c₂·P²` |
+| Piecewise-linear costs | ✅ Approximated at midpoint |
+| Voltage magnitude bounds | ✅ Default [0.9, 1.1] p.u. |
+| Thermal limits (MVA) | ✅ From `s_max_mva` or `rating_a_mva` |
+| Tap-changing transformers | ✅ Off-nominal tap ratios |
+| Phase-shifting transformers | ✅ Angle-coupled formulation |
+| Line charging (π-model) | ✅ Half-line shunt susceptance |
+| LMP computation | ✅ From dual variables |
+| Binding constraint reporting | ✅ With shadow prices |
+
+### Usage
+
+```rust
+use gat_algo::{OpfSolver, OpfMethod};
+
+let solver = OpfSolver::new()
+    .with_method(OpfMethod::SocpRelaxation)
+    .with_tolerance(1e-6)
+    .with_max_iterations(100);
+
+let solution = solver.solve(&network)?;
+
+// Access results
+println!("Total cost: ${:.2}/hr", solution.objective_value);
+println!("System losses: {:.2} MW", solution.total_losses_mw);
+
+for (bus, lmp) in &solution.bus_lmp {
+    println!("LMP at {}: ${:.2}/MWh", bus, lmp);
+}
+```
+
+### Solver Backend
+
+SOCP uses [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs), a high-performance interior-point solver for conic programs. Typical convergence is 15-30 iterations.
 
 ## CLI Commands
 

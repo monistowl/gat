@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.3] - 2025-11-25
+
+### Added
+
+#### SOCP Relaxation Solver
+
+- **Full SOCP relaxation implementation** in `gat-algo` for AC Optimal Power Flow
+  - Baran-Wu / Farivar-Low branch-flow model with squared voltage/current variables
+  - Convex second-order cone constraints for global optimality guarantees
+  - Clarabel interior-point solver backend (15-30 iterations typical)
+
+- **Quadratic cost support**
+  - Full polynomial cost curves: `cost = c₀ + c₁·P + c₂·P²`
+  - Proper marginal cost computation: `MC = c₁ + 2·c₂·P`
+  - Quadratic objective matrix construction for Clarabel
+
+- **Phase-shifting transformer support**
+  - Angle variables (θ) for each bus with linearized coupling
+  - Phase shift angle (φ) applied in voltage drop equations
+  - Reference bus angle fixed to zero
+
+- **Comprehensive transformer modeling**
+  - Off-nominal tap ratios with τ² voltage transformation
+  - Line charging via π-model (half-shunt susceptance at each end)
+  - Thermal limits from `s_max_mva` or `rating_a_mva`
+
+- **LMP and dual variable extraction**
+  - Locational Marginal Prices from power balance constraint duals
+  - Binding constraint identification with shadow prices
+  - Voltage, thermal, and generator limit tracking
+
+- **Extensive test suite** (`crates/gat-algo/tests/socp.rs`)
+  - 3-bus and 10-bus meshed network tests
+  - Quadratic cost optimization verification
+  - Phase-shifting transformer tests
+  - Tap ratio transformer tests
+  - Thermal limit binding tests
+  - Line charging tests
+
+#### Documentation
+
+- **Comprehensive didactic comments** in `socp.rs` (~1600 lines)
+  - Full mathematical derivations with ASCII diagrams
+  - Per-unit system explanation (IEEE Std 141-1993)
+  - Branch-flow model fundamentals
+  - SOC constraint transformation (rotated to standard cone)
+  - Academic citations with DOIs:
+    - Baran & Wu (1989): DOI:10.1109/61.25627
+    - Farivar & Low (2013): DOI:10.1109/TPWRS.2013.2255317
+    - Gan, Li, Topcu & Low (2015): DOI:10.1109/TAC.2014.2332712
+    - Low (2014): DOI:10.1109/TCNS.2014.2309732
+    - Jabr (2006): DOI:10.1109/TPWRS.2006.879234
+    - Schweppe et al. (1988): DOI:10.1007/978-1-4613-1683-1
+
+- **Updated `docs/guide/opf.md`**
+  - SOCP feature matrix with supported capabilities
+  - Usage examples and solver backend details
+  - Mathematical foundation summary
+
+### Changed
+
+- **`OpfMethod::SocpRelaxation`** now routes to the SOCP solver instead of returning `NotImplemented`
+- **Variable layout** in SOCP solver adds angle variables between voltage and generator variables
+- **Objective computation** now includes full polynomial (c₀ + c₁·P + c₂·P²) instead of linear only
+
+### Fixed
+
+- **Dead code warnings** for `base_kv` and `phase_shift_rad` fields
+  - `base_kv` now used in `compute_system_base_kv()` for multi-voltage scaling
+  - `phase_shift_rad` now applied in angle-coupled voltage drop equations
+
+---
+
 ## [0.3.1] - 2025-11-24
 
 ### Added

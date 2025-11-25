@@ -8,6 +8,7 @@
 
 mod dc_opf;
 mod economic;
+mod socp;
 mod types;
 
 pub use types::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution};
@@ -62,9 +63,7 @@ impl OpfSolver {
                 economic::solve(network, self.max_iterations, self.tolerance)
             }
             OpfMethod::DcOpf => dc_opf::solve(network, self.max_iterations, self.tolerance),
-            OpfMethod::SocpRelaxation => {
-                Err(OpfError::NotImplemented("SOCP not yet implemented".into()))
-            }
+            OpfMethod::SocpRelaxation => socp::solve(network, self.max_iterations, self.tolerance),
             OpfMethod::AcOpf => Err(OpfError::NotImplemented(
                 "AC-OPF not yet implemented".into(),
             )),
