@@ -81,7 +81,12 @@
     }
     /* Ensure prose code blocks are contained and scrollable */
     .prose pre {
-      @apply w-full box-border;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .prose {
+      overflow-wrap: break-word;
+      word-wrap: break-word;
     }
     /* Markdown content styling */
     .prose h1 {
