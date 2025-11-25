@@ -49,6 +49,8 @@ pub struct UiConfig {
     pub confirm_on_delete: bool,
     #[serde(default = "default_animation_enabled")]
     pub enable_animations: bool,
+    #[serde(default)]
+    pub recent_parameters: std::collections::HashMap<String, Vec<String>>,
 }
 
 // Default values
@@ -92,6 +94,7 @@ impl Default for AppConfig {
                 auto_save_on_pane_switch: true,
                 confirm_on_delete: true,
                 enable_animations: true,
+                recent_parameters: std::collections::HashMap::new(),
             },
         }
     }
@@ -164,6 +167,52 @@ impl ConfigManager {
         &mut self.config
     }
 
+    /// Record a recent parameter set for a pane and persist it alongside UI
+    /// preferences so operators can re-run jobs quickly when they return to a
+    /// pane.
+    pub fn record_recent_parameters(
+        &mut self,
+        pane_id: impl Into<String>,
+        params: Vec<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use std::fs;
+
+        let pane_key = pane_id.into();
+        let entry = self
+            .config
+            .ui
+            .recent_parameters
+            .entry(pane_key)
+            .or_default();
+
+        let mut new_params = params;
+        new_params.retain(|value| !entry.contains(value));
+        entry.splice(0..0, new_params);
+        entry.truncate(5);
+
+        let path = Self::default_config_path();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        self.save_to_file(&path)
+    }
+
+    /// Retrieve stored parameters for a pane, if any.
+    pub fn recent_parameters_for(&self, pane_id: &str) -> Vec<String> {
+        self.config
+            .ui
+            .recent_parameters
+            .get(pane_id)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Standard on-disk config path used by gat-tui.
+    pub fn default_config_path() -> std::path::PathBuf {
+        std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default())
+            .join(".config/gat-tui/config.toml")
+    }
+
     /// Save configuration to a file
     pub fn save_to_file(&self, path: impl AsRef<Path>) -> Result<(), Box<dyn std::error::Error>> {
         let toml_string = toml::to_string_pretty(&self.config)?;
@@ -192,6 +241,14 @@ impl ConfigManager {
     }
 }
 
+impl Default for ConfigManager {
+    fn default() -> Self {
+        ConfigManager {
+            config: AppConfig::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,6 +263,7 @@ mod tests {
         assert!(config.ui.auto_save_on_pane_switch);
         assert!(config.ui.confirm_on_delete);
         assert!(config.ui.enable_animations);
+        assert!(config.ui.recent_parameters.is_empty());
     }
 
     #[test]
@@ -226,6 +284,19 @@ mod tests {
 
         mgr.set_timeout(600);
         assert_eq!(mgr.config().cli.command_timeout_secs, 600);
+    }
+
+    #[test]
+    fn test_recent_parameter_recording() {
+        let mut mgr = ConfigManager::default();
+        mgr.record_recent_parameters("commands", vec!["--grid case33bw.arrow".into()])
+            .expect("should persist recent params");
+
+        let params = mgr.recent_parameters_for("commands");
+        assert_eq!(
+            params.first().map(String::as_str),
+            Some("--grid case33bw.arrow")
+        );
     }
 
     #[test]
