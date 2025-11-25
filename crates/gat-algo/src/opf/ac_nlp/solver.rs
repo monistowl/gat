@@ -81,6 +81,19 @@ impl<'a> Gradient for PenaltyProblem<'a> {
 }
 
 /// Solve AC-OPF using penalty method with L-BFGS
+///
+/// This implements an outer penalty method that solves a sequence of unconstrained
+/// subproblems with increasing penalty coefficients. Each subproblem is solved using
+/// L-BFGS with More-Thuente line search.
+///
+/// The algorithm:
+/// 1. Start with initial penalty coefficient μ
+/// 2. Solve unconstrained problem: min f(x) + μ·Σ(constraint_violations²)
+/// 3. If constraints are satisfied within tolerance, return solution
+/// 4. Otherwise, increase μ and repeat
+///
+/// This approach is simpler than interior point methods but may require multiple
+/// outer iterations to achieve feasibility.
 pub fn solve(
     problem: &AcOpfProblem,
     max_iterations: usize,
@@ -96,6 +109,7 @@ pub fn solve(
     let mut penalty = 1000.0;
     let penalty_increase = 10.0;
     let max_penalty_iters = 5;
+    let mut total_iterations = 0;
 
     for _outer_iter in 0..max_penalty_iters {
         let penalty_problem = PenaltyProblem {
@@ -120,6 +134,7 @@ pub fn solve(
 
         match result {
             Ok(res) => {
+                total_iterations += res.state().get_iter() as usize;
                 if let Some(best) = res.state().get_best_param() {
                     x = best.clone();
                 }
@@ -143,7 +158,9 @@ pub fn solve(
     // Check final feasibility
     let g = problem.equality_constraints(&x);
     let max_violation: f64 = g.iter().map(|gi| gi.abs()).fold(0.0, f64::max);
-    let converged = max_violation < tolerance * 10.0; // Allow some slack
+    // Penalty methods converge asymptotically - relaxing by 10x is standard practice
+    // to avoid excessive penalty iterations while still ensuring practical feasibility
+    let converged = max_violation < tolerance * 10.0;
 
     // Build solution
     let (v, theta) = problem.extract_v_theta(&x);
@@ -151,7 +168,7 @@ pub fn solve(
     let mut solution = OpfSolution {
         converged,
         method_used: OpfMethod::AcOpf,
-        iterations: max_iterations,
+        iterations: total_iterations,
         solve_time_ms: start.elapsed().as_millis(),
         objective_value: problem.objective(&x),
         ..Default::default()
