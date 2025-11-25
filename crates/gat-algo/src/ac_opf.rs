@@ -141,10 +141,10 @@ impl AcOpfSolver {
                         ));
                     }
 
-                    // Generators should have non-negative active power
-                    if gen.active_power_mw < 0.0 {
+                    // Generators should have non-negative active power (unless synchronous condenser)
+                    if gen.active_power_mw < 0.0 && !gen.is_synchronous_condenser {
                         return Err(AcOpfError::DataValidation(format!(
-                            "Generator {} has negative active_power_mw ({})",
+                            "Generator {} has negative active_power_mw ({}). Use .as_synchronous_condenser() for reactive-only devices.",
                             gen.name, gen.active_power_mw
                         )));
                     }
