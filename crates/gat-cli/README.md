@@ -16,6 +16,11 @@ gat scenarios materialize --spec rts_nminus1.yaml --out runs/scenarios
 gat batch pf --manifest runs/scenarios/scenario_manifest.json --out runs/batch
 ```
 
+## First-Run Checks
+
+- `gat doctor` — verifies PATH entries, optional solver binaries (HiGHS/CBC/IPOPT), cache directories, and bundled `test_data/` availability.
+- `scripts/smoke-test.sh` — runs a bundled IEEE-14 import → DC PF → DC OPF pipeline into a temporary workspace for quick regression coverage.
+
 ## Architecture
 
 **Categories:**

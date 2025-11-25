@@ -49,6 +49,8 @@ pub enum Commands {
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
+    /// Inspect the local environment and report common setup issues
+    Doctor {},
     /// Power flow solvers
     Pf {
         #[command(subcommand)]
