@@ -7,7 +7,7 @@ use gat_core::{
 };
 
 use super::arrow::write_network_to_arrow;
-use super::matpower_parser::{parse_matpower_file, MatpowerCase};
+use super::matpower_parser::{parse_matpower_file, MatpowerCase, MatpowerGenCost};
 
 /// Load a MATPOWER case file and return a Network (without writing to disk)
 ///
@@ -89,6 +89,39 @@ pub fn import_matpower_case(m_file: &str, output_file: &str) -> Result<Network> 
     Ok(network)
 }
 
+/// Convert MATPOWER gencost to CostModel
+fn gencost_to_cost_model(gencost: Option<&MatpowerGenCost>) -> gat_core::CostModel {
+    match gencost {
+        None => gat_core::CostModel::NoCost,
+        Some(gc) => match gc.model {
+            2 => {
+                // Polynomial cost: cost = c_n*P^n + ... + c_1*P + c_0
+                // MATPOWER stores highest degree first: [c_n, ..., c_1, c_0]
+                // CostModel expects lowest degree first: [c_0, c_1, ..., c_n]
+                let coeffs: Vec<f64> = gc.cost.iter().rev().copied().collect();
+                gat_core::CostModel::Polynomial(coeffs)
+            }
+            1 => {
+                // Piecewise linear: pairs of (MW, $/hr)
+                // gc.cost = [p1, c1, p2, c2, ...]
+                let points: Vec<(f64, f64)> = gc
+                    .cost
+                    .chunks(2)
+                    .filter_map(|chunk| {
+                        if chunk.len() == 2 {
+                            Some((chunk[0], chunk[1]))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                gat_core::CostModel::PiecewiseLinear(points)
+            }
+            _ => gat_core::CostModel::NoCost,
+        },
+    }
+}
+
 /// Build network from our MATPOWER parser output
 fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
     let mut network = Network::new();
@@ -122,7 +155,7 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
 
     // Add generators
     let mut gen_id = 0usize;
-    for gen in &case.gen {
+    for (i, gen) in case.gen.iter().enumerate() {
         if gen.gen_status == 0 {
             continue;
         }
@@ -139,7 +172,8 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
             pmax_mw: gen.pmax,
             qmin_mvar: gen.qmin,
             qmax_mvar: gen.qmax,
-            cost_model: gat_core::CostModel::NoCost,
+            cost_model: gencost_to_cost_model(case.gencost.get(i)),
+            is_synchronous_condenser: false,
         }));
         gen_id += 1;
     }
@@ -238,6 +272,7 @@ fn build_network_from_case(
             qmin_mvar: case_gen.qmin,
             qmax_mvar: case_gen.qmax,
             cost_model: gat_core::CostModel::NoCost,
+            is_synchronous_condenser: false,
         }));
         gen_id += 1;
     }
