@@ -1,5 +1,6 @@
 pub mod ac_opf;
 pub mod alloc_kpi;
+pub mod opf;
 pub mod alloc_rents;
 pub mod analytics_ds;
 pub mod analytics_reliability;
@@ -15,7 +16,8 @@ pub mod reliability_monte_carlo;
 pub mod test_utils;
 pub mod validation;
 
-pub use ac_opf::{AcOpfError, AcOpfSolution, AcOpfSolver};
+pub use ac_opf::{AcOpfError, AcOpfSolution, AcOpfSolver, OpfError};
+pub use opf::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution, OpfSolver};
 pub use alloc_kpi::*;
 pub use alloc_rents::*;
 pub use analytics_ds::*;

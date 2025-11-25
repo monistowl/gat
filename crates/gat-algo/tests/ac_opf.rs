@@ -1,5 +1,5 @@
 use gat_algo::{AcOpfError, AcOpfSolver};
-use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
+use gat_core::{Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
 /// Helper to create a simple test network
 fn create_simple_network() -> Network {
@@ -32,13 +32,18 @@ fn create_simple_network() -> Network {
         }),
     );
 
-    // Add generator at bus 1
+    // Add generator at bus 1 with 200 MW max capacity and linear cost 10 $/MWh
     network.graph.add_node(Node::Gen(Gen {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
         active_power_mw: 100.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 200.0,
+        qmin_mvar: -100.0,
+        qmax_mvar: 100.0,
+        cost_model: CostModel::linear(0.0, 10.0), // 10 $/MWh
     }));
 
     // Add load at bus 2
@@ -63,7 +68,6 @@ fn test_ac_opf_solver_init() {
 #[test]
 fn test_ac_opf_solver_builder() {
     let solver = AcOpfSolver::new()
-        .with_penalty_weights(200.0, 100.0)
         .with_max_iterations(200)
         .with_tolerance(1e-8);
 
@@ -126,6 +130,11 @@ fn test_ac_opf_validate_invalid_voltage() {
         bus: BusId::new(0),
         active_power_mw: 100.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 1000.0,
+        qmin_mvar: -1000.0,
+        qmax_mvar: 1000.0,
+        cost_model: CostModel::NoCost,
     }));
 
     let result = solver.solve(&network);
@@ -156,6 +165,11 @@ fn test_ac_opf_validate_negative_gen_power() {
         bus: BusId::new(0),
         active_power_mw: -10.0, // Invalid: negative
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 1000.0,
+        qmin_mvar: -1000.0,
+        qmax_mvar: 1000.0,
+        cost_model: CostModel::NoCost,
     }));
 
     let result = solver.solve(&network);
@@ -192,6 +206,11 @@ fn test_ac_opf_validate_negative_resistance() {
         bus: BusId::new(0),
         active_power_mw: 100.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 1000.0,
+        qmin_mvar: -1000.0,
+        qmax_mvar: 1000.0,
+        cost_model: CostModel::NoCost,
     }));
 
     network.graph.add_edge(
@@ -312,6 +331,7 @@ fn test_ac_opf_ieee_30bus_feasibility() {
     }
 
     // Add 6 generators (at buses 1, 2, 5, 8, 11, 13)
+    // Linear costs: 10 + idx*2 $/MWh to give merit order differentiation
     for (idx, bus_num) in vec![1, 2, 5, 8, 11, 13].iter().enumerate() {
         network.graph.add_node(Node::Gen(Gen {
             id: GenId::new(idx),
@@ -319,6 +339,11 @@ fn test_ac_opf_ieee_30bus_feasibility() {
             bus: BusId::new(bus_num - 1),
             active_power_mw: 40.0, // ~200 MW total capacity
             reactive_power_mvar: 0.0,
+            pmin_mw: 0.0,
+            pmax_mw: 100.0, // 600 MW total across 6 generators
+            qmin_mvar: -100.0,
+            qmax_mvar: 100.0,
+            cost_model: CostModel::linear(0.0, 10.0 + idx as f64 * 2.0), // 10-20 $/MWh
         }));
     }
 
@@ -464,13 +489,18 @@ fn test_ac_opf_10bus_accuracy() {
         bus_indices.push(bus_idx);
     }
 
-    // Add 3 generators (buses 1, 3, 6)
+    // Add 3 generators (buses 1, 3, 6) with different costs for merit order
     network.graph.add_node(Node::Gen(Gen {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
         active_power_mw: 150.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 200.0,
+        qmin_mvar: -100.0,
+        qmax_mvar: 100.0,
+        cost_model: CostModel::linear(0.0, 10.0), // cheapest
     }));
     network.graph.add_node(Node::Gen(Gen {
         id: GenId::new(1),
@@ -478,6 +508,11 @@ fn test_ac_opf_10bus_accuracy() {
         bus: BusId::new(2),
         active_power_mw: 100.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 200.0,
+        qmin_mvar: -100.0,
+        qmax_mvar: 100.0,
+        cost_model: CostModel::linear(0.0, 15.0), // mid-range
     }));
     network.graph.add_node(Node::Gen(Gen {
         id: GenId::new(2),
@@ -485,6 +520,11 @@ fn test_ac_opf_10bus_accuracy() {
         bus: BusId::new(5),
         active_power_mw: 80.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 200.0,
+        qmin_mvar: -100.0,
+        qmax_mvar: 100.0,
+        cost_model: CostModel::linear(0.0, 20.0), // most expensive
     }));
 
     // Add loads (total ~150 MW)
@@ -538,7 +578,7 @@ fn test_ac_opf_10bus_accuracy() {
 #[test]
 fn test_ac_opf_capacity_boundary() {
     // Test behavior at capacity boundary
-    // Note: Current solver uses 200 MW as hardcoded max per generator
+    // Generator has 200 MW max capacity
     let mut network = Network::new();
 
     let bus1_idx = network.graph.add_node(Node::Bus(Bus {
@@ -558,6 +598,11 @@ fn test_ac_opf_capacity_boundary() {
         bus: BusId::new(0),
         active_power_mw: 100.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 200.0, // 200 MW capacity
+        qmin_mvar: -100.0,
+        qmax_mvar: 100.0,
+        cost_model: CostModel::linear(0.0, 10.0),
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -609,6 +654,11 @@ fn test_ac_opf_capacity_boundary() {
         bus: BusId::new(0),
         active_power_mw: 100.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 200.0, // 200 MW capacity
+        qmin_mvar: -100.0,
+        qmax_mvar: 100.0,
+        cost_model: CostModel::linear(0.0, 10.0),
     }));
 
     network2.graph.add_node(Node::Load(Load {

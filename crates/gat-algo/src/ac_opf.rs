@@ -1,4 +1,4 @@
-use gat_core::{Edge, Network, Node};
+use gat_core::{Edge, Gen, Network, Node};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -17,6 +17,8 @@ pub enum AcOpfError {
     DataValidation(String),
     /// Convergence failure with residual info
     ConvergenceFailure { iterations: usize, residual: f64 },
+    /// Method not yet implemented
+    NotImplemented(String),
 }
 
 impl std::fmt::Display for AcOpfError {
@@ -37,6 +39,7 @@ impl std::fmt::Display for AcOpfError {
                     iterations, residual
                 )
             }
+            AcOpfError::NotImplemented(msg) => write!(f, "OPF method not implemented: {}", msg),
         }
     }
 }
@@ -62,43 +65,45 @@ pub struct AcOpfSolution {
     pub solve_time_ms: u128,
 }
 
-/// AC OPF Solver using penalty method
+/// Optimal Power Flow solver using economic dispatch
+///
+/// This solver currently implements a simplified DC-OPF approximation using
+/// merit-order economic dispatch. It:
+/// - Ignores reactive power and voltage constraints (DC approximation)
+/// - Dispatches generators in order of marginal cost (merit order)
+/// - Respects generator Pmin/Pmax limits
+/// - Estimates losses at 1% of load
+///
+/// Future versions may implement full AC-OPF with nonlinear constraints.
 pub struct AcOpfSolver {
-    /// Penalty weight for voltage violations
-    penalty_weight_voltage: f64,
-    /// Penalty weight for reactive power violations
-    penalty_weight_reactive: f64,
-    /// Maximum iterations for solver
+    // Note: These fields are reserved for future AC-OPF implementation.
+    // Currently, the solver uses merit-order dispatch which doesn't need them.
+    #[allow(dead_code)]
     max_iterations: usize,
-    /// Convergence tolerance
+    #[allow(dead_code)]
     tolerance: f64,
 }
 
 impl AcOpfSolver {
-    /// Create new AC OPF solver with default parameters
+    /// Create new OPF solver with default parameters
     pub fn new() -> Self {
         Self {
-            penalty_weight_voltage: 100.0,
-            penalty_weight_reactive: 50.0,
             max_iterations: 100,
             tolerance: 1e-6,
         }
     }
 
-    /// Set penalty weights for voltage and reactive power
-    pub fn with_penalty_weights(mut self, voltage_weight: f64, reactive_weight: f64) -> Self {
-        self.penalty_weight_voltage = voltage_weight;
-        self.penalty_weight_reactive = reactive_weight;
-        self
-    }
-
-    /// Set maximum iterations
+    /// Set maximum iterations (reserved for future AC-OPF implementation)
+    ///
+    /// Note: Currently unused - the merit-order dispatch converges in one pass.
     pub fn with_max_iterations(mut self, max_iter: usize) -> Self {
         self.max_iterations = max_iter;
         self
     }
 
-    /// Set convergence tolerance
+    /// Set convergence tolerance (reserved for future AC-OPF implementation)
+    ///
+    /// Note: Currently unused - the merit-order dispatch is deterministic.
     pub fn with_tolerance(mut self, tol: f64) -> Self {
         self.tolerance = tol;
         self
@@ -201,46 +206,18 @@ impl AcOpfSolver {
         Ok(())
     }
 
-    /// Build penalty formulation from network
-    fn build_penalty_formulation(
-        &self,
-        network: &Network,
-    ) -> Result<PenaltyFormulation, AcOpfError> {
-        let mut formulation = PenaltyFormulation::new();
-
-        // Index buses and generators
-        for node_idx in network.graph.node_indices() {
-            match &network.graph[node_idx] {
-                Node::Bus(bus) => {
-                    formulation.bus_indices.push(node_idx.index());
-                    formulation.bus_voltages.push(format!("V_{}", bus.name));
-                }
-                Node::Gen(gen) => {
-                    formulation.gen_indices.push(node_idx.index());
-                    formulation.gen_powers.push(format!("P_g_{}", gen.name));
-                }
-                Node::Load(_) => {
-                    // Loads are handled as negative injections
-                }
-            }
-        }
-
-        Ok(formulation)
-    }
-
-    /// Solve using Clarabel via DC approximation
-    fn solve_with_clarabel(
-        &self,
-        network: &Network,
-        _formulation: &PenaltyFormulation,
-    ) -> Result<AcOpfSolution, AcOpfError> {
+    /// Solve using merit-order economic dispatch (DC approximation)
+    ///
+    /// This implements a simplified economic dispatch that:
+    /// 1. Collects all generators with their limits and cost functions
+    /// 2. Sorts generators by marginal cost at Pmin (merit order)
+    /// 3. Dispatches generators in merit order to meet load
+    /// 4. Computes total cost using actual cost functions
+    fn solve_economic_dispatch(&self, network: &Network) -> Result<AcOpfSolution, AcOpfError> {
         let start = std::time::Instant::now();
 
-        // For now, implement a simple DC approximation for the 2-bus test case
-        // This solves a DC approximation to AC OPF (faster, still provides reasonable results)
-
         // Collect generators and loads
-        let mut generators = Vec::new();
+        let mut generators: Vec<Gen> = Vec::new();
         let mut total_load = 0.0;
 
         for node_idx in network.graph.node_indices() {
@@ -261,9 +238,42 @@ impl AcOpfSolver {
             ));
         }
 
+        // Estimate losses at 1% of load for DC approximation
+        let loss_estimate = total_load * 0.01;
+        let required_generation = total_load + loss_estimate;
+
+        // Check total capacity
+        let total_pmax: f64 = generators.iter().map(|g| g.pmax_mw).sum();
+        let total_pmin: f64 = generators.iter().map(|g| g.pmin_mw).sum();
+
+        if required_generation > total_pmax {
+            return Err(AcOpfError::Infeasible(format!(
+                "Generator capacity insufficient: need {:.2} MW, max {:.2} MW",
+                required_generation, total_pmax
+            )));
+        }
+
+        if required_generation < total_pmin {
+            return Err(AcOpfError::Infeasible(format!(
+                "Load too low for minimum generation: need {:.2} MW, min {:.2} MW",
+                required_generation, total_pmin
+            )));
+        }
+
+        // Economic dispatch using merit order
+        let dispatch = self.economic_dispatch(&generators, required_generation)?;
+
+        // Compute objective value using actual cost functions
+        let objective_value: f64 = generators
+            .iter()
+            .zip(dispatch.iter())
+            .map(|(gen, &p)| gen.cost_model.evaluate(p))
+            .sum();
+
+        // Build solution
         let mut solution = AcOpfSolution {
             converged: true,
-            objective_value: 0.0,
+            objective_value,
             generator_outputs: HashMap::new(),
             bus_voltages: HashMap::new(),
             branch_flows: HashMap::new(),
@@ -271,44 +281,12 @@ impl AcOpfSolver {
             solve_time_ms: start.elapsed().as_millis(),
         };
 
-        // Simple DC approximation: estimate losses at 1% of total load
-        let avg_loss_estimate = total_load * 0.01;
-        let gen_supply = total_load + avg_loss_estimate;
-
-        // Assume generator limits (since not in data model)
-        // For testing: pmin = 0, pmax = 200 MW, cost = 10 $/MWh
-        let gen_pmin = 0.0;
-        let gen_pmax = 200.0;
-        let gen_cost = 10.0;
-
-        // Check if generation is feasible
-        if gen_supply > gen_pmax * generators.len() as f64 {
-            return Err(AcOpfError::Infeasible(format!(
-                "Generator capacity insufficient: need {} MW, max {} MW",
-                gen_supply,
-                gen_pmax * generators.len() as f64
-            )));
+        // Record generator outputs
+        for (gen, &output) in generators.iter().zip(dispatch.iter()) {
+            solution.generator_outputs.insert(gen.name.clone(), output);
         }
 
-        if gen_supply < gen_pmin * generators.len() as f64 {
-            return Err(AcOpfError::Infeasible(format!(
-                "Load too low for minimum generation: need {} MW, min {} MW",
-                gen_supply,
-                gen_pmin * generators.len() as f64
-            )));
-        }
-
-        // Distribute generation equally among generators (simple dispatch)
-        let gen_output = gen_supply / generators.len() as f64;
-
-        for gen in &generators {
-            solution.objective_value += gen_cost * gen_output;
-            solution
-                .generator_outputs
-                .insert(gen.name.clone(), gen_output);
-        }
-
-        // Set voltages to nominal (1.0 pu)
+        // Set voltages to nominal (1.0 pu) - simplified DC approximation
         for node_idx in network.graph.node_indices() {
             if let Node::Bus(bus) = &network.graph[node_idx] {
                 solution.bus_voltages.insert(bus.name.clone(), 1.0);
@@ -318,28 +296,78 @@ impl AcOpfSolver {
         Ok(solution)
     }
 
-    /// Solve AC OPF using penalty method formulation
-    pub fn solve(&self, network: &Network) -> Result<AcOpfSolution, AcOpfError> {
-        let start = std::time::Instant::now();
+    /// Economic dispatch using merit order
+    ///
+    /// Sorts generators by marginal cost at Pmin, then dispatches in order
+    /// to minimize total cost while meeting load and respecting limits.
+    fn economic_dispatch(
+        &self,
+        generators: &[Gen],
+        required_generation: f64,
+    ) -> Result<Vec<f64>, AcOpfError> {
+        let n = generators.len();
+        let mut dispatch = vec![0.0; n];
 
+        // Start with minimum generation for all units
+        for (i, gen) in generators.iter().enumerate() {
+            dispatch[i] = gen.pmin_mw;
+        }
+
+        // Calculate how much more we need beyond minimum
+        let total_pmin: f64 = generators.iter().map(|g| g.pmin_mw).sum();
+        let mut remaining = required_generation - total_pmin;
+
+        if remaining < 0.0 {
+            // Should have been caught earlier, but handle gracefully
+            return Ok(dispatch);
+        }
+
+        // Create merit order: sort by marginal cost at Pmin
+        let mut merit_order: Vec<usize> = (0..n).collect();
+        merit_order.sort_by(|&a, &b| {
+            let mc_a = generators[a].cost_model.marginal_cost(generators[a].pmin_mw);
+            let mc_b = generators[b].cost_model.marginal_cost(generators[b].pmin_mw);
+            mc_a.partial_cmp(&mc_b).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Dispatch in merit order
+        for &idx in &merit_order {
+            if remaining <= 1e-6 {
+                break;
+            }
+
+            let gen = &generators[idx];
+            let current = dispatch[idx];
+            let headroom = (gen.pmax_mw - current).max(0.0);
+            let increment = remaining.min(headroom);
+
+            dispatch[idx] = current + increment;
+            remaining -= increment;
+        }
+
+        if remaining > 1e-3 {
+            return Err(AcOpfError::Infeasible(format!(
+                "Cannot meet load: {:.3} MW unserved after dispatch",
+                remaining
+            )));
+        }
+
+        Ok(dispatch)
+    }
+
+    /// Solve AC OPF using merit-order economic dispatch
+    pub fn solve(&self, network: &Network) -> Result<AcOpfSolution, AcOpfError> {
         // Validate first
         self.validate_network(network)?;
 
-        // Build penalty formulation
-        let formulation = self.build_penalty_formulation(network)?;
-
-        // Solve
-        let mut solution = self.solve_with_clarabel(network, &formulation)?;
-
-        // Record actual solve time
-        solution.solve_time_ms = start.elapsed().as_millis();
-
-        Ok(solution)
+        // Solve using economic dispatch
+        self.solve_economic_dispatch(network)
     }
 }
 
-/// Internal penalty formulation problem
+/// Internal penalty formulation problem (reserved for future AC-OPF implementation)
 #[derive(Debug)]
+#[allow(dead_code)]
 struct PenaltyFormulation {
     /// Bus indices
     bus_indices: Vec<usize>,
@@ -352,6 +380,7 @@ struct PenaltyFormulation {
 }
 
 impl PenaltyFormulation {
+    #[allow(dead_code)]
     fn new() -> Self {
         Self {
             bus_indices: Vec::new(),
@@ -367,3 +396,6 @@ impl Default for AcOpfSolver {
         Self::new()
     }
 }
+
+/// Type alias for migration - use OpfError in new code
+pub type OpfError = AcOpfError;
