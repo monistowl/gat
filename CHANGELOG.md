@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.4] - 2025-11-25
+
+### Added
+
+#### Full Nonlinear AC-OPF Solver
+
+- **Y-bus construction** (`crates/gat-algo/src/opf/ac_nlp/ybus.rs`)
+  - Complex admittance matrix from network topology
+  - Series admittance from branch resistance and reactance
+  - Tap ratio and phase shift support for transformers
+  - Line charging (shunt susceptance) from π-model
+  - Dense matrix storage with bus ID to index mapping
+
+- **AC power flow equations** (`crates/gat-algo/src/opf/ac_nlp/power_equations.rs`)
+  - Active and reactive power injection calculations: P_i and Q_i
+  - Full Jacobian computation with partial derivatives (∂P/∂θ, ∂P/∂V, ∂Q/∂θ, ∂Q/∂V)
+  - Support for polar formulation with voltage magnitude and angle variables
+
+- **NLP problem formulation** (`crates/gat-algo/src/opf/ac_nlp/problem.rs`)
+  - Variable layout: [V, θ, P_g, Q_g]
+  - Quadratic objective function with polynomial cost curves
+  - Equality constraints for power balance at each bus
+  - Bound constraints for voltage limits and generator limits
+  - Flat start initialization for warm starting the solver
+
+- **Penalty-method solver** (`crates/gat-algo/src/opf/ac_nlp/solver.rs`)
+  - L-BFGS quasi-Newton optimizer from argmin crate
+  - Penalty function approach for handling equality constraints
+  - Iterative penalty increase until constraint feasibility achieved
+  - Finite difference gradient computation
+  - LMP approximation from marginal generator costs
+
+- **OpfMethod::AcOpf** now routes to the new ac_nlp solver module instead of returning NotImplemented
+
+- **Comprehensive test suite** (`crates/gat-algo/tests/ac_opf.rs`)
+  - Basic convergence tests on 2-bus network
+  - Comparison with SOCP relaxation (validates AC cost >= SOCP bound)
+  - Economic dispatch verification on 3-bus meshed network
+  - Merit order dispatch validation (cheaper generators prioritized)
+
+#### Documentation
+
+- **Updated `docs/guide/opf.md`** with Full AC-OPF section
+  - Feature matrix showing implemented and planned capabilities
+  - Usage examples with code snippets
+  - Mathematical formulation with power flow equations
+  - Solver backend explanation (L-BFGS penalty method)
+
+### Dependencies
+
+- Added `argmin = "0.10"` for L-BFGS optimization
+- Added `argmin-math = "0.4"` with vec feature for vector operations
+
+---
+
 ## [0.3.3] - 2025-11-25
 
 ### Added

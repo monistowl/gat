@@ -195,6 +195,69 @@ for (bus, lmp) in &solution.bus_lmp {
 
 SOCP uses [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs), a high-performance interior-point solver for conic programs. Typical convergence is 15-30 iterations.
 
+## Full AC-OPF (AcOpf)
+
+The full nonlinear AC-OPF solves the complete AC power flow equations without relaxations.
+
+### Features
+
+| Feature | Status |
+|---------|--------|
+| Polar formulation (V, θ) | ✅ |
+| Y-bus construction | ✅ |
+| Quadratic costs | ✅ |
+| Voltage bounds | ✅ |
+| Generator limits | ✅ |
+| Jacobian computation | ✅ |
+| L-BFGS optimizer | ✅ |
+| Thermal limits | 🔄 Planned |
+| IPOPT backend | 🔄 Planned |
+
+### Usage
+
+```rust
+use gat_algo::{OpfSolver, OpfMethod};
+
+let solver = OpfSolver::new()
+    .with_method(OpfMethod::AcOpf)
+    .with_max_iterations(200)
+    .with_tolerance(1e-4);
+
+let solution = solver.solve(&network)?;
+```
+
+### Mathematical Formulation
+
+The AC-OPF problem uses polar variables V_i (voltage magnitude) and θ_i (voltage angle) at each bus, along with generator dispatch variables P_g and Q_g.
+
+**Objective:**
+```
+minimize Σ (c₀ + c₁·P_g + c₂·P_g²)
+```
+
+**Power Flow Equations:**
+
+At each bus i, the complex power injection is computed from the Y-bus admittance matrix:
+
+```
+P_i = Σⱼ V_i·V_j·(G_ij·cos(θ_i - θ_j) + B_ij·sin(θ_i - θ_j))
+Q_i = Σⱼ V_i·V_j·(G_ij·sin(θ_i - θ_j) - B_ij·cos(θ_i - θ_j))
+```
+
+where G_ij = Re(Y_ij) and B_ij = Im(Y_ij) are the conductance and susceptance elements.
+
+**Constraints:**
+- Power balance: P_inj = P_gen - P_load and Q_inj = Q_gen - Q_load
+- Voltage limits: V_min ≤ V ≤ V_max
+- Generator limits: P_min ≤ P_g ≤ P_max, Q_min ≤ Q_g ≤ Q_max
+- Reference angle: θ_ref = 0
+
+### Solver Backend
+
+Currently uses argmin's L-BFGS quasi-Newton method with a penalty formulation for constraints. The penalty parameter is iteratively increased until the solution satisfies the equality constraints within tolerance.
+
+Future versions will support IPOPT as an optional backend for true interior-point optimization with proper dual variable computation.
+
 ## CLI Commands
 
 ### DC OPF (`gat opf dc`)
