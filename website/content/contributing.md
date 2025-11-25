@@ -1,5 +1,6 @@
 +++
 title = "Contributing"
+weight = 100
 description = "How to contribute to GAT development"
 template = "page.html"
 +++

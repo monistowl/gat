@@ -1,5 +1,6 @@
 +++
 title = "FAQ"
+weight = 100
 description = "Frequently asked questions about GAT"
 template = "page.html"
 +++

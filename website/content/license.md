@@ -1,5 +1,6 @@
 +++
 title = "License & Terms"
+weight = 100
 description = "GAT licensing information and terms of use"
 template = "page.html"
 +++

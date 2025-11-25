@@ -1,5 +1,6 @@
 +++
 title = "Security"
+weight = 100
 description = "Security policies and vulnerability reporting"
 template = "page.html"
 +++
