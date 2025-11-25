@@ -334,7 +334,7 @@ fn test_ac_opf_ieee_30bus_feasibility() {
 
     // Add 6 generators (at buses 1, 2, 5, 8, 11, 13)
     // Linear costs: 10 + idx*2 $/MWh to give merit order differentiation
-    for (idx, bus_num) in vec![1, 2, 5, 8, 11, 13].iter().enumerate() {
+    for (idx, bus_num) in [1, 2, 5, 8, 11, 13].iter().enumerate() {
         network.graph.add_node(Node::Gen(Gen {
             id: GenId::new(idx),
             name: format!("gen{}", idx + 1),
@@ -457,7 +457,7 @@ fn test_ac_opf_ieee_30bus_feasibility() {
     // Voltages should be reasonable (0.9-1.1 pu)
     for voltage in solution.bus_voltages.values() {
         assert!(
-            voltage >= &0.9 && voltage <= &1.1,
+            (&0.9..=&1.1).contains(&voltage),
             "Voltage {} outside normal range",
             voltage
         );
@@ -530,7 +530,7 @@ fn test_ac_opf_10bus_accuracy() {
     }));
 
     // Add loads (total ~150 MW)
-    let loads = vec![(4, 50.0), (5, 40.0), (7, 30.0), (9, 30.0)];
+    let loads = [(4, 50.0), (5, 40.0), (7, 30.0), (9, 30.0)];
     for (load_idx, (bus_num, load_mw)) in loads.iter().enumerate() {
         network.graph.add_node(Node::Load(Load {
             id: LoadId::new(load_idx),

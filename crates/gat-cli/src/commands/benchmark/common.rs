@@ -3,6 +3,7 @@
 use serde::Serialize;
 
 /// Base timing and convergence fields shared by all benchmarks
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub struct BenchmarkTiming {
     /// Time to load/parse the case (ms)
@@ -14,6 +15,7 @@ pub struct BenchmarkTiming {
 }
 
 /// Base convergence fields
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub struct BenchmarkConvergence {
     /// Whether the solver converged
@@ -23,6 +25,7 @@ pub struct BenchmarkConvergence {
 }
 
 /// Base size fields
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub struct BenchmarkSize {
     /// Number of buses
@@ -34,6 +37,7 @@ pub struct BenchmarkSize {
 }
 
 /// Tolerance configuration for benchmarks
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct BenchmarkTolerances {
     /// Objective value relative tolerance
@@ -59,6 +63,7 @@ impl Default for BenchmarkTolerances {
 
 impl BenchmarkTolerances {
     /// Create from CLI arguments with defaults
+    #[allow(dead_code)]
     pub fn from_args(
         obj_tol: Option<f64>,
         constraint_tol: Option<f64>,

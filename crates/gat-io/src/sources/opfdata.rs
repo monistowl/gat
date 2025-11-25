@@ -77,7 +77,7 @@ fn visit_opfdata_files(dir: &Path, refs: &mut Vec<OpfDataSampleRef>) -> Result<(
 
         if path.is_dir() {
             visit_opfdata_files(&path, refs)?;
-        } else if path.extension().map_or(false, |e| e == "json") {
+        } else if path.extension().is_some_and(|e| e == "json") {
             // Parse JSON file to discover sample IDs
             if let Ok(file) = File::open(&path) {
                 let reader = BufReader::new(file);
@@ -143,7 +143,7 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
         let bus_array = bus_row
             .as_array()
             .ok_or_else(|| anyhow::anyhow!("bus row not array"))?;
-        let base_kv = bus_array.get(0).and_then(|v| v.as_f64()).unwrap_or(138.0);
+        let base_kv = bus_array.first().and_then(|v| v.as_f64()).unwrap_or(138.0);
         // type: 1=PQ, 2=PV, 3=Slack
         // vmin, vmax at indices 2, 3
 
@@ -393,7 +393,7 @@ fn build_solution_from_opfdata(sample: &Value) -> Result<OpfDataSolution> {
             if let Some(bus_sol) = nodes.get("bus").and_then(|v| v.as_array()) {
                 for (idx, bus_row) in bus_sol.iter().enumerate() {
                     if let Some(arr) = bus_row.as_array() {
-                        let vm = arr.get(0).and_then(|v| v.as_f64()).unwrap_or(1.0);
+                        let vm = arr.first().and_then(|v| v.as_f64()).unwrap_or(1.0);
                         let va = arr.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
                         solution.vm.insert(idx + 1, vm);
                         solution.va.insert(idx + 1, va);
@@ -405,7 +405,7 @@ fn build_solution_from_opfdata(sample: &Value) -> Result<OpfDataSolution> {
             if let Some(gen_sol) = nodes.get("generator").and_then(|v| v.as_array()) {
                 for (idx, gen_row) in gen_sol.iter().enumerate() {
                     if let Some(arr) = gen_row.as_array() {
-                        let pg = arr.get(0).and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0; // p.u. to MW
+                        let pg = arr.first().and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0; // p.u. to MW
                         let qg = arr.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0;
                         solution.pgen.insert(idx, pg);
                         solution.qgen.insert(idx, qg);

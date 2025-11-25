@@ -153,7 +153,7 @@ pub fn flisr_sim(
     })?;
 
     let network = load_network(grid_file)?;
-    let _ = power_flow::ac_power_flow(
+    power_flow::ac_power_flow(
         &network,
         solver.build_solver().as_ref(),
         tol,
@@ -164,7 +164,7 @@ pub fn flisr_sim(
     .context("running baseline PF for FLISR")?;
 
     let elements = reliability_file
-        .map(|path| read_reliability(path))
+        .map(read_reliability)
         .transpose()?
         .unwrap_or_else(default_reliability);
 
@@ -626,7 +626,7 @@ fn load_network(grid_file: &Path) -> Result<Network> {
 }
 
 fn persist_dataframe(path: &Path, df: &mut DataFrame) -> Result<()> {
-    let mut file = File::create(&path).with_context(|| format!("creating {}", path.display()))?;
+    let mut file = File::create(path).with_context(|| format!("creating {}", path.display()))?;
     ParquetWriter::new(&mut file)
         .with_compression(ParquetCompression::Snappy)
         .finish(df)

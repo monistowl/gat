@@ -319,7 +319,7 @@ pub fn list_pfdelta_cases(pfdelta_root: &Path) -> Result<Vec<PFDeltaTestCase>> {
                     if let Ok(files) = fs::read_dir(&raw_dir) {
                         for file in files.flatten() {
                             let file_path = file.path();
-                            if file_path.extension().map_or(false, |ext| ext == "json") {
+                            if file_path.extension().is_some_and(|ext| ext == "json") {
                                 cases.push(PFDeltaTestCase {
                                     case_name: case_name.clone(),
                                     contingency_type: cont_type.to_string(),
@@ -337,7 +337,7 @@ pub fn list_pfdelta_cases(pfdelta_root: &Path) -> Result<Vec<PFDeltaTestCase>> {
                     if let Ok(files) = fs::read_dir(&nose_dir) {
                         for file in files.flatten() {
                             let file_path = file.path();
-                            if file_path.extension().map_or(false, |ext| ext == "json") {
+                            if file_path.extension().is_some_and(|ext| ext == "json") {
                                 cases.push(PFDeltaTestCase {
                                     case_name: case_name.clone(),
                                     contingency_type: format!("{}_nose", cont_type),

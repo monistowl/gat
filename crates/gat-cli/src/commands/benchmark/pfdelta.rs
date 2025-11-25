@@ -208,7 +208,7 @@ fn benchmark_case(
                 instance.solution.va.clone(),
             )
         }
-        "opf" | _ => {
+        _ => {
             let solver = AcOpfSolver::new()
                 .with_max_iterations(max_iter as usize)
                 .with_tolerance(tol);

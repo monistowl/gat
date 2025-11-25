@@ -423,9 +423,7 @@ fn collapse_cases(df: &DataFrame) -> Result<Vec<CaseData>> {
         };
 
         // Add this branch flow to the appropriate case
-        map.entry(key)
-            .or_insert_with(HashMap::new)
-            .insert(branch, flow);
+        map.entry(key).or_default().insert(branch, flow);
     }
 
     // Convert map entries into CaseData structs

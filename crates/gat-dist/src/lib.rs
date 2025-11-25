@@ -343,7 +343,7 @@ fn build_node_frame(network: &Network, feeder: &str) -> DataFrame {
         if let Node::Bus(bus) = &network.graph[node_idx] {
             ids.push(bus.id.value() as i64);
             phases.push("ABC".to_string());
-            let node_type = if gens.get(&bus.id).is_some() {
+            let node_type = if gens.contains_key(&bus.id) {
                 "source"
             } else {
                 "load"

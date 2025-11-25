@@ -70,9 +70,7 @@ impl FlisrRestoration {
     /// Effectiveness: reduction in LOLE as fraction
     pub fn effectiveness(&self) -> f64 {
         if self.lole_before > 0.0 {
-            ((self.lole_before - self.lole_after) / self.lole_before)
-                .max(0.0)
-                .min(1.0)
+            ((self.lole_before - self.lole_after) / self.lole_before).clamp(0.0, 1.0)
         } else {
             0.0
         }
@@ -110,7 +108,7 @@ impl ReliabilityAwareVvo {
 
     /// Set minimum deliverability threshold
     pub fn with_min_score(mut self, min_score: f64) -> Self {
-        self.min_deliverability_score = min_score.max(0.0).min(100.0);
+        self.min_deliverability_score = min_score.clamp(0.0, 100.0);
         self
     }
 
@@ -193,10 +191,7 @@ impl MaintenanceSchedule {
             std::collections::HashMap::new();
 
         for (area, day, _) in &self.maintenance_windows {
-            days_by_area
-                .entry(*day)
-                .or_insert_with(Vec::new)
-                .push(*area);
+            days_by_area.entry(*day).or_default().push(*area);
         }
 
         // Check if multiple areas on same day

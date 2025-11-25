@@ -94,14 +94,10 @@ pub fn reliability_metrics(
     };
 
     // Validate required columns
-    if !flows_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "branch_id")
-    {
+    if !flows_df.get_column_names().contains(&"branch_id") {
         return Err(anyhow!("flows must contain 'branch_id' column"));
     }
-    if !flows_df.get_column_names().iter().any(|c| *c == "flow_mw") {
+    if !flows_df.get_column_names().contains(&"flow_mw") {
         return Err(anyhow!("flows must contain 'flow_mw' column"));
     }
 
@@ -219,15 +215,9 @@ fn compute_reliability_records(
     let mut records = Vec::new();
 
     // Determine grouping columns (scenario_id, time)
-    let has_scenario = flows_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "scenario_id");
-    let has_time = flows_df.get_column_names().iter().any(|c| *c == "time");
-    let has_unserved = flows_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "unserved_energy_mw");
+    let has_scenario = flows_df.get_column_names().contains(&"scenario_id");
+    let has_time = flows_df.get_column_names().contains(&"time");
+    let has_unserved = flows_df.get_column_names().contains(&"unserved_energy_mw");
 
     // Group flows by case (scenario_id, time)
     let group_cols: Vec<String> = [
@@ -420,11 +410,7 @@ fn load_flows_from_manifest(manifest_path: &Path) -> Result<DataFrame> {
                 .with_context(|| format!("reading job output '{}'", job.output))?;
 
             // Add scenario_id column if not present
-            if !current_df
-                .get_column_names()
-                .iter()
-                .any(|c| *c == "scenario_id")
-            {
+            if !current_df.get_column_names().contains(&"scenario_id") {
                 current_df.with_column(Series::new(
                     "scenario_id",
                     vec![job.scenario_id.clone(); current_df.height()],
@@ -432,7 +418,7 @@ fn load_flows_from_manifest(manifest_path: &Path) -> Result<DataFrame> {
             }
 
             // Add time column if not present
-            if !current_df.get_column_names().iter().any(|c| *c == "time") {
+            if !current_df.get_column_names().contains(&"time") {
                 let time_str = job.time.as_deref().map(|s| s.to_string());
                 current_df.with_column(Series::new("time", vec![time_str; current_df.height()]))?;
             }

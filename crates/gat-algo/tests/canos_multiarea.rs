@@ -291,7 +291,7 @@ fn test_multiarea_monte_carlo_corridor_utilization() {
     // Should track corridor utilization
     assert!(metrics.corridor_utilization.contains_key(&0));
     let util = metrics.corridor_utilization[&0];
-    assert!(util >= 0.0 && util <= 100.0);
+    assert!((0.0..=100.0).contains(&util));
 }
 
 #[test]

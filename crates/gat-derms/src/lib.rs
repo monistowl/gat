@@ -61,6 +61,7 @@ struct PricePoint {
 /// - Rotor heating (field current limits → Q_max decreases at high P)
 /// - Stator heating (armature current → circular arc at low P)
 /// - Prime mover limits (boiler, turbine → P_max independent of Q)
+///
 /// See doi:10.1109/TPWRS.2002.804943 for generator capability curves.
 ///
 /// **DER Capability Curves:**
@@ -191,6 +192,7 @@ pub fn envelope(
 /// 1. **Time-of-Use (TOU) rates** (1980s-1990s): Predictable peak/off-peak price differentials
 /// 2. **Wholesale market volatility** (2000s): CAISO, ERCOT prices vary 10-100x intraday
 /// 3. **Battery cost decline** (2010s-present): Lithium-ion costs dropped from $1000/kWh → $150/kWh
+///
 /// See Walawalkar et al. (2007) doi:10.1109/TPWRS.2007.901489 for early arbitrage economics.
 ///
 /// **Algorithm (Naive Threshold-Based Dispatch):**
@@ -355,7 +357,7 @@ pub fn stress_test(
     let median = compute_median_price(&prices);
 
     let mut rng = seed
-        .map(|value| StdRng::seed_from_u64(value))
+        .map(StdRng::seed_from_u64)
         .unwrap_or_else(StdRng::from_entropy);
 
     let mut scenario_ids = Vec::new();
@@ -521,7 +523,7 @@ fn compute_median_price(prices: &[PricePoint]) -> f64 {
     let mut values: Vec<f64> = prices.iter().map(|point| point.price).collect();
     values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
     let mid = values.len() / 2;
-    if values.len() % 2 == 0 {
+    if values.len().is_multiple_of(2) {
         (values[mid - 1] + values[mid]) / 2.0
     } else {
         values[mid]

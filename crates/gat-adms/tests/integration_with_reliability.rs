@@ -25,6 +25,11 @@ fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Net
         bus: BusId::new(0),
         active_power_mw: gen_capacity,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: gen_capacity,
+        qmin_mvar: f64::NEG_INFINITY,
+        qmax_mvar: f64::INFINITY,
+        cost_model: gat_core::CostModel::NoCost,
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -253,7 +258,7 @@ fn test_reliability_orchestrator_flisr_stats() {
         .ok();
 
     let (eff, count) = orch.flisr_effectiveness_stats();
-    assert!(eff >= 0.0 && eff <= 1.0);
+    assert!((0.0..=1.0).contains(&eff));
     // Count depends on whether same-network operations are considered "effective"
     // (effectiveness requires LOLE_before > LOLE_after, which is zero in this test)
     assert!(count <= 2);
@@ -291,7 +296,7 @@ fn test_reliability_orchestrator_plan_maintenance() {
     // Maintenance planning may fail on multi-area coordination or Monte Carlo
     // Just check that the orchestrator accepts it
     if let Ok(schedule) = result {
-        assert!(schedule.maintenance_windows.len() > 0);
+        assert!(!schedule.maintenance_windows.is_empty());
         assert!(orch.maintenance_schedule.is_some());
     } else {
         // Maintenance planning failed - that's OK for this test

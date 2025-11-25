@@ -134,7 +134,7 @@ mod tests {
             metadata: HashMap::new(),
         };
         let tmp = NamedTempFile::new().unwrap();
-        write_manifest(tmp.path(), &[artifact.clone()]).unwrap();
+        write_manifest(tmp.path(), std::slice::from_ref(&artifact)).unwrap();
         let text = fs::read_to_string(tmp.path()).unwrap();
         let parsed: Vec<ScenarioArtifact> = serde_json::from_str(&text).unwrap();
         assert_eq!(parsed.first().unwrap().scenario_id, "test");

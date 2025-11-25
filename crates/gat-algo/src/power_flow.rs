@@ -1618,7 +1618,7 @@ mod tests {
         let network = build_simple_network();
         let temp_dir = tempdir().unwrap();
         let out = temp_dir.path().join("dc.parquet");
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         dc_power_flow(&network, &solver, &out, &[]).unwrap();
 
         let df = read_stage_dataframe(&out, OutputStage::PfDc).unwrap();
@@ -1632,7 +1632,7 @@ mod tests {
         let network = build_simple_network();
         let temp_dir = tempdir().unwrap();
         let out = temp_dir.path().join("ac.parquet");
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         ac_power_flow(&network, &solver, 1e-6, 5, &out, &[]).unwrap();
 
         let df = read_stage_dataframe(&out, OutputStage::PfAc).unwrap();
@@ -1653,7 +1653,7 @@ mod tests {
         fs::write(&branch_limits_path, "branch_id,flow_limit\n0,0.001\n").unwrap();
 
         let out = temp_dir.path().join("opf.parquet");
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         assert!(dc_optimal_power_flow(
             &network,
             &solver,
@@ -1678,7 +1678,7 @@ mod tests {
         fs::write(&limits_path, "bus_id,pmin,pmax,demand\n0,0,5,1\n1,0,5,0\n").unwrap();
 
         let out = temp_dir.path().join("opf.parquet");
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         dc_optimal_power_flow(
             &network,
             &solver,
@@ -1762,7 +1762,7 @@ mod tests {
         fs::write(&piecewise_path, "bus_id,start,end,slope\n0,0,2,10\n").unwrap();
 
         let out = temp_dir.path().join("opf.parquet");
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         let err = dc_optimal_power_flow(
             &network,
             &solver,
@@ -1798,7 +1798,7 @@ mod tests {
         .unwrap();
 
         let out = temp_dir.path().join("opf.parquet");
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         dc_optimal_power_flow(
             &network,
             &solver,
@@ -1854,7 +1854,7 @@ mod tests {
         fs::write(&contingencies_path, "branch_id,label\n0,line0\n1,line1\n").unwrap();
         fs::write(&branch_limits_path, "branch_id,flow_limit\n0,5\n1,0.1\n").unwrap();
 
-        let solver = Arc::new(GaussSolver::default());
+        let solver = Arc::new(GaussSolver);
         n_minus_one_dc(
             &network,
             solver,
@@ -1885,7 +1885,7 @@ mod tests {
         let network = build_simple_network();
         let temp_dir = tempdir().unwrap();
         let out = temp_dir.path().join("ac.parquet");
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         ac_optimal_power_flow(&network, &solver, 1e-6, 10, &out, &[]).unwrap();
 
         let df = read_stage_dataframe(&out, OutputStage::OpfAc).unwrap();
@@ -1905,7 +1905,7 @@ mod tests {
         )
         .unwrap();
 
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         state_estimation_wls(
             &network,
             &solver,
@@ -1937,7 +1937,7 @@ mod tests {
         )
         .unwrap();
 
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
         state_estimation_wls(
             &network,
             &solver,
@@ -1984,7 +1984,7 @@ mod tests {
         )
         .unwrap();
         let out = temp_dir.path().join("state.csv");
-        let solver = GaussSolver::default();
+        let solver = GaussSolver;
 
         let err = state_estimation_wls(
             &network,

@@ -80,10 +80,10 @@ pub fn compute_rents(
             .context("loading OPF results")?;
 
     // Validate required columns
-    if !opf_df.get_column_names().iter().any(|c| *c == "bus_id") {
+    if !opf_df.get_column_names().contains(&"bus_id") {
         return Err(anyhow!("OPF results must contain 'bus_id' column"));
     }
-    if !opf_df.get_column_names().iter().any(|c| *c == "lmp") {
+    if !opf_df.get_column_names().contains(&"lmp") {
         return Err(anyhow!(
             "OPF results must contain 'lmp' (locational marginal price) column"
         ));
@@ -99,7 +99,7 @@ pub fn compute_rents(
     };
 
     // Compute congestion rents from branch flows and LMP differentials
-    let rents_df = compute_branch_rents(&opf_df, &network)?;
+    let rents_df = compute_branch_rents(&opf_df, network)?;
 
     // Compute generator revenues and load payments from nodal injections
     let injections_df = compute_injection_payments(&opf_df, &tariffs)?;
@@ -108,16 +108,12 @@ pub fn compute_rents(
     let mut combined_df = join_and_aggregate(rents_df, injections_df)?;
 
     // Compute summary statistics
-    let num_scenarios = if combined_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "scenario_id")
-    {
+    let num_scenarios = if combined_df.get_column_names().contains(&"scenario_id") {
         combined_df.column("scenario_id")?.unique()?.len()
     } else {
         1
     };
-    let num_time_periods = if combined_df.get_column_names().iter().any(|c| *c == "time") {
+    let num_time_periods = if combined_df.get_column_names().contains(&"time") {
         combined_df.column("time")?.unique()?.len()
     } else {
         1
@@ -181,8 +177,8 @@ pub fn compute_rents(
 /// the flow relieves congestion from low-price to high-price area, creating value.
 fn compute_branch_rents(opf_df: &DataFrame, network: &gat_core::Network) -> Result<DataFrame> {
     // Extract branch flows (branch_id, flow_mw)
-    let has_branch = opf_df.get_column_names().iter().any(|c| *c == "branch_id");
-    let has_flow = opf_df.get_column_names().iter().any(|c| *c == "flow_mw");
+    let has_branch = opf_df.get_column_names().contains(&"branch_id");
+    let has_flow = opf_df.get_column_names().contains(&"flow_mw");
 
     if !has_branch || !has_flow {
         // No branch flows present: return empty DataFrame with expected schema
@@ -280,10 +276,7 @@ fn compute_injection_payments(
     opf_df: &DataFrame,
     _tariffs: &HashMap<i64, f64>,
 ) -> Result<DataFrame> {
-    let has_injection = opf_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "injection_mw");
+    let has_injection = opf_df.get_column_names().contains(&"injection_mw");
 
     if !has_injection {
         // No injections: return empty DataFrame

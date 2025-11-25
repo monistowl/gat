@@ -151,14 +151,10 @@ pub fn featurize_gnn_dc(
         .context("loading flows parquet for GNN featurization")?;
 
     // Validate required columns
-    if !flows_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "branch_id")
-    {
+    if !flows_df.get_column_names().contains(&"branch_id") {
         return Err(anyhow!("flows parquet must contain 'branch_id' column"));
     }
-    if !flows_df.get_column_names().iter().any(|c| *c == "flow_mw") {
+    if !flows_df.get_column_names().contains(&"flow_mw") {
         return Err(anyhow!("flows parquet must contain 'flow_mw' column"));
     }
 
@@ -347,10 +343,10 @@ fn determine_group_columns(flows_df: &DataFrame, cfg: &FeaturizeGnnConfig) -> Re
     let mut group_cols = Vec::new();
     let column_names: Vec<&str> = flows_df.get_column_names();
 
-    if cfg.group_by_scenario && column_names.iter().any(|c| *c == "scenario_id") {
+    if cfg.group_by_scenario && column_names.contains(&"scenario_id") {
         group_cols.push("scenario_id".to_string());
     }
-    if cfg.group_by_time && column_names.iter().any(|c| *c == "time") {
+    if cfg.group_by_time && column_names.contains(&"time") {
         group_cols.push("time".to_string());
     }
 
@@ -380,8 +376,7 @@ fn create_graph_keys(flows_df: &DataFrame, group_cols: &[String]) -> Result<Vec<
         let group_by = flows_df.group_by(group_cols)?;
         let groups = group_by.get_groups();
 
-        let mut graph_id = 0i64;
-        for (_idx, group) in groups.iter().enumerate() {
+        for (graph_id, group) in groups.iter().enumerate() {
             let first_row_idx = match group {
                 GroupsIndicator::Idx((first, _)) => first,
                 GroupsIndicator::Slice([first, _]) => first,
@@ -414,11 +409,10 @@ fn create_graph_keys(flows_df: &DataFrame, group_cols: &[String]) -> Result<Vec<
             });
 
             graph_keys.push(GraphKey {
-                graph_id,
+                graph_id: graph_id as i64,
                 scenario_id,
                 time,
             });
-            graph_id += 1;
         }
     }
 
