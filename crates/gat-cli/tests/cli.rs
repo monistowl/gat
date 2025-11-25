@@ -341,6 +341,16 @@ fn gat_completions_outputs_script() {
         .stdout(predicate::str::contains("_gat()"));
 }
 
+#[test]
+fn gat_doctor_reports_environment() {
+    cargo_bin_cmd!("gat-cli")
+        .args(["doctor"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Check"))
+        .stdout(predicate::str::contains("solvers"));
+}
+
 #[cfg(feature = "full-io")]
 #[test]
 fn gat_graph_export_writes_file() {

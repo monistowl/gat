@@ -4,6 +4,7 @@ pub mod analytics;
 pub mod batch;
 pub mod benchmark;
 pub mod completions;
+pub mod doctor;
 pub mod datasets;
 pub mod derms;
 pub mod dist;
