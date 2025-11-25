@@ -1,5 +1,5 @@
 use crate::ui::{
-    BarChartView, ColorHint, ContextButton, Pane, PaneContext, PaneLayout, PaneView,
+    BarChartView, ColorHint, ContextButton, EmptyState, Pane, PaneContext, PaneLayout, PaneView,
     ResponsiveRules, Sidebar, SubTabs, TableView, Tabs, Tooltip,
 };
 
@@ -114,6 +114,53 @@ impl AnalyticsPane {
             .with_barchart(pf_chart)
             .with_table(pf_table);
 
+        // Distribution automation sub-tab
+        let switching_steps = TableView::new(["Step", "Device", "Target", "Status"])
+            .add_row(["1", "Switch SW-14", "Open to isolate feeder", "Queued"])
+            .add_row(["2", "Recloser RC-7", "Close to backfeed", "Pending"])
+            .add_row(["3", "SCADA Tag", "Validate voltage profile", "Awaiting"])
+            .with_empty_state(EmptyState::new(
+                "No switching plan loaded",
+                ["Import a FLISR plan to preview step-by-step execution."],
+            ));
+
+        let voltage_profiles =
+            TableView::new(["Feeder", "Min (pu)", "Max (pu)", "Cap banks", "Tap changes"])
+                .add_row(["F-12", "0.96", "1.03", "2 active", "1 planned"])
+                .add_row(["F-21", "0.94", "1.05", "1 active", "2 planned"])
+                .add_row(["F-7", "0.98", "1.02", "0 active", "0 planned"])
+                .with_empty_state(EmptyState::new(
+                    "No voltage profiles captured",
+                    ["Run VVO to refresh regulator and cap bank telemetry."],
+                ));
+
+        let automation_pane = Pane::new("Distribution Automation")
+            .body([
+                "Preview FLISR/VVO steps with compact tables that stay readable in 110x32 viewports.",
+                "Use status flags to stage edits before dispatching switching plans.",
+            ])
+            .with_table(switching_steps)
+            .with_table(voltage_profiles);
+
+        // Hosting capacity sub-tab
+        let hosting_capacity =
+            TableView::new(["Bus/Zone", "Capacity (MW)", "Thermal flag", "Voltage flag"])
+                .add_row(["Bus 101", "5.5", "OK", "⚠ Near limit"])
+                .add_row(["Zone A", "12.0", "OK", "OK"])
+                .add_row(["Bus 214", "3.2", "⚠ Limited", "OK"])
+                .with_empty_state(EmptyState::new(
+                    "No hosting-capacity study loaded",
+                    ["Run hosting-capacity analytics to populate bus and zone headroom."],
+                ));
+
+        let hosting_summary = Pane::new("Hosting Capacity Outputs")
+            .body([
+                "Capacity summaries keep voltage and thermal flags visible for siting decisions.",
+                "Tables stay compact; empty states explain how to refresh results.",
+            ])
+            .with_table(hosting_capacity)
+            .mark_visual();
+
         // Combine tabs
         let analytics_tabs = Tabs::new(["Reliability", "DS", "ELCC", "Power Flow"], 0);
         let main_content = Pane::new("Analytics Results")
@@ -128,27 +175,21 @@ impl AnalyticsPane {
             .with_tabs(analytics_tabs)
             .mark_visual();
 
-        let summary = Pane::new("Summary").body([
-            "Analysis completed: 4 scenarios processed",
-            "Valid results: All metrics passed validation",
-            "Timestamp: 2025-01-15 14:32:00 UTC",
-        ]);
-
-        let export = Pane::new("Export Options").body([
-            "Button: [Ctrl+E] Export to CSV",
-            "Button: [Ctrl+P] Generate PDF report",
-            "Button: [Ctrl+J] Save as JSON",
-        ]);
+        let automation_hosting = Pane::new("Automation & Hosting")
+            .with_child(automation_pane)
+            .with_child(hosting_summary);
 
         PaneLayout::new(main_content)
-            .with_secondary(Pane::new("Actions").with_child(summary).with_child(export))
+            .with_secondary(automation_hosting)
             .with_sidebar(Sidebar::new("Analysis Tips", false).lines([
                 "Use arrow keys to navigate between tabs",
                 "Bar charts show relative magnitudes at a glance",
                 "Table data provides precise numerical values",
-                "Export results for detailed offline analysis",
+                "Automation and hosting subtabs stay compact on smaller viewports",
             ]))
-            .with_subtabs(SubTabs::new(["Metrics", "Trends", "Compare"], 0))
+            .with_subtabs(
+                SubTabs::new(["Metrics", "Automation", "Hosting"], 0).with_compact_active(2),
+            )
             .with_responsive_rules(ResponsiveRules {
                 wide_threshold: 100,
                 tall_threshold: 28,
@@ -168,7 +209,7 @@ impl PaneView for AnalyticsPane {
     }
 
     fn hotkey(&self) -> char {
-        '5'
+        '6'
     }
 
     fn layout(&self, _context: &PaneContext) -> PaneLayout {

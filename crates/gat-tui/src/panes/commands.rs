@@ -26,6 +26,14 @@ impl CommandsPane {
                         .add_row([
                             "gat-cli dist import matpower --m <file>",
                             "Convert MATPOWER test cases before ADMS runs",
+                        ])
+                        .add_row([
+                            "gat-cli dist flisr --network <file> --steps 5",
+                            "Stage FLISR switching steps before dispatch",
+                        ])
+                        .add_row([
+                            "gat-cli derms hosting-capacity --grid <grid> --der-type solar",
+                            "Estimate hosting capacity with voltage headroom",
                         ]),
                 )
                 .with_child(
