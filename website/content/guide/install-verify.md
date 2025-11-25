@@ -24,7 +24,7 @@ gat --version
 
 You should see output like:
 ```
-gat 0.3.2
+gat 0.3.3
 ```
 
 If you get "command not found", check that your shell has reloaded the PATH:
@@ -149,4 +149,3 @@ If something doesn't work:
 1. Check the [FAQ](/faq/) for common issues
 2. Review the [Quickstart Guide](/guide/quickstart/) for step-by-step examples
 3. Open an issue on [GitHub](https://github.com/monistowl/gat/issues)
-4. Ask on [GitHub Discussions](https://github.com/monistowl/gat/discussions)
