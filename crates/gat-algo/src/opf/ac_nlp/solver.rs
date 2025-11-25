@@ -80,6 +80,27 @@ impl<'a> Gradient for PenaltyProblem<'a> {
     }
 }
 
+/// Compute maximum bound violation for a solution
+fn max_bound_violation(x: &[f64], lb: &[f64], ub: &[f64]) -> f64 {
+    let mut max_viol: f64 = 0.0;
+    for i in 0..x.len() {
+        if x[i] < lb[i] {
+            max_viol = max_viol.max(lb[i] - x[i]);
+        }
+        if x[i] > ub[i] {
+            max_viol = max_viol.max(x[i] - ub[i]);
+        }
+    }
+    max_viol
+}
+
+/// Project solution onto bounds
+fn project_onto_bounds(x: &mut [f64], lb: &[f64], ub: &[f64]) {
+    for i in 0..x.len() {
+        x[i] = x[i].max(lb[i]).min(ub[i]);
+    }
+}
+
 /// Solve AC-OPF using penalty method with L-BFGS
 ///
 /// This implements an outer penalty method that solves a sequence of unconstrained
@@ -144,9 +165,11 @@ pub fn solve(
             }
         }
 
-        // Check constraint violation
+        // Check constraint violation (equality + bounds)
         let g = problem.equality_constraints(&x);
-        let max_violation: f64 = g.iter().map(|gi| gi.abs()).fold(0.0, f64::max);
+        let eq_violation: f64 = g.iter().map(|gi| gi.abs()).fold(0.0, f64::max);
+        let bound_violation = max_bound_violation(&x, &lb, &ub);
+        let max_violation = eq_violation.max(bound_violation);
 
         if max_violation < tolerance {
             break;
@@ -155,9 +178,17 @@ pub fn solve(
         penalty *= penalty_increase;
     }
 
-    // Check final feasibility
+    // Project solution onto bounds before final evaluation
+    // This ensures the returned solution is feasible w.r.t. bounds
+    project_onto_bounds(&mut x, &lb, &ub);
+
+    // Check final feasibility (equality constraints after projection)
     let g = problem.equality_constraints(&x);
-    let max_violation: f64 = g.iter().map(|gi| gi.abs()).fold(0.0, f64::max);
+    let eq_violation: f64 = g.iter().map(|gi| gi.abs()).fold(0.0, f64::max);
+    // Bound violation should be zero after projection, but check anyway
+    let bound_violation = max_bound_violation(&x, &lb, &ub);
+    let max_violation = eq_violation.max(bound_violation);
+
     // Penalty methods converge asymptotically - relaxing by 10x is standard practice
     // to avoid excessive penalty iterations while still ensuring practical feasibility
     let converged = max_violation < tolerance * 10.0;
