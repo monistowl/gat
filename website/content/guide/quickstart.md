@@ -5,7 +5,7 @@ weight = 2
 
 [extra]
 next_steps = [
-  { title = "Power Flow Analysis", description = "Learn about DC and AC power flow analysis", link = "/docs/guide/pf/" },
+  { title = "Power Flow Analysis", description = "Learn about DC and AC power flow analysis", link = "/guide/pf/" },
   { title = "Command Builder", description = "Visually build commands without memorizing syntax", link = "/tools/" },
   { title = "Explore Examples", description = "See real-world examples and use cases", link = "https://github.com/monistowl/gat/tree/main/examples" }
 ]
@@ -44,7 +44,7 @@ gat --version
 
 You should see: `gat-cli 0.3.1`
 
-> **Troubleshooting?** See [Installation Troubleshooting](/docs/guide/installation-troubleshooting/) for common issues.
+> **Troubleshooting?** See [Installation Troubleshooting](/guide/install-verify/#troubleshooting) for common issues.
 
 ## 2. Understand the Basics (1 minute)
 
@@ -171,28 +171,28 @@ parquet-tools show flows_dc.parquet
 Now that you've run your first analysis, explore these topics:
 
 ### 📚 Learn More About Power Flow
-- [Power Flow Guide](/docs/guide/pf/) — Deep dive into DC vs AC power flow
-- [Solver Selection](/docs/guide/pf/#solver-selection) — When to use each solver
+- [Power Flow Guide](/guide/pf/) — Deep dive into DC vs AC power flow
+- [Solver Selection](/guide/pf/#solver-selection) — When to use each solver
 
 ### 🎯 Try Other Analyses
-- [Optimal Power Flow (OPF)](/docs/guide/opf/) — Economic dispatch
-- [N-1 Contingency Analysis](/docs/guide/dist/#n-1-screening) — What happens if a line fails?
-- [State Estimation](/docs/guide/se/) — Infer grid state from measurements
+- [Optimal Power Flow (OPF)](/guide/opf/) — Economic dispatch
+- [N-1 Contingency Analysis](/guide/dist/#n-1-screening) — What happens if a line fails?
+- [State Estimation](/guide/se/) — Infer grid state from measurements
 
 ### 💻 Build Automation Workflows
-- [Command-Line Interface](/docs/guide/overview/#cli-architecture) — Automate analysis pipelines
-- [Time Series](/docs/guide/ts/) — Run multi-period analysis
-- [Manifests](/docs/guide/cli-architecture/#manifest-driven-workflows) — Batch processing
+- [Command-Line Interface](/guide/overview/#cli-architecture) — Automate analysis pipelines
+- [Time Series](/guide/ts/) — Run multi-period analysis
+- [Manifests](/internals/cli-architecture/#manifest-driven-workflows) — Batch processing
 
 ### 📊 Visualize Results
-- [TUI Dashboard](/docs/guide/gat-tui/) — Interactive terminal dashboard
+- [TUI Dashboard](/internals/gat-tui/) — Interactive terminal dashboard
   ```bash
   gat-tui  # Explore results in a fancy dashboard
   ```
 
 ### 🤖 Integrate with Other Tools
-- [MCP Server](/docs/guide/mcp-onboarding/) — AI agent integration
-- [Agent Integration](/docs/guide/overview/#agent-integration) — Use GAT with Claude, ChatGPT, etc.
+- [MCP Server](/internals/mcp-onboarding/) — AI agent integration
+- [Agent Integration](/guide/overview/#agent-integration) — Use GAT with Claude, ChatGPT, etc.
 
 ## Common Tasks
 

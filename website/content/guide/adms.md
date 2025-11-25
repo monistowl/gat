@@ -133,7 +133,7 @@ Constraints:
 
 ## Reliability Concepts
 
-See [Reliability Analysis](/docs/guide/reliability/) for detailed explanation of:
+See [Reliability Analysis](/guide/reliability/) for detailed explanation of:
 - **LOLE** (Loss of Load Expectation)
 - **EUE** (Energy Unserved)
 - **Deliverability Score** (0-100 composite metric)
@@ -155,7 +155,7 @@ cargo test -p gat-adms --test integration_with_reliability -- --nocapture
 
 ## References
 
-- **Reliability Metrics**: [Reliability Analysis](/docs/guide/reliability/)
+- **Reliability Metrics**: [Reliability Analysis](/guide/reliability/)
 - **Crate**: `crates/gat-adms/src/reliability_integration.rs`
 - **CLI**: `gat adms --help`
 - **Tests**: `crates/gat-adms/tests/integration_with_reliability.rs`

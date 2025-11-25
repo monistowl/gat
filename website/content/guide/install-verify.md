@@ -6,8 +6,8 @@ weight = 5
 
 [extra]
 next_steps = [
-  { title = "Quickstart Guide", description = "Run your first power flow analysis in 5 minutes", link = "/docs/guide/quickstart/" },
-  { title = "Power Flow Analysis", description = "Deep dive into power flow analysis options", link = "/docs/guide/pf/" },
+  { title = "Quickstart Guide", description = "Run your first power flow analysis in 5 minutes", link = "/guide/quickstart/" },
+  { title = "Power Flow Analysis", description = "Deep dive into power flow analysis options", link = "/guide/pf/" },
   { title = "Command Builder", description = "Interactively build commands", link = "/tools/" }
 ]
 +++
@@ -135,9 +135,9 @@ bash install.sh
 
 Once verified, you're ready to:
 
-1. **Learn the basics** → [Quickstart Guide](/docs/guide/quickstart/)
-2. **Explore power flow analysis** → [Power Flow Analysis](/docs/guide/pf/)
-3. **Run optimization** → [Optimal Power Flow](/docs/guide/opf/)
+1. **Learn the basics** → [Quickstart Guide](/guide/quickstart/)
+2. **Explore power flow analysis** → [Power Flow Analysis](/guide/pf/)
+3. **Run optimization** → [Optimal Power Flow](/guide/opf/)
 4. **Build commands interactively** → [Command Builder](/command-builder/)
 
 ## Getting Help
@@ -145,6 +145,6 @@ Once verified, you're ready to:
 If something doesn't work:
 
 1. Check the [FAQ](/faq/) for common issues
-2. Review the [Quickstart Guide](/docs/guide/quickstart/) for step-by-step examples
+2. Review the [Quickstart Guide](/guide/quickstart/) for step-by-step examples
 3. Open an issue on [GitHub](https://github.com/monistowl/gat/issues)
 4. Ask on [GitHub Discussions](https://github.com/monistowl/gat/discussions)

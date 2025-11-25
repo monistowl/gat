@@ -186,7 +186,7 @@ gat opf ac grid.arrow \
 
 ## Related Documentation
 
-* Power flow: [Power Flow Guide](/docs/guide/pf/)
-* State estimation: [State Estimation Guide](/docs/guide/se/)
-* Benchmarking: [Benchmarking Guide](/docs/guide/benchmark/)
-* Reliability: [Reliability Guide](/docs/guide/reliability/)
+* Power flow: [Power Flow Guide](/guide/pf/)
+* State estimation: [State Estimation Guide](/guide/se/)
+* Benchmarking: [Benchmarking Guide](/guide/benchmark/)
+* Reliability: [Reliability Guide](/guide/reliability/)
