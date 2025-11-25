@@ -60,6 +60,7 @@ network.graph.add_edge(bus1_idx, bus2_idx, Edge::Branch(Branch {
     to_bus: BusId::new(1),
     resistance: 0.01,
     reactance: 0.1,
+    ..Branch::default()
 }));
 ```
 

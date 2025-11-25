@@ -34,6 +34,7 @@ fn create_2bus_network() -> Network {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.1,
+            ..Branch::default()
         }),
     );
 
@@ -181,6 +182,7 @@ fn create_3bus_network() -> Network {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.1,
+            ..Branch::default()
         }),
     );
 
@@ -194,6 +196,7 @@ fn create_3bus_network() -> Network {
             to_bus: BusId::new(2),
             resistance: 0.01,
             reactance: 0.1,
+            ..Branch::default()
         }),
     );
 
@@ -207,6 +210,7 @@ fn create_3bus_network() -> Network {
             to_bus: BusId::new(2),
             resistance: 0.01,
             reactance: 0.1,
+            ..Branch::default()
         }),
     );
 

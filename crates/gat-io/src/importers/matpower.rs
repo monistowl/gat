@@ -165,6 +165,13 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
             to_bus: BusId::new(br.t_bus),
             resistance: br.br_r,
             reactance: br.br_x,
+            tap_ratio: if br.tap == 0.0 { 1.0 } else { br.tap },
+            phase_shift_rad: br.shift.to_radians(),
+            charging_b_pu: br.br_b,
+            s_max_mva: (br.rate_a > 0.0).then_some(br.rate_a),
+            status: br.br_status != 0,
+            rating_a_mva: (br.rate_a > 0.0).then_some(br.rate_a),
+            ..Branch::default()
         };
 
         network
@@ -255,6 +262,17 @@ fn build_network_from_case(
             to_bus: BusId::new(case_branch.t_bus),
             resistance: case_branch.br_r,
             reactance: case_branch.br_x,
+            tap_ratio: if case_branch.tap == 0.0 {
+                1.0
+            } else {
+                case_branch.tap
+            },
+            phase_shift_rad: case_branch.shift.to_radians(),
+            charging_b_pu: case_branch.br_b,
+            s_max_mva: (case_branch.rate_a > 0.0).then_some(case_branch.rate_a),
+            status: case_branch.is_on(),
+            rating_a_mva: (case_branch.rate_a > 0.0).then_some(case_branch.rate_a),
+            ..Branch::default()
         };
 
         network

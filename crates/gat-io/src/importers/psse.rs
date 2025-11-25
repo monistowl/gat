@@ -27,6 +27,10 @@ struct PsseBranch {
     to: usize,
     resistance: f64,
     reactance: f64,
+    charging_b: f64,
+    rate_a: Option<f64>,
+    tap_ratio: f64,
+    phase_shift_rad: f64,
     in_service: bool,
 }
 
@@ -164,8 +168,16 @@ fn parse_psse_branch_line(line: &str) -> Option<PsseBranch> {
     let to = columns[1].parse::<usize>().ok()?;
     let resistance = columns[3].parse::<f64>().unwrap_or(0.0);
     let reactance = columns[4].parse::<f64>().unwrap_or(0.0);
+    let charging_b = columns
+        .get(5)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let rate_a = columns
+        .get(6)
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|val| *val > 0.0);
     let status = columns
-        .get(10)
+        .get(13)
         .and_then(|s| s.parse::<i32>().ok())
         .unwrap_or(1);
 
@@ -174,6 +186,10 @@ fn parse_psse_branch_line(line: &str) -> Option<PsseBranch> {
         to,
         resistance,
         reactance,
+        charging_b,
+        rate_a,
+        tap_ratio: 1.0,
+        phase_shift_rad: 0.0,
         in_service: status != 0,
     })
 }
@@ -303,6 +319,13 @@ fn build_network_from_psse(
             to_bus: BusId::new(branch.to),
             resistance: branch.resistance,
             reactance: branch.reactance,
+            tap_ratio: branch.tap_ratio,
+            phase_shift_rad: branch.phase_shift_rad,
+            charging_b_pu: branch.charging_b,
+            s_max_mva: branch.rate_a,
+            status: branch.in_service,
+            rating_a_mva: branch.rate_a,
+            ..Branch::default()
         };
 
         network

@@ -31,6 +31,7 @@ fn create_simple_network() -> Network {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 
@@ -225,6 +226,7 @@ fn test_ac_opf_validate_negative_resistance() {
             to_bus: BusId::new(1),
             resistance: -0.01, // Invalid: negative
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 
@@ -399,6 +401,7 @@ fn test_ac_opf_ieee_30bus_feasibility() {
             to_bus: BusId::new(1),
             resistance: 0.0192,
             reactance: 0.0575,
+            ..Branch::default()
         }),
     );
     network.graph.add_edge(
@@ -411,6 +414,7 @@ fn test_ac_opf_ieee_30bus_feasibility() {
             to_bus: BusId::new(2),
             resistance: 0.0452,
             reactance: 0.1652,
+            ..Branch::default()
         }),
     );
     // Add more branches to connect the network
@@ -425,6 +429,7 @@ fn test_ac_opf_ieee_30bus_feasibility() {
                 to_bus: BusId::new(i),
                 resistance: 0.01,
                 reactance: 0.05,
+                ..Branch::default()
             }),
         );
     }
@@ -553,6 +558,7 @@ fn test_ac_opf_10bus_accuracy() {
                 to_bus: BusId::new(i + 1),
                 resistance: 0.01,
                 reactance: 0.05,
+                ..Branch::default()
             }),
         );
     }
@@ -625,6 +631,7 @@ fn test_ac_opf_capacity_boundary() {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 
@@ -681,6 +688,7 @@ fn test_ac_opf_capacity_boundary() {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 
