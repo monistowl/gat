@@ -6,14 +6,13 @@
 //! - SOCP relaxation (convex AC approximation)
 //! - AC-OPF (full nonlinear, future)
 
-mod ac_nlp;
+pub mod ac_nlp;
 mod dc_opf;
 mod economic;
 mod socp;
 mod types;
 
 pub use types::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution};
-pub use ac_nlp::YBusBuilder;
 
 use crate::OpfError;
 use gat_core::Network;

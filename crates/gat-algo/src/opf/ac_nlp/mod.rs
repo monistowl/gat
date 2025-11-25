@@ -19,4 +19,4 @@
 
 mod ybus;
 
-pub use ybus::YBusBuilder;
+pub use ybus::{YBus, YBusBuilder};
