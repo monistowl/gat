@@ -18,6 +18,17 @@ pub enum DatasetStatus {
     Pending,
 }
 
+impl DatasetStatus {
+    /// Render a human-friendly label for inline dataset badges.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DatasetStatus::Ready => "Ready",
+            DatasetStatus::Idle => "Idle",
+            DatasetStatus::Pending => "Pending",
+        }
+    }
+}
+
 /// A dataset entry with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatasetEntry {

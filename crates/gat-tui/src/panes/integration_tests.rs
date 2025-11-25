@@ -106,7 +106,12 @@ mod tests {
         let mut commands = CommandsPaneState::new();
 
         // Load a reliability analysis snippet
-        commands.load_snippet_to_editor(10);
+        let reliability_index = commands
+            .snippets
+            .iter()
+            .position(|snippet| snippet.id == "reliability-analysis")
+            .expect("reliability snippet available");
+        commands.load_snippet_to_editor(reliability_index);
         let command = &commands.custom_command;
         assert!(command.contains("reliability"));
 
@@ -275,7 +280,12 @@ mod tests {
         assert!(datasets.dataset_count() > 0);
 
         // 3. User prepares command
-        commands.load_snippet_to_editor(10);
+        let reliability_index = commands
+            .snippets
+            .iter()
+            .position(|snippet| snippet.id == "reliability-analysis")
+            .expect("reliability snippet available");
+        commands.load_snippet_to_editor(reliability_index);
         assert!(commands.custom_command.contains("reliability"));
 
         // 4. User toggles execution mode
