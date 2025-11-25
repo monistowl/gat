@@ -332,6 +332,60 @@ pub enum BenchmarkCommands {
         /// Number of parallel solver threads (auto = CPU count)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// Solve mode: pf (power flow) or opf (optimal power flow)
+        #[arg(long, default_value = "opf")]
+        mode: String,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum AC solver iterations
+        #[arg(long, default_value_t = 20)]
+        max_iter: u32,
+    },
+    /// Run PGLib-OPF benchmark suite (MATPOWER format)
+    Pglib {
+        /// Directory containing PGLib MATPOWER (.m) files
+        #[arg(long, value_hint = ValueHint::DirPath)]
+        pglib_dir: String,
+        /// Optional baseline CSV for objective comparison
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        baseline: Option<String>,
+        /// Filter cases by name pattern (e.g., "case14", "case118")
+        #[arg(long)]
+        case_filter: Option<String>,
+        /// Maximum number of cases to run (0 = all)
+        #[arg(long, default_value_t = 0)]
+        max_cases: usize,
+        /// Output CSV path for results
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Number of parallel solver threads (auto = CPU count)
+        #[arg(long, default_value = "auto")]
+        threads: String,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum AC solver iterations
+        #[arg(long, default_value_t = 20)]
+        max_iter: u32,
+    },
+    /// Run OPFData benchmark suite (GNN-format JSON)
+    Opfdata {
+        /// Directory containing OPFData JSON files
+        #[arg(long, value_hint = ValueHint::DirPath)]
+        opfdata_dir: String,
+        /// Filter samples by file path pattern
+        #[arg(long)]
+        case_filter: Option<String>,
+        /// Maximum number of samples to run (0 = all)
+        #[arg(long, default_value_t = 0)]
+        max_cases: usize,
+        /// Output CSV path for results
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Number of parallel solver threads (auto = CPU count)
+        #[arg(long, default_value = "auto")]
+        threads: String,
         /// Convergence tolerance
         #[arg(long, default_value = "1e-6")]
         tol: f64,

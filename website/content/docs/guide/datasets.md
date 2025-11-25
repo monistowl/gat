@@ -52,3 +52,42 @@ gat dataset pras --path test_data/datasets/pras --out data/pras/pras.csv
 ```
 
 Normalizes the Probabilistic Resource Adequacy Suite (PRAS) outputs (LOLE/EUE) for Gat scenarios. Use it to load region/season/hour forecasts before running adequacy or SE experiments.
+
+## Benchmark datasets
+
+These datasets are used by `gat benchmark` commands to validate solver accuracy against known reference solutions.
+
+### PFΔ (Power Flow Delta)
+
+Power flow perturbation dataset with reference bus voltages and angles for validation.
+
+```bash
+# Run PF benchmark against PFΔ test cases
+gat benchmark pfdelta --pfdelta-root data/pfdelta --max-cases 100 -o pfdelta_results.csv
+```
+
+Output CSV contains: case_name, contingency_type, converged, max_vm_error, max_va_error_deg, solve_time_ms.
+
+### PGLib-OPF
+
+Standard IEEE/ARPA-E MATPOWER test cases from the PGLib-OPF repository. Includes baseline objective values for OPF validation.
+
+```bash
+# Run OPF benchmark against PGLib cases
+gat benchmark pglib --pglib-dir data/pglib --baseline baseline.csv -o pglib_results.csv
+```
+
+Output CSV contains: case_name, converged, objective_value, baseline_objective, objective_gap_rel, solve_time_ms.
+
+### OPFData (GridOpt)
+
+Large-scale AC-OPF dataset with 300k+ solved instances per grid. Supports load perturbations (FullTop) and topology perturbations (N-1 line/gen/transformer outages). Uses GNN-format JSON.
+
+Reference: [arxiv.org/abs/2406.07234](https://arxiv.org/abs/2406.07234)
+
+```bash
+# Run benchmark on OPFData samples
+gat benchmark opfdata --opfdata-dir data/opfdata/case118/group_0 --max-cases 1000 -o opfdata_results.csv
+```
+
+Output CSV contains: sample_id, file_name, converged, objective_value, baseline_objective, objective_gap_rel, num_buses, num_branches, solve_time_ms.

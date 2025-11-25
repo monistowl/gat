@@ -13,6 +13,7 @@ pub mod io;
 pub mod power_flow;
 pub mod reliability_monte_carlo;
 pub mod test_utils;
+pub mod validation;
 
 pub use ac_opf::{AcOpfError, AcOpfSolution, AcOpfSolver};
 pub use alloc_kpi::*;
@@ -33,6 +34,10 @@ pub use power_flow::*;
 pub use reliability_monte_carlo::{
     DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
     ReliabilityMetrics,
+};
+pub use validation::{
+    compute_opf_violations, compute_pf_errors, OPFViolationMetrics, ObjectiveGap, PFErrorMetrics,
+    PFReferenceSolution,
 };
 
 pub fn run_algorithm() -> String {
