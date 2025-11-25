@@ -55,6 +55,7 @@ fn two_bus_network() -> Network {
         pmax_mw: 100.0,
         qmin_mvar: -50.0,
         qmax_mvar: 50.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0), // $10/MWh
     }));
 
@@ -258,6 +259,7 @@ fn three_bus_network() -> Network {
         pmax_mw: 200.0,
         qmin_mvar: -100.0,
         qmax_mvar: 100.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0), // $10/MWh
     }));
 
@@ -272,6 +274,7 @@ fn three_bus_network() -> Network {
         pmax_mw: 100.0,
         qmin_mvar: -50.0,
         qmax_mvar: 50.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 20.0), // $20/MWh (expensive)
     }));
 
@@ -324,5 +327,92 @@ fn ac_opf_three_bus_economic_dispatch() {
     println!(
         "3-bus Economic Dispatch: gen1={:.2} MW ($10/MWh), gen2={:.2} MW ($20/MWh), total={:.2} MW, cost=${:.2}",
         gen1_p, gen2_p, total_gen, solution.objective_value
+    );
+}
+
+/// Test 4: Verify polynomial (quadratic) cost model is used
+///
+/// Creates a network with quadratic cost: 100 + 10*P + 0.1*P^2
+/// At P=50 MW: cost = 100 + 500 + 250 = 850 $/hr
+#[test]
+fn ac_opf_polynomial_cost() {
+    let mut network = Network::new();
+
+    let bus1 = network.graph.add_node(Node::Bus(Bus {
+        id: BusId::new(0),
+        name: "bus1".to_string(),
+        voltage_kv: 138.0,
+    }));
+    let bus2 = network.graph.add_node(Node::Bus(Bus {
+        id: BusId::new(1),
+        name: "bus2".to_string(),
+        voltage_kv: 138.0,
+    }));
+
+    network.graph.add_edge(
+        bus1,
+        bus2,
+        Edge::Branch(Branch {
+            id: BranchId::new(0),
+            name: "line1_2".to_string(),
+            from_bus: BusId::new(0),
+            to_bus: BusId::new(1),
+            resistance: 0.01,
+            reactance: 0.1,
+            tap_ratio: 1.0,
+            phase_shift_rad: 0.0,
+            charging_b_pu: 0.0,
+            s_max_mva: None,
+            status: true,
+            rating_a_mva: None,
+        }),
+    );
+
+    // Generator with quadratic cost: 100 + 10*P + 0.1*P^2
+    network.graph.add_node(Node::Gen(Gen {
+        id: GenId::new(0),
+        name: "gen1".to_string(),
+        bus: BusId::new(0),
+        active_power_mw: 0.0,
+        reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 100.0,
+        qmin_mvar: -50.0,
+        qmax_mvar: 50.0,
+        is_synchronous_condenser: false,
+        cost_model: CostModel::Polynomial(vec![100.0, 10.0, 0.1]), // c0 + c1*P + c2*P^2
+    }));
+
+    network.graph.add_node(Node::Load(Load {
+        id: LoadId::new(0),
+        name: "load2".to_string(),
+        bus: BusId::new(1),
+        active_power_mw: 50.0,
+        reactive_power_mvar: 10.0,
+    }));
+
+    let solver = OpfSolver::new()
+        .with_method(OpfMethod::AcOpf)
+        .with_max_iterations(200)
+        .with_tolerance(1e-4);
+
+    let solution = solver.solve(&network).expect("AC-OPF should converge");
+
+    // Objective should reflect quadratic cost
+    // At P≈50 MW: cost = 100 + 10*50 + 0.1*50^2 = 100 + 500 + 250 = 850
+    assert!(
+        solution.objective_value > 0.0,
+        "Objective should be positive with polynomial cost"
+    );
+    assert!(
+        (solution.objective_value - 850.0).abs() < 150.0,
+        "Objective {} should be near 850 for P≈50MW with quadratic cost",
+        solution.objective_value
+    );
+
+    let gen_p = solution.generator_p.get("gen1").copied().unwrap_or(0.0);
+    println!(
+        "Polynomial Cost Test: P={:.2} MW, cost=${:.2} (expected ~850 for P=50)",
+        gen_p, solution.objective_value
     );
 }
