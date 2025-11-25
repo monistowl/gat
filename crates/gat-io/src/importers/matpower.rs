@@ -135,6 +135,11 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
             bus: BusId::new(gen.gen_bus),
             active_power_mw: gen.pg,
             reactive_power_mvar: gen.qg,
+            pmin_mw: gen.pmin,
+            pmax_mw: gen.pmax,
+            qmin_mvar: gen.qmin,
+            qmax_mvar: gen.qmax,
+            cost_model: gat_core::CostModel::NoCost,
         }));
         gen_id += 1;
     }
@@ -221,6 +226,11 @@ fn build_network_from_case(
             bus: BusId::new(case_gen.gen_bus),
             active_power_mw: case_gen.pg,
             reactive_power_mvar: case_gen.qg,
+            pmin_mw: case_gen.pmin,
+            pmax_mw: case_gen.pmax,
+            qmin_mvar: case_gen.qmin,
+            qmax_mvar: case_gen.qmax,
+            cost_model: gat_core::CostModel::NoCost,
         }));
         gen_id += 1;
     }

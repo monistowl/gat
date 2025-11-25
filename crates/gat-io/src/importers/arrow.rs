@@ -240,6 +240,11 @@ fn dataframe_to_network(df: &DataFrame) -> Result<Network> {
                     bus: BusId::new(bus_id),
                     active_power_mw: active_power,
                     reactive_power_mvar: reactive_power,
+                    pmin_mw: 0.0,
+                    pmax_mw: f64::INFINITY,
+                    qmin_mvar: f64::NEG_INFINITY,
+                    qmax_mvar: f64::INFINITY,
+                    cost_model: gat_core::CostModel::NoCost,
                 }));
             }
             Some("load") => {

@@ -279,6 +279,11 @@ fn build_network_from_psse(
             bus: BusId::new(gen.bus),
             active_power_mw: gen.pg,
             reactive_power_mvar: gen.qg,
+            pmin_mw: 0.0,
+            pmax_mw: f64::INFINITY,
+            qmin_mvar: f64::NEG_INFINITY,
+            qmax_mvar: f64::INFINITY,
+            cost_model: gat_core::CostModel::NoCost,
         }));
         gen_id += 1;
     }

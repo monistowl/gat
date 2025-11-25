@@ -180,6 +180,22 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             // [mbase, pg, qg, pmax, pmin, qmin, qmax, status, ...]
             let pg = gen_array.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0; // p.u. to MW
             let qg = gen_array.get(2).and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0;
+            let pmax = gen_array
+                .get(3)
+                .and_then(|v| v.as_f64())
+                .unwrap_or(f64::INFINITY)
+                * 100.0;
+            let pmin = gen_array.get(4).and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0;
+            let qmin = gen_array
+                .get(5)
+                .and_then(|v| v.as_f64())
+                .unwrap_or(f64::NEG_INFINITY)
+                * 100.0;
+            let qmax = gen_array
+                .get(6)
+                .and_then(|v| v.as_f64())
+                .unwrap_or(f64::INFINITY)
+                * 100.0;
             let status = gen_array.get(7).and_then(|v| v.as_f64()).unwrap_or(1.0);
 
             if status < 0.5 {
@@ -196,6 +212,11 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                 bus: bus_id,
                 active_power_mw: pg,
                 reactive_power_mvar: qg,
+                pmin_mw: pmin,
+                pmax_mw: pmax,
+                qmin_mvar: qmin,
+                qmax_mvar: qmax,
+                cost_model: gat_core::CostModel::NoCost,
             }));
         }
     }

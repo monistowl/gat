@@ -188,6 +188,10 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
 
             let pg = gen["pg"].as_f64().unwrap_or(0.0); // Active power (MW)
             let qg = gen["qg"].as_f64().unwrap_or(0.0); // Reactive power (MVAr)
+            let pmin = gen["pmin"].as_f64().unwrap_or(0.0);
+            let pmax = gen["pmax"].as_f64().unwrap_or(f64::INFINITY);
+            let qmin = gen["qmin"].as_f64().unwrap_or(f64::NEG_INFINITY);
+            let qmax = gen["qmax"].as_f64().unwrap_or(f64::INFINITY);
 
             let gen_name = format!("gen_{}", gen_idx);
 
@@ -197,6 +201,11 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                 bus: BusId::new(bus_id),
                 active_power_mw: pg,
                 reactive_power_mvar: qg,
+                pmin_mw: pmin,
+                pmax_mw: pmax,
+                qmin_mvar: qmin,
+                qmax_mvar: qmax,
+                cost_model: gat_core::CostModel::NoCost,
             }));
         }
     }
