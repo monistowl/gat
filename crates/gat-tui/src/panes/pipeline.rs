@@ -6,7 +6,20 @@ use crate::ui::{
 pub struct PipelinePane;
 
 impl PipelinePane {
-    pub fn layout() -> PaneLayout {
+    pub fn layout(context: &PaneContext) -> PaneLayout {
+        let modal_hint = context
+            .command_modal
+            .as_ref()
+            .map(|modal| {
+                format!(
+                    "[{}] Open command modal to inspect recent outputs inline",
+                    modal.run_hotkey.to_ascii_lowercase()
+                )
+            })
+            .unwrap_or_else(|| {
+                "[x] Open command modal to inspect recent outputs inline".to_string()
+            });
+
         let source_selection = Pane::new("Source selection").body([
             "Guided selectors avoid free-form hotkeys for choosing data.",
             "Radio: (•) Live telemetry stream  |  ( ) Batch archive replay",
@@ -44,7 +57,7 @@ impl PipelinePane {
             .with_child(featurize_transforms)
             .with_tabs(transform_tabs);
 
-        let outputs = Pane::new("Outputs").body([
+        let delivery_outputs = Pane::new("Outputs").body([
             "Dropdown: Delivery target ↴ [Warehouse table, DERMS feed, Notebook]",
             "Radio: (•) Single run report  |  ( ) Continuous subscription",
             "Inline hint: Outputs inherit naming from the selected source and template.",
@@ -77,10 +90,52 @@ impl PipelinePane {
             .with_graph(graph)
             .with_table(preview_table);
 
+        let node_metrics = TableView::new(["Node", "Runtime", "Rows", "Warnings"])
+            .add_row(["Live telemetry", "35 ms", "12.3k", "–"])
+            .add_row(["Resample", "48 ms", "12.3k", "0 drift flags"])
+            .add_row(["Gap fill", "62 ms", "12.3k", "1 null column"])
+            .add_row(["Validate", "41 ms", "12.3k", "Schema mismatch"])
+            .add_row(["Warehouse", "85 ms", "12.3k", "Pending write"]);
+
+        let metrics = Pane::new("Per-node metrics")
+            .body([
+                "Runtime, row counts, and warnings stay visible while composing the graph.",
+                "Use them to spot slow transforms or schema drift before dispatching runs.",
+            ])
+            .with_table(node_metrics);
+
+        let outputs_table = TableView::new(["Output", "Status", "Action"])
+            .add_row([
+                "envelope.parquet",
+                "✓ Ready",
+                "Use modal to stream the tail of the run logs",
+            ])
+            .add_row([
+                "validation_report.txt",
+                "⚠ Drift noted",
+                "Open command modal to inspect warnings",
+            ])
+            .add_row([
+                "run_manifest.json",
+                "✓ Materialized",
+                "Preview via command modal without switching panes",
+            ]);
+
+        let recent_outputs = Pane::new("Recent outputs & drill-ins")
+            .body([
+                "Review the freshest artifacts and drill into details without leaving the composer."
+                    .to_string(),
+                modal_hint,
+            ])
+            .with_table(outputs_table)
+            .mark_visual();
+
         let controls = Pane::new("Controls")
             .body([
                 "Button: [Ctrl+R] Run pipeline — executes the previewed path.",
                 "Shows the visible hotkey on the control to reduce guesswork.",
+                "Button: [n] Rerun focused node — repeats only the highlighted stage.",
+                "Button: [c] Edit command template — opens Commands pane with the node snippet.",
             ])
             .mark_visual();
 
@@ -92,9 +147,15 @@ impl PipelinePane {
                 ])
                 .with_child(source_selection)
                 .with_child(transforms)
-                .with_child(outputs),
+                .with_child(delivery_outputs),
         )
-        .with_secondary(Pane::new("Review & dispatch").with_child(preview).with_child(controls))
+        .with_secondary(
+            Pane::new("Review & dispatch")
+                .with_child(preview)
+                .with_child(metrics)
+                .with_child(recent_outputs)
+                .with_child(controls),
+        )
         .with_sidebar(
             Sidebar::new("Section tips", false).lines([
                 "Use “Add step” to insert under the focused transform.",
@@ -125,8 +186,8 @@ impl PaneView for PipelinePane {
         '4'
     }
 
-    fn layout(&self, _context: &PaneContext) -> PaneLayout {
-        Self::layout()
+    fn layout(&self, context: &PaneContext) -> PaneLayout {
+        Self::layout(context)
     }
 
     fn tooltip(&self, _context: &PaneContext) -> Option<Tooltip> {
@@ -140,6 +201,8 @@ impl PaneView for PipelinePane {
             ContextButton::new('a', "[a] Add step — inserts under the focused transform"),
             ContextButton::new('o', "[o] Reorder — move step while preserving dependencies"),
             ContextButton::new('r', "[r] Run pipeline — mirrors the [Ctrl+R] control"),
+            ContextButton::new('n', "[n] Rerun node — execute the highlighted stage"),
+            ContextButton::new('c', "[c] Open command template in Commands pane"),
         ]
     }
 }

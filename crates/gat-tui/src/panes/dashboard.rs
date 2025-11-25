@@ -11,6 +11,9 @@ impl DashboardPane {
             "Overall: healthy",
             "Running: 1 workflow",
             "Queued: 2 actions awaiting approvals",
+            "DER penetration: 32% of feeder peak",
+            "Voltage compliance: 98.4% in-band feeders",
+            "Hosting headroom: 4.3 MW minimum",
         ]);
 
         // Reliability KPI cards
@@ -39,6 +42,7 @@ impl DashboardPane {
             "[H] Refresh hosting-capacity study",
             "[V] Check feeder voltage compliance",
             "[P] Snapshot DER penetration KPI",
+            "[C] Pin capacity headroom card",
         ]);
 
         let details =

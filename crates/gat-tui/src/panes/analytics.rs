@@ -140,18 +140,27 @@ impl AnalyticsPane {
                 "Use status flags to stage edits before dispatching switching plans.",
             ])
             .with_table(switching_steps)
-            .with_table(voltage_profiles);
+            .with_table(voltage_profiles)
+            .with_tabs(Tabs::new(["Steps", "Profiles"], 0));
 
         // Hosting capacity sub-tab
-        let hosting_capacity =
-            TableView::new(["Bus/Zone", "Capacity (MW)", "Thermal flag", "Voltage flag"])
-                .add_row(["Bus 101", "5.5", "OK", "⚠ Near limit"])
-                .add_row(["Zone A", "12.0", "OK", "OK"])
-                .add_row(["Bus 214", "3.2", "⚠ Limited", "OK"])
-                .with_empty_state(EmptyState::new(
-                    "No hosting-capacity study loaded",
-                    ["Run hosting-capacity analytics to populate bus and zone headroom."],
-                ));
+        let hosting_capacity = TableView::new([
+            "Bus/Zone",
+            "Capacity (MW)",
+            "Thermal flag",
+            "Voltage flag",
+            "Limit band",
+        ])
+        .add_row(["Bus 101", "5.5", "OK", "⚠ Near limit", "0.95–1.05 pu"])
+        .add_row(["Zone A", "12.0", "OK", "OK", "Thermal headroom"])
+        .add_row(["Bus 214", "3.2", "⚠ Limited", "OK", "0.94–1.05 pu"])
+        .with_empty_state(EmptyState::new(
+            "No hosting-capacity study loaded",
+            [
+                "Run hosting-capacity analytics to populate bus and zone headroom.",
+                "Use zone files to aggregate capacity with limit flags.",
+            ],
+        ));
 
         let hosting_summary = Pane::new("Hosting Capacity Outputs")
             .body([
@@ -159,6 +168,7 @@ impl AnalyticsPane {
                 "Tables stay compact; empty states explain how to refresh results.",
             ])
             .with_table(hosting_capacity)
+            .with_tabs(Tabs::new(["Bus", "Zone"], 0))
             .mark_visual();
 
         // Combine tabs
@@ -177,7 +187,8 @@ impl AnalyticsPane {
 
         let automation_hosting = Pane::new("Automation & Hosting")
             .with_child(automation_pane)
-            .with_child(hosting_summary);
+            .with_child(hosting_summary)
+            .with_tabs(Tabs::new(["Automation", "Hosting"], 0));
 
         PaneLayout::new(main_content)
             .with_secondary(automation_hosting)

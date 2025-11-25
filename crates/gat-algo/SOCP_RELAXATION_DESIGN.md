@@ -1,132 +1,90 @@
-# SOCP Relaxation Solver Implementation Guide
+# SOCP Relaxation Solver Blueprint
 
-This document describes how to implement the `OpfMethod::SocpRelaxation` path in
-`gat_algo`. It refines the earlier blueprint into concrete data structures,
-solver construction steps, mapping logic, and testing guidance needed to deliver
-production-quality support for the convex AC branch-flow relaxation.
+This note captures a concrete implementation plan for the `OpfMethod::SocpRelaxation`
+path in `gat_algo`. The goal is to move from the current placeholder to a production
+solver that fits the existing OPF API while keeping numerical robustness and observability
+for the CLI.
 
-## Goals and Non-Goals
-- **Goals**: provide a numerically robust SOCP relaxation for AC OPF that fits
-the existing `OpfSolver` interface, emits informative telemetry, and produces
-outputs compatible with downstream CLI reporting (flows, voltages, losses, LMPs,
-binding constraints).
-- **Non-goals**: exact AC feasibility recovery, meshed network angle recovery,
-or topology-reconfiguration heuristics. These can be layered later but should
-not block initial delivery.
+## Current State
+- The OPF facade (`opf/mod.rs`) wires `OpfMethod::SocpRelaxation` to a
+  `NotImplemented` error.
+- `OpfSolution` already carries fields for P/Q injections, voltages, flows, LMPs,
+  and constraint metadata that a convex AC relaxation can populate.
+- The DC-OPF module demonstrates the expected control flow: extract network data,
+  build a convex program with `good_lp`, solve, and map the result into `OpfSolution`.
 
-## High-Level Execution Flow
-1. Extract network data from Arrow tables into solver-friendly structs.
-2. Build a branch-flow SOCP with `good_lp` + Clarabel, capturing variable indices
-   for solution mapping.
-3. Solve and translate the result into `OpfSolution`, including duals for LMPs
-   and metadata for binding constraints.
-4. Expose the solver through `OpfSolver::solve` behind `OpfMethod::SocpRelaxation`
-   and surface user-facing flags in the CLI.
+## Target Model
+Implement the standard branch-flow SOCP relaxation (Baran-Wu / Farivar-Low style)
+for radial and lightly meshed networks:
+- Variables per branch: real/reactive flows `(P_ij, Q_ij)`, squared current `l_ij`,
+  squared sending-end voltage `v_i`.
+- Variables per bus: squared voltage magnitude `v_i` and angle proxy (optional for
+  reporting; not needed for constraints).
+- Objective: minimize total generation cost plus optional loss penalty
+  (e.g., `c0 + c1*P_g + c2*P_g^2 + w_loss * sum(r_ij * l_ij)`).
+- Constraints:
+  - Power balance at each bus: `P_g - P_d = sum_out P_ij - sum_in (P_ij - r_ij*l_ij)`
+    (and similarly for `Q`).
+  - Voltage drop: `v_j = v_i - 2*(r_ij*P_ij + x_ij*Q_ij) + (r_ij^2 + x_ij^2)*l_ij`.
+  - Thermal limit: `l_ij <= (S_max_ij)^2`.
+  - Second-order cone: `P_ij^2 + Q_ij^2 <= v_i * l_ij`.
+  - Voltage bounds: `v_min^2 <= v_i <= v_max^2`.
+  - Generator bounds for `P/Q`.
 
 ## Data Extraction Layer
-### New/Updated Structs
-- `SocpBus` { `bus_id`, `v_min`, `v_max`, `pd`, `qd`, `is_slack`, `profile_index` }
-- `SocpGen` { `gen_id`, `bus_index`, `p_min`, `p_max`, `q_min`, `q_max`,
-  `cost_c0`, `cost_c1`, `cost_c2` }
-- `SocpBranch` { `branch_id`, `from`, `to`, `r`, `x`, `b_shunt`, `rate_mva`,
-  `tap_ratio` (default 1.0), `phase_shift` (radians), `is_in_service` }
+Re-use the patterns from `dc_opf.rs`:
+- Build `BusData`, `GenData`, and `BranchData` structs but include resistance `r`,
+  reactance `x`, shunt admittance, and thermal limits.
+- Precompute load aggregation per bus for both `P` and `Q`.
+- Validate assumptions: non-zero impedance, voltage setpoints within limits, and
+  connectivity (warn if mesh cycles appear because relaxation is tightest on radial
+  graphs).
 
-### Extraction Steps
-- Aggregate loads per bus (P/Q) and map generator rows to buses using existing
-  indexing helpers in `opf/common.rs` (mirroring `dc_opf.rs`).
-- Validate:
-  - Non-zero `r + jx` magnitude and finite shunt values.
-  - Voltage bounds with `v_min > 0` and `v_max >= v_min`.
-  - At least one slack/reference bus; if multiple, pick the first and log a
-    warning.
-  - Warn when the graph is meshed; relaxation is tightest on radial systems.
-- Precompute `s_max_sq = rate_mva.powi(2)` and `z_sq = r*r + x*x` to avoid repeat
-  work during model build.
-
-## Optimization Model
-### Variables
-- Per-bus: `v[i]` (squared voltage magnitude).
-- Per-generator: `p_g[g]`, `q_g[g]`.
-- Per-branch (directed from `from -> to`): `p_ij[b]`, `q_ij[b]`, `l_ij[b]`
-  (squared current magnitude).
-
-### Objective
-- Sum quadratic generation costs: `c0 + c1 * p_g + c2 * p_g^2` using
-  `good_lp::variables!` quadratic support with Clarabel backend.
-- Optional loss penalty: `loss_weight * sum(r_ij * l_ij)` to encourage tightness
-  (default `loss_weight = 0.0`).
-- Telemetry: record objective contributions separately for costs and losses.
-
-### Constraints
-- **Slack Voltage Fixing**: `v[slack] = v_nom^2` (use per-bus nominal if
-  available; default 1.0 pu).
-- **Voltage Bounds**: `v_min^2 <= v[i] <= v_max^2`.
-- **Generator Bounds**: `p_min <= p_g <= p_max`, `q_min <= q_g <= q_max`.
-- **Power Balance (per bus)**:
-  - `sum_out(p_ij) - sum_in(p_ij - r_ij * l_ij) + p_load - sum_gen(p_g) = 0`.
-  - `sum_out(q_ij) - sum_in(q_ij - x_ij * l_ij) + q_load - sum_gen(q_g) = 0`.
-- **Voltage Drop (per branch)**:
-  - `v[to] = v[from] - 2*(r*p_ij + x*q_ij) + (r^2 + x^2) * l_ij`.
-  - Apply tap ratio and phase shift by scaling flows/voltages on the sending
-    side before substitution.
-- **Thermal Limits**: `l_ij <= s_max_sq / v_base^2` (match existing per-unit
-  convention in `dc_opf`).
-- **SOCP**: `p_ij^2 + q_ij^2 <= v[from] * l_ij` via Clarabel’s cone interface
-  (available through `good_lp::constraint!`).
-
-### Numerical Safeguards
-- Add small `eps_v = 1e-6` lower bound to `v` to avoid degeneracy when no voltage
-  min is provided.
-- Clamp shunt and tap values to reasonable ranges and emit warnings when
-  corrected.
-- Prefer `f64` throughout; ensure all costs and impedances are finite before
-  model build.
+## Solver Construction (good_lp with Clarabel)
+1. **Variables**
+   - `v[bus]` for squared voltage.
+   - `p_gen[gen]`, `q_gen[gen]` for generator setpoints.
+   - `p_flow[branch]`, `q_flow[branch]`, `l_current[branch]` for branch flows.
+2. **Objective**
+   - Sum polynomial generator costs using linear/quadratic terms supported by
+     `good_lp` (Clarabel handles convex quadratics).
+   - Add optional loss penalty `sum(r_ij * l_ij)` to promote tightness.
+3. **Constraints**
+   - Linear equalities for nodal power balance (active/reactive).
+   - Voltage drop equations along each branch.
+   - Bounds for voltages, generator P/Q, and current magnitudes.
+   - SOCP constraints via `constraint!(p_flow[i]*p_flow[i] + q_flow[i]*q_flow[i] <= v[from]*l_current[i])`.
+4. **Reference bus handling**
+   - Fix `v` at slack bus to nominal (`|V|^2 = 1.0`) and optionally fix angle to
+     zero for reporting.
+5. **Solve**
+   - Use `clarabel()` backend; capture solve time and status. Provide graceful
+     error mapping for infeasibility/unbounded cases.
 
 ## Solution Mapping
-- Extract primal values into `OpfSolution`:
-  - `generator_p/q` from `p_g`, `q_g`.
-  - `bus_voltage_mag` = `sqrt(max(v[i], 0.0))`.
-  - `branch_p_flow/q_flow` from `p_ij`, `q_ij` (respect direction stored in
-    `SocpBranch`).
-  - `losses_mw` = `sum(r_ij * l_ij)` and per-branch losses.
-- Duals/LMPs:
-  - Read duals of active power balance constraints for each bus; store in
-    `bus_lmp` (convert Clarabel dual sign to economic LMP convention if needed).
-  - Record `binding_constraints` when a bound is within tolerance `1e-4` and
-    attach the corresponding dual.
-- Status mapping:
-  - Map Clarabel `SolverStatus` to `OpfStatus::{Optimal, Infeasible, Unbounded,
-    Error}` with human-readable messages and solver runtime.
+- Populate `OpfSolution` fields from variable values:
+  - `generator_p/q`, `bus_voltage_mag` (sqrt of `v`), `branch_p_flow/q_flow`.
+  - Approximate angles using linearized PTDF if desired for display (not required
+    for feasibility).
+- Compute `total_losses_mw = sum(r_ij * l_ij)`.
+- Derive LMPs from dual variables on power-balance constraints (Clarabel exposes
+  duals). Store under `bus_lmp`.
+- Record `binding_constraints` by checking proximity to limits (e.g., 1e-4 gap) and
+  carrying the dual shadow prices.
 
-## Integration Points
-- Add `mod socp_relaxation;` in `opf/mod.rs` and implement
-  `OpfMethod::SocpRelaxation` branch to call `SocpRelaxationSolver::solve`.
-- Place the implementation in `src/opf/socp_relaxation.rs` alongside `dc_opf.rs`
-  to reuse shared utilities.
-- Extend CLI (`crates/gat-cli`) to expose `--method socp-relaxation` and optional
-  `--loss-weight`, `--socp-max-iter`, `--socp-tolerance` flags. Ensure default is
-  backwards-compatible (keep existing methods unchanged).
-- Emit telemetry via existing `OpfTelemetry` hooks: iterations, solve time,
-  status, primal/dual residuals from Clarabel.
+## Testing Strategy
+- Unit tests on toy radial feeders to verify feasibility, voltage limits, and loss
+  monotonicity relative to DC-OPF.
+- Regression tests comparing objective gap vs. AC-OPF reference data (pglib). Use
+  tolerance checks (e.g., <=3% gap) and ensure solver convergence.
+- Property tests for invariants: zero-impedance branches rejected; removing all
+  reactive loads reduces to DC-OPF within tolerance.
 
-## Testing Plan
-- **Unit Tests** (`crates/gat-algo/src/opf/socp_relaxation.rs`):
-  - Radial 3-bus feeder with known feasible solution; assert voltage bounds and
-    monotonic losses when `loss_weight` increases.
-  - Generator limit saturation: enforce `p_max` tightness and verify binding flag
-    is set with non-zero dual.
-  - Slack handling: multiple slack rows → first chosen; verify fixed voltage.
-- **Integration Tests** (`crates/gat-algo/tests/`):
-  - Compare objective and losses against DC-OPF on the same case; assert SOCP
-    objective <= DC objective + tolerance.
-  - PGLib small cases (e.g., `case3`, `case14`): require solve status optimal and
-    voltage within bounds; record snapshots of key outputs.
-- **Property Tests** (proptest): removing all reactive data should reduce the
-  SOCP solution close to DC-OPF within tolerance for flows and objective.
-
-## Delivery Checklist
-1. Implement extraction structs and validation helpers.
-2. Build the SOCP model with variable/constraint bookkeeping and telemetry.
-3. Map solutions (primal + dual) into `OpfSolution` with binding detection.
-4. Wire into `OpfSolver` and CLI, feature-gate Clarabel if necessary.
-5. Add tests (unit, integration, property) and update documentation/examples.
+## Incremental Delivery Steps
+1. Implement network extraction structs and validation helpers.
+2. Build SOCP model with `good_lp`/Clarabel and map variables to indices.
+3. Wire the solver into `opf::OpfSolver::solve` with telemetry (iterations/time).
+4. Add solution-mapping utilities and LMP extraction.
+5. Write integration tests in `crates/gat-algo/tests/` with small systems and
+   snapshot expected outputs.
+6. Expose CLI flag documentation in `docs/guide/opf.md` once the solver is live.
