@@ -2,7 +2,7 @@ use gat_algo::{
     DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
     ReliabilityMetrics,
 };
-use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
+use gat_core::{Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
 fn create_simple_network() -> Network {
     let mut network = Network::new();
@@ -27,6 +27,11 @@ fn create_simple_network() -> Network {
         bus: BusId::new(0),
         active_power_mw: 100.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 1000.0,
+        qmin_mvar: -1000.0,
+        qmax_mvar: 1000.0,
+        cost_model: CostModel::NoCost,
     }));
 
     // Add load at bus 2 (80 MW)
@@ -130,6 +135,11 @@ fn test_monte_carlo_perfect_reliability() {
         bus: BusId::new(0),
         active_power_mw: 200.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 1000.0,
+        qmin_mvar: -1000.0,
+        qmax_mvar: 1000.0,
+        cost_model: CostModel::NoCost,
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -187,6 +197,11 @@ fn test_monte_carlo_tight_reliability() {
         bus: BusId::new(0),
         active_power_mw: 100.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 1000.0,
+        qmin_mvar: -1000.0,
+        qmax_mvar: 1000.0,
+        cost_model: CostModel::NoCost,
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -265,6 +280,11 @@ fn test_monte_carlo_multiple_networks() {
         bus: BusId::new(0),
         active_power_mw: 200.0,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 1000.0,
+        qmin_mvar: -1000.0,
+        qmax_mvar: 1000.0,
+        cost_model: CostModel::NoCost,
     }));
 
     network2.graph.add_node(Node::Load(Load {
