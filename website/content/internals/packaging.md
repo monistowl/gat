@@ -58,13 +58,16 @@ The `scripts/install-modular.sh` script enables on-demand component selection:
 
 ```bash
 # CLI only (default)
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh \
+  | bash
 
 # CLI + TUI
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui \
+  bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
 
 # Everything
-GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui,gui,solvers \
+  bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
 ```
 
 **Features:**
@@ -81,14 +84,16 @@ For users preferring bundled releases with documentation:
 
 ```bash
 # Full variant (CLI + TUI + docs, recommended)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/gat-0.3.1-linux-x86_64-full.tar.gz | tar xz
-cd gat-0.3.1-linux-x86_64-full
-./install.sh
+curl -fsSL \
+  https://github.com/monistowl/gat/releases/download/v0.3.1/gat-0.3.1-linux-x86_64-full.tar.gz \
+  | tar xz
+cd gat-0.3.1-linux-x86_64-full && ./install.sh
 
 # Headless variant (CLI only, minimal footprint)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/gat-0.3.1-linux-x86_64-headless.tar.gz | tar xz
-cd gat-0.3.1-linux-x86_64-headless
-./install.sh --variant headless
+curl -fsSL \
+  https://github.com/monistowl/gat/releases/download/v0.3.1/gat-0.3.1-linux-x86_64-headless.tar.gz \
+  | tar xz
+cd gat-0.3.1-linux-x86_64-headless && ./install.sh --variant headless
 ```
 
 **Bundled Artifacts:**

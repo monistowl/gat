@@ -20,7 +20,9 @@ This guide will get you from zero to running power flow analysis in 5 minutes. N
 Install GAT using the modular installer:
 
 ```bash
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh | bash
+curl -fsSL \
+  https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh \
+  | bash
 ```
 
 The installer will:

@@ -249,7 +249,9 @@ See [Scaling](/internals/scaling/) for distributed patterns.
 We don't publish to crates.io yet. Use the modular installer instead:
 
 ```bash
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh | bash
+curl -fsSL \
+  https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh \
+  | bash
 ```
 
 This downloads pre-built binaries, which is much faster than building from source.

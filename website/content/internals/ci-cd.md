@@ -166,12 +166,13 @@ cd gat-0.X.Y-linux-x86_64-headless
 ```bash
 # Download specific release
 VERSION="v0.2.0"
-curl -fsSL "https://github.com/monistowl/gat/releases/download/${VERSION}/gat-${VERSION#v}-linux-x86_64-headless.tar.gz" -o gat.tar.gz
+curl -fsSL \
+  "https://github.com/monistowl/gat/releases/download/${VERSION}/gat-${VERSION#v}-linux-x86_64-headless.tar.gz" \
+  -o gat.tar.gz
 
 # Install
 tar -xzf gat.tar.gz
-cd gat-*
-./install.sh --variant headless
+cd gat-* && ./install.sh --variant headless
 ```
 
 ### From Source

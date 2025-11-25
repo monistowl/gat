@@ -127,7 +127,9 @@ curl -I https://github.com
 
 If still stuck, download and run the installer directly:
 ```bash
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh -o install.sh
+curl -fsSL \
+  https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh \
+  -o install.sh
 bash install.sh
 ```
 

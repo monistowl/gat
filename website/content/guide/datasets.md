@@ -87,7 +87,10 @@ Reference: [arxiv.org/abs/2406.07234](https://arxiv.org/abs/2406.07234)
 
 ```bash
 # Run benchmark on OPFData samples
-gat benchmark opfdata --opfdata-dir data/opfdata/case118/group_0 --max-cases 1000 -o opfdata_results.csv
+gat benchmark opfdata \
+  --opfdata-dir data/opfdata/case118/group_0 \
+  --max-cases 1000 \
+  -o opfdata_results.csv
 ```
 
 Output CSV contains: sample_id, file_name, converged, objective_value, baseline_objective, objective_gap_rel, num_buses, num_branches, solve_time_ms.
