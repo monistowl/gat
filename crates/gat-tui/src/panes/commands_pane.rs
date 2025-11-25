@@ -146,15 +146,23 @@ impl Default for CommandsPaneState {
             },
             CommandSnippet {
                 id: "dist-flisr".into(),
-                command: "gat-cli dist flisr --network <file> --steps 5".into(),
-                description: "Simulate FLISR switching sequence for outage isolation".into(),
+                command:
+                    "gat-cli dist flisr --network <file> --steps 5 --preview switching_plan.json".into(),
+                description: "Simulate FLISR switching sequence with preview output".into(),
                 category: "Distribution".into(),
             },
             CommandSnippet {
                 id: "dist-vvo".into(),
-                command: "gat-cli dist vvo --network <file> --targets <file>".into(),
-                description: "Run Volt/VAR optimization with regulator and cap bank setpoints".into(),
+                command: "gat-cli dist vvo --network <file> --targets <file> --export voltage_profiles.parquet".into(),
+                description: "Run Volt/VAR optimization and export voltage profile snapshots".into(),
                 category: "Distribution".into(),
+            },
+            CommandSnippet {
+                id: "dist-automation-analytics".into(),
+                command:
+                    "gat-cli analytics automation --steps switching_plan.json --voltage-band 0.95,1.05".into(),
+                description: "Analyze switching steps and voltage windows for grid automation".into(),
+                category: "Analytics".into(),
             },
             // Scenario operations
             CommandSnippet {
@@ -207,6 +215,12 @@ impl Default for CommandsPaneState {
                 description: "Analyze DER fleet performance and flexibility bands".into(),
                 category: "Analytics".into(),
             },
+            CommandSnippet {
+                id: "der-headroom".into(),
+                command: "gat-cli analytics der --dataset <id> --metric hosting-headroom".into(),
+                description: "Quantify DER hosting headroom with safety bands".into(),
+                category: "Analytics".into(),
+            },
             // Batch operations
             CommandSnippet {
                 id: "batch-powerflow".into(),
@@ -248,11 +262,24 @@ impl Default for CommandsPaneState {
                 category: "DERMS".into(),
             },
             CommandSnippet {
+                id: "der-dayahead".into(),
+                command: "gat-cli derms schedule --dataset <id> --horizon 24 --mode dayahead".into(),
+                description: "Publish day-ahead DER schedules with telemetry pins".into(),
+                category: "DERMS".into(),
+            },
+            CommandSnippet {
                 id: "hosting-capacity".into(),
                 command: "gat-cli derms hosting-capacity --grid <grid> --der-type solar --out hosting.parquet"
                     .into(),
                 description: "Estimate DER hosting capacity by bus with voltage bands".into(),
                 category: "DERMS".into(),
+            },
+            CommandSnippet {
+                id: "hosting-capacity-analytics".into(),
+                command:
+                    "gat-cli analytics hosting --grid <grid> --zones <file> --out hosting_by_zone.parquet".into(),
+                description: "Summarize hosting capacity analytics by zone with flags".into(),
+                category: "Analytics".into(),
             },
             CommandSnippet {
                 id: "hosting-capacity-zones".into(),
@@ -503,6 +530,23 @@ impl CommandsPaneState {
         self.add_to_history(result.clone());
         Ok(result)
     }
+
+    /// Execute the currently selected snippet by routing through the service layer
+    pub async fn execute_selected_snippet(
+        &mut self,
+        service_layer: &TuiServiceLayer,
+    ) -> Result<CommandResult, String> {
+        let snippet_command = self
+            .selected_snippet()
+            .map(|snippet| snippet.command.clone());
+
+        if let Some(command) = snippet_command {
+            self.custom_command = command.clone();
+            self.command_input.set_value(command);
+        }
+
+        self.execute_command(service_layer).await
+    }
 }
 
 /// Quick action shortcuts for commands pane
@@ -551,7 +595,7 @@ mod tests {
     #[test]
     fn test_commands_init() {
         let state = CommandsPaneState::new();
-        assert_eq!(state.snippet_count(), 25);
+        assert_eq!(state.snippet_count(), 29);
         assert_eq!(state.history_count(), 2);
         assert_eq!(state.execution_mode, ExecutionMode::DryRun);
     }
@@ -662,6 +706,23 @@ mod tests {
         let filtered = state.filtered_snippets();
         assert!(filtered.len() >= 3); // Multiple batch snippets
         assert!(filtered.iter().all(|s| s.category == "Batch"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_selected_snippet_routes_to_service() {
+        use crate::services::MockQueryBuilder;
+        use std::sync::Arc;
+
+        let mut state = CommandsPaneState::new();
+        let service = TuiServiceLayer::new(Arc::new(MockQueryBuilder));
+
+        let result = state
+            .execute_selected_snippet(&service)
+            .await
+            .expect("snippet should execute");
+
+        assert_eq!(result.status, CommandStatus::Success);
+        assert_eq!(state.history_count(), 3);
     }
 
     #[test]
