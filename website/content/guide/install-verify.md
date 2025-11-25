@@ -24,7 +24,7 @@ gat --version
 
 You should see output like:
 ```
-gat 0.3.1
+gat 0.3.2
 ```
 
 If you get "command not found", check that your shell has reloaded the PATH:
@@ -128,7 +128,7 @@ curl -I https://github.com
 If still stuck, download and run the installer directly:
 ```bash
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh \
+  https://github.com/monistowl/gat/releases/download/v0.3.2/install-modular.sh \
   -o install.sh
 bash install.sh
 ```

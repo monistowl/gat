@@ -250,7 +250,7 @@ We don't publish to crates.io yet. Use the modular installer instead:
 
 ```bash
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh \
+  https://github.com/monistowl/gat/releases/download/v0.3.2/install-modular.sh \
   | bash
 ```
 
