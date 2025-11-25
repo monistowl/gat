@@ -10,6 +10,8 @@
 #[cfg(test)]
 mod tests {
     use crate::panes::*;
+    use crate::services::{MockQueryBuilder, TuiServiceLayer};
+    use std::sync::Arc;
 
     #[test]
     fn test_all_panes_initialize() {
@@ -395,7 +397,9 @@ mod tests {
         let mut commands = CommandsPaneState::new();
         commands.custom_command = "gat-cli datasets list".into();
 
-        let result = commands.execute_command().await;
+        let service = TuiServiceLayer::new(Arc::new(MockQueryBuilder));
+
+        let result = commands.execute_command(&service).await;
         assert!(result.is_ok());
 
         let cmd_result = result.unwrap();
@@ -558,13 +562,20 @@ mod tests {
     #[tokio::test]
     async fn test_end_to_end_command_execution_workflow() {
         let mut commands = CommandsPaneState::new();
+        let service = TuiServiceLayer::new(Arc::new(MockQueryBuilder));
 
         // User loads a command snippet
-        commands.load_snippet_to_editor(10);
+        if let Some(index) = commands
+            .snippets
+            .iter()
+            .position(|s| s.id == "reliability-analysis")
+        {
+            commands.load_snippet_to_editor(index);
+        }
         assert!(commands.custom_command.contains("reliability"));
 
         // User executes it
-        let result = commands.execute_command().await;
+        let result = commands.execute_command(&service).await;
         assert!(result.is_ok());
 
         // Result is recorded in history
@@ -616,7 +627,8 @@ mod tests {
         // User executes commands
         let mut commands = CommandsPaneState::new();
         commands.custom_command = "gat-cli analytics reliability".into();
-        let result = commands.execute_command().await;
+        let service = TuiServiceLayer::new(Arc::new(MockQueryBuilder));
+        let result = commands.execute_command(&service).await;
         assert!(result.is_ok());
 
         // User views results in analytics

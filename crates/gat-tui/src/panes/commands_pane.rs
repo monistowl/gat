@@ -7,6 +7,7 @@
 /// - Command history with results
 /// - Output modal for viewing results
 use crate::components::*;
+use crate::services::TuiServiceLayer;
 
 /// Execution mode for commands
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -143,6 +144,18 @@ impl Default for CommandsPaneState {
                 description: "Run distribution network power flow analysis".into(),
                 category: "Distribution".into(),
             },
+            CommandSnippet {
+                id: "dist-flisr".into(),
+                command: "gat-cli dist flisr --network <file> --steps 5".into(),
+                description: "Simulate FLISR switching sequence for outage isolation".into(),
+                category: "Distribution".into(),
+            },
+            CommandSnippet {
+                id: "dist-vvo".into(),
+                command: "gat-cli dist vvo --network <file> --targets <file>".into(),
+                description: "Run Volt/VAR optimization with regulator and cap bank setpoints".into(),
+                category: "Distribution".into(),
+            },
             // Scenario operations
             CommandSnippet {
                 id: "scenario-solve".into(),
@@ -188,6 +201,12 @@ impl Default for CommandsPaneState {
                 description: "Run comprehensive power flow study".into(),
                 category: "Analytics".into(),
             },
+            CommandSnippet {
+                id: "der-analytics".into(),
+                command: "gat-cli analytics der --dataset <id> --window 24h".into(),
+                description: "Analyze DER fleet performance and flexibility bands".into(),
+                category: "Analytics".into(),
+            },
             // Batch operations
             CommandSnippet {
                 id: "batch-powerflow".into(),
@@ -220,6 +239,27 @@ impl Default for CommandsPaneState {
                 command: "gat-cli health check --verbose".into(),
                 description: "Run system health check".into(),
                 category: "Utilities".into(),
+            },
+            // Hosting capacity & DER scheduling
+            CommandSnippet {
+                id: "der-schedule".into(),
+                command: "gat-cli derms schedule --dataset <id> --horizon 24".into(),
+                description: "Optimize DER schedules for the next 24 hours".into(),
+                category: "DERMS".into(),
+            },
+            CommandSnippet {
+                id: "hosting-capacity".into(),
+                command: "gat-cli derms hosting-capacity --grid <grid> --der-type solar --out hosting.parquet"
+                    .into(),
+                description: "Estimate DER hosting capacity by bus with voltage bands".into(),
+                category: "DERMS".into(),
+            },
+            CommandSnippet {
+                id: "hosting-capacity-zones".into(),
+                command: "gat-cli derms hosting-capacity --grid <grid> --zones <file> --voltage-band 0.95,1.05"
+                    .into(),
+                description: "Summarize hosting capacity by zone with limit flags".into(),
+                category: "Distribution".into(),
             },
         ];
 
@@ -428,21 +468,35 @@ impl CommandsPaneState {
 
     /// Execute the custom command and add result to history
     /// This integrates with TuiServiceLayer for real gat-cli execution
-    pub async fn execute_command(&mut self) -> Result<CommandResult, String> {
+    pub async fn execute_command(
+        &mut self,
+        service_layer: &TuiServiceLayer,
+    ) -> Result<CommandResult, String> {
         if self.custom_command.is_empty() {
             return Err("No command to execute".to_string());
         }
 
         let id = format!("cmd_{:06}", self.history.len() + 1);
+        let response = service_layer
+            .execute_custom_command(
+                &self.custom_command,
+                self.execution_mode == ExecutionMode::DryRun,
+            )
+            .await
+            .map_err(|e| e.to_string())?;
 
-        // Create execution result - would integrate with TuiServiceLayer
-        // for real command execution here
+        let output_lines = response["output_lines"].as_u64().unwrap_or(0) as usize;
+        let status = match response["exit_code"].as_i64().unwrap_or(1) {
+            0 => CommandStatus::Success,
+            _ => CommandStatus::Failed,
+        };
+
         let result = CommandResult {
             id,
             command: self.custom_command.clone(),
             mode: self.execution_mode,
-            status: CommandStatus::Success,
-            output_lines: 42, // This would be actual output line count
+            status,
+            output_lines,
             timestamp: format!("{:?}", std::time::SystemTime::now()),
         };
 
@@ -497,7 +551,7 @@ mod tests {
     #[test]
     fn test_commands_init() {
         let state = CommandsPaneState::new();
-        assert_eq!(state.snippet_count(), 19);
+        assert_eq!(state.snippet_count(), 25);
         assert_eq!(state.history_count(), 2);
         assert_eq!(state.execution_mode, ExecutionMode::DryRun);
     }
@@ -514,28 +568,43 @@ mod tests {
     #[test]
     fn test_load_snippet() {
         let mut state = CommandsPaneState::new();
-        state.load_snippet_to_editor(3);
+        let index = state
+            .snippets
+            .iter()
+            .position(|s| s.id == "preview-envelope")
+            .expect("preview envelope snippet present");
+        state.load_snippet_to_editor(index);
         assert_eq!(
             state.custom_command,
             "gat-cli derms envelope --grid-file <case>"
         );
-        assert_eq!(state.selected_snippet, 3);
+        assert_eq!(state.selected_snippet, index);
     }
 
     #[test]
     fn test_load_analytics_snippet() {
         let mut state = CommandsPaneState::new();
-        state.load_snippet_to_editor(10);
+        let index = state
+            .snippets
+            .iter()
+            .position(|s| s.id == "reliability-analysis")
+            .expect("reliability snippet present");
+        state.load_snippet_to_editor(index);
         assert!(state.custom_command.contains("reliability"));
-        assert_eq!(state.selected_snippet, 10);
+        assert_eq!(state.selected_snippet, index);
     }
 
     #[test]
     fn test_load_batch_snippet() {
         let mut state = CommandsPaneState::new();
-        state.load_snippet_to_editor(14);
+        let index = state
+            .snippets
+            .iter()
+            .position(|s| s.id == "batch-powerflow")
+            .expect("batch powerflow snippet present");
+        state.load_snippet_to_editor(index);
         assert!(state.custom_command.contains("batch powerflow"));
-        assert_eq!(state.selected_snippet, 14);
+        assert_eq!(state.selected_snippet, index);
     }
 
     #[test]
