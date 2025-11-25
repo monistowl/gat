@@ -102,11 +102,17 @@ fn check_cache_dir() -> Check {
         Some(base) => {
             let path = base.join("gat");
             if path.exists() {
-                Check::ok("cache", format!("using cache directory at {}", path.display()))
+                Check::ok(
+                    "cache",
+                    format!("using cache directory at {}", path.display()),
+                )
             } else {
                 Check::warn(
                     "cache",
-                    format!("preferred cache directory {} does not exist yet", path.display()),
+                    format!(
+                        "preferred cache directory {} does not exist yet",
+                        path.display()
+                    ),
                 )
             }
         }
@@ -145,4 +151,3 @@ fn command_on_path(command: &str) -> bool {
         })
         .is_some()
 }
-

@@ -310,7 +310,9 @@ fn socp_quadratic_cost() {
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
-    let solution = solver.solve(&network).expect("SOCP with quadratic cost should converge");
+    let solution = solver
+        .solve(&network)
+        .expect("SOCP with quadratic cost should converge");
 
     assert!(solution.converged);
 
@@ -331,8 +333,12 @@ fn socp_quadratic_cost() {
     );
 
     // Objective should include quadratic terms
-    let expected_cost = 100.0 + 10.0 * gen1_p + 0.05 * gen1_p * gen1_p
-        + 50.0 + 20.0 * gen2_p + 0.02 * gen2_p * gen2_p;
+    let expected_cost = 100.0
+        + 10.0 * gen1_p
+        + 0.05 * gen1_p * gen1_p
+        + 50.0
+        + 20.0 * gen2_p
+        + 0.02 * gen2_p * gen2_p;
 
     assert!(
         (solution.objective_value - expected_cost).abs() < 10.0,
@@ -406,8 +412,18 @@ fn socp_thermal_limit_binding() {
     assert!(solution.converged);
 
     // Flow should be under thermal limit
-    let p_flow = solution.branch_p_flow.get("line1_2").copied().unwrap().abs();
-    let q_flow = solution.branch_q_flow.get("line1_2").copied().unwrap_or(0.0).abs();
+    let p_flow = solution
+        .branch_p_flow
+        .get("line1_2")
+        .copied()
+        .unwrap()
+        .abs();
+    let q_flow = solution
+        .branch_q_flow
+        .get("line1_2")
+        .copied()
+        .unwrap_or(0.0)
+        .abs();
     let s_flow = (p_flow * p_flow + q_flow * q_flow).sqrt();
 
     assert!(
@@ -521,7 +537,9 @@ fn socp_phase_shifting_transformer() {
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
-    let solution = solver.solve(&network).expect("SOCP with PST should converge");
+    let solution = solver
+        .solve(&network)
+        .expect("SOCP with PST should converge");
 
     assert!(solution.converged);
 
@@ -604,7 +622,9 @@ fn socp_tap_ratio_transformer() {
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
-    let solution = solver.solve(&network).expect("SOCP with tap ratio should converge");
+    let solution = solver
+        .solve(&network)
+        .expect("SOCP with tap ratio should converge");
 
     assert!(solution.converged);
 
@@ -690,7 +710,12 @@ fn socp_10_bus_meshed_network() {
     }
 
     // Add loads at various buses
-    let loads = [(2, 30.0, 10.0), (5, 40.0, 15.0), (8, 35.0, 12.0), (9, 25.0, 8.0)];
+    let loads = [
+        (2, 30.0, 10.0),
+        (5, 40.0, 15.0),
+        (8, 35.0, 12.0),
+        (9, 25.0, 8.0),
+    ];
     for (idx, (bus, p, q)) in loads.iter().enumerate() {
         network.graph.add_node(Node::Load(Load {
             id: LoadId::new(idx),
@@ -797,7 +822,9 @@ fn socp_line_charging() {
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
-    let solution = solver.solve(&network).expect("SOCP with line charging should converge");
+    let solution = solver
+        .solve(&network)
+        .expect("SOCP with line charging should converge");
 
     assert!(solution.converged);
 

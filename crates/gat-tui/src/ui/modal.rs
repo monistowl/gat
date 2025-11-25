@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
-use anyhow::Result;
 use crate::command_runner::{spawn_command, CommandHandle};
+use anyhow::Result;
 
 use super::{EmptyState, TableView, Tooltip, THEME};
 

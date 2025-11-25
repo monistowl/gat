@@ -707,7 +707,11 @@ pub fn solve(
         // Check if this column corresponds to a generator P variable
         if col >= var_pgen_start && col < var_qgen_start {
             let gen_idx = col - var_pgen_start;
-            let c2 = generators[gen_idx].cost_coeffs.get(2).copied().unwrap_or(0.0);
+            let c2 = generators[gen_idx]
+                .cost_coeffs
+                .get(2)
+                .copied()
+                .unwrap_or(0.0);
 
             if c2.abs() > 1e-12 {
                 // Add diagonal entry: P[col, col] = 2·c₂ / BASE_MVA²
@@ -742,10 +746,7 @@ pub fn solve(
     }
 
     // Compute per-bus voltage ratio for potential future use in multi-voltage scaling
-    let _bus_kv_ratio: Vec<f64> = buses
-        .iter()
-        .map(|b| b.base_kv / system_base_kv)
-        .collect();
+    let _bus_kv_ratio: Vec<f64> = buses.iter().map(|b| b.base_kv / system_base_kv).collect();
 
     // ========================================================================
     // STEP 5: BUILD CONSTRAINT MATRIX (A) AND RHS (b)
@@ -879,13 +880,7 @@ pub fn solve(
     // voltage regulation capability.
 
     // Reference voltage magnitude: v[0] = 1.0
-    push_eq(
-        &[(var_v_start, 1.0)],
-        1.0,
-        &mut rows,
-        &mut rhs,
-        &mut cones,
-    );
+    push_eq(&[(var_v_start, 1.0)], 1.0, &mut rows, &mut rhs, &mut cones);
 
     // Reference angle: θ[0] = 0
     push_eq(
@@ -1331,10 +1326,11 @@ pub fn solve(
         .build()
         .map_err(|e| OpfError::NumericalIssue(format!("Clarabel settings error: {:?}", e)))?;
 
-    let mut solver = clarabel::solver::DefaultSolver::new(
-        &p_mat, &obj, &a_mat, &rhs, &cones, settings,
-    )
-    .map_err(|e| OpfError::NumericalIssue(format!("Clarabel initialization failed: {:?}", e)))?;
+    let mut solver =
+        clarabel::solver::DefaultSolver::new(&p_mat, &obj, &a_mat, &rhs, &cones, settings)
+            .map_err(|e| {
+                OpfError::NumericalIssue(format!("Clarabel initialization failed: {:?}", e))
+            })?;
 
     solver.solve();
 
