@@ -18,7 +18,9 @@
 //!   - Thermal limits: P_ij² + Q_ij² ≤ S_max²
 
 mod power_equations;
+mod problem;
 mod ybus;
 
 pub use power_equations::PowerEquations;
+pub use problem::{AcOpfProblem, BusData, GenData};
 pub use ybus::{YBus, YBusBuilder};
