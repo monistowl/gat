@@ -8,8 +8,8 @@
 use crate::opf::{OpfMethod, OpfSolution};
 use crate::OpfError;
 use gat_core::{BusId, Edge, Network, Node};
-use good_lp::{constraint, variable, variables, Expression, Solution, SolverModel, Variable};
 use good_lp::solvers::clarabel::clarabel;
+use good_lp::{constraint, variable, variables, Expression, Solution, SolverModel, Variable};
 use sprs::{CsMat, TriMat};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -19,7 +19,7 @@ use std::time::Instant;
 struct BusData {
     id: BusId,
     name: String,
-    index: usize,  // Matrix index
+    index: usize, // Matrix index
 }
 
 /// Internal representation of a generator for DC-OPF
@@ -29,7 +29,7 @@ struct GenData {
     bus_id: BusId,
     pmin_mw: f64,
     pmax_mw: f64,
-    cost_coeffs: Vec<f64>,  // [c0, c1, c2, ...] for polynomial
+    cost_coeffs: Vec<f64>, // [c0, c1, c2, ...] for polynomial
 }
 
 /// Internal representation of a branch for DC-OPF
@@ -38,11 +38,16 @@ struct BranchData {
     name: String,
     from_bus: BusId,
     to_bus: BusId,
-    susceptance: f64,  // b = 1/x (per unit)
+    susceptance: f64, // b = 1/x (per unit)
 }
 
 /// Return type for network data extraction
-type NetworkData = (Vec<BusData>, Vec<GenData>, Vec<BranchData>, HashMap<BusId, f64>);
+type NetworkData = (
+    Vec<BusData>,
+    Vec<GenData>,
+    Vec<BranchData>,
+    HashMap<BusId, f64>,
+);
 
 /// Extract network data into solver-friendly format
 fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
@@ -181,7 +186,11 @@ pub fn solve(
 
     for gen in &generators {
         let pmin = gen.pmin_mw.max(0.0);
-        let pmax = if gen.pmax_mw.is_finite() { gen.pmax_mw } else { 1e6 };
+        let pmax = if gen.pmax_mw.is_finite() {
+            gen.pmax_mw
+        } else {
+            1e6
+        };
         let p_var = vars.add(variable().min(pmin).max(pmax));
         gen_vars.push((gen.name.clone(), gen.bus_id, p_var));
 
@@ -191,10 +200,12 @@ pub fn solve(
     }
 
     // Build cost expression
-    let cost_expr = cost_terms.into_iter().fold(Expression::from(0.0), |acc, term| acc + term);
+    let cost_expr = cost_terms
+        .into_iter()
+        .fold(Expression::from(0.0), |acc, term| acc + term);
 
     // Bus angle variables (reference bus = 0, not a variable)
-    let ref_bus_idx = 0;  // First bus is reference
+    let ref_bus_idx = 0; // First bus is reference
     let mut theta_vars: HashMap<usize, Variable> = HashMap::new();
     for bus in &buses {
         if bus.index != ref_bus_idx {
@@ -250,9 +261,9 @@ pub fn solve(
     }
 
     // Solve
-    let solution = problem.solve().map_err(|e| {
-        OpfError::NumericalIssue(format!("LP solver failed: {:?}", e))
-    })?;
+    let solution = problem
+        .solve()
+        .map_err(|e| OpfError::NumericalIssue(format!("LP solver failed: {:?}", e)))?;
 
     // === Extract Results ===
     let mut result = OpfSolution {
@@ -285,10 +296,13 @@ pub fn solve(
         let theta = if bus.index == ref_bus_idx {
             0.0
         } else {
-            theta_vars.get(&bus.index).map(|v| solution.value(*v)).unwrap_or(0.0)
+            theta_vars
+                .get(&bus.index)
+                .map(|v| solution.value(*v))
+                .unwrap_or(0.0)
         };
         result.bus_voltage_ang.insert(bus.name.clone(), theta);
-        result.bus_voltage_mag.insert(bus.name.clone(), 1.0);  // DC assumption
+        result.bus_voltage_mag.insert(bus.name.clone(), 1.0); // DC assumption
     }
 
     // Branch flows: P_ij = b_ij * (θ_i - θ_j)
@@ -299,12 +313,18 @@ pub fn solve(
         let theta_i = if i == ref_bus_idx {
             0.0
         } else {
-            theta_vars.get(&i).map(|v| solution.value(*v)).unwrap_or(0.0)
+            theta_vars
+                .get(&i)
+                .map(|v| solution.value(*v))
+                .unwrap_or(0.0)
         };
         let theta_j = if j == ref_bus_idx {
             0.0
         } else {
-            theta_vars.get(&j).map(|v| solution.value(*v)).unwrap_or(0.0)
+            theta_vars
+                .get(&j)
+                .map(|v| solution.value(*v))
+                .unwrap_or(0.0)
         };
 
         let flow = branch.susceptance * (theta_i - theta_j);
@@ -334,7 +354,7 @@ pub fn solve(
                 // This is the marginal generator
                 let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
                 let c2 = gen.cost_coeffs.get(2).copied().unwrap_or(0.0);
-                system_lmp = c1 + 2.0 * c2 * p;  // Marginal cost = dC/dP
+                system_lmp = c1 + 2.0 * c2 * p; // Marginal cost = dC/dP
                 break;
             }
         }

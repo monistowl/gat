@@ -99,19 +99,16 @@ fn visit_opfdata_files(dir: &Path, refs: &mut Vec<OpfDataSampleRef>) -> Result<(
 }
 
 /// Load a specific sample from an OPFData JSON file
-pub fn load_opfdata_instance(
-    file_path: &Path,
-    sample_id: &str,
-) -> Result<OpfDataInstance> {
+pub fn load_opfdata_instance(file_path: &Path, sample_id: &str) -> Result<OpfDataInstance> {
     let file = File::open(file_path)
         .with_context(|| format!("opening OPFData file: {}", file_path.display()))?;
     let reader = BufReader::new(file);
     let data: Value = serde_json::from_reader(reader)
         .with_context(|| format!("parsing OPFData JSON: {}", file_path.display()))?;
 
-    let sample = data
-        .get(sample_id)
-        .ok_or_else(|| anyhow::anyhow!("sample {} not found in {}", sample_id, file_path.display()))?;
+    let sample = data.get(sample_id).ok_or_else(|| {
+        anyhow::anyhow!("sample {} not found in {}", sample_id, file_path.display())
+    })?;
 
     let network = build_network_from_opfdata(sample)?;
     let solution = build_solution_from_opfdata(sample)?;
@@ -129,8 +126,12 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
     let mut network = Network::new();
     let mut bus_index_map: HashMap<usize, NodeIndex> = HashMap::new();
 
-    let grid = sample.get("grid").ok_or_else(|| anyhow::anyhow!("missing 'grid' field"))?;
-    let nodes = grid.get("nodes").ok_or_else(|| anyhow::anyhow!("missing 'nodes' field"))?;
+    let grid = sample
+        .get("grid")
+        .ok_or_else(|| anyhow::anyhow!("missing 'grid' field"))?;
+    let nodes = grid
+        .get("nodes")
+        .ok_or_else(|| anyhow::anyhow!("missing 'nodes' field"))?;
 
     // Parse buses - format: [[base_kv, type, vmin, vmax], ...]
     let bus_data = nodes
@@ -139,7 +140,9 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
         .ok_or_else(|| anyhow::anyhow!("missing 'bus' array"))?;
 
     for (bus_idx, bus_row) in bus_data.iter().enumerate() {
-        let bus_array = bus_row.as_array().ok_or_else(|| anyhow::anyhow!("bus row not array"))?;
+        let bus_array = bus_row
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("bus row not array"))?;
         let base_kv = bus_array.get(0).and_then(|v| v.as_f64()).unwrap_or(138.0);
         // type: 1=PQ, 2=PV, 3=Slack
         // vmin, vmax at indices 2, 3
@@ -170,7 +173,9 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
 
     if let Some(gens) = gen_data {
         for (gen_idx, gen_row) in gens.iter().enumerate() {
-            let gen_array = gen_row.as_array().ok_or_else(|| anyhow::anyhow!("gen row not array"))?;
+            let gen_array = gen_row
+                .as_array()
+                .ok_or_else(|| anyhow::anyhow!("gen row not array"))?;
 
             // [mbase, pg, qg, pmax, pmin, qmin, qmax, status, ...]
             let pg = gen_array.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0; // p.u. to MW
@@ -222,7 +227,9 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
     }
 
     // Parse edges - ac_line and transformer
-    let edges = grid.get("edges").ok_or_else(|| anyhow::anyhow!("missing 'edges' field"))?;
+    let edges = grid
+        .get("edges")
+        .ok_or_else(|| anyhow::anyhow!("missing 'edges' field"))?;
 
     // AC lines
     let mut branch_id = 0usize;
@@ -230,12 +237,20 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
         let senders: Vec<usize> = ac_line
             .get("senders")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_u64().map(|u| u as usize)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_u64().map(|u| u as usize))
+                    .collect()
+            })
             .unwrap_or_default();
         let receivers: Vec<usize> = ac_line
             .get("receivers")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_u64().map(|u| u as usize)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_u64().map(|u| u as usize))
+                    .collect()
+            })
             .unwrap_or_default();
         let features: Vec<Vec<f64>> = ac_line
             .get("features")
@@ -243,16 +258,15 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             .map(|arr| {
                 arr.iter()
                     .filter_map(|row| {
-                        row.as_array().map(|r| r.iter().filter_map(|v| v.as_f64()).collect())
+                        row.as_array()
+                            .map(|r| r.iter().filter_map(|v| v.as_f64()).collect())
                     })
                     .collect()
             })
             .unwrap_or_default();
 
-        for ((&from_bus, &to_bus), feat) in senders
-            .iter()
-            .zip(receivers.iter())
-            .zip(features.iter())
+        for ((&from_bus, &to_bus), feat) in
+            senders.iter().zip(receivers.iter()).zip(features.iter())
         {
             // Features: [angmin, angmax, r, r, x, b, rate_a, rate_b, rate_c]
             let resistance = feat.get(2).copied().unwrap_or(0.01);
@@ -269,7 +283,9 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                     resistance,
                     reactance,
                 };
-                network.graph.add_edge(from_idx, to_idx, Edge::Branch(branch));
+                network
+                    .graph
+                    .add_edge(from_idx, to_idx, Edge::Branch(branch));
                 branch_id += 1;
             }
         }
@@ -280,12 +296,20 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
         let senders: Vec<usize> = transformer
             .get("senders")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_u64().map(|u| u as usize)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_u64().map(|u| u as usize))
+                    .collect()
+            })
             .unwrap_or_default();
         let receivers: Vec<usize> = transformer
             .get("receivers")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_u64().map(|u| u as usize)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_u64().map(|u| u as usize))
+                    .collect()
+            })
             .unwrap_or_default();
         let features: Vec<Vec<f64>> = transformer
             .get("features")
@@ -293,16 +317,15 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             .map(|arr| {
                 arr.iter()
                     .filter_map(|row| {
-                        row.as_array().map(|r| r.iter().filter_map(|v| v.as_f64()).collect())
+                        row.as_array()
+                            .map(|r| r.iter().filter_map(|v| v.as_f64()).collect())
                     })
                     .collect()
             })
             .unwrap_or_default();
 
-        for ((&from_bus, &to_bus), feat) in senders
-            .iter()
-            .zip(receivers.iter())
-            .zip(features.iter())
+        for ((&from_bus, &to_bus), feat) in
+            senders.iter().zip(receivers.iter()).zip(features.iter())
         {
             // Features: [angmin, angmax, r, x, rate_a, rate_b, rate_c, tap, shift, g, b]
             let resistance = feat.get(2).copied().unwrap_or(0.0);
@@ -319,7 +342,9 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                     resistance,
                     reactance,
                 };
-                network.graph.add_edge(from_idx, to_idx, Edge::Branch(branch));
+                network
+                    .graph
+                    .add_edge(from_idx, to_idx, Edge::Branch(branch));
                 branch_id += 1;
             }
         }
@@ -379,7 +404,9 @@ mod tests {
     #[test]
     fn test_load_opfdata_sample() {
         // This test will only pass if OPFData is downloaded
-        let path = Path::new("/tmp/opfdata_download/dataset_release_1/pglib_opf_case118_ieee/group_0/merged_1.json");
+        let path = Path::new(
+            "/tmp/opfdata_download/dataset_release_1/pglib_opf_case118_ieee/group_0/merged_1.json",
+        );
         if !path.exists() {
             eprintln!("Skipping test: OPFData not available at {:?}", path);
             return;

@@ -73,11 +73,18 @@ fn test_dc_opf_2bus_basic() {
 
     // Generator should produce ~50 MW (matching load)
     let gen_p = solution.generator_p.get("gen1").expect("gen1 output");
-    assert!((*gen_p - 50.0).abs() < 1.0, "gen1 should produce ~50 MW, got {}", gen_p);
+    assert!(
+        (*gen_p - 50.0).abs() < 1.0,
+        "gen1 should produce ~50 MW, got {}",
+        gen_p
+    );
 
     // Objective = 50 MW * $10/MWh = $500/hr
-    assert!((solution.objective_value - 500.0).abs() < 10.0,
-        "objective should be ~$500/hr, got {}", solution.objective_value);
+    assert!(
+        (solution.objective_value - 500.0).abs() < 10.0,
+        "objective should be ~$500/hr, got {}",
+        solution.objective_value
+    );
 }
 
 #[test]
@@ -88,14 +95,28 @@ fn test_dc_opf_2bus_lmp() {
     let solution = solver.solve(&network).expect("DC-OPF should converge");
 
     // Both buses should have LMPs (dual of power balance)
-    assert!(solution.bus_lmp.contains_key("bus1"), "bus1 should have LMP");
-    assert!(solution.bus_lmp.contains_key("bus2"), "bus2 should have LMP");
+    assert!(
+        solution.bus_lmp.contains_key("bus1"),
+        "bus1 should have LMP"
+    );
+    assert!(
+        solution.bus_lmp.contains_key("bus2"),
+        "bus2 should have LMP"
+    );
 
     // Without congestion, LMPs should be close to marginal cost ($10/MWh)
     let lmp1 = *solution.bus_lmp.get("bus1").unwrap();
     let lmp2 = *solution.bus_lmp.get("bus2").unwrap();
-    assert!((lmp1 - 10.0).abs() < 1.0, "bus1 LMP should be ~$10/MWh, got {}", lmp1);
-    assert!((lmp2 - 10.0).abs() < 1.0, "bus2 LMP should be ~$10/MWh, got {}", lmp2);
+    assert!(
+        (lmp1 - 10.0).abs() < 1.0,
+        "bus1 LMP should be ~$10/MWh, got {}",
+        lmp1
+    );
+    assert!(
+        (lmp2 - 10.0).abs() < 1.0,
+        "bus2 LMP should be ~$10/MWh, got {}",
+        lmp2
+    );
 }
 
 #[test]
@@ -107,12 +128,20 @@ fn test_dc_opf_2bus_angles() {
 
     // Reference bus (bus1) should have angle = 0
     let theta1 = *solution.bus_voltage_ang.get("bus1").unwrap_or(&f64::NAN);
-    assert!(theta1.abs() < 1e-6, "bus1 angle should be 0 (reference), got {}", theta1);
+    assert!(
+        theta1.abs() < 1e-6,
+        "bus1 angle should be 0 (reference), got {}",
+        theta1
+    );
 
     // Bus2 angle should be negative (power flowing from 1 to 2)
     // θ2 = θ1 - P_12 * x = 0 - 50 * 0.1 = -5 radians (in per-unit base)
     let theta2 = *solution.bus_voltage_ang.get("bus2").unwrap_or(&f64::NAN);
-    assert!(theta2 < 0.0, "bus2 angle should be negative, got {}", theta2);
+    assert!(
+        theta2 < 0.0,
+        "bus2 angle should be negative, got {}",
+        theta2
+    );
 }
 
 /// Create a 3-bus network to test cost ordering
@@ -142,32 +171,44 @@ fn create_3bus_network() -> Network {
     }));
 
     // Triangle topology
-    network.graph.add_edge(bus1, bus2, Edge::Branch(Branch {
-        id: BranchId::new(0),
-        name: "line1_2".to_string(),
-        from_bus: BusId::new(0),
-        to_bus: BusId::new(1),
-        resistance: 0.01,
-        reactance: 0.1,
-    }));
+    network.graph.add_edge(
+        bus1,
+        bus2,
+        Edge::Branch(Branch {
+            id: BranchId::new(0),
+            name: "line1_2".to_string(),
+            from_bus: BusId::new(0),
+            to_bus: BusId::new(1),
+            resistance: 0.01,
+            reactance: 0.1,
+        }),
+    );
 
-    network.graph.add_edge(bus2, bus3, Edge::Branch(Branch {
-        id: BranchId::new(1),
-        name: "line2_3".to_string(),
-        from_bus: BusId::new(1),
-        to_bus: BusId::new(2),
-        resistance: 0.01,
-        reactance: 0.1,
-    }));
+    network.graph.add_edge(
+        bus2,
+        bus3,
+        Edge::Branch(Branch {
+            id: BranchId::new(1),
+            name: "line2_3".to_string(),
+            from_bus: BusId::new(1),
+            to_bus: BusId::new(2),
+            resistance: 0.01,
+            reactance: 0.1,
+        }),
+    );
 
-    network.graph.add_edge(bus1, bus3, Edge::Branch(Branch {
-        id: BranchId::new(2),
-        name: "line1_3".to_string(),
-        from_bus: BusId::new(0),
-        to_bus: BusId::new(2),
-        resistance: 0.01,
-        reactance: 0.1,
-    }));
+    network.graph.add_edge(
+        bus1,
+        bus3,
+        Edge::Branch(Branch {
+            id: BranchId::new(2),
+            name: "line1_3".to_string(),
+            from_bus: BusId::new(0),
+            to_bus: BusId::new(2),
+            resistance: 0.01,
+            reactance: 0.1,
+        }),
+    );
 
     // Cheap generator at bus 1
     network.graph.add_node(Node::Gen(Gen {
@@ -224,13 +265,26 @@ fn test_dc_opf_3bus_merit_order() {
 
     // Total generation should match load (~80 MW)
     let total_gen = gen1_p + gen2_p;
-    assert!((total_gen - 80.0).abs() < 1.0, "total gen should be ~80 MW, got {}", total_gen);
+    assert!(
+        (total_gen - 80.0).abs() < 1.0,
+        "total gen should be ~80 MW, got {}",
+        total_gen
+    );
 
     // Cheap generator should produce more than expensive one
-    assert!(gen1_p > gen2_p, "cheap gen ({}) should produce more than expensive ({})", gen1_p, gen2_p);
+    assert!(
+        gen1_p > gen2_p,
+        "cheap gen ({}) should produce more than expensive ({})",
+        gen1_p,
+        gen2_p
+    );
 
     // If no congestion, cheap generator should produce all 80 MW
-    assert!(gen1_p > 70.0, "cheap gen should produce most of the load, got {}", gen1_p);
+    assert!(
+        gen1_p > 70.0,
+        "cheap gen should produce most of the load, got {}",
+        gen1_p
+    );
 }
 
 #[test]
@@ -248,5 +302,9 @@ fn test_dc_opf_3bus_flows() {
     // Power should flow from gen (bus 1) toward load (bus 3)
     let flow_1_3 = *solution.branch_p_flow.get("line1_3").unwrap_or(&0.0);
     // Flow should be positive (from bus 1 to bus 3) or at least non-trivial
-    assert!(flow_1_3.abs() > 1.0, "flow on line1_3 should be significant, got {}", flow_1_3);
+    assert!(
+        flow_1_3.abs() > 1.0,
+        "flow on line1_3 should be significant, got {}",
+        flow_1_3
+    );
 }

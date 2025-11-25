@@ -325,8 +325,12 @@ impl AcOpfSolver {
         // Create merit order: sort by marginal cost at Pmin
         let mut merit_order: Vec<usize> = (0..n).collect();
         merit_order.sort_by(|&a, &b| {
-            let mc_a = generators[a].cost_model.marginal_cost(generators[a].pmin_mw);
-            let mc_b = generators[b].cost_model.marginal_cost(generators[b].pmin_mw);
+            let mc_a = generators[a]
+                .cost_model
+                .marginal_cost(generators[a].pmin_mw);
+            let mc_b = generators[b]
+                .cost_model
+                .marginal_cost(generators[b].pmin_mw);
             mc_a.partial_cmp(&mc_b).unwrap_or(std::cmp::Ordering::Equal)
         });
 

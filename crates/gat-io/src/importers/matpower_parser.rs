@@ -116,7 +116,9 @@ fn extract_string_value(content: &str, key: &str) -> Option<String> {
         let line = line.trim();
         if line.starts_with(key) && line.contains('=') {
             let value_part = line.split('=').nth(1)?;
-            let value = value_part.trim().trim_matches(|c| c == '\'' || c == '"' || c == ';');
+            let value = value_part
+                .trim()
+                .trim_matches(|c| c == '\'' || c == '"' || c == ';');
             return Some(value.to_string());
         }
     }
@@ -153,8 +155,8 @@ fn parse_row(line: &str) -> Vec<f64> {
 }
 
 fn parse_bus_matrix(content: &str) -> Result<Vec<MatpowerBus>> {
-    let matrix = extract_matrix(content, "mpc.bus")
-        .ok_or_else(|| anyhow!("mpc.bus matrix not found"))?;
+    let matrix =
+        extract_matrix(content, "mpc.bus").ok_or_else(|| anyhow!("mpc.bus matrix not found"))?;
 
     let mut buses = Vec::new();
     for line in matrix.lines() {

@@ -3,7 +3,10 @@
 //! Dispatches generators in order of marginal cost to minimize total cost.
 //! Does not model network constraints, losses, or reactive power.
 
-use crate::{OpfError, opf::{OpfMethod, OpfSolution}};
+use crate::{
+    opf::{OpfMethod, OpfSolution},
+    OpfError,
+};
 use gat_core::{Gen, Network, Node};
 use std::time::Instant;
 
@@ -97,10 +100,7 @@ pub fn solve(
 }
 
 /// Economic dispatch using merit order
-fn economic_dispatch(
-    generators: &[Gen],
-    required_generation: f64,
-) -> Result<Vec<f64>, OpfError> {
+fn economic_dispatch(generators: &[Gen], required_generation: f64) -> Result<Vec<f64>, OpfError> {
     let n = generators.len();
     let mut dispatch = vec![0.0; n];
 
@@ -120,8 +120,12 @@ fn economic_dispatch(
     // Create merit order: sort by marginal cost at Pmin
     let mut merit_order: Vec<usize> = (0..n).collect();
     merit_order.sort_by(|&a, &b| {
-        let mc_a = generators[a].cost_model.marginal_cost(generators[a].pmin_mw);
-        let mc_b = generators[b].cost_model.marginal_cost(generators[b].pmin_mw);
+        let mc_a = generators[a]
+            .cost_model
+            .marginal_cost(generators[a].pmin_mw);
+        let mc_b = generators[b]
+            .cost_model
+            .marginal_cost(generators[b].pmin_mw);
         mc_a.partial_cmp(&mc_b).unwrap_or(std::cmp::Ordering::Equal)
     });
 

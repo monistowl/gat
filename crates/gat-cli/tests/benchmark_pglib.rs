@@ -34,7 +34,10 @@ fn test_pglib_test_data_exists() {
 
     // Check that the case directory contains a .m file
     let case_file = case14_dir.join("case.m");
-    assert!(case_file.exists(), "case.m file should exist in case14 directory");
+    assert!(
+        case_file.exists(),
+        "case.m file should exist in case14 directory"
+    );
 }
 
 #[test]
@@ -45,6 +48,12 @@ fn test_baseline_file_exists() {
 
     // Check baseline has content
     let content = fs::read_to_string(baseline).expect("Should be able to read baseline.csv");
-    assert!(content.contains("case_name"), "Baseline should have case_name column");
-    assert!(content.contains("objective"), "Baseline should have objective column");
+    assert!(
+        content.contains("case_name"),
+        "Baseline should have case_name column"
+    );
+    assert!(
+        content.contains("objective"),
+        "Baseline should have objective column"
+    );
 }

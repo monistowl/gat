@@ -2,7 +2,9 @@ use gat_algo::{
     DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
     ReliabilityMetrics,
 };
-use gat_core::{Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node};
+use gat_core::{
+    Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node,
+};
 
 fn create_simple_network() -> Network {
     let mut network = Network::new();

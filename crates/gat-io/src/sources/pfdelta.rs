@@ -69,7 +69,10 @@ pub fn load_pfdelta_case(json_path: &Path) -> Result<Network> {
 }
 
 /// Load a PFDelta JSON file and return network with reference solution
-pub fn load_pfdelta_instance(json_path: &Path, test_case: &PFDeltaTestCase) -> Result<PFDeltaInstance> {
+pub fn load_pfdelta_instance(
+    json_path: &Path,
+    test_case: &PFDeltaTestCase,
+) -> Result<PFDeltaInstance> {
     let json_content = fs::read_to_string(json_path)
         .with_context(|| format!("reading PFDelta JSON: {}", json_path.display()))?;
 
@@ -101,9 +104,7 @@ fn extract_pfdelta_solution(data: &Value) -> Result<PFDeltaSolution> {
     }
 
     // Extract solved values from solution.solution (nested)
-    let sol_data = data
-        .get("solution")
-        .and_then(|s| s.get("solution"));
+    let sol_data = data.get("solution").and_then(|s| s.get("solution"));
 
     if let Some(sol) = sol_data {
         // Extract bus voltages

@@ -35,8 +35,13 @@ fn test_opfdata_source_module_exports() {
 #[test]
 fn test_cli_has_opfdata_command() {
     // Verify CLI defines the opfdata benchmark command
-    let cli = fs::read_to_string("../../crates/gat-cli/src/cli.rs")
-        .expect("Failed to read cli.rs");
-    assert!(cli.contains("Opfdata {"), "CLI should define Opfdata command");
-    assert!(cli.contains("opfdata_dir"), "Opfdata should have opfdata_dir arg");
+    let cli = fs::read_to_string("../../crates/gat-cli/src/cli.rs").expect("Failed to read cli.rs");
+    assert!(
+        cli.contains("Opfdata {"),
+        "CLI should define Opfdata command"
+    );
+    assert!(
+        cli.contains("opfdata_dir"),
+        "Opfdata should have opfdata_dir arg"
+    );
 }

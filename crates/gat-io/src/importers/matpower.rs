@@ -26,10 +26,19 @@ pub fn load_matpower_network(m_file: &Path) -> Result<Network> {
             }
         }
         // Try as zip archive
-        let file = File::open(m_file)
-            .with_context(|| format!("opening MATPOWER case file '{}'; expected zip archive", m_file.display()))?;
-        let (_case, buses, gens, branches, _gencost, _dcline, _readme, _license) = read_zip(file)
-            .with_context(|| format!("reading MATPOWER zip '{}'; failed to parse", m_file.display()))?;
+        let file = File::open(m_file).with_context(|| {
+            format!(
+                "opening MATPOWER case file '{}'; expected zip archive",
+                m_file.display()
+            )
+        })?;
+        let (_case, buses, gens, branches, _gencost, _dcline, _readme, _license) =
+            read_zip(file).with_context(|| {
+                format!(
+                    "reading MATPOWER zip '{}'; failed to parse",
+                    m_file.display()
+                )
+            })?;
         return build_network_from_case(buses, branches, gens);
     }
 
@@ -118,10 +127,7 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
             continue;
         }
         if !bus_index_map.contains_key(&gen.gen_bus) {
-            return Err(anyhow!(
-                "generator references unknown bus {}",
-                gen.gen_bus
-            ));
+            return Err(anyhow!("generator references unknown bus {}", gen.gen_bus));
         }
         network.graph.add_node(Node::Gen(Gen {
             id: GenId::new(gen_id),

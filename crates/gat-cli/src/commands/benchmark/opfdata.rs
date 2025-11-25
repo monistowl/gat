@@ -111,9 +111,8 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     );
 
     // Group samples by file for efficient loading (future optimization)
-    let _samples_by_file: HashMap<String, Vec<&OpfDataSampleRef>> = sample_refs
-        .iter()
-        .fold(HashMap::new(), |mut acc, r| {
+    let _samples_by_file: HashMap<String, Vec<&OpfDataSampleRef>> =
+        sample_refs.iter().fold(HashMap::new(), |mut acc, r| {
             acc.entry(r.file_path.to_string_lossy().to_string())
                 .or_default()
                 .push(r);
@@ -126,15 +125,15 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
 
     let results: Vec<OpfDataBenchmarkResult> = sample_refs
         .par_iter()
-        .filter_map(|sample_ref| {
-            match benchmark_opfdata_sample(sample_ref, tol, max_iter) {
+        .filter_map(
+            |sample_ref| match benchmark_opfdata_sample(sample_ref, tol, max_iter) {
                 Ok(result) => Some(result),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", sample_ref.sample_id, e);
                     None
                 }
-            }
-        })
+            },
+        )
         .collect();
 
     // Write results to CSV
@@ -145,8 +144,8 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
         }
     }
 
-    let file = File::create(out_path)
-        .context(format!("Failed to create output file: {}", config.out))?;
+    let file =
+        File::create(out_path).context(format!("Failed to create output file: {}", config.out))?;
     let mut writer = Writer::from_writer(file);
 
     for result in &results {

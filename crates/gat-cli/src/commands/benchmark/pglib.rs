@@ -84,10 +84,7 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     // Discover MATPOWER files
     let pglib_path = Path::new(&config.pglib_dir);
     if !pglib_path.exists() {
-        return Err(anyhow!(
-            "PGLib directory not found: {}",
-            config.pglib_dir
-        ));
+        return Err(anyhow!("PGLib directory not found: {}", config.pglib_dir));
     }
 
     let mut matpower_files = discover_matpower_files(pglib_path)?;
@@ -144,8 +141,8 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
         }
     }
 
-    let file = File::create(out_path)
-        .context(format!("Failed to create output file: {}", config.out))?;
+    let file =
+        File::create(out_path).context(format!("Failed to create output file: {}", config.out))?;
     let mut writer = Writer::from_writer(file);
 
     for result in &results {
@@ -209,12 +206,9 @@ fn discover_matpower_files(dir: &Path) -> Result<Vec<(String, std::path::PathBuf
             let has_m_files = std::fs::read_dir(&path)
                 .ok()
                 .map(|entries| {
-                    entries.filter_map(|e| e.ok()).any(|e| {
-                        e.path()
-                            .extension()
-                            .map(|ext| ext == "m")
-                            .unwrap_or(false)
-                    })
+                    entries
+                        .filter_map(|e| e.ok())
+                        .any(|e| e.path().extension().map(|ext| ext == "m").unwrap_or(false))
                 })
                 .unwrap_or(false);
 

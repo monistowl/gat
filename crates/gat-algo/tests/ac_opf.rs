@@ -1,5 +1,7 @@
 use gat_algo::{AcOpfError, AcOpfSolver};
-use gat_core::{Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node};
+use gat_core::{
+    Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node,
+};
 
 /// Helper to create a simple test network
 fn create_simple_network() -> Network {
@@ -707,5 +709,9 @@ fn test_opf_solver_dc_method() {
 
     // Generator should produce ~100 MW (matching load)
     let gen_p = solution.generator_p.get("gen1").expect("gen1 output");
-    assert!((*gen_p - 100.0).abs() < 2.0, "gen1 should produce ~100 MW, got {}", gen_p);
+    assert!(
+        (*gen_p - 100.0).abs() < 2.0,
+        "gen1 should produce ~100 MW, got {}",
+        gen_p
+    );
 }

@@ -131,9 +131,7 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     let results: Vec<BenchmarkResult> = all_cases
         .par_iter()
         .enumerate()
-        .filter_map(|(idx, test_case)| {
-            benchmark_case(test_case, idx, &mode, tol, max_iter).ok()
-        })
+        .filter_map(|(idx, test_case)| benchmark_case(test_case, idx, &mode, tol, max_iter).ok())
         .collect();
 
     // Write results to CSV

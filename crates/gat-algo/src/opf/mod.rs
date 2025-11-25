@@ -6,9 +6,9 @@
 //! - SOCP relaxation (convex AC approximation)
 //! - AC-OPF (full nonlinear, future)
 
-mod types;
-mod economic;
 mod dc_opf;
+mod economic;
+mod types;
 
 pub use types::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution};
 
@@ -58,10 +58,16 @@ impl OpfSolver {
     /// Solve OPF for the given network
     pub fn solve(&self, network: &Network) -> Result<OpfSolution, OpfError> {
         match self.method {
-            OpfMethod::EconomicDispatch => economic::solve(network, self.max_iterations, self.tolerance),
+            OpfMethod::EconomicDispatch => {
+                economic::solve(network, self.max_iterations, self.tolerance)
+            }
             OpfMethod::DcOpf => dc_opf::solve(network, self.max_iterations, self.tolerance),
-            OpfMethod::SocpRelaxation => Err(OpfError::NotImplemented("SOCP not yet implemented".into())),
-            OpfMethod::AcOpf => Err(OpfError::NotImplemented("AC-OPF not yet implemented".into())),
+            OpfMethod::SocpRelaxation => {
+                Err(OpfError::NotImplemented("SOCP not yet implemented".into()))
+            }
+            OpfMethod::AcOpf => Err(OpfError::NotImplemented(
+                "AC-OPF not yet implemented".into(),
+            )),
         }
     }
 }

@@ -2,7 +2,9 @@ use gat_algo::{
     AreaId, Corridor, DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo,
     MultiAreaMonteCarlo, MultiAreaSystem,
 };
-use gat_core::{Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node};
+use gat_core::{
+    Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node,
+};
 
 /// Create a standard test network with configurable capacity ratio
 fn create_benchmark_network(
