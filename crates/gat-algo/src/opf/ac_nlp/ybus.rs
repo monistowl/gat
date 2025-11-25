@@ -100,9 +100,7 @@ impl YBusBuilder {
 
         let n_bus = bus_map.len();
         if n_bus == 0 {
-            return Err(OpfError::DataValidation(
-                "No buses in network".to_string(),
-            ));
+            return Err(OpfError::DataValidation("No buses in network".to_string()));
         }
 
         // Initialize Y-bus with zeros

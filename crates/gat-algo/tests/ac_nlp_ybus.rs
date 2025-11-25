@@ -73,10 +73,7 @@ fn ybus_two_bus_admittance() {
         (y11.re - expected_y11.re).abs() < 0.01,
         "Y_11 real mismatch"
     );
-    assert!(
-        (y11.im - expected_y11.im).abs() < 0.1,
-        "Y_11 imag mismatch"
-    );
+    assert!((y11.im - expected_y11.im).abs() < 0.1, "Y_11 imag mismatch");
 }
 
 #[test]
@@ -88,12 +85,6 @@ fn ybus_symmetry() {
     let y12 = ybus.get(0, 1);
     let y21 = ybus.get(1, 0);
 
-    assert!(
-        (y12.re - y21.re).abs() < 1e-10,
-        "Y-bus should be symmetric"
-    );
-    assert!(
-        (y12.im - y21.im).abs() < 1e-10,
-        "Y-bus should be symmetric"
-    );
+    assert!((y12.re - y21.re).abs() < 1e-10, "Y-bus should be symmetric");
+    assert!((y12.im - y21.im).abs() < 1e-10, "Y-bus should be symmetric");
 }

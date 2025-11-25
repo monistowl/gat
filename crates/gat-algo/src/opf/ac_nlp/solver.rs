@@ -184,9 +184,7 @@ pub fn solve(
 
     // Extract bus voltages
     for (i, bus) in problem.buses.iter().enumerate() {
-        solution
-            .bus_voltage_mag
-            .insert(bus.name.clone(), v[i]);
+        solution.bus_voltage_mag.insert(bus.name.clone(), v[i]);
         solution
             .bus_voltage_ang
             .insert(bus.name.clone(), theta[i].to_degrees());
