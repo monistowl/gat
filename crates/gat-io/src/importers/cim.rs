@@ -557,6 +557,7 @@ fn build_network_from_cim(
             to_bus: *to_bus_id,
             resistance: line.resistance,
             reactance: line.reactance,
+            ..Branch::default()
         };
 
         network

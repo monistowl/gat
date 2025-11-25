@@ -157,6 +157,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "argmin"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "760a49d596b18b881d2fe6e9e6da4608fa64d4a7653ef5cd43bfaa4da018d596"
+dependencies = [
+ "anyhow",
+ "argmin-math",
+ "instant",
+ "num-traits",
+ "paste",
+ "rand 0.8.5",
+ "rand_xoshiro",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "argmin-math"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d93a0d0269b60bd1cd674de70314e3f0da97406cf8c1936ce760d2a46e0f13fe"
+dependencies = [
+ "anyhow",
+ "cfg-if",
+ "num-complex 0.4.6",
+ "num-integer",
+ "num-traits",
+ "rand 0.8.5",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "argminmax"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1679,7 +1710,7 @@ dependencies = [
 
 [[package]]
 name = "gat-adms"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -1692,10 +1723,13 @@ dependencies = [
 
 [[package]]
 name = "gat-algo"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
+ "argmin",
+ "argmin-math",
  "chrono",
+ "clarabel",
  "csv",
  "gat-core",
  "good_lp",
@@ -1710,7 +1744,7 @@ dependencies = [
 
 [[package]]
 name = "gat-batch"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1727,7 +1761,7 @@ dependencies = [
 
 [[package]]
 name = "gat-cli"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1771,7 +1805,7 @@ dependencies = [
 
 [[package]]
 name = "gat-core"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "faer",
@@ -1781,7 +1815,7 @@ dependencies = [
 
 [[package]]
 name = "gat-derms"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "polars",
@@ -1790,7 +1824,7 @@ dependencies = [
 
 [[package]]
 name = "gat-dist"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -1803,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "gat-gui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "gat-core",
@@ -1813,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "gat-io"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "caseformat",
@@ -1832,7 +1866,7 @@ dependencies = [
 
 [[package]]
 name = "gat-mcp-docs"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "axum",
@@ -1846,7 +1880,7 @@ dependencies = [
 
 [[package]]
 name = "gat-scenarios"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1862,11 +1896,11 @@ dependencies = [
 
 [[package]]
 name = "gat-schemas"
-version = "0.3.2"
+version = "0.3.3"
 
 [[package]]
 name = "gat-ts"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "gat-core",
@@ -1876,7 +1910,7 @@ dependencies = [
 
 [[package]]
 name = "gat-tui"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1906,7 +1940,7 @@ dependencies = [
 
 [[package]]
 name = "gat-viz"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "fdg-sim",
  "gat-core",
@@ -2492,8 +2526,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "instant"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "iocraft"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "termios",
 ]
@@ -3769,6 +3812,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cbf7e9e623549b0e21f6e97cf8ecf247c1a8fd2e8a992ae265314300b2455d5c"
 dependencies = [
  "rand_core 0.3.1",
+]
+
+[[package]]
+name = "rand_xoshiro"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
+dependencies = [
+ "rand_core 0.6.4",
 ]
 
 [[package]]

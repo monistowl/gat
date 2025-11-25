@@ -37,9 +37,9 @@ GAT is organized as a Cargo workspace with focused crates:
 
 ## API Reference
 
-Rustdoc API documentation is available at:
-- **[docs.rs/gat](https://docs.rs/gat)** (when published)
+Rustdoc API documentation:
 - Run `cargo doc --open` locally for the latest
+- docs.rs will be available when published to crates.io
 
 ## For Integrators
 

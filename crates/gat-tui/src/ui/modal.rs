@@ -1,19 +1,62 @@
 use std::fmt::Write;
 
+use crate::command_runner::{spawn_command, CommandHandle};
 use anyhow::Result;
 
-// Stub types - will be implemented properly later
-pub struct CommandHandle;
-impl CommandHandle {
-    pub fn poll(&self) -> Vec<String> {
-        Vec::new()
-    }
-}
-fn spawn_command(_cmd: Vec<String>) -> Result<CommandHandle> {
-    Ok(CommandHandle)
+use super::{EmptyState, TableView, Tooltip, THEME};
+
+#[derive(Clone, Debug)]
+pub struct CommandTemplateParameter {
+    pub name: String,
+    pub prompt: String,
+    pub selector_hint: Option<String>,
 }
 
-use super::{EmptyState, TableView, Tooltip, THEME};
+impl CommandTemplateParameter {
+    pub fn new(
+        name: impl Into<String>,
+        prompt: impl Into<String>,
+        selector_hint: Option<&str>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            prompt: prompt.into(),
+            selector_hint: selector_hint.map(|s| s.to_string()),
+        }
+    }
+
+    fn render(&self) -> String {
+        if let Some(hint) = &self.selector_hint {
+            format!("• {} — {} ({})", self.name, self.prompt, hint)
+        } else {
+            format!("• {} — {}", self.name, self.prompt)
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CommandTemplate {
+    pub title: String,
+    pub description: String,
+    pub example: String,
+    pub parameters: Vec<CommandTemplateParameter>,
+}
+
+impl CommandTemplate {
+    pub fn new(
+        title: impl Into<String>,
+        description: impl Into<String>,
+        example: impl Into<String>,
+        parameters: impl IntoIterator<Item = CommandTemplateParameter>,
+    ) -> Self {
+        Self {
+            title: title.into(),
+            description: description.into(),
+            example: example.into(),
+            parameters: parameters.into_iter().collect(),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExecutionMode {
@@ -22,10 +65,17 @@ pub enum ExecutionMode {
 }
 
 impl ExecutionMode {
-    fn as_label(&self) -> &'static str {
+    pub fn as_label(&self) -> &'static str {
         match self {
             ExecutionMode::DryRun => "Dry-run",
             ExecutionMode::Full => "Full run",
+        }
+    }
+
+    pub fn toggle(&self) -> Self {
+        match self {
+            ExecutionMode::DryRun => ExecutionMode::Full,
+            ExecutionMode::Full => ExecutionMode::DryRun,
         }
     }
 }
@@ -40,6 +90,7 @@ pub struct CommandModal {
     output: Vec<String>,
     handle: Option<CommandHandle>,
     max_output_rows: usize,
+    templates: Vec<CommandTemplate>,
 }
 
 impl CommandModal {
@@ -56,6 +107,7 @@ impl CommandModal {
             output: Vec::new(),
             handle: None,
             max_output_rows: 6,
+            templates: Vec::new(),
         }
     }
 
@@ -66,6 +118,11 @@ impl CommandModal {
 
     pub fn with_command_text(mut self, lines: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.command_text = lines.into_iter().map(|l| l.into()).collect();
+        self
+    }
+
+    pub fn with_templates(mut self, templates: impl IntoIterator<Item = CommandTemplate>) -> Self {
+        self.templates = templates.into_iter().collect();
         self
     }
 
@@ -147,6 +204,18 @@ impl CommandModal {
             &mut output,
             "  gat-cli derms envelope --grid-file case33bw.arrow --out envelope.parquet"
         );
+
+        if !self.templates.is_empty() {
+            let _ = writeln!(&mut output, "\n{} Templates with prompts:", THEME.accent);
+            for template in &self.templates {
+                let _ = writeln!(&mut output, "▶ {}", template.title);
+                let _ = writeln!(&mut output, "  {}", template.description);
+                for param in &template.parameters {
+                    let _ = writeln!(&mut output, "  {}", param.render());
+                }
+                let _ = writeln!(&mut output, "  e.g. {}", template.example);
+            }
+        }
 
         let _ = writeln!(&mut output, "\n{} Output (scroll to review):", THEME.muted);
         for line in self.render_output_table() {

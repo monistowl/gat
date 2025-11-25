@@ -39,6 +39,7 @@ struct BranchData {
     from_bus: BusId,
     to_bus: BusId,
     susceptance: f64, // b = 1/x (per unit)
+    phase_shift_rad: f64,
 }
 
 /// Return type for network data extraction
@@ -103,7 +104,11 @@ fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
     let mut branches = Vec::new();
     for edge_idx in network.graph.edge_indices() {
         if let Edge::Branch(branch) = &network.graph[edge_idx] {
-            if branch.reactance.abs() < 1e-12 {
+            if !branch.status {
+                continue;
+            }
+            let x_eff = branch.reactance * branch.tap_ratio;
+            if x_eff.abs() < 1e-12 {
                 return Err(OpfError::DataValidation(format!(
                     "Branch {} has zero reactance",
                     branch.name
@@ -113,7 +118,8 @@ fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
                 name: branch.name.clone(),
                 from_bus: branch.from_bus,
                 to_bus: branch.to_bus,
-                susceptance: 1.0 / branch.reactance,
+                susceptance: 1.0 / x_eff,
+                phase_shift_rad: branch.phase_shift_rad,
             });
         }
     }
@@ -327,7 +333,7 @@ pub fn solve(
                 .unwrap_or(0.0)
         };
 
-        let flow = branch.susceptance * (theta_i - theta_j);
+        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift_rad);
         result.branch_p_flow.insert(branch.name.clone(), flow);
     }
 

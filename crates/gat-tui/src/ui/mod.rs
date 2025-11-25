@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 mod ansi;
+mod app;
 mod barchart;
 mod command_components;
 mod components;
@@ -18,6 +19,7 @@ pub use barchart::{BarChartView, BarData, ColorHint};
 pub use graph::{GraphEdge, GraphNode, GraphView};
 pub use progress::{ProgressBar, ProgressBarView, ProgressStatus, SpinnerStyle, SpinnerView};
 
+pub use app::App;
 pub use command_components::{CommandOutputViewer, CommandResultModal};
 /// The root container for the terminal experience.
 pub use components::{
@@ -27,7 +29,7 @@ pub use components::{
 };
 pub use grid_components::{GridBrowserState, GridInfo, GridLoadModal, GridLoadState, GridStatus};
 pub use layout::{PaneLayout, ResponsiveRules, Sidebar, SubTabs};
-pub use modal::{CommandModal, ExecutionMode};
+pub use modal::{CommandModal, CommandTemplate, CommandTemplateParameter, ExecutionMode};
 pub use navigation::{ContextButton, MenuItem, NavMenu};
 pub use registry::{PaneContext, PaneView, PanelRegistry};
 pub use theme::{EmptyState, Theme, THEME};
@@ -71,6 +73,14 @@ impl AppShell {
 
     pub fn select_menu_item(&mut self, hotkey: char) {
         self.menu.select_by_hotkey(hotkey);
+    }
+
+    pub fn active_menu_label(&self) -> Option<&str> {
+        self.menu.active_label()
+    }
+
+    pub fn active_menu_hotkey(&self) -> Option<char> {
+        self.menu.active_hotkey()
     }
 
     pub fn render(&self) -> String {

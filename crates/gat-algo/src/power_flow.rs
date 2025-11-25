@@ -945,14 +945,17 @@ pub(crate) fn branch_flow_dataframe_with_angles(
 
     for edge_idx in network.graph.edge_indices() {
         if let Edge::Branch(branch) = &network.graph[edge_idx] {
+            if !branch.status {
+                continue;
+            }
             let branch_id = branch.id.value() as i64;
             if skip_branch == Some(branch_id) {
                 continue;
             }
-            let reactance = branch.reactance.abs().max(1e-6);
+            let reactance = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
             let theta_from = *angles.get(&branch.from_bus.value()).unwrap_or(&0.0);
             let theta_to = *angles.get(&branch.to_bus.value()).unwrap_or(&0.0);
-            let flow = (theta_from - theta_to) / reactance;
+            let flow = ((theta_from - theta_to) - branch.phase_shift_rad) / reactance;
             ids.push(branch.id.value() as i64);
             from_bus.push(branch.from_bus.value() as i64);
             to_bus.push(branch.to_bus.value() as i64);
@@ -1068,10 +1071,13 @@ fn build_bus_susceptance(
             if skip_branch == Some(branch_id) {
                 continue;
             }
+            if !branch.status {
+                continue;
+            }
             let from = branch.from_bus.value();
             let to = branch.to_bus.value();
             if let (Some(&i), Some(&j)) = (id_to_index.get(&from), id_to_index.get(&to)) {
-                let reactance = branch.reactance.abs().max(1e-6);
+                let reactance = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
                 let b = 1.0 / reactance;
                 susceptance[i][j] -= b;
                 susceptance[j][i] -= b;
@@ -1241,7 +1247,8 @@ struct MeasurementRow {
 struct BranchDescriptor {
     from_bus: usize,
     to_bus: usize,
-    reactance: f64,
+    gain: f64,
+    phase_shift_rad: f64,
 }
 
 fn build_measurement_rows(
@@ -1259,12 +1266,17 @@ fn build_measurement_rows(
     let mut branch_map = HashMap::new();
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
+            if !branch.status {
+                continue;
+            }
+            let x_eff = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
             branch_map.insert(
                 branch.id.value() as i64,
                 BranchDescriptor {
                     from_bus: branch.from_bus.value(),
                     to_bus: branch.to_bus.value(),
-                    reactance: branch.reactance,
+                    gain: 1.0 / x_eff,
+                    phase_shift_rad: branch.phase_shift_rad,
                 },
             );
         }
@@ -1291,7 +1303,8 @@ fn build_measurement_rows(
                 let branch = branch_map
                     .get(&branch_id)
                     .ok_or_else(|| anyhow!("branch {} not found for measurement", branch_id))?;
-                let gain = 1.0 / branch.reactance.abs().max(1e-6);
+                let gain = branch.gain;
+                offset = -branch.phase_shift_rad * gain;
                 let mut add_bus = |bus_id: usize, sign: f64| {
                     if bus_id == slack_bus {
                         return;
@@ -1484,9 +1497,13 @@ fn build_y_bus(network: &Network) -> YBusComponents {
 
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
+            if !branch.status {
+                continue;
+            }
             let i = branch.from_bus.value();
             let j = branch.to_bus.value();
-            let admittance = Complex64::new(0.0, -1.0 / branch.reactance.max(1e-6));
+            let x_eff = (branch.reactance * branch.tap_ratio).max(1e-6);
+            let admittance = Complex64::new(0.0, -1.0 / x_eff);
             ybus.entry(i)
                 .or_default()
                 .entry(j)
@@ -1567,6 +1584,7 @@ mod tests {
                 to_bus: BusId::new(1),
                 resistance: 0.01,
                 reactance: 0.1,
+                ..Branch::default()
             }),
         );
         // This simplest two-bus graph lets us sanity-check matrix assembly without trig regressions.
@@ -1595,6 +1613,7 @@ mod tests {
                 to_bus: BusId::new(1),
                 resistance: 0.01,
                 reactance: 0.1,
+                ..Branch::default()
             }),
         );
         network.graph.add_edge(
@@ -1607,6 +1626,7 @@ mod tests {
                 to_bus: BusId::new(1),
                 resistance: 0.01,
                 reactance: 0.1,
+                ..Branch::default()
             }),
         );
         // Parallel branches reveal that the susceptance sums correctly accumulate for each path.

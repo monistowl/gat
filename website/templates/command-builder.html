@@ -4,6 +4,54 @@
 {% block description %}{{ page.description }}{% endblock description %}
 
 {% block extra_head %}
+<style>
+  /* Command preview with proper line breaks */
+  .command-preview {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  /* Tab styling */
+  .tab-btn {
+    transition: all 0.2s ease;
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+    border-color: #ea580c;
+  }
+  .tab-btn:not(.active):hover {
+    background: rgba(100, 116, 139, 0.3);
+  }
+
+  /* Coming soon badge */
+  .coming-soon-badge {
+    font-size: 0.65rem;
+    padding: 0.125rem 0.375rem;
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Stub pane styling */
+  .stub-pane {
+    background: repeating-linear-gradient(
+      -45deg,
+      rgba(51, 65, 85, 0.1),
+      rgba(51, 65, 85, 0.1) 10px,
+      rgba(71, 85, 105, 0.1) 10px,
+      rgba(71, 85, 105, 0.1) 20px
+    );
+  }
+
+  /* Smooth height transitions */
+  .command-box {
+    transition: min-height 0.3s ease;
+  }
+</style>
+
 <script>
 const COMMANDS = {
   pf_dc: {
@@ -34,7 +82,7 @@ const COMMANDS = {
   opf_dc: {
     name: "DC Optimal Power Flow",
     icon: "🎯",
-    description: "Economic dispatch with linearized power flow",
+    description: "Economic dispatch with linearized power flow (LP)",
     template: "gat opf dc",
     params: [
       { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
@@ -44,10 +92,24 @@ const COMMANDS = {
       { id: "solver", label: "Solver", type: "select", flag: "--solver", options: ["clarabel", "highs", "cbc"] }
     ]
   },
+  opf_socp: {
+    name: "SOCP Relaxation OPF",
+    icon: "🔮",
+    description: "Second-order cone relaxation for radial networks",
+    template: "gat opf socp",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "cost", label: "Cost File", type: "text", required: true, flag: "--cost", default: "costs.csv" },
+      { id: "limits", label: "Limits File", type: "text", flag: "--limits", default: "limits.csv" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "dispatch.parquet" },
+      { id: "tol", label: "Tolerance", type: "number", flag: "--tol", default: "1e-8", help: "Solver tolerance" },
+      { id: "max-iter", label: "Max Iterations", type: "number", flag: "--max-iter", default: "100" }
+    ]
+  },
   opf_ac: {
     name: "AC Optimal Power Flow",
     icon: "🎯",
-    description: "Full AC OPF with reactive power optimization",
+    description: "Full nonlinear AC OPF with L-BFGS solver",
     template: "gat opf ac",
     params: [
       { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
@@ -55,7 +117,7 @@ const COMMANDS = {
       { id: "limits", label: "Limits File", type: "text", flag: "--limits", default: "limits.csv" },
       { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "dispatch.parquet" },
       { id: "tol", label: "Tolerance", type: "number", flag: "--tol", default: "1e-6" },
-      { id: "max-iter", label: "Max Iterations", type: "number", flag: "--max-iter", default: "20" }
+      { id: "max-iter", label: "Max Iterations", type: "number", flag: "--max-iter", default: "100" }
     ]
   },
   contingency: {
@@ -106,9 +168,36 @@ const COMMANDS = {
   }
 };
 
+// Format command with backslash line continuation
+function formatCommandWithContinuation(parts) {
+  if (parts.length <= 2) {
+    return parts.join(' ');
+  }
+
+  // First part is the base command (e.g., "gat pf dc input.arrow")
+  const baseCmd = parts.slice(0, 2).join(' ');
+  const flags = parts.slice(2);
+
+  if (flags.length === 0) {
+    return baseCmd;
+  }
+
+  // Format with backslash continuation
+  let lines = [baseCmd + ' \\'];
+
+  flags.forEach((flag, idx) => {
+    const isLast = idx === flags.length - 1;
+    const indent = '    '; // 4 spaces
+    lines.push(indent + flag + (isLast ? '' : ' \\'));
+  });
+
+  return lines.join('\n');
+}
+
 function buildCommand(cmdKey) {
   const cmd = COMMANDS[cmdKey];
   let parts = [cmd.template];
+  let flagParts = [];
 
   cmd.params.forEach(param => {
     const elem = document.getElementById(`param-${param.id}`);
@@ -118,14 +207,14 @@ function buildCommand(cmdKey) {
 
     if (param.type === 'checkbox') {
       if (elem.checked && param.flag) {
-        parts.push(param.flag);
+        flagParts.push(param.flag);
       }
     } else {
       value = elem.value.trim();
 
       if (value) {
         if (param.flag) {
-          parts.push(`${param.flag} ${value}`);
+          flagParts.push(`${param.flag} ${value}`);
         } else {
           // Positional argument
           parts.push(value);
@@ -134,14 +223,28 @@ function buildCommand(cmdKey) {
     }
   });
 
-  return parts.join(' ');
+  return { parts: parts.concat(flagParts), raw: parts.concat(flagParts).join(' ') };
 }
 
 function copyCommand() {
   const command = document.getElementById('commandPreview').textContent;
-  navigator.clipboard.writeText(command);
+  // Copy the single-line version for shell compatibility
+  const singleLine = command.replace(/\s*\\\n\s*/g, ' ');
+  navigator.clipboard.writeText(singleLine);
 
   const btn = document.getElementById('copyBtn');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '✅ Copied!';
+  setTimeout(() => {
+    btn.innerHTML = originalText;
+  }, 2000);
+}
+
+function copyMultiline() {
+  const command = document.getElementById('commandPreview').textContent;
+  navigator.clipboard.writeText(command);
+
+  const btn = document.getElementById('copyMultilineBtn');
   const originalText = btn.innerHTML;
   btn.innerHTML = '✅ Copied!';
   setTimeout(() => {
@@ -155,184 +258,424 @@ function copyCommand() {
 <div class="relative z-10">
   {% include "partials/header.html" %}
 
-  <div class="max-w-7xl mx-auto px-6 py-12">
-    <!-- Command Type Selection -->
-    <div class="mb-12">
-      <h2 class="text-2xl font-bold text-white mb-6">Select Command Type</h2>
-      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button onclick="loadCommand('pf_dc')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
-          <div class="text-3xl mb-3">⚡</div>
-          <h3 class="text-lg font-bold text-white mb-1">DC Power Flow</h3>
-          <p class="text-slate-400 text-sm">Fast linearized analysis</p>
+  <div class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Tab Navigation (TUI-inspired) -->
+    <div class="mb-8">
+      <div class="flex items-center gap-2 border-b border-slate-700 pb-2">
+        <button onclick="switchTab('commands')" id="tab-commands" class="tab-btn active px-4 py-2 rounded-t-lg border border-b-0 border-slate-700 text-white font-medium flex items-center gap-2">
+          <span>🔧</span>
+          <span>Commands</span>
+        </button>
+        <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-4 py-2 rounded-t-lg border border-b-0 border-slate-700 text-slate-400 font-medium flex items-center gap-2">
+          <span>📊</span>
+          <span>Dashboard</span>
+          <span class="coming-soon-badge text-slate-300">Soon</span>
+        </button>
+        <button onclick="switchTab('datasets')" id="tab-datasets" class="tab-btn px-4 py-2 rounded-t-lg border border-b-0 border-slate-700 text-slate-400 font-medium flex items-center gap-2">
+          <span>📁</span>
+          <span>Datasets</span>
+          <span class="coming-soon-badge text-slate-300">Soon</span>
+        </button>
+        <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn px-4 py-2 rounded-t-lg border border-b-0 border-slate-700 text-slate-400 font-medium flex items-center gap-2">
+          <span>📈</span>
+          <span>Analytics</span>
+          <span class="coming-soon-badge text-slate-300">Soon</span>
+        </button>
+        <button onclick="switchTab('pipeline')" id="tab-pipeline" class="tab-btn px-4 py-2 rounded-t-lg border border-b-0 border-slate-700 text-slate-400 font-medium flex items-center gap-2">
+          <span>🔗</span>
+          <span>Pipeline</span>
+          <span class="coming-soon-badge text-slate-300">Soon</span>
         </button>
 
-        <button onclick="loadCommand('pf_ac')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
-          <div class="text-3xl mb-3">⚡</div>
-          <h3 class="text-lg font-bold text-white mb-1">AC Power Flow</h3>
-          <p class="text-slate-400 text-sm">Full nonlinear AC</p>
-        </button>
+        <div class="flex-1"></div>
 
-        <button onclick="loadCommand('opf_dc')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
-          <div class="text-3xl mb-3">🎯</div>
-          <h3 class="text-lg font-bold text-white mb-1">DC OPF</h3>
-          <p class="text-slate-400 text-sm">Economic dispatch</p>
-        </button>
-
-        <button onclick="loadCommand('opf_ac')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
-          <div class="text-3xl mb-3">🎯</div>
-          <h3 class="text-lg font-bold text-white mb-1">AC OPF</h3>
-          <p class="text-slate-400 text-sm">Full AC optimization</p>
-        </button>
-
-        <button onclick="loadCommand('contingency')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
-          <div class="text-3xl mb-3">🔍</div>
-          <h3 class="text-lg font-bold text-white mb-1">N-1 Contingency</h3>
-          <p class="text-slate-400 text-sm">Reliability screening</p>
-        </button>
-
-        <button onclick="loadCommand('ts_resample')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
-          <div class="text-3xl mb-3">📈</div>
-          <h3 class="text-lg font-bold text-white mb-1">Time Series</h3>
-          <p class="text-slate-400 text-sm">Resample data</p>
-        </button>
-
-        <button onclick="loadCommand('batch_pf')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
-          <div class="text-3xl mb-3">🔄</div>
-          <h3 class="text-lg font-bold text-white mb-1">Batch Analysis</h3>
-          <p class="text-slate-400 text-sm">Multiple scenarios</p>
-        </button>
-
-        <button onclick="loadCommand('derms_aggregate')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-6 card-hover group text-left">
-          <div class="text-3xl mb-3">🔋</div>
-          <h3 class="text-lg font-bold text-white mb-1">DER Analysis</h3>
-          <p class="text-slate-400 text-sm">Aggregate resources</p>
-        </button>
+        <!-- TUI reference link -->
+        <a href="{{ config.base_url }}/internals/gat-tui/" class="text-xs text-slate-500 hover:text-orange-400 transition-colors flex items-center gap-1">
+          <span>Full TUI</span>
+          <span>→</span>
+        </a>
       </div>
     </div>
 
-    <!-- Command Builder Interface -->
-    <div id="builderInterface" class="hidden">
-      <!-- Command Header -->
-      <div class="mb-8 p-6 bg-slate-900/60 border border-slate-700 rounded-lg">
-        <div class="flex items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <div id="cmdIcon" class="text-4xl"></div>
-            <div>
-              <h2 id="cmdName" class="text-2xl font-bold text-white"></h2>
-              <p id="cmdDescription" class="text-slate-400 text-sm"></p>
-            </div>
-          </div>
-          <button
-            id="changeBtn"
-            onclick="resetBuilder()"
-            class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded font-medium transition-colors text-sm whitespace-nowrap"
-          >
-            ← Change
+    <!-- Commands Tab (Active) -->
+    <div id="pane-commands" class="pane">
+      <!-- Command Type Selection -->
+      <div class="mb-10">
+        <h2 class="text-xl font-bold text-white mb-4">Select Analysis Type</h2>
+        <div class="grid md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <button onclick="loadCommand('pf_dc')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">⚡</div>
+            <h3 class="text-sm font-bold text-white mb-1">DC Power Flow</h3>
+            <p class="text-slate-500 text-xs">Fast linearized</p>
+          </button>
+
+          <button onclick="loadCommand('pf_ac')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">⚡</div>
+            <h3 class="text-sm font-bold text-white mb-1">AC Power Flow</h3>
+            <p class="text-slate-500 text-xs">Newton-Raphson</p>
+          </button>
+
+          <button onclick="loadCommand('opf_dc')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🎯</div>
+            <h3 class="text-sm font-bold text-white mb-1">DC OPF</h3>
+            <p class="text-slate-500 text-xs">Linear dispatch</p>
+          </button>
+
+          <button onclick="loadCommand('opf_socp')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🔮</div>
+            <h3 class="text-sm font-bold text-white mb-1">SOCP OPF</h3>
+            <p class="text-slate-500 text-xs">Conic relaxation</p>
+          </button>
+
+          <button onclick="loadCommand('opf_ac')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🎯</div>
+            <h3 class="text-sm font-bold text-white mb-1">AC OPF</h3>
+            <p class="text-slate-500 text-xs">Nonlinear NLP</p>
+          </button>
+
+          <button onclick="loadCommand('contingency')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🔍</div>
+            <h3 class="text-sm font-bold text-white mb-1">N-1 Contingency</h3>
+            <p class="text-slate-500 text-xs">Reliability check</p>
+          </button>
+
+          <button onclick="loadCommand('ts_resample')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">📈</div>
+            <h3 class="text-sm font-bold text-white mb-1">Time Series</h3>
+            <p class="text-slate-500 text-xs">Resample data</p>
+          </button>
+
+          <button onclick="loadCommand('batch_pf')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🔄</div>
+            <h3 class="text-sm font-bold text-white mb-1">Batch Analysis</h3>
+            <p class="text-slate-500 text-xs">Multi-scenario</p>
+          </button>
+
+          <button onclick="loadCommand('derms_aggregate')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🔋</div>
+            <h3 class="text-sm font-bold text-white mb-1">DER Aggregation</h3>
+            <p class="text-slate-500 text-xs">Aggregate DERs</p>
           </button>
         </div>
       </div>
 
-      <div class="grid lg:grid-cols-3 gap-8">
-        <!-- Form Panel -->
-        <div class="lg:col-span-2 space-y-6">
-          <!-- Required Fields Section -->
-          <div id="requiredSection" class="bg-slate-900/60 border border-slate-700 rounded-lg p-6">
-            <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <span class="text-orange-500">*</span>
-              Required Parameters
-            </h3>
-            <div id="requiredFields" class="space-y-4"></div>
-          </div>
-
-          <!-- Optional Fields Section -->
-          <div id="optionalSection" class="bg-slate-900/60 border border-slate-700 rounded-lg p-6">
-            <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleOptional()">
-              <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                ⚙️ Optional Parameters
-              </h3>
-              <span id="optionalToggle" class="text-slate-400">▼</span>
+      <!-- Command Builder Interface -->
+      <div id="builderInterface" class="hidden">
+        <!-- Command Header -->
+        <div class="mb-6 p-4 bg-slate-900/60 border border-slate-700 rounded-lg">
+          <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <div id="cmdIcon" class="text-3xl"></div>
+              <div>
+                <h2 id="cmdName" class="text-xl font-bold text-white"></h2>
+                <p id="cmdDescription" class="text-slate-400 text-sm"></p>
+              </div>
             </div>
-            <div id="optionalFields" class="space-y-4"></div>
-          </div>
-
-          <!-- Validation Feedback -->
-          <div id="validationFeedback" class="hidden p-4 bg-yellow-900/30 border border-yellow-700 rounded-lg">
-            <p class="text-sm text-yellow-200" id="validationMessage"></p>
+            <button
+              id="changeBtn"
+              onclick="resetBuilder()"
+              class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded font-medium transition-colors text-sm whitespace-nowrap"
+            >
+              ← Change
+            </button>
           </div>
         </div>
 
-        <!-- Preview & Actions Panel -->
-        <div class="lg:col-span-1">
-          <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-6 sticky top-24 space-y-4">
-            <div>
-              <h3 class="text-lg font-bold text-white mb-4">Command Preview</h3>
-              <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto mb-4 min-h-24 text-xs whitespace-pre-wrap"><code id="commandPreview" class="text-green-400 font-mono"></code></pre>
+        <div class="grid lg:grid-cols-5 gap-6">
+          <!-- Form Panel -->
+          <div class="lg:col-span-3 space-y-4">
+            <!-- Required Fields Section -->
+            <div id="requiredSection" class="bg-slate-900/60 border border-slate-700 rounded-lg p-5">
+              <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+                <span class="text-orange-500">*</span>
+                Required Parameters
+              </h3>
+              <div id="requiredFields" class="space-y-3"></div>
             </div>
 
-            <div class="space-y-3">
-              <button
-                id="copyBtn"
-                onclick="copyCommand()"
-                class="w-full px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors text-sm"
-              >
-                📋 Copy to Clipboard
-              </button>
+            <!-- Optional Fields Section -->
+            <div id="optionalSection" class="bg-slate-900/60 border border-slate-700 rounded-lg p-5">
+              <div class="flex items-center justify-between mb-4 cursor-pointer" onclick="toggleOptional()">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  ⚙️ Optional Parameters
+                </h3>
+                <span id="optionalToggle" class="text-slate-400">▼</span>
+              </div>
+              <div id="optionalFields" class="space-y-3"></div>
+            </div>
+
+            <!-- Validation Feedback -->
+            <div id="validationFeedback" class="hidden p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg">
+              <p class="text-sm text-yellow-200" id="validationMessage"></p>
+            </div>
+          </div>
+
+          <!-- Preview & Actions Panel -->
+          <div class="lg:col-span-2">
+            <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-5 sticky top-24 space-y-4">
+              <div>
+                <div class="flex items-center justify-between mb-3">
+                  <h3 class="text-base font-bold text-white">Command Preview</h3>
+                  <span class="text-xs text-slate-500">with line continuation</span>
+                </div>
+                <div class="command-box bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto">
+                  <pre class="command-preview text-green-400 text-sm" id="commandPreview"></pre>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  id="copyBtn"
+                  onclick="copyCommand()"
+                  class="px-3 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors text-sm"
+                >
+                  📋 Copy (1-line)
+                </button>
+                <button
+                  id="copyMultilineBtn"
+                  onclick="copyMultiline()"
+                  class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium transition-colors text-sm"
+                >
+                  📋 Copy (multi)
+                </button>
+              </div>
 
               <button
                 id="executeBtn"
                 onclick="showExecutionGuide()"
-                class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-medium transition-colors text-sm"
+                class="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded font-medium transition-colors text-sm border border-slate-700"
               >
                 ▶ How to Run
               </button>
-            </div>
 
-            <div class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 text-xs text-slate-400 space-y-2">
-              <div>
-                <span class="text-orange-400 font-medium">Input Files:</span>
-                <span id="inputFileHint" class="text-slate-500"></span>
-              </div>
-              <div>
-                <span class="text-orange-400 font-medium">Output:</span>
-                <span id="outputFileHint" class="text-slate-500"></span>
+              <div class="p-3 bg-slate-800/50 rounded-lg border border-slate-700 text-xs text-slate-400 space-y-1.5">
+                <div>
+                  <span class="text-orange-400 font-medium">Input:</span>
+                  <span id="inputFileHint" class="text-slate-500"></span>
+                </div>
+                <div>
+                  <span class="text-orange-400 font-medium">Output:</span>
+                  <span id="outputFileHint" class="text-slate-500"></span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Execution Guide Modal (Hidden) -->
-      <div id="executionModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-lg max-w-md w-full p-6">
-          <h3 class="text-xl font-bold text-white mb-4">How to Run This Command</h3>
-          <ol class="space-y-3 text-sm text-slate-300">
-            <li class="flex gap-3">
-              <span class="text-orange-500 font-bold">1.</span>
-              <span>Copy the command using the button above</span>
-            </li>
-            <li class="flex gap-3">
-              <span class="text-orange-500 font-bold">2.</span>
-              <span>Prepare your input files (see hints in the preview panel)</span>
-            </li>
-            <li class="flex gap-3">
-              <span class="text-orange-500 font-bold">3.</span>
-              <span>Open your terminal and paste the command</span>
-            </li>
-            <li class="flex gap-3">
-              <span class="text-orange-500 font-bold">4.</span>
-              <span>Press Enter to execute</span>
-            </li>
-            <li class="flex gap-3">
-              <span class="text-orange-500 font-bold">5.</span>
-              <span>Check output files in your current directory</span>
-            </li>
-          </ol>
-          <button
-            onclick="closeExecutionModal()"
-            class="mt-6 w-full px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors"
-          >
-            Got it, close
-          </button>
+        <!-- Execution Guide Modal (Hidden) -->
+        <div id="executionModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4">
+          <div class="bg-slate-900 border border-slate-700 rounded-lg max-w-md w-full p-6">
+            <h3 class="text-xl font-bold text-white mb-4">How to Run This Command</h3>
+            <ol class="space-y-3 text-sm text-slate-300">
+              <li class="flex gap-3">
+                <span class="text-orange-500 font-bold">1.</span>
+                <span>Copy the command using the button above</span>
+              </li>
+              <li class="flex gap-3">
+                <span class="text-orange-500 font-bold">2.</span>
+                <span>Prepare your input files (see hints in the preview panel)</span>
+              </li>
+              <li class="flex gap-3">
+                <span class="text-orange-500 font-bold">3.</span>
+                <span>Open your terminal and paste the command</span>
+              </li>
+              <li class="flex gap-3">
+                <span class="text-orange-500 font-bold">4.</span>
+                <span>Press Enter to execute</span>
+              </li>
+              <li class="flex gap-3">
+                <span class="text-orange-500 font-bold">5.</span>
+                <span>Check output files in your current directory</span>
+              </li>
+            </ol>
+            <div class="mt-4 p-3 bg-slate-800 rounded text-xs text-slate-400">
+              <strong class="text-slate-300">Tip:</strong> The multi-line format with <code class="text-green-400">\</code> works in bash/zsh. Use the 1-line copy for Windows CMD.
+            </div>
+            <button
+              onclick="closeExecutionModal()"
+              class="mt-6 w-full px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded font-medium transition-colors"
+            >
+              Got it, close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard Tab (Stub) -->
+    <div id="pane-dashboard" class="pane hidden">
+      <div class="stub-pane rounded-xl border border-slate-700 p-8">
+        <div class="text-center py-12">
+          <div class="text-6xl mb-4">📊</div>
+          <h2 class="text-2xl font-bold text-white mb-2">Dashboard</h2>
+          <p class="text-slate-400 mb-6 max-w-md mx-auto">
+            Real-time system metrics, KPIs, recent runs, and quick actions.
+            This mirrors the Dashboard pane from <code class="text-orange-400">gat-tui</code>.
+          </p>
+
+          <!-- Placeholder widgets -->
+          <div class="grid md:grid-cols-3 gap-4 max-w-3xl mx-auto mt-8">
+            <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-left">
+              <div class="text-slate-500 text-xs uppercase mb-1">Total Buses</div>
+              <div class="text-2xl font-bold text-slate-600">--</div>
+            </div>
+            <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-left">
+              <div class="text-slate-500 text-xs uppercase mb-1">Total Lines</div>
+              <div class="text-2xl font-bold text-slate-600">--</div>
+            </div>
+            <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-left">
+              <div class="text-slate-500 text-xs uppercase mb-1">Generators</div>
+              <div class="text-2xl font-bold text-slate-600">--</div>
+            </div>
+          </div>
+
+          <div class="mt-8 inline-flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-full text-sm text-slate-400">
+            <span class="coming-soon-badge">Coming Soon</span>
+            <span>WebAssembly build in progress</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Datasets Tab (Stub) -->
+    <div id="pane-datasets" class="pane hidden">
+      <div class="stub-pane rounded-xl border border-slate-700 p-8">
+        <div class="text-center py-12">
+          <div class="text-6xl mb-4">📁</div>
+          <h2 class="text-2xl font-bold text-white mb-2">Datasets</h2>
+          <p class="text-slate-400 mb-6 max-w-md mx-auto">
+            Browse, upload, and manage grid data files. View metadata,
+            validate schemas, and organize datasets by project.
+          </p>
+
+          <!-- Placeholder table -->
+          <div class="max-w-2xl mx-auto mt-8">
+            <div class="bg-slate-900/60 border border-slate-700 rounded-lg overflow-hidden">
+              <div class="grid grid-cols-4 gap-4 p-3 bg-slate-800/50 text-xs text-slate-400 uppercase font-medium">
+                <div>Name</div>
+                <div>Format</div>
+                <div>Size</div>
+                <div>Status</div>
+              </div>
+              <div class="divide-y divide-slate-800">
+                <div class="grid grid-cols-4 gap-4 p-3 text-sm text-slate-600">
+                  <div>case9.arrow</div>
+                  <div>Arrow</div>
+                  <div>12 KB</div>
+                  <div><span class="text-slate-500">●</span> Ready</div>
+                </div>
+                <div class="grid grid-cols-4 gap-4 p-3 text-sm text-slate-600">
+                  <div>ieee118.arrow</div>
+                  <div>Arrow</div>
+                  <div>48 KB</div>
+                  <div><span class="text-slate-500">●</span> Ready</div>
+                </div>
+                <div class="grid grid-cols-4 gap-4 p-3 text-sm text-slate-600">
+                  <div class="italic">Drop files here...</div>
+                  <div>-</div>
+                  <div>-</div>
+                  <div>-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8 inline-flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-full text-sm text-slate-400">
+            <span class="coming-soon-badge">Coming Soon</span>
+            <span>File upload and browser storage</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Tab (Stub) -->
+    <div id="pane-analytics" class="pane hidden">
+      <div class="stub-pane rounded-xl border border-slate-700 p-8">
+        <div class="text-center py-12">
+          <div class="text-6xl mb-4">📈</div>
+          <h2 class="text-2xl font-bold text-white mb-2">Analytics</h2>
+          <p class="text-slate-400 mb-6 max-w-md mx-auto">
+            Visualize power flow results, voltage profiles, line loadings,
+            and congestion patterns. Interactive charts and data exploration.
+          </p>
+
+          <!-- Placeholder chart area -->
+          <div class="max-w-2xl mx-auto mt-8">
+            <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-6">
+              <div class="flex items-center justify-between mb-4">
+                <div class="text-sm text-slate-400">Voltage Profile</div>
+                <div class="flex gap-2">
+                  <span class="px-2 py-1 bg-slate-800 rounded text-xs text-slate-500">Bus</span>
+                  <span class="px-2 py-1 bg-slate-800 rounded text-xs text-slate-500">Line</span>
+                  <span class="px-2 py-1 bg-slate-800 rounded text-xs text-slate-500">Gen</span>
+                </div>
+              </div>
+              <div class="h-40 flex items-end justify-around gap-2 px-4">
+                <div class="w-8 bg-slate-700 rounded-t" style="height: 60%"></div>
+                <div class="w-8 bg-slate-700 rounded-t" style="height: 80%"></div>
+                <div class="w-8 bg-slate-700 rounded-t" style="height: 75%"></div>
+                <div class="w-8 bg-slate-700 rounded-t" style="height: 90%"></div>
+                <div class="w-8 bg-slate-700 rounded-t" style="height: 85%"></div>
+                <div class="w-8 bg-slate-700 rounded-t" style="height: 70%"></div>
+                <div class="w-8 bg-slate-700 rounded-t" style="height: 95%"></div>
+                <div class="w-8 bg-slate-700 rounded-t" style="height: 88%"></div>
+              </div>
+              <div class="flex justify-around mt-2 text-xs text-slate-600">
+                <span>B1</span><span>B2</span><span>B3</span><span>B4</span>
+                <span>B5</span><span>B6</span><span>B7</span><span>B8</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8 inline-flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-full text-sm text-slate-400">
+            <span class="coming-soon-badge">Coming Soon</span>
+            <span>Interactive visualization with D3.js</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline Tab (Stub) -->
+    <div id="pane-pipeline" class="pane hidden">
+      <div class="stub-pane rounded-xl border border-slate-700 p-8">
+        <div class="text-center py-12">
+          <div class="text-6xl mb-4">🔗</div>
+          <h2 class="text-2xl font-bold text-white mb-2">Pipeline Builder</h2>
+          <p class="text-slate-400 mb-6 max-w-md mx-auto">
+            Chain analysis steps into reusable workflows. Drag-and-drop nodes
+            for data loading, transformation, analysis, and export.
+          </p>
+
+          <!-- Placeholder pipeline -->
+          <div class="max-w-2xl mx-auto mt-8">
+            <div class="flex items-center justify-center gap-4">
+              <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-center min-w-[120px]">
+                <div class="text-2xl mb-1">📥</div>
+                <div class="text-xs text-slate-500">Load Grid</div>
+              </div>
+              <div class="text-slate-600">→</div>
+              <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-center min-w-[120px]">
+                <div class="text-2xl mb-1">⚡</div>
+                <div class="text-xs text-slate-500">Power Flow</div>
+              </div>
+              <div class="text-slate-600">→</div>
+              <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-center min-w-[120px]">
+                <div class="text-2xl mb-1">🎯</div>
+                <div class="text-xs text-slate-500">OPF</div>
+              </div>
+              <div class="text-slate-600">→</div>
+              <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-4 text-center min-w-[120px]">
+                <div class="text-2xl mb-1">📤</div>
+                <div class="text-xs text-slate-500">Export</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8 inline-flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-full text-sm text-slate-400">
+            <span class="coming-soon-badge">Coming Soon</span>
+            <span>Visual pipeline editor</span>
+          </div>
         </div>
       </div>
     </div>
@@ -343,6 +686,26 @@ function copyCommand() {
 <script>
 let currentCommand = null;
 let optionalCollapsed = false;
+let activeTab = 'commands';
+
+function switchTab(tabId) {
+  // Update tab buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+    btn.classList.add('text-slate-400');
+  });
+  const activeBtn = document.getElementById(`tab-${tabId}`);
+  activeBtn.classList.add('active');
+  activeBtn.classList.remove('text-slate-400');
+
+  // Update panes
+  document.querySelectorAll('.pane').forEach(pane => {
+    pane.classList.add('hidden');
+  });
+  document.getElementById(`pane-${tabId}`).classList.remove('hidden');
+
+  activeTab = tabId;
+}
 
 function loadCommand(cmdKey) {
   currentCommand = cmdKey;
@@ -363,7 +726,7 @@ function loadCommand(cmdKey) {
     div.className = 'field-group';
 
     const label = document.createElement('label');
-    label.className = 'block text-sm font-medium text-slate-300 mb-2';
+    label.className = 'block text-sm font-medium text-slate-300 mb-1.5';
     label.textContent = param.label;
     if (param.required) {
       const req = document.createElement('span');
@@ -377,7 +740,7 @@ function loadCommand(cmdKey) {
       const input = document.createElement('input');
       input.type = param.type;
       input.id = `param-${param.id}`;
-      input.className = 'w-full bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none transition-colors';
+      input.className = 'w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:border-orange-500 focus:outline-none transition-colors';
       input.placeholder = param.default || '';
       if (param.default) input.value = param.default;
       input.oninput = updatePreview;
@@ -385,7 +748,7 @@ function loadCommand(cmdKey) {
     } else if (param.type === 'select') {
       const select = document.createElement('select');
       select.id = `param-${param.id}`;
-      select.className = 'w-full bg-slate-950 border border-slate-700 rounded px-4 py-2 text-white focus:border-orange-500 focus:outline-none transition-colors';
+      select.className = 'w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:border-orange-500 focus:outline-none transition-colors';
 
       const emptyOption = document.createElement('option');
       emptyOption.value = '';
@@ -467,10 +830,12 @@ function toggleOptional() {
 
 function updatePreview() {
   if (!currentCommand) return;
-  const command = buildCommand(currentCommand);
+  const result = buildCommand(currentCommand);
   const cmd = COMMANDS[currentCommand];
 
-  document.getElementById('commandPreview').textContent = command;
+  // Format with backslash continuation
+  const formatted = formatCommandWithContinuation(result.parts);
+  document.getElementById('commandPreview').textContent = formatted;
 
   // Update file hints
   const inputFiles = [];
@@ -504,7 +869,7 @@ function updatePreview() {
   const feedback = document.getElementById('validationFeedback');
   if (!allValid) {
     feedback.classList.remove('hidden');
-    document.getElementById('validationMessage').textContent = '⚠ Fill in all required fields (*) to build the command';
+    document.getElementById('validationMessage').textContent = 'Fill in all required fields (*) to build the command';
   } else {
     feedback.classList.add('hidden');
   }
@@ -512,7 +877,7 @@ function updatePreview() {
 
 function resetBuilder() {
   document.getElementById('builderInterface').classList.add('hidden');
-  document.querySelector('.grid.md\\:grid-cols-2').scrollIntoView({ behavior: 'smooth' });
+  document.querySelector('.grid.md\\:grid-cols-3').scrollIntoView({ behavior: 'smooth' });
   currentCommand = null;
 }
 

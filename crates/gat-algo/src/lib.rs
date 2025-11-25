@@ -1,3 +1,59 @@
+//! # gat-algo: Advanced Algorithms for Power System Analysis
+//!
+//! This crate provides optimization and analytics algorithms for power system operations,
+//! including multiple optimal power flow (OPF) formulations, reliability analysis, and
+//! economic allocation methods.
+//!
+//! ## Optimal Power Flow (OPF)
+//!
+//! The [`OpfSolver`] provides a unified interface to multiple OPF solution methods:
+//!
+//! | Method | Description | Module |
+//! |--------|-------------|--------|
+//! | [`OpfMethod::EconomicDispatch`] | Merit-order dispatch without network constraints | [`opf`] |
+//! | [`OpfMethod::DcOpf`] | Linear DC approximation with PTDF-based flows | [`opf`] |
+//! | [`OpfMethod::SocpRelaxation`] | Convex SOCP relaxation of AC-OPF | [`opf::socp`](opf/socp.rs) |
+//! | [`OpfMethod::AcOpf`] | Full nonlinear AC-OPF (planned) | [`ac_opf`] |
+//!
+//! ### SOCP Relaxation
+//!
+//! The SOCP solver implements the Baran-Wu / Farivar-Low branch-flow model with:
+//! - Quadratic generator cost curves
+//! - Phase-shifting and tap-changing transformers
+//! - Thermal limits and voltage bounds
+//! - LMP computation from dual variables
+//!
+//! See the [module documentation](opf/socp.rs) for mathematical details and references.
+//!
+//! ## Reliability Analysis
+//!
+//! - [`MonteCarlo`]: Sequential Monte Carlo for LOLE/EUE estimation
+//! - [`MultiAreaMonteCarlo`]: Multi-area reliability with corridor constraints
+//! - [`DeliverabilityScore`]: Transmission-constrained deliverability metrics
+//!
+//! ## Economic Allocation
+//!
+//! - [`alloc_kpi`]: Key performance indicator computation
+//! - [`alloc_rents`]: Economic rent allocation methods
+//! - [`elcc`]: Effective Load Carrying Capability
+//!
+//! ## Example
+//!
+//! ```ignore
+//! use gat_algo::{OpfSolver, OpfMethod};
+//! use gat_core::Network;
+//!
+//! let network = Network::from_file("case9.arrow")?;
+//!
+//! // Solve SOCP relaxation
+//! let solver = OpfSolver::new()
+//!     .with_method(OpfMethod::SocpRelaxation);
+//!
+//! let solution = solver.solve(&network)?;
+//! println!("Cost: ${:.2}/hr", solution.objective_value);
+//! println!("Losses: {:.2} MW", solution.total_losses_mw);
+//! ```
+
 pub mod ac_opf;
 pub mod alloc_kpi;
 pub mod alloc_rents;

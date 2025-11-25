@@ -42,6 +42,9 @@ pub struct KPIMetrics {
     pub deliverability_score: f64,
     pub lole_hours_per_year: f64,
     pub eue_mwh_per_year: f64,
+    pub der_penetration_percent: f64,
+    pub voltage_compliance_percent: f64,
+    pub hosting_headroom_mw: f64,
     pub last_update: String,
 }
 
@@ -79,6 +82,9 @@ impl Default for DashboardPaneState {
         metrics_list.add_item("Deliverability Score".into(), "85.5%".into());
         metrics_list.add_item("LOLE (h/year)".into(), "9.2".into());
         metrics_list.add_item("EUE (MWh/year)".into(), "15.3".into());
+        metrics_list.add_item("DER Penetration".into(), "32%".into());
+        metrics_list.add_item("Voltage Compliance".into(), "98.4%".into());
+        metrics_list.add_item("Hosting Headroom".into(), "4.3 MW".into());
 
         DashboardPaneState {
             overall_status: "Healthy".into(),
@@ -88,6 +94,9 @@ impl Default for DashboardPaneState {
                 deliverability_score: 85.5,
                 lole_hours_per_year: 9.2,
                 eue_mwh_per_year: 15.3,
+                der_penetration_percent: 32.0,
+                voltage_compliance_percent: 98.4,
+                hosting_headroom_mw: 4.3,
                 last_update: "2024-11-21 14:30 UTC".into(),
             },
             recent_runs: vec![
@@ -170,13 +179,16 @@ impl DashboardPaneState {
     pub fn refresh_metrics(&mut self) {
         // Update status text with current KPIs
         self.status_text.set_content(format!(
-            "Status: {}\nRunning: {}\nQueued: {}\n\nKPIs:\nDeliverability: {:.1}%\nLOLE: {:.1} h/yr\nEUE: {:.1} MWh/yr",
+            "Status: {}\nRunning: {}\nQueued: {}\n\nKPIs:\nDeliverability: {:.1}%\nLOLE: {:.1} h/yr\nEUE: {:.1} MWh/yr\nDER penetration: {:.1}%\nVoltage compliance: {:.1}% feeders\nHosting headroom: {:.1} MW",
             self.overall_status,
             self.running_count,
             self.queued_count,
             self.kpis.deliverability_score,
             self.kpis.lole_hours_per_year,
             self.kpis.eue_mwh_per_year,
+            self.kpis.der_penetration_percent,
+            self.kpis.voltage_compliance_percent,
+            self.kpis.hosting_headroom_mw,
         ));
     }
 

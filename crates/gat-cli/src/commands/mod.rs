@@ -7,6 +7,7 @@ pub mod completions;
 pub mod datasets;
 pub mod derms;
 pub mod dist;
+pub mod doctor;
 pub mod featurize;
 pub mod geo;
 pub mod graph;

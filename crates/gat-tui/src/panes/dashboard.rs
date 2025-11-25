@@ -11,11 +11,16 @@ impl DashboardPane {
             "Overall: healthy",
             "Running: 1 workflow",
             "Queued: 2 actions awaiting approvals",
+            "DER penetration: 32% of feeder peak",
+            "Voltage compliance: 98.4% in-band feeders",
+            "Hosting headroom: 4.3 MW minimum",
         ]);
 
         // Reliability KPI cards
         let reliability_cards = Pane::new("Reliability Metrics").body([
             "✓ Deliverability Score: 85.5%  |  ⚠ LOLE: 9.2 h/yr  |  ⚠ EUE: 15.3 MWh/yr",
+            "✓ DER penetration: 32% of feeder peak | ⚠ Hosting headroom: 4.3 MW min",
+            "✓ Voltage compliance: 98.4% feeders in band | ⚠ Watchlist: F-21 taps drifting",
             "",
             "Last update: 2024-11-21 14:30 UTC",
             "Source: analytics reliability (batch_2024-11-21)",
@@ -34,6 +39,10 @@ impl DashboardPane {
             "[Enter] Run highlighted workflow",
             "[R] Retry last failed step",
             "[E] Edit config before dispatch",
+            "[H] Refresh hosting-capacity study",
+            "[V] Check feeder voltage compliance",
+            "[P] Snapshot DER penetration KPI",
+            "[C] Pin capacity headroom card",
         ]);
 
         let details =

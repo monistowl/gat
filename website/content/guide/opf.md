@@ -8,18 +8,22 @@ weight = 11
 
 This reference describes the OPF solver architecture, solution methods, and CLI commands.
 
-## Architecture Overview (v0.3.2)
+## Architecture Overview (v0.3.3)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods with varying accuracy/speed tradeoffs:
 
-| Method | Accuracy | Speed | Use Case |
-|--------|----------|-------|----------|
-| `EconomicDispatch` | ~20% gap | Fastest | Quick estimates, screening |
-| `DcOpf` | ~3-5% gap | Fast | Planning studies |
-| `SocpRelaxation` | ~1-3% gap | Moderate | Research benchmarking |
-| `AcOpf` | <1% gap | Slowest | High-fidelity analysis |
+| Method | Accuracy | Speed | Status | Use Case |
+|--------|----------|-------|--------|----------|
+| `EconomicDispatch` | ~20% gap | Fastest | ✅ Implemented | Quick estimates, screening |
+| `DcOpf` | ~3-5% gap | Fast | ✅ Implemented | Planning studies |
+| `SocpRelaxation` | ~1-3% gap | Moderate | ✅ Implemented | Research benchmarking |
+| `AcOpf` | <1% gap | Slowest | ✅ Implemented | High-fidelity analysis |
 
-**Current Status:** Economic dispatch and DC-OPF are fully implemented. SOCP and AC-OPF methods return `NotImplemented` errors (planned for future releases).
+**Current Status (v0.3.3):** All four OPF methods are now fully implemented:
+- Economic dispatch: Merit-order dispatch without network constraints
+- DC-OPF: Linear approximation with PTDF-based flows
+- **SOCP Relaxation**: Convex second-order cone relaxation (Clarabel solver)
+- **AC-OPF**: Full nonlinear NLP with L-BFGS penalty method (argmin solver)
 
 ## Rust API
 
@@ -31,7 +35,7 @@ use gat_core::Network;
 
 // Create solver with method selection
 let solver = OpfSolver::new()
-    .with_method(OpfMethod::EconomicDispatch)
+    .with_method(OpfMethod::SocpRelaxation)  // or AcOpf
     .with_tolerance(1e-6)
     .with_max_iterations(100);
 
@@ -77,7 +81,7 @@ pub struct OpfSolution {
     pub generator_p: HashMap<String, f64>,      // Active power (MW)
     pub generator_q: HashMap<String, f64>,      // Reactive power (MVAr)
     pub bus_voltage_mag: HashMap<String, f64>,  // |V| in p.u.
-    pub bus_voltage_ang: HashMap<String, f64>,  // θ in radians
+    pub bus_voltage_ang: HashMap<String, f64>,  // θ in degrees
     pub branch_p_flow: HashMap<String, f64>,    // MW flow
     pub branch_q_flow: HashMap<String, f64>,    // MVAr flow
 
@@ -90,7 +94,93 @@ pub struct OpfSolution {
 }
 ```
 
-**Note:** Not all fields are populated by all methods. Economic dispatch provides generator outputs, objective, and estimated losses. LMPs and voltage angles require DC-OPF or higher.
+**Note:** Not all fields are populated by all methods. Economic dispatch provides generator outputs, objective, and estimated losses. SOCP and AC-OPF provide full voltage, angle, and LMP data.
+
+## SOCP Relaxation (v0.3.3)
+
+The SOCP solver implements the Baran-Wu / Farivar-Low branch-flow model:
+
+### Features
+
+| Feature | Status |
+|---------|--------|
+| Squared voltage/current variables | ✅ |
+| Quadratic costs (c₀ + c₁·P + c₂·P²) | ✅ |
+| Phase-shifting transformers | ✅ |
+| Off-nominal tap ratios | ✅ |
+| Line charging (π-model) | ✅ |
+| Thermal limits (S_max) | ✅ |
+| Voltage bounds | ✅ |
+| LMP extraction from duals | ✅ |
+
+### Mathematical Formulation
+
+Variables: w_i (squared voltage), ℓ_ij (squared current), P_ij, Q_ij (branch flows)
+
+**Objective:**
+```
+minimize Σ (c₀ + c₁·P_g + c₂·P_g²)
+```
+
+**Branch-flow constraints:**
+```
+w_j = w_i - 2(r·P_ij + x·Q_ij) + (r² + x²)·ℓ_ij
+P_ij² + Q_ij² ≤ w_i · ℓ_ij  (SOC constraint)
+```
+
+**Solver:** Clarabel interior-point conic solver (15-30 iterations typical)
+
+### References
+
+- Baran & Wu (1989): DOI:10.1109/61.25627
+- Farivar & Low (2013): DOI:10.1109/TPWRS.2013.2255317
+- Gan, Li, Topcu & Low (2015): DOI:10.1109/TAC.2014.2332712
+
+## Full AC-OPF (v0.3.3)
+
+The AC-OPF solver uses polar coordinates with a penalty-method L-BFGS optimizer:
+
+### Features
+
+| Feature | Status |
+|---------|--------|
+| Polar formulation (V, θ) | ✅ |
+| Y-bus construction | ✅ |
+| Quadratic costs | ✅ |
+| Voltage bounds | ✅ |
+| Generator limits | ✅ |
+| Jacobian computation | ✅ |
+| L-BFGS optimizer | ✅ |
+| Thermal limits | 🔄 Planned |
+| IPOPT backend | 🔄 Planned |
+
+### Mathematical Formulation
+
+Variables: V_i (voltage magnitude), θ_i (angle), P_g, Q_g (generator dispatch)
+
+**Objective:**
+```
+minimize Σ (c₀ + c₁·P_g + c₂·P_g²)
+```
+
+**Power flow equations:**
+```
+P_i = Σⱼ V_i·V_j·(G_ij·cos(θ_i - θ_j) + B_ij·sin(θ_i - θ_j))
+Q_i = Σⱼ V_i·V_j·(G_ij·sin(θ_i - θ_j) - B_ij·cos(θ_i - θ_j))
+```
+
+**Solver:** argmin L-BFGS with iterative penalty method
+
+### Usage
+
+```rust
+let solver = OpfSolver::new()
+    .with_method(OpfMethod::AcOpf)
+    .with_max_iterations(200)
+    .with_tolerance(1e-4);
+
+let solution = solver.solve(&network)?;
+```
 
 ## Generator Cost Models
 

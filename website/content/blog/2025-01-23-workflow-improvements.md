@@ -66,7 +66,7 @@ We're continuing to improve the documentation and examples. Stay tuned for:
 
 ## Get Involved
 
-Want to contribute? Check out our [Contributing Guide](/gat/contributing/) or join the discussion on [GitHub](https://github.com/monistowl/gat/discussions).
+Want to contribute? Check out our [Contributing Guide](/gat/contributing/) or open an issue on [GitHub](https://github.com/monistowl/gat/issues).
 
 {% callout(type="info") %}
 **Subscribe to updates:** We now have an RSS feed! Add `/gat/rss.xml` to your feed reader.

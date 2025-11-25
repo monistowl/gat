@@ -256,6 +256,7 @@ fn test_cim_validation_passes() {
             to_bus: BusId::new(2),
             resistance: 0.01,
             reactance: 0.1,
+            ..Branch::default()
         }),
     );
 

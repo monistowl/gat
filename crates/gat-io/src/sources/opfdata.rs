@@ -296,6 +296,8 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             if let (Some(&from_idx), Some(&to_idx)) =
                 (bus_index_map.get(&from_bus), bus_index_map.get(&to_bus))
             {
+                let b_total = feat.get(5).copied().unwrap_or(0.0);
+                let rating_a = feat.get(6).copied();
                 let branch = Branch {
                     id: BranchId::new(branch_id),
                     name: format!("Line {}-{}", from_bus + 1, to_bus + 1),
@@ -303,6 +305,10 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                     to_bus: BusId::new(to_bus + 1),
                     resistance,
                     reactance,
+                    charging_b_pu: b_total,
+                    s_max_mva: rating_a,
+                    rating_a_mva: rating_a,
+                    ..Branch::default()
                 };
                 network
                     .graph
@@ -351,6 +357,14 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             // Features: [angmin, angmax, r, x, rate_a, rate_b, rate_c, tap, shift, g, b]
             let resistance = feat.get(2).copied().unwrap_or(0.0);
             let reactance = feat.get(3).copied().unwrap_or(0.1);
+            let rating_a = feat.get(4).copied();
+            let tap = feat.get(7).copied().filter(|t| *t != 0.0).unwrap_or(1.0);
+            let shift_rad = feat
+                .get(8)
+                .copied()
+                .map(|deg| deg.to_radians())
+                .unwrap_or(0.0);
+            let charging_b = feat.get(10).copied().unwrap_or(0.0);
 
             if let (Some(&from_idx), Some(&to_idx)) =
                 (bus_index_map.get(&from_bus), bus_index_map.get(&to_bus))
@@ -362,6 +376,12 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                     to_bus: BusId::new(to_bus + 1),
                     resistance,
                     reactance,
+                    tap_ratio: tap,
+                    phase_shift_rad: shift_rad,
+                    charging_b_pu: charging_b,
+                    s_max_mva: rating_a,
+                    rating_a_mva: rating_a,
+                    ..Branch::default()
                 };
                 network
                     .graph

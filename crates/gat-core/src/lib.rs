@@ -79,6 +79,65 @@ pub struct Branch {
     pub to_bus: BusId,
     pub resistance: f64,
     pub reactance: f64,
+    /// Multiplicative tap magnitude applied from from_bus to to_bus
+    pub tap_ratio: f64,
+    /// Phase shift in radians applied from from_bus to to_bus
+    pub phase_shift_rad: f64,
+    /// Total line charging susceptance (split half/half)
+    pub charging_b_pu: f64,
+    /// Symmetric thermal limit in MVA
+    pub s_max_mva: Option<f64>,
+    /// Operational status flag
+    pub status: bool,
+    /// Optional rating A to track nameplate limits
+    pub rating_a_mva: Option<f64>,
+}
+
+impl Default for Branch {
+    fn default() -> Self {
+        Self {
+            id: BranchId(0),
+            name: String::new(),
+            from_bus: BusId(0),
+            to_bus: BusId(0),
+            resistance: 0.0,
+            reactance: 0.0,
+            tap_ratio: 1.0,
+            phase_shift_rad: 0.0,
+            charging_b_pu: 0.0,
+            s_max_mva: None,
+            status: true,
+            rating_a_mva: None,
+        }
+    }
+}
+
+impl Branch {
+    /// Construct a branch from legacy impedance fields, filling new parameters with defaults.
+    pub fn new(
+        id: BranchId,
+        name: String,
+        from_bus: BusId,
+        to_bus: BusId,
+        resistance: f64,
+        reactance: f64,
+    ) -> Self {
+        Self {
+            id,
+            name,
+            from_bus,
+            to_bus,
+            resistance,
+            reactance,
+            ..Self::default()
+        }
+    }
+
+    /// Attach a symmetric thermal limit in MVA.
+    pub fn with_s_max(mut self, s_max_mva: Option<f64>) -> Self {
+        self.s_max_mva = s_max_mva;
+        self
+    }
 }
 
 /// Generator cost model for OPF optimization
@@ -329,6 +388,7 @@ mod tests {
                 to_bus: BusId(1),
                 resistance: 0.01,
                 reactance: 0.1,
+                ..Branch::default()
             }),
         );
 

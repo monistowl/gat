@@ -56,6 +56,7 @@ fn create_simple_network() -> Network {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 
@@ -162,6 +163,7 @@ fn test_monte_carlo_perfect_reliability() {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 
@@ -224,6 +226,7 @@ fn test_monte_carlo_tight_reliability() {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 
@@ -307,6 +310,7 @@ fn test_monte_carlo_multiple_networks() {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.05,
+            ..Branch::default()
         }),
     );
 

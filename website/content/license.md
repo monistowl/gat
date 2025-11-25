@@ -138,4 +138,4 @@ The complete PolyForm Shield License 1.0.0 text is available at:
 
 ---
 
-**Questions?** Open an issue on [GitHub](https://github.com/monistowl/gat/issues) or check our [discussions](https://github.com/monistowl/gat/discussions).
+**Questions?** Open an issue on [GitHub](https://github.com/monistowl/gat/issues).
