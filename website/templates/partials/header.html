@@ -9,20 +9,24 @@
         <span class="font-bold text-xl tracking-tight">GAT</span>
       </a>
       <div class="hidden md:flex items-center gap-6">
-        <a href="{{ config.base_url }}/guide/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        {% set path = current_path | default(value="") %}
+        <a href="{{ config.base_url }}/guide/" class="text-sm transition-colors {% if path is starting_with("/guide") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Guide
         </a>
-        <a href="{{ config.base_url }}/internals/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/internals/" class="text-sm transition-colors {% if path is starting_with("/internals") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Internals
         </a>
-        <a href="{{ config.base_url }}/reference/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/reference/" class="text-sm transition-colors {% if path is starting_with("/reference") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Reference
         </a>
-        <a href="{{ config.base_url }}/blog/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/blog/" class="text-sm transition-colors {% if path is starting_with("/blog") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Blog
         </a>
-        <a href="{{ config.base_url }}/faq/" class="text-sm text-slate-400 hover:text-orange-500 transition-colors">
+        <a href="{{ config.base_url }}/faq/" class="text-sm transition-colors {% if path is starting_with("/faq") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           FAQ
+        </a>
+        <a href="{{ config.base_url }}/command-builder/" class="text-sm transition-colors {% if path is starting_with("/command-builder") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+          Builder
         </a>
       </div>
     </div>
