@@ -1,20 +1,28 @@
 # GRID ANALYSIS TOOLKIT (GAT)
 
-## v0.3 Status (Current)
+## v0.3.2 Status (Current)
 
 **Completed Features:**
 
+✅ **Unified OPF Architecture** (OpfSolver with OpfMethod enum: EconomicDispatch, DcOpf, SocpRelaxation, AcOpf)
+✅ **Generator Cost Models** (CostModel enum with polynomial and piecewise-linear support)
+✅ **Economic Dispatch** (Merit-order optimization with generator limits and cost functions)
 ✅ **Monte Carlo Reliability Analysis** (LOLE, EUE, Deliverability Score)
 ✅ **Multi-Area Coordination** (CANOS framework with zone-to-zone metrics)
 ✅ **FLISR Integration** (Fault Location, Isolation, Service Restoration with reliability tracking)
 ✅ **VVO with Reliability Constraints** (Volt-Var Optimization respecting min deliverability scores)
 ✅ **Maintenance Scheduling** (Multi-area outage coordination with LOLE thresholds)
-✅ **AC OPF Solver** (Newton-Raphson with configurable tolerance/iterations)
 ✅ **PFDelta Integration** (Data loader for 859,800 test cases)
 ✅ **Benchmark Command** (AC OPF benchmarking against IEEE test cases)
 ✅ **Comprehensive Test Suite** (51+ reliability tests, 14+ integration tests)
 
+**In Progress:**
+- DC-OPF with B-matrix and LMP extraction
+- SOCP relaxation for convex OPF
+- Full nonlinear AC-OPF
+
 **Documentation:**
+- `docs/guide/opf.md` — Unified OPF solver architecture and cost models
 - `docs/guide/reliability.md` — Monte Carlo algorithms and LOLE/EUE metrics
 - `docs/guide/adms.md` — Updated with reliability integration details
 - `docs/guide/benchmark.md` — PFDelta integration and benchmarking workflow
