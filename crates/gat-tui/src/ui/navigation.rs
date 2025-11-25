@@ -1,5 +1,7 @@
 use std::fmt::Write;
 
+use std::collections::HashSet;
+
 use super::{layout::PaneLayout, Tooltip};
 
 #[derive(Clone, Debug)]
@@ -62,6 +64,7 @@ impl MenuItem {
 pub struct NavMenu {
     pub items: Vec<MenuItem>,
     active: usize,
+    hotkey_conflicts: Vec<char>,
 }
 
 impl NavMenu {
@@ -71,7 +74,12 @@ impl NavMenu {
         } else {
             active.min(items.len() - 1)
         };
-        Self { items, active }
+        let hotkey_conflicts = Self::detect_conflicts(&items);
+        Self {
+            items,
+            active,
+            hotkey_conflicts,
+        }
     }
 
     pub fn render_menu_bar(&self) -> String {
@@ -112,6 +120,20 @@ impl NavMenu {
                     .collect();
                 let _ = write!(output, " | Actions: {}", context.join(", "));
             }
+
+            if let Some(tooltip) = &active_item.tooltip {
+                let tip = tooltip.render();
+                let _ = write!(output, "  • {}", tip);
+            }
+        }
+
+        if !self.hotkey_conflicts.is_empty() {
+            let conflicts: Vec<String> = self
+                .hotkey_conflicts
+                .iter()
+                .map(|c| format!("'{c}'"))
+                .collect();
+            let _ = write!(output, "  ⚠ Hotkey conflicts: {}", conflicts.join(", "));
         }
 
         output
@@ -151,5 +173,30 @@ impl NavMenu {
 
     pub fn active_tooltip(&self) -> Option<&Tooltip> {
         self.active_item().and_then(|item| item.tooltip.as_ref())
+    }
+
+    pub fn active_label(&self) -> Option<&str> {
+        self.active_item().map(|item| item.label.as_str())
+    }
+
+    pub fn active_hotkey(&self) -> Option<char> {
+        self.active_item().map(|item| item.hotkey)
+    }
+
+    pub fn ensure_unique_hotkeys(&mut self) {
+        self.hotkey_conflicts = Self::detect_conflicts(&self.items);
+    }
+
+    fn detect_conflicts(items: &[MenuItem]) -> Vec<char> {
+        let mut seen = HashSet::new();
+        let mut conflicts = Vec::new();
+
+        for item in items {
+            if !seen.insert(item.hotkey) && !conflicts.contains(&item.hotkey) {
+                conflicts.push(item.hotkey);
+            }
+        }
+
+        conflicts
     }
 }
