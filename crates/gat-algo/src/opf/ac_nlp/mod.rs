@@ -19,8 +19,10 @@
 
 mod power_equations;
 mod problem;
+mod solver;
 mod ybus;
 
 pub use power_equations::PowerEquations;
 pub use problem::{AcOpfProblem, BusData, GenData};
+pub use solver::solve as solve_ac_opf;
 pub use ybus::{YBus, YBusBuilder};

@@ -65,9 +65,10 @@ impl OpfSolver {
             }
             OpfMethod::DcOpf => dc_opf::solve(network, self.max_iterations, self.tolerance),
             OpfMethod::SocpRelaxation => socp::solve(network, self.max_iterations, self.tolerance),
-            OpfMethod::AcOpf => Err(OpfError::NotImplemented(
-                "AC-OPF not yet implemented".into(),
-            )),
+            OpfMethod::AcOpf => {
+                let problem = ac_nlp::AcOpfProblem::from_network(network)?;
+                ac_nlp::solve_ac_opf(&problem, self.max_iterations, self.tolerance)
+            }
         }
     }
 }
