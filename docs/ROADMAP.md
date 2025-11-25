@@ -17,9 +17,11 @@
 ✅ **Comprehensive Test Suite** (51+ reliability tests, 14+ integration tests)
 
 **In Progress:**
-- DC-OPF with B-matrix and LMP extraction
 - SOCP relaxation for convex OPF
 - Full nonlinear AC-OPF
+
+**Recently Completed (v0.3.3):**
+- ✅ DC-OPF with B-matrix and LMP extraction
 
 **Documentation:**
 - `docs/guide/opf.md` — Unified OPF solver architecture and cost models

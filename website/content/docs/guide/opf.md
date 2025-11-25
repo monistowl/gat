@@ -19,7 +19,7 @@ GAT provides a unified `OpfSolver` supporting multiple solution methods with var
 | `SocpRelaxation` | ~1-3% gap | Moderate | Research benchmarking |
 | `AcOpf` | <1% gap | Slowest | High-fidelity analysis |
 
-**Current Status:** Economic dispatch is fully implemented. DC-OPF, SOCP, and AC-OPF methods return `NotImplemented` errors (planned for future releases).
+**Current Status:** Economic dispatch and DC-OPF are fully implemented. SOCP and AC-OPF methods return `NotImplemented` errors (planned for future releases).
 
 ## Rust API
 
