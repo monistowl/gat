@@ -137,9 +137,8 @@ pub fn resolve_scenarios(set: &ScenarioSet) -> Result<Vec<ResolvedScenario>> {
         }
         let time_strings = scenario
             .time_slices
-            .as_ref()
-            .map(|t| t.as_slice())
-            .unwrap_or_else(|| defaults.time_slices.as_slice());
+            .as_deref()
+            .unwrap_or(defaults.time_slices.as_slice());
         if time_strings.is_empty() {
             return Err(anyhow!(
                 "scenario '{}' must declare at least one time slice",

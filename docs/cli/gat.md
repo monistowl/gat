@@ -68,6 +68,10 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli batch`↴](#gat-cli-batch)
 * [`gat-cli batch pf`↴](#gat-cli-batch-pf)
 * [`gat-cli batch opf`↴](#gat-cli-batch-opf)
+* [`gat-cli benchmark`↴](#gat-cli-benchmark)
+* [`gat-cli benchmark pfdelta`↴](#gat-cli-benchmark-pfdelta)
+* [`gat-cli benchmark pglib`↴](#gat-cli-benchmark-pglib)
+* [`gat-cli benchmark opfdata`↴](#gat-cli-benchmark-opfdata)
 * [`gat-cli runs`↴](#gat-cli-runs)
 * [`gat-cli runs list`↴](#gat-cli-runs-list)
 * [`gat-cli runs describe`↴](#gat-cli-runs-describe)
@@ -87,6 +91,8 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli dataset public list`↴](#gat-cli-dataset-public-list)
 * [`gat-cli dataset public describe`↴](#gat-cli-dataset-public-describe)
 * [`gat-cli dataset public fetch`↴](#gat-cli-dataset-public-fetch)
+* [`gat-cli dataset eia`↴](#gat-cli-dataset-eia)
+* [`gat-cli dataset ember`↴](#gat-cli-dataset-ember)
 * [`gat-cli version`↴](#gat-cli-version)
 * [`gat-cli version sync`↴](#gat-cli-version-sync)
 
@@ -115,6 +121,7 @@ This document contains the help content for the `gat-cli` command-line program.
 * `geo` — Geo-spatial tools (GIS joins, polygon mapping, spatial features)
 * `alloc` — Allocation and settlement tools (congestion rents, cost attribution)
 * `batch` — Scenario batch runners for PF/OPF (CANOS-style fan-out)
+* `benchmark` — Benchmarking suites for OPF/PF solvers
 * `runs` — Run management
 * `dataset` — Dataset adapters
 * `version` — Release version helpers
@@ -1331,6 +1338,105 @@ Run DC/AC OPF for every scenario (CANOS-ready reliability stats)
 
 
 
+## `gat-cli benchmark`
+
+Benchmarking suites for OPF/PF solvers
+
+**Usage:** `gat-cli benchmark <COMMAND>`
+
+###### **Subcommands:**
+
+* `pfdelta` — Run PFDelta AC OPF benchmark suite
+* `pglib` — Run PGLib-OPF benchmark suite (MATPOWER format)
+* `opfdata` — Run OPFData benchmark suite (GNN-format JSON)
+
+
+
+## `gat-cli benchmark pfdelta`
+
+Run PFDelta AC OPF benchmark suite
+
+**Usage:** `gat-cli benchmark pfdelta [OPTIONS] --pfdelta-root <PFDELTA_ROOT> --out <OUT>`
+
+###### **Options:**
+
+* `--pfdelta-root <PFDELTA_ROOT>` — Root directory containing PFDelta dataset
+* `--case <CASE>` — Specific test case to benchmark (14, 30, 57, 118, 500, 2000)
+* `--contingency <CONTINGENCY>` — Contingency type to run (n, n-1, n-2, or all)
+
+  Default value: `all`
+* `--max-cases <MAX_CASES>` — Maximum number of test cases to run (0 = all)
+
+  Default value: `0`
+* `-o`, `--out <OUT>` — Output CSV path for results
+* `--threads <THREADS>` — Number of parallel solver threads (auto = CPU count)
+
+  Default value: `auto`
+* `--mode <MODE>` — Solve mode: pf (power flow) or opf (optimal power flow)
+
+  Default value: `opf`
+* `--tol <TOL>` — Convergence tolerance
+
+  Default value: `1e-6`
+* `--max-iter <MAX_ITER>` — Maximum AC solver iterations
+
+  Default value: `20`
+
+
+
+## `gat-cli benchmark pglib`
+
+Run PGLib-OPF benchmark suite (MATPOWER format)
+
+**Usage:** `gat-cli benchmark pglib [OPTIONS] --pglib-dir <PGLIB_DIR> --out <OUT>`
+
+###### **Options:**
+
+* `--pglib-dir <PGLIB_DIR>` — Directory containing PGLib MATPOWER (.m) files
+* `--baseline <BASELINE>` — Optional baseline CSV for objective comparison
+* `--case-filter <CASE_FILTER>` — Filter cases by name pattern (e.g., "case14", "case118")
+* `--max-cases <MAX_CASES>` — Maximum number of cases to run (0 = all)
+
+  Default value: `0`
+* `-o`, `--out <OUT>` — Output CSV path for results
+* `--threads <THREADS>` — Number of parallel solver threads (auto = CPU count)
+
+  Default value: `auto`
+* `--tol <TOL>` — Convergence tolerance
+
+  Default value: `1e-6`
+* `--max-iter <MAX_ITER>` — Maximum AC solver iterations
+
+  Default value: `20`
+
+
+
+## `gat-cli benchmark opfdata`
+
+Run OPFData benchmark suite (GNN-format JSON)
+
+**Usage:** `gat-cli benchmark opfdata [OPTIONS] --opfdata-dir <OPFDATA_DIR> --out <OUT>`
+
+###### **Options:**
+
+* `--opfdata-dir <OPFDATA_DIR>` — Directory containing OPFData JSON files
+* `--case-filter <CASE_FILTER>` — Filter samples by file path pattern
+* `--max-cases <MAX_CASES>` — Maximum number of samples to run (0 = all)
+
+  Default value: `0`
+* `-o`, `--out <OUT>` — Output CSV path for results
+* `--threads <THREADS>` — Number of parallel solver threads (auto = CPU count)
+
+  Default value: `auto`
+* `--tol <TOL>` — Convergence tolerance
+
+  Default value: `1e-6`
+* `--max-iter <MAX_ITER>` — Maximum AC solver iterations
+
+  Default value: `20`
+
+
+
 ## `gat-cli runs`
 
 Run management
@@ -1422,6 +1528,8 @@ Dataset adapters
 * `sup3rcc` — Sup3rCC weather helpers
 * `pras` — PRAS outputs
 * `public` — Public dataset catalog
+* `eia` — Download U.S. generator data from EIA
+* `ember` — Download carbon intensity and renewable data from Ember
 
 
 
@@ -1614,6 +1722,34 @@ Fetch a curated dataset by ID
 * `-o`, `--out <OUT>` — Directory to stage the download (defaults to ~/.cache/gat/datasets or data/public)
 * `--force` — Force re-download if the file already exists
 * `--extract` — Try to extract the dataset if it's a zip archive
+
+
+
+## `gat-cli dataset eia`
+
+Download U.S. generator data from EIA
+
+**Usage:** `gat-cli dataset eia --api-key <API_KEY> --output <OUTPUT>`
+
+###### **Options:**
+
+* `--api-key <API_KEY>` — EIA API key
+* `-o`, `--output <OUTPUT>` — Output file path (supports .csv, .parquet)
+
+
+
+## `gat-cli dataset ember`
+
+Download carbon intensity and renewable data from Ember
+
+**Usage:** `gat-cli dataset ember --region <REGION> --start-date <START_DATE> --end-date <END_DATE> --output <OUTPUT>`
+
+###### **Options:**
+
+* `--region <REGION>` — Region code (e.g., "US-West", "GB", "DE")
+* `--start-date <START_DATE>` — Start date in YYYY-MM-DD format
+* `--end-date <END_DATE>` — End date in YYYY-MM-DD format
+* `-o`, `--output <OUTPUT>` — Output file path (supports .csv, .parquet)
 
 
 

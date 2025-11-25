@@ -10,11 +10,13 @@ pub mod featurize_gnn;
 pub mod featurize_kpi;
 pub mod geo_join;
 pub mod io;
+pub mod opf;
 pub mod power_flow;
 pub mod reliability_monte_carlo;
 pub mod test_utils;
+pub mod validation;
 
-pub use ac_opf::{AcOpfError, AcOpfSolution, AcOpfSolver};
+pub use ac_opf::{AcOpfError, AcOpfSolution, AcOpfSolver, OpfError};
 pub use alloc_kpi::*;
 pub use alloc_rents::*;
 pub use analytics_ds::*;
@@ -29,10 +31,15 @@ pub use featurize_gnn::*;
 pub use featurize_kpi::*;
 pub use geo_join::*;
 pub use io::*;
+pub use opf::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution, OpfSolver};
 pub use power_flow::*;
 pub use reliability_monte_carlo::{
     DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
     ReliabilityMetrics,
+};
+pub use validation::{
+    compute_opf_violations, compute_pf_errors, OPFViolationMetrics, ObjectiveGap, PFErrorMetrics,
+    PFReferenceSolution,
 };
 
 pub fn run_algorithm() -> String {

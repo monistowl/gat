@@ -107,17 +107,13 @@ pub fn featurize_kpi(
     };
 
     // Step 5: Validate output has required keys
-    if !features_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "scenario_id")
-    {
+    if !features_df.get_column_names().contains(&"scenario_id") {
         return Err(anyhow!("features must contain 'scenario_id' column"));
     }
 
     // Compute summary statistics
     let num_scenarios = features_df.column("scenario_id")?.unique()?.len();
-    let num_time_periods = if features_df.get_column_names().iter().any(|c| *c == "time") {
+    let num_time_periods = if features_df.get_column_names().contains(&"time") {
         features_df.column("time")?.unique()?.len()
     } else {
         1
@@ -176,8 +172,8 @@ fn load_batch_flows(batch_root: &Path) -> Result<DataFrame> {
             .with_context(|| format!("loading Parquet file '{}'", path.display()))?;
 
         // Check if it has flow data (branch_id, flow_mw)
-        if df.get_column_names().iter().any(|c| *c == "branch_id")
-            && df.get_column_names().iter().any(|c| *c == "flow_mw")
+        if df.get_column_names().contains(&"branch_id")
+            && df.get_column_names().contains(&"flow_mw")
         {
             all_dfs.push(df);
         }
@@ -226,11 +222,8 @@ fn visit_dirs(dir: &Path, files: &mut Vec<std::path::PathBuf>) -> Result<()> {
 /// **Output:** DataFrame with one row per (scenario_id, time) case and engineered stress features.
 fn compute_stress_features(flows_df: &DataFrame) -> Result<DataFrame> {
     // Determine grouping columns
-    let has_scenario = flows_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "scenario_id");
-    let has_time = flows_df.get_column_names().iter().any(|c| *c == "time");
+    let has_scenario = flows_df.get_column_names().contains(&"scenario_id");
+    let has_time = flows_df.get_column_names().contains(&"time");
 
     let group_cols: Vec<String> = [
         has_scenario.then_some("scenario_id"),
@@ -286,19 +279,10 @@ fn join_reliability_metrics(features_df: DataFrame, reliability_path: &Path) -> 
             .context("loading reliability metrics")?;
 
     // Determine join keys (scenario_id, time)
-    let has_scenario_feat = features_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "scenario_id");
-    let has_time_feat = features_df.get_column_names().iter().any(|c| *c == "time");
-    let has_scenario_rel = reliability_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "scenario_id");
-    let has_time_rel = reliability_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "time");
+    let has_scenario_feat = features_df.get_column_names().contains(&"scenario_id");
+    let has_time_feat = features_df.get_column_names().contains(&"time");
+    let has_scenario_rel = reliability_df.get_column_names().contains(&"scenario_id");
+    let has_time_rel = reliability_df.get_column_names().contains(&"time");
 
     let join_keys: Vec<String> = [
         (has_scenario_feat && has_scenario_rel).then_some("scenario_id"),

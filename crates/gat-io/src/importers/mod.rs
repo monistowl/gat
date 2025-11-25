@@ -7,6 +7,7 @@ use arrow_disabled as arrow;
 pub mod cim;
 mod cim_validator;
 pub mod matpower;
+pub mod matpower_parser;
 pub mod psse;
 pub use cim_validator::{
     validate_cim_with_warnings, validate_network_from_cim, CimValidationError,
@@ -21,7 +22,7 @@ pub use arrow_disabled::export_network_to_arrow;
 #[cfg(not(feature = "ipc"))]
 pub use arrow_disabled::load_grid_from_arrow;
 pub use cim::import_cim_rdf;
-pub use matpower::import_matpower_case;
+pub use matpower::{import_matpower_case, load_matpower_network};
 pub use psse::import_psse_raw;
 
 #[cfg(all(test, feature = "ipc"))]

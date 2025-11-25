@@ -18,9 +18,16 @@ Topology commands (`gat graph stats`, `gat graph islands`, `gat graph export`) a
 
 `gat pf {dc,ac}` is documented in `docs/guide/pf.md`; the CLI supports solver selection, threading hints, tolerances, and Parquet output that lives under `pf-dc/` or `pf-ac/` for manifest-driven automation.
 
-## Optimal Power Flow (v0.3)
+## Optimal Power Flow (v0.3.2)
 
-AC OPF is fully operational with support for both simple networks and large-scale IEEE benchmark cases. See `docs/guide/opf.md` for solver configuration and command options.
+GAT provides a unified `OpfSolver` with multiple solution methods:
+
+- **Economic Dispatch** — Merit-order optimization (fastest, ~20% gap)
+- **DC-OPF** — Linear approximation with B-matrix (planned)
+- **SOCP Relaxation** — Convex relaxation for global bounds (planned)
+- **AC-OPF** — Full nonlinear interior-point method (planned)
+
+Generators now support polynomial and piecewise-linear cost functions via the `CostModel` enum. See `docs/guide/opf.md` for the full API reference, solver configuration, and CLI commands.
 
 ## Outputs and partitions
 

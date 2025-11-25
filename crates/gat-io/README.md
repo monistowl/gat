@@ -11,9 +11,14 @@ Data format support, schema definitions, and I/O utilities for grid models, resu
 - JSON — Metadata and configuration
 
 **Grid Formats:**
-- MATPOWER (`.raw`, `.m`)
+- MATPOWER (`.raw`, `.m`) — Including raw `.m` file parsing
 - PSS/E (`.raw`, `.dyr`)
 - CIM/XML (Common Information Model)
+
+**Benchmark Data Sources:**
+- PFΔ — Power flow perturbation datasets with reference solutions
+- PGLib-OPF — Standard MATPOWER test cases from IEEE/ARPA-E
+- OPFData — 300k+ GNN-format AC-OPF instances with topology perturbations
 
 ## Core APIs
 

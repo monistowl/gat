@@ -1,5 +1,6 @@
 +++
 title = "About GAT"
+weight = 100
 description = "The story behind the Grid Analysis Toolkit"
 template = "page.html"
 +++

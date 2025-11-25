@@ -66,7 +66,7 @@ pub struct KpiContributionSummary {
 ///   Example: scenario_id="baseline", kpi_name="lole", kpi_value=2.5
 /// - `scenario_meta_parquet`: Parquet file with scenario metadata (scenario_id, control flags)
 ///   Example: scenario_id="baseline", dr_enabled=false, der_dispatch=false
-///            scenario_id="dr_only", dr_enabled=true, der_dispatch=false
+///   Example: scenario_id="dr_only", dr_enabled=true, der_dispatch=false
 /// - `baseline_scenario_id`: Optional baseline scenario ID (default: "baseline" or first with all controls off)
 /// - `output_file`: Path for output Parquet table with contributions
 /// - `partitions`: Optional partitioning columns (e.g., ["kpi_name"])
@@ -116,18 +116,10 @@ pub fn compute_kpi_contributions(
             .context("loading scenario metadata")?;
 
     // Validate required columns
-    if !kpi_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "scenario_id")
-    {
+    if !kpi_df.get_column_names().contains(&"scenario_id") {
         return Err(anyhow!("KPI results must contain 'scenario_id' column"));
     }
-    if !meta_df
-        .get_column_names()
-        .iter()
-        .any(|c| *c == "scenario_id")
-    {
+    if !meta_df.get_column_names().contains(&"scenario_id") {
         return Err(anyhow!(
             "Scenario metadata must contain 'scenario_id' column"
         ));

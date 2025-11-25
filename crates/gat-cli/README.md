@@ -28,6 +28,7 @@ gat batch pf --manifest runs/scenarios/scenario_manifest.json --out runs/batch
 - `ts` — Time-series operations
 - `scenarios` — What-if case definition
 - `batch` — Parallel job execution
+- `benchmark` — Solver validation against reference datasets (PFΔ, PGLib, OPFData)
 - `analytics` — Grid metrics (reliability, deliverability, ELCC)
 - `dist` / `adms` / `derms` — Distribution domain workflows
 - `tui` / `gui` — Interactive interfaces
@@ -61,6 +62,18 @@ gat scenarios validate --spec scenarios.yaml
 gat scenarios materialize --spec scenarios.yaml --grid-file grid.arrow --out-dir runs
 gat batch pf --manifest manifest.json --max-jobs 4 --out runs/batch
 gat batch opf --manifest manifest.json --solver clarabel --out runs/batch
+```
+
+### Benchmarking & Validation
+```bash
+# Benchmark against PFΔ dataset (power flow with perturbations)
+gat benchmark pfdelta --pfdelta-root data/pfdelta --max-cases 100 -o pfdelta_results.csv
+
+# Benchmark against PGLib-OPF (MATPOWER cases with baselines)
+gat benchmark pglib --pglib-dir data/pglib --baseline baseline.csv -o pglib_results.csv
+
+# Benchmark against OPFData (300k+ GNN-format AC-OPF instances)
+gat benchmark opfdata --opfdata-dir data/opfdata/case118 --max-cases 1000 -o opfdata_results.csv
 ```
 
 ### Reliability & Metrics

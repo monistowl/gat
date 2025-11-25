@@ -81,7 +81,12 @@
     }
     /* Ensure prose code blocks are contained and scrollable */
     .prose pre {
-      @apply w-full box-border;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .prose {
+      overflow-wrap: break-word;
+      word-wrap: break-word;
     }
     /* Markdown content styling */
     .prose h1 {
@@ -97,7 +102,7 @@
       border-color: rgba(251, 146, 60, 0.3);
     }
     .prose h3 {
-      @apply text-2xl font-semibold text-orange-400 mb-4 mt-8;
+      @apply text-2xl font-bold text-orange-400 mb-4 mt-8;
       position: relative;
       padding-left: 1rem;
     }
@@ -116,46 +121,40 @@
       @apply text-xl font-semibold text-orange-300 mb-3 mt-6;
     }
     .prose p {
-      @apply text-slate-300 mb-12 leading-relaxed;
+      @apply text-slate-300 leading-relaxed;
       font-size: 1.0625rem;
-    }
-    /* Reduce spacing after lists when followed by more content */
-    .prose ul + p,
-    .prose ol + p {
-      @apply mt-8;
-    }
-    /* Reduce spacing between list items for compact appearance */
-    .prose li + li {
-      @apply mt-1.5;
+      margin-bottom: 1.5em;
     }
     .prose a { @apply text-orange-500 hover:text-orange-400 transition-colors underline; }
-    /* Reduce top spacing for lists that follow paragraphs */
-    .prose p + ul,
-    .prose p + ol {
-      @apply mt-2;
-    }
     .prose ul {
-      @apply list-disc text-slate-300 mb-6 space-y-1.5;
+      @apply list-disc text-slate-300;
       list-style-position: outside;
       padding-left: 2rem;
+      margin-bottom: 1.5em;
     }
     .prose ol {
-      @apply list-decimal text-slate-300 mb-6 space-y-1.5;
+      @apply list-decimal text-slate-300;
       list-style-position: outside;
       padding-left: 2rem;
+      margin-bottom: 1.5em;
     }
     .prose li {
       @apply pl-2;
       text-indent: 0;
+      margin-bottom: 0.25em;
     }
     .prose li::marker {
       color: #fb923c;
     }
     .prose blockquote {
-      @apply border-l-4 border-orange-500 pl-6 italic text-slate-400 my-6 py-2;
+      @apply border-l-4 border-orange-500 pl-6 italic text-slate-400 py-2;
       background: rgba(251, 146, 60, 0.05);
+      margin: 1.5em 0;
     }
-    .prose table { @apply w-full border-collapse mb-6 mt-6; }
+    .prose pre {
+      margin: 1.5em 0;
+    }
+    .prose table { @apply w-full border-collapse; margin: 1.5em 0; }
     .prose th { @apply bg-slate-800 text-white p-3 border border-slate-700 text-left font-semibold; }
     .prose td { @apply p-3 border border-slate-700 text-slate-300; }
     .prose hr {

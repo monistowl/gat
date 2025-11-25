@@ -343,7 +343,7 @@ fn build_node_frame(network: &Network, feeder: &str) -> DataFrame {
         if let Node::Bus(bus) = &network.graph[node_idx] {
             ids.push(bus.id.value() as i64);
             phases.push("ABC".to_string());
-            let node_type = if gens.get(&bus.id).is_some() {
+            let node_type = if gens.contains_key(&bus.id) {
                 "source"
             } else {
                 "load"
@@ -430,6 +430,11 @@ fn add_virtual_der(network: &Network, bus_id: usize, injection: f64, step: usize
         bus: BusId::new(bus_id),
         active_power_mw: injection,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: injection,
+        qmin_mvar: 0.0,
+        qmax_mvar: 0.0,
+        cost_model: gat_core::CostModel::NoCost,
     };
     clone.graph.add_node(Node::Gen(der));
     clone

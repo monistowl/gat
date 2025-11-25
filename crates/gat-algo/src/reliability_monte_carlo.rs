@@ -467,7 +467,7 @@ impl DeliverabilityScore {
         let score = 100.0 * (1.0 - weighted_reduction);
 
         Ok(Self {
-            score: score.max(0.0).min(100.0), // Clamp to 0-100
+            score: score.clamp(0.0, 100.0), // Clamp to 0-100
             lole_factor,
             voltage_factor,
             thermal_factor,

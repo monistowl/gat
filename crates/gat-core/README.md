@@ -5,8 +5,8 @@ Fundamental data structures and algorithms for power-system modeling, power-flow
 ## Quick Overview
 
 **Core Grid Representation:**
-- Bus/branch network topology
-- Generator dispatch limits and costs
+- Bus/branch network topology via `petgraph`
+- Generator dispatch limits and cost models
 - Load profiles and demand
 - Transmission and distribution networks
 
@@ -24,41 +24,81 @@ Fundamental data structures and algorithms for power-system modeling, power-flow
 ## Grid Data Structures
 
 ```rust
-// Main grid model
-pub struct Grid {
-    pub buses: Vec<Bus>,
-    pub branches: Vec<Branch>,
-    pub generators: Vec<Generator>,
-    pub loads: Vec<Load>,
-}
+use gat_core::{Network, Node, Edge, Bus, BusId, Branch, BranchId, Gen, GenId, Load, LoadId, CostModel};
 
-// Power flow solution
-pub struct PFSolution {
-    pub vm: Vec<f64>,      // Voltage magnitudes
-    pub va: Vec<f64>,      // Voltage angles
-    pub pf: Vec<f64>,      // Branch power flows
-    pub violations: Vec<ViolationFlag>,
-}
+// Network uses petgraph for topology
+let mut network = Network::new();
+
+// Add buses as nodes
+let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+    id: BusId::new(0),
+    name: "Bus1".into(),
+    voltage_kv: 138.0,
+}));
+
+// Add generators with cost models and limits
+let gen = Gen::new(GenId::new(0), "Gen1".into(), BusId::new(0))
+    .with_p_limits(10.0, 100.0)      // Pmin=10 MW, Pmax=100 MW
+    .with_q_limits(-50.0, 50.0)      // Qmin=-50 MVAr, Qmax=50 MVAr
+    .with_cost(CostModel::quadratic(100.0, 20.0, 0.01));  // $100 + $20/MWh + $0.01/MW²h
+network.graph.add_node(Node::Gen(gen));
+
+// Add loads
+network.graph.add_node(Node::Load(Load {
+    id: LoadId::new(0),
+    name: "Load1".into(),
+    bus: BusId::new(0),
+    active_power_mw: 50.0,
+    reactive_power_mvar: 10.0,
+}));
+
+// Add branches as edges
+network.graph.add_edge(bus1_idx, bus2_idx, Edge::Branch(Branch {
+    id: BranchId::new(0),
+    name: "Line1-2".into(),
+    from_bus: BusId::new(0),
+    to_bus: BusId::new(1),
+    resistance: 0.01,
+    reactance: 0.1,
+}));
+```
+
+## Generator Cost Models
+
+Generators support polynomial and piecewise-linear cost functions:
+
+```rust
+use gat_core::CostModel;
+
+// Quadratic: cost = c0 + c1*P + c2*P²
+let quadratic = CostModel::quadratic(100.0, 20.0, 0.01);
+assert!((quadratic.evaluate(50.0) - 1125.0).abs() < 1e-6);
+assert!((quadratic.marginal_cost(50.0) - 21.0).abs() < 1e-6);
+
+// Linear: cost = c0 + c1*P
+let linear = CostModel::linear(50.0, 25.0);
+
+// Piecewise linear: Vec<(MW, $/hr)>
+let piecewise = CostModel::PiecewiseLinear(vec![
+    (0.0, 0.0),
+    (50.0, 1000.0),
+    (100.0, 2500.0),
+]);
 ```
 
 ## Core APIs
 
-### Power Flow
+### Optimal Power Flow (via gat-algo)
 ```rust
-// DC power flow
-let solution = dc_power_flow(&grid, &loads)?;
+use gat_algo::{OpfSolver, OpfMethod};
 
-// AC power flow with Newton-Raphson
-let solution = ac_power_flow(&grid, &loads, options)?;
-```
+// Create solver with method selection
+let solver = OpfSolver::new()
+    .with_method(OpfMethod::EconomicDispatch);
 
-### Optimal Power Flow
-```rust
-// DC OPF (linear)
-let dispatch = dc_opf(&grid, &loads, &costs, &limits)?;
-
-// AC OPF (nonlinear with solver selection)
-let dispatch = ac_opf(&grid, &loads, &costs, &limits, solver)?;
+// Solve
+let solution = solver.solve(&network)?;
+println!("Objective: ${:.2}/hr", solution.objective_value);
 ```
 
 ### Contingency Analysis

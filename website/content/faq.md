@@ -1,5 +1,6 @@
 +++
 title = "FAQ"
+weight = 100
 description = "Frequently asked questions about GAT"
 template = "page.html"
 +++
@@ -75,7 +76,7 @@ Times vary by:
 - **Tolerance** — Tighter tolerances take longer
 - **Convergence** — Ill-conditioned grids need more iterations
 
-See [Benchmarks](/docs/guide/benchmark/) for detailed comparisons.
+See [Benchmarks](/guide/benchmark/) for detailed comparisons.
 
 ### How does GAT compare to MATPOWER?
 
@@ -119,7 +120,7 @@ For production systems at scale, you may need:
 - Custom solver tuning
 - Commercial solver options (Gurobi, MOSEK)
 
-See [Scaling](/docs/guide/scaling/) for large-system guidance.
+See [Scaling](/internals/scaling/) for large-system guidance.
 
 ### Which solver should I use?
 
@@ -177,7 +178,7 @@ duckdb :memory: "SELECT * FROM read_parquet('results.parquet')"
 
 **C/C++/Rust:** Use Arrow C Data Interface
 
-See [Integration Guide](/docs/guide/overview/#data-architecture) for details.
+See [Integration Guide](/guide/overview/#data-architecture) for details.
 
 ## Usage & Workflow
 
@@ -220,7 +221,7 @@ gat runs describe manifest.toml
 gat runs execute manifest.toml
 ```
 
-See [Manifests](/docs/guide/cli-architecture/#manifest-driven-workflows) for more.
+See [Manifests](/internals/cli-architecture/#manifest-driven-workflows) for more.
 
 ### Can I parallelize analysis across multiple machines?
 
@@ -239,7 +240,7 @@ For cloud distribution:
 - Use MCP Server for agent-based distribution
 - Wrap GAT in containers (Docker) for orchestration
 
-See [Scaling](/docs/guide/scaling/) for distributed patterns.
+See [Scaling](/internals/scaling/) for distributed patterns.
 
 ## Installation & Setup
 
@@ -248,14 +249,16 @@ See [Scaling](/docs/guide/scaling/) for distributed patterns.
 We don't publish to crates.io yet. Use the modular installer instead:
 
 ```bash
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh | bash
+curl -fsSL \
+  https://github.com/monistowl/gat/releases/download/v0.3.2/install-modular.sh \
+  | bash
 ```
 
 This downloads pre-built binaries, which is much faster than building from source.
 
 ### What if the modular installer fails?
 
-See [Installation Troubleshooting](/docs/guide/installation-troubleshooting/) for:
+See [Installation Troubleshooting](/guide/install-verify/#troubleshooting) for:
 - Network issues
 - Missing `jq` dependency
 - Permission problems
@@ -302,7 +305,7 @@ If you have system CBC installed, GAT will use it; otherwise, it uses the bundle
 - Domain-specific workflows (ADMS, DERMS, VVO)
 - Graph analysis (islands, cycles, meshing)
 
-See [Feature Matrix](/docs/guide/feature-matrix/) for the full list.
+See [Feature Matrix](/internals/feature-matrix/) for the full list.
 
 ### Does GAT support renewable energy?
 
@@ -312,7 +315,7 @@ Yes:
 - Flexibility constraints (ramp limits, min-up/down)
 - Renewable energy scenarios
 
-See [Time Series Guide](/docs/guide/ts/) for examples.
+See [Time Series Guide](/guide/ts/) for examples.
 
 ### Can GAT handle distribution networks?
 
@@ -322,7 +325,7 @@ Yes, specifically. Domain-specific features include:
 - **VVO** — Volt-VAR Optimization
 - **FLISR** — Fault Location, Isolation, Service Restoration
 
-See [ADMS Guide](/docs/guide/adms/) and [DERMS Guide](/docs/guide/derms/).
+See [ADMS Guide](/guide/adms/) and [DERMS Guide](/guide/derms/).
 
 ### Does GAT support market clearing / LMP?
 
@@ -331,7 +334,7 @@ Yes. GAT can compute:
 - **Congestion rents** and **loss recovery**
 - **Binding constraints** and **shadow prices**
 
-See [OPF Guide](/docs/guide/opf/#locational-marginal-prices) for examples.
+See [OPF Guide](/guide/opf/#locational-marginal-prices) for examples.
 
 ## Getting Help
 
@@ -398,7 +401,7 @@ Good question! To debug:
 5. **Parallelize manually** — Run independent analyses in parallel
 6. **Reduce network size** — Pre-process to remove unrelated areas
 
-See [Scaling Guide](/docs/guide/scaling/) for benchmarked optimizations.
+See [Scaling Guide](/internals/scaling/) for benchmarked optimizations.
 
 ### Does GAT use all my CPU cores?
 

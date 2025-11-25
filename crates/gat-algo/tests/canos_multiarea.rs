@@ -1,7 +1,9 @@
 use gat_algo::{
     AreaId, Corridor, MultiAreaMonteCarlo, MultiAreaOutageScenario, MultiAreaSystem, OutageScenario,
 };
-use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
+use gat_core::{
+    Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node,
+};
 
 fn create_simple_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Network {
     let mut network = Network::new();
@@ -24,6 +26,11 @@ fn create_simple_network(name: &str, gen_capacity: f64, load_capacity: f64) -> N
         bus: BusId::new(0),
         active_power_mw: gen_capacity,
         reactive_power_mvar: 0.0,
+        pmin_mw: 0.0,
+        pmax_mw: 1000.0,
+        qmin_mvar: -1000.0,
+        qmax_mvar: 1000.0,
+        cost_model: CostModel::NoCost,
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -284,7 +291,7 @@ fn test_multiarea_monte_carlo_corridor_utilization() {
     // Should track corridor utilization
     assert!(metrics.corridor_utilization.contains_key(&0));
     let util = metrics.corridor_utilization[&0];
-    assert!(util >= 0.0 && util <= 100.0);
+    assert!((0.0..=100.0).contains(&util));
 }
 
 #[test]

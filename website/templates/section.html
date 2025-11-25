@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="relative z-10">
+  {% include "partials/header.html" %}
+
+  <div class="container mx-auto px-6 py-12 max-w-4xl">
+    <a href="{{ config.base_url }}/" class="inline-block mb-8 text-orange-500 hover:text-orange-400 transition-colors">
+      ← Back to Homepage
+    </a>
+
+    <header class="mb-12 border-b border-slate-800 pb-8">
+      <h1 class="text-4xl font-bold text-white mb-4">{{ section.title }}</h1>
+      {% if section.description %}
+      <p class="text-xl text-slate-400">{{ section.description }}</p>
+      {% endif %}
+    </header>
+
+    {% if section.content %}
+    <div class="prose prose-invert prose-orange max-w-none mb-12">
+      {{ section.content | safe }}
+    </div>
+    {% endif %}
+
+    {% if section.pages %}
+    <section class="space-y-4">
+      {% for page in section.pages %}
+      <a href="{{ page.permalink | safe }}" class="block bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+        <h3 class="text-lg font-bold text-white mb-2">{{ page.title }}</h3>
+        {% if page.description %}
+        <p class="text-slate-400 text-sm">{{ page.description }}</p>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if section.subsections %}
+    <section class="mt-12 space-y-4">
+      <h2 class="text-2xl font-bold text-white mb-6">Subsections</h2>
+      {% for subsection in section.subsections %}
+      <a href="{{ subsection.permalink | safe }}" class="block bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
+        <h3 class="text-lg font-bold text-white mb-2">{{ subsection.title }}</h3>
+        {% if subsection.description %}
+        <p class="text-slate-400 text-sm">{{ subsection.description }}</p>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </div>
+
+  {% include "partials/footer.html" %}
+</div>
+{% endblock content %}

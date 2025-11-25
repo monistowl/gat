@@ -1,28 +1,98 @@
 # Zola configuration for GAT website
+# Using Abridge theme: https://github.com/Jieiku/abridge
 
 base_url = "https://monistowl.github.io/gat"
 title = "GAT – Grid Analysis Toolkit"
 description = "A full grid lab in a single binary. AC-OPF, N-1 contingency analysis, and state estimation without the Python headaches or commercial invoices."
 default_language = "en"
-compile_sass = false
+theme = "abridge"
+
+compile_sass = true
+minify_html = false
 build_search_index = true
-generate_feed = true
-feed_filename = "rss.xml"
+generate_feeds = true
 
 taxonomies = [
-  {name = "tags"},
-  {name = "categories"},
+  {name = "tags", feed = true},
+  {name = "categories", feed = false},
 ]
+
+[search]
+index_format = "elasticlunr_json"
+include_title = true
+include_description = true
+include_content = true
 
 [markdown]
 highlight_code = true
-highlight_theme = "nord"
+highlight_theme = "css"
+bottom_footnotes = true
 external_links_target_blank = true
 external_links_no_follow = false
 external_links_no_referrer = false
 
 [extra]
-# Custom variables for templates
+# GAT-specific variables
 repo_url = "https://github.com/monistowl/gat"
-version = "0.3.1"
+version = "0.3.2"
 tagline = "Stop installing. Start solving."
+
+# Abridge layout settings
+menu = [
+    {url = "guide", name = "Guide", slash = true, blank = false, size="s110"},
+    {url = "internals", name = "Internals", slash = true, blank = false, size="s110"},
+    {url = "reference", name = "Reference", slash = true, blank = false, size="s110"},
+    {url = "blog", name = "Blog", slash = true, blank = false, size="s110"},
+]
+menu_footer = [
+    {url = "about", name = "About", slash = true, blank = false, size="s90"},
+    {url = "contributing", name = "Contribute", slash = true, blank = false, size="s90"},
+    {url = "license", name = "License", slash = true, blank = false, size="s90"},
+    {url = "security", name = "Security", slash = true, blank = false, size="s90"},
+]
+
+toc = true
+recent = false
+series = false
+
+meta_index = { position="bottom", size="s90", author=false, readtime=false, readstring="min", date=true, updated=false, categories_tags=true, divider="" }
+meta_post = { position="top", size="s95", author=true, readtime=false, readstring="min read", date=true, updated=true, categories_tags=true, divider="" }
+
+# Use text logo for GAT
+textlogo = '<span style="color:#f90;font-weight:bold;">GAT</span>'
+
+sitedesc = true
+headhr = false
+foothr = true
+footer_credit = true
+
+# SEO settings
+title_separator = "|"
+title_addition = "Grid Analysis Toolkit"
+author = "GAT Contributors"
+keywords = "power systems, grid analysis, AC-OPF, optimal power flow, contingency analysis, state estimation, Rust, CLI"
+seo = true
+
+# Social links
+feed = true
+github = "monistowl/gat"
+
+# Resource settings - simplified for initial setup
+uglyurls = false
+integrity = false
+js_bundle = true
+js_copycode = true
+js_email_encode = false
+js_prestyle = false
+js_switcher = true
+js_switcher_default = "dark"
+
+search_library = "elasticlunr"
+stylesheets = ["abridge.css"]
+
+# Disable PWA for now (simpler setup)
+pwa = false
+
+# Favicon settings (use defaults for now)
+favicon_theme_color = "#333333"
+favicon_ms_color = "#333333"

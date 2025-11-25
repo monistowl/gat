@@ -528,6 +528,11 @@ fn build_network_from_cim(
                 bus: *bus_id,
                 active_power_mw: gen.active_power_mw,
                 reactive_power_mvar: gen.reactive_power_mvar,
+                pmin_mw: 0.0,
+                pmax_mw: f64::INFINITY,
+                qmin_mvar: f64::NEG_INFINITY,
+                qmax_mvar: f64::INFINITY,
+                cost_model: gat_core::CostModel::NoCost,
             }));
             gen_counter += 1;
         }

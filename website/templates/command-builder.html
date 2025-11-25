@@ -156,11 +156,6 @@ function copyCommand() {
   {% include "partials/header.html" %}
 
   <div class="max-w-7xl mx-auto px-6 py-12">
-    <!-- Header -->
-    <div class="mb-12">
-      {{ page.content | safe }}
-    </div>
-
     <!-- Command Type Selection -->
     <div class="mb-12">
       <h2 class="text-2xl font-bold text-white mb-6">Select Command Type</h2>
@@ -271,7 +266,7 @@ function copyCommand() {
           <div class="bg-slate-900/60 border border-slate-700 rounded-lg p-6 sticky top-24 space-y-4">
             <div>
               <h3 class="text-lg font-bold text-white mb-4">Command Preview</h3>
-              <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto mb-4 max-h-40 text-xs"><code id="commandPreview" class="text-green-400 font-mono"></code></pre>
+              <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 overflow-x-auto mb-4 min-h-24 text-xs whitespace-pre-wrap"><code id="commandPreview" class="text-green-400 font-mono"></code></pre>
             </div>
 
             <div class="space-y-3">
