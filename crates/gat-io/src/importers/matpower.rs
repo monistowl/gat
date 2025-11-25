@@ -162,6 +162,8 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
         if !bus_index_map.contains_key(&gen.gen_bus) {
             return Err(anyhow!("generator references unknown bus {}", gen.gen_bus));
         }
+        // Synchronous condenser detection: Pmax <= 0 but has Q range
+        let is_syncon = gen.pmax <= 0.0 && gen.qmax > gen.qmin;
         network.graph.add_node(Node::Gen(Gen {
             id: GenId::new(gen_id),
             name: format!("Gen {}@{}", gen_id, gen.gen_bus),
@@ -173,7 +175,7 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
             qmin_mvar: gen.qmin,
             qmax_mvar: gen.qmax,
             cost_model: gencost_to_cost_model(case.gencost.get(i)),
-            is_synchronous_condenser: false,
+            is_synchronous_condenser: is_syncon,
         }));
         gen_id += 1;
     }
