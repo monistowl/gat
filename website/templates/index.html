@@ -52,7 +52,7 @@
         <div class="flex flex-col sm:flex-row gap-4">
           <div class="flex items-center gap-0 bg-slate-900 border border-slate-700 rounded-lg p-1 pr-4 shadow-xl">
             <span class="px-3 text-slate-500 select-none">$</span>
-            <code class="font-mono text-sm text-orange-400 flex-grow">curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/install-modular.sh | bash</code>
+            <code class="font-mono text-sm text-orange-400 flex-grow">curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.3/install-modular.sh | bash</code>
             <button
               id="copyButton"
               class="ml-4 text-slate-500 hover:text-white transition-colors"
@@ -300,7 +300,7 @@
       </div>
 
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <a href="{{ config.base_url }}/about/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
+        <a href="{{ get_url(path='/about/') }}" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-800 card-icon">
               📚
@@ -312,15 +312,15 @@
           </p>
         </a>
 
-        <a href="{{ config.base_url }}/docs/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
+        <a href="{{ get_url(path='/guide/') }}" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-800 card-icon">
               📖
             </div>
-            <h3 class="text-lg font-bold text-white">Full Documentation</h3>
+            <h3 class="text-lg font-bold text-white">Guides & Tutorials</h3>
           </div>
           <p class="text-slate-400 text-sm leading-relaxed">
-            Complete guides for power flow, OPF, contingency analysis, and more.
+            End-to-end walkthroughs for power flow, OPF, contingency analysis, and more.
           </p>
         </a>
 
@@ -336,7 +336,7 @@
           </p>
         </a>
 
-        <a href="{{ config.base_url }}/contributing/" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
+        <a href="{{ get_url(path='/contributing/') }}" class="bg-slate-950 border border-slate-800 p-6 rounded-xl card-hover group block">
           <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center border border-slate-800 card-icon">
               🚀
@@ -383,8 +383,8 @@
         Join the researchers, startups, and operators replacing legacy toolchains with GAT.
       </p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-        <a href="{{ config.base_url }}/docs/" class="bg-white text-slate-900 hover:bg-slate-200 px-8 py-3 rounded-lg font-bold transition-colors">
-          Read the Docs
+        <a href="{{ get_url(path='/guide/') }}" class="bg-white text-slate-900 hover:bg-slate-200 px-8 py-3 rounded-lg font-bold transition-colors">
+          Read the Guides
         </a>
         <a href="{{ config.extra.repo_url }}" class="bg-slate-800 text-white hover:bg-slate-700 border border-slate-700 px-8 py-3 rounded-lg font-medium transition-colors">
           View on GitHub
@@ -395,17 +395,17 @@
         <div>
           <h4 class="text-white font-bold mb-4">Product</h4>
           <ul class="space-y-2 text-sm text-slate-500">
-            <li><a href="{{ config.base_url }}/docs/" class="hover:text-orange-500 transition-colors">Features</a></li>
+            <li><a href="{{ get_url(path='/guide/') }}" class="hover:text-orange-500 transition-colors">Features</a></li>
             <li><a href="{{ config.extra.repo_url }}/tree/main/docs" class="hover:text-orange-500 transition-colors">Integrations</a></li>
-            <li><a href="{{ config.base_url }}/guide/adms/" class="hover:text-orange-500 transition-colors">Enterprise</a></li>
+            <li><a href="{{ get_url(path='/guide/adms/') }}" class="hover:text-orange-500 transition-colors">Enterprise</a></li>
             <li><a href="{{ config.extra.repo_url }}/releases" class="hover:text-orange-500 transition-colors">Changelog</a></li>
           </ul>
         </div>
         <div>
           <h4 class="text-white font-bold mb-4">Resources</h4>
           <ul class="space-y-2 text-sm text-slate-500">
-            <li><a href="{{ config.base_url }}/docs/" class="hover:text-orange-500 transition-colors">Documentation</a></li>
-            <li><a href="{{ config.extra.repo_url }}/tree/main/docs" class="hover:text-orange-500 transition-colors">API Reference</a></li>
+            <li><a href="{{ get_url(path='/guide/') }}" class="hover:text-orange-500 transition-colors">Documentation</a></li>
+            <li><a href="{{ get_url(path='/reference/') }}" class="hover:text-orange-500 transition-colors">API Reference</a></li>
             <li><a href="{{ config.extra.repo_url }}/tree/main/examples" class="hover:text-orange-500 transition-colors">Case Studies</a></li>
             <li><a href="{{ config.extra.repo_url }}/discussions" class="hover:text-orange-500 transition-colors">Community</a></li>
           </ul>
@@ -413,10 +413,10 @@
         <div>
           <h4 class="text-white font-bold mb-4">Project</h4>
           <ul class="space-y-2 text-sm text-slate-500">
-            <li><a href="{{ config.base_url }}/about/" class="hover:text-orange-500 transition-colors">About</a></li>
-            <li><a href="{{ config.base_url }}/contributing/" class="hover:text-orange-500 transition-colors">Contributing</a></li>
-            <li><a href="{{ config.base_url }}/license/" class="hover:text-orange-500 transition-colors">License</a></li>
-            <li><a href="{{ config.base_url }}/security/" class="hover:text-orange-500 transition-colors">Security</a></li>
+            <li><a href="{{ get_url(path='/about/') }}" class="hover:text-orange-500 transition-colors">About</a></li>
+            <li><a href="{{ get_url(path='/contributing/') }}" class="hover:text-orange-500 transition-colors">Contributing</a></li>
+            <li><a href="{{ get_url(path='/license/') }}" class="hover:text-orange-500 transition-colors">License</a></li>
+            <li><a href="{{ get_url(path='/security/') }}" class="hover:text-orange-500 transition-colors">Security</a></li>
           </ul>
         </div>
         <div>
@@ -442,6 +442,6 @@
   </footer>
 
   <!-- Simple JS for interactivity -->
-  <script src="{{ config.base_url }}/main.js"></script>
+  <script src="{{ get_url(path='/main.js') }}"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 <nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
     <div class="flex items-center gap-8">
-      <a href="{{ config.base_url }}/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+      <a href="{{ get_url(path='/') }}" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
         <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
           G
         </div>
@@ -10,22 +10,22 @@
       </a>
       <div class="hidden md:flex items-center gap-6">
         {% set path = current_path | default(value="") %}
-        <a href="{{ config.base_url }}/guide/" class="text-sm transition-colors {% if path is starting_with("/guide") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/guide/') }}" class="text-sm transition-colors {% if path is starting_with('/guide') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Guide
         </a>
-        <a href="{{ config.base_url }}/internals/" class="text-sm transition-colors {% if path is starting_with("/internals") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/internals/') }}" class="text-sm transition-colors {% if path is starting_with('/internals') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Internals
         </a>
-        <a href="{{ config.base_url }}/reference/" class="text-sm transition-colors {% if path is starting_with("/reference") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/reference/') }}" class="text-sm transition-colors {% if path is starting_with('/reference') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Reference
         </a>
-        <a href="{{ config.base_url }}/blog/" class="text-sm transition-colors {% if path is starting_with("/blog") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/blog/') }}" class="text-sm transition-colors {% if path is starting_with('/blog') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Blog
         </a>
-        <a href="{{ config.base_url }}/faq/" class="text-sm transition-colors {% if path is starting_with("/faq") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/faq/') }}" class="text-sm transition-colors {% if path is starting_with('/faq') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           FAQ
         </a>
-        <a href="{{ config.base_url }}/command-builder/" class="text-sm transition-colors {% if path is starting_with("/command-builder") %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/command-builder/') }}" class="text-sm transition-colors {% if path is starting_with('/command-builder') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
           Builder
         </a>
       </div>
