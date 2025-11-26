@@ -36,6 +36,7 @@ fn two_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 

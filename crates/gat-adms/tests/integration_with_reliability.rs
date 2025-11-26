@@ -30,6 +30,7 @@ fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Net
         qmin_mvar: f64::NEG_INFINITY,
         qmax_mvar: f64::INFINITY,
         cost_model: gat_core::CostModel::NoCost,
+        is_synchronous_condenser: false,
     }));
 
     network.graph.add_node(Node::Load(Load {

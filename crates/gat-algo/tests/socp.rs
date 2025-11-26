@@ -43,6 +43,7 @@ fn simple_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -131,6 +132,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -151,6 +153,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -171,6 +174,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -386,6 +390,7 @@ fn socp_thermal_limit_binding() {
             s_max_mva: Some(50.0), // Tight limit
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -477,6 +482,7 @@ fn socp_phase_shifting_transformer() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -498,6 +504,7 @@ fn socp_phase_shifting_transformer() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: true,
         }),
     );
 
@@ -518,6 +525,7 @@ fn socp_phase_shifting_transformer() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -604,6 +612,7 @@ fn socp_tap_ratio_transformer() {
             s_max_mva: Some(100.0),
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -697,6 +706,7 @@ fn socp_10_bus_meshed_network() {
                 s_max_mva: None,
                 status: true,
                 rating_a_mva: None,
+                is_phase_shifter: false,
             }),
         );
     }
@@ -805,6 +815,7 @@ fn socp_line_charging() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 

@@ -42,6 +42,7 @@ fn two_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -205,6 +206,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -225,6 +227,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -245,6 +248,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -365,6 +369,7 @@ fn ac_opf_polynomial_cost() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
