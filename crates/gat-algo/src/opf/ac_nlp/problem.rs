@@ -91,7 +91,7 @@
 
 use super::{PowerEquations, YBus, YBusBuilder};
 use crate::opf::OpfError;
-use gat_core::{BusId, CostModel, Network, Node};
+use gat_core::{BusId, CostModel, Edge, Network, Node};
 use std::collections::HashMap;
 
 // ============================================================================
@@ -130,6 +130,32 @@ pub struct GenData {
     /// Cost = c₀ + c₁·P + c₂·P² + ...
     /// Units: c₀ in $/hr, c₁ in $/MWh, c₂ in $/MW²h
     pub cost_coeffs: Vec<f64>,
+}
+
+/// Branch data for thermal limit constraints.
+///
+/// Contains branch parameters needed for computing power flows
+/// and enforcing thermal limits |S_ij| ≤ S_max.
+#[derive(Debug, Clone)]
+pub struct BranchData {
+    /// Branch name/identifier
+    pub name: String,
+    /// From bus index (internal 0-based)
+    pub from_idx: usize,
+    /// To bus index (internal 0-based)
+    pub to_idx: usize,
+    /// Series resistance (p.u.)
+    pub r: f64,
+    /// Series reactance (p.u.)
+    pub x: f64,
+    /// Line charging susceptance (p.u.)
+    pub b_charging: f64,
+    /// Tap ratio (1.0 for transmission lines)
+    pub tap: f64,
+    /// Phase shift (radians)
+    pub shift: f64,
+    /// Thermal limit (MVA), 0 = unlimited
+    pub rate_mva: f64,
 }
 
 /// Bus data extracted from network for OPF optimization.
@@ -244,6 +270,12 @@ pub struct AcOpfProblem {
     /// Maps generator index to bus index where it injects power.
     /// gen_bus_idx[g] = internal bus index for generator g
     pub gen_bus_idx: Vec<usize>,
+
+    /// Branch data for thermal constraints
+    pub branches: Vec<BranchData>,
+
+    /// Number of branches in the network
+    pub n_branch: usize,
 }
 
 impl AcOpfProblem {
@@ -389,6 +421,39 @@ impl AcOpfProblem {
             .map(|g| *bus_map.get(&g.bus_id).unwrap_or(&0))
             .collect();
 
+        // ====================================================================
+        // EXTRACT BRANCH DATA
+        // ====================================================================
+        //
+        // Branches are needed for:
+        // - Thermal limit constraints (|S_ij| ≤ S_max)
+        // - Branch flow reporting
+        // - Angle difference constraints
+
+        let mut branches = Vec::new();
+        for edge_idx in network.graph.edge_indices() {
+            if let Edge::Branch(branch) = &network.graph[edge_idx] {
+                if !branch.status {
+                    continue; // Skip offline branches
+                }
+                let from_idx = *bus_map.get(&branch.from_bus).unwrap_or(&0);
+                let to_idx = *bus_map.get(&branch.to_bus).unwrap_or(&0);
+
+                branches.push(BranchData {
+                    name: branch.name.clone(),
+                    from_idx,
+                    to_idx,
+                    r: branch.resistance,
+                    x: branch.reactance,
+                    b_charging: branch.charging_b_pu,
+                    tap: branch.tap_ratio,
+                    shift: branch.phase_shift_rad,
+                    rate_mva: branch.rating_a_mva.unwrap_or(0.0),
+                });
+            }
+        }
+        let n_branch = branches.len();
+
         Ok(Self {
             ybus,
             buses,
@@ -406,6 +471,9 @@ impl AcOpfProblem {
             qg_offset: 2 * n_bus + n_gen,
 
             gen_bus_idx,
+
+            branches,
+            n_branch,
         })
     }
 
