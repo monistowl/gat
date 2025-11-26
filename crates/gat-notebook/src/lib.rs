@@ -6,6 +6,9 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::{Context, Result};
+use serde::Serialize;
+
 /// Default localhost port used by the embedded notebook server stub.
 const DEFAULT_PORT: u16 = 8787;
 
@@ -146,6 +149,9 @@ fn write_if_absent(path: &Path, contents: String) -> Result<()> {
 
 fn render_readme() -> String {
     let content = r#"# GAT Notebook Workspace
+    let readme = path.join("README.md");
+    if !readme.exists() {
+        let guidance = r#"# GAT Notebook Workspace
 
 This folder mirrors the layout used by the Twinsong notebook experience, but tuned for
 Grid Analysis Toolkit (GAT) workflows:
@@ -226,6 +232,12 @@ fn attempt_open_browser(url: &str) -> bool {
 
     #[allow(unreachable_code)]
     false
+        fs::create_dir_all(path.join("datasets"))?;
+        fs::create_dir_all(path.join("context"))?;
+        fs::write(&readme, guidance)?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
