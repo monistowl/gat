@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use gat_core::{Network, Node, NodeIndex};
+use gat_core::{BusId, Network, Node, NodeIndex};
 use std::collections::HashSet;
 
 /// Represents a single outage scenario (which generators/lines are offline)
@@ -237,92 +237,116 @@ impl MonteCarlo {
     /// This function determines which generators can actually reach the load nodes
     /// through available (online) branches. If critical branches are offline,
     /// some generators may be isolated and unable to contribute to supply.
+    ///
+    /// The algorithm works by:
+    /// 1. Building a map from BusId to NodeIndex for bus nodes
+    /// 2. Determining bus-level connectivity through online branches
+    /// 3. Checking if each generator's bus can reach any load's bus
     fn calculate_deliverable_generation(
         &self,
         network: &Network,
         scenario: &OutageScenario,
     ) -> Result<f64> {
-        use std::collections::VecDeque;
+        use std::collections::{HashMap, HashSet, VecDeque};
 
-        // Find all load nodes
-        let load_nodes: Vec<NodeIndex> = network
-            .graph
-            .node_indices()
-            .filter(|&idx| matches!(network.graph.node_weight(idx), Some(Node::Load(_))))
-            .collect();
+        // Step 1: Build mapping from BusId to NodeIndex for bus nodes
+        let mut bus_id_to_node: HashMap<BusId, NodeIndex> = HashMap::new();
+        for node_idx in network.graph.node_indices() {
+            if let Some(Node::Bus(bus)) = network.graph.node_weight(node_idx) {
+                bus_id_to_node.insert(bus.id, node_idx);
+            }
+        }
 
-        if load_nodes.is_empty() {
+        // Step 2: Find all load buses
+        let mut load_buses: HashSet<BusId> = HashSet::new();
+        for node_idx in network.graph.node_indices() {
+            if let Some(Node::Load(load)) = network.graph.node_weight(node_idx) {
+                load_buses.insert(load.bus);
+            }
+        }
+
+        if load_buses.is_empty() {
             return Ok(0.0);
         }
 
-        // Find all generator nodes that are online
-        let available_gens: Vec<(NodeIndex, f64)> = network
-            .graph
-            .node_indices()
-            .filter_map(|idx| {
-                if let Some(Node::Gen(gen)) = network.graph.node_weight(idx) {
-                    if !scenario.offline_generators.contains(&idx) {
-                        return Some((idx, gen.active_power_mw));
-                    }
+        // Step 3: Find all online generators and their buses
+        let mut gen_bus_capacity: Vec<(BusId, f64)> = Vec::new();
+        for node_idx in network.graph.node_indices() {
+            if let Some(Node::Gen(gen)) = network.graph.node_weight(node_idx) {
+                if !scenario.offline_generators.contains(&node_idx) {
+                    gen_bus_capacity.push((gen.bus, gen.active_power_mw));
                 }
-                None
-            })
-            .collect();
+            }
+        }
 
-        if available_gens.is_empty() {
+        if gen_bus_capacity.is_empty() {
             return Ok(0.0);
         }
 
-        // Build connectivity map: for each node, which other nodes can it reach through online branches?
-        let mut reachable_from = std::collections::HashMap::new();
+        // Step 4: Build bus connectivity through online branches
+        // We need to find which buses can reach which other buses
+        let mut bus_reachable: HashMap<BusId, HashSet<BusId>> = HashMap::new();
 
-        for start_node in network.graph.node_indices() {
-            let mut visited = std::collections::HashSet::new();
+        // Get all unique generator buses as starting points
+        let gen_buses: HashSet<BusId> = gen_bus_capacity.iter().map(|(b, _)| *b).collect();
+
+        for &start_bus in &gen_buses {
+            // Verify the bus exists in the network
+            if !bus_id_to_node.contains_key(&start_bus) {
+                continue;
+            }
+
+            let mut visited_buses: HashSet<BusId> = HashSet::new();
             let mut queue = VecDeque::new();
-            queue.push_back(start_node);
-            visited.insert(start_node);
+            queue.push_back(start_bus);
+            visited_buses.insert(start_bus);
 
-            while let Some(current) = queue.pop_front() {
-                reachable_from
-                    .entry(start_node)
-                    .or_insert_with(Vec::new)
-                    .push(current);
+            while let Some(current_bus) = queue.pop_front() {
+                let Some(&current_node) = bus_id_to_node.get(&current_bus) else {
+                    continue;
+                };
 
                 // Explore neighbors through online branches
-                // Check all edges in the graph and see which ones are incident to current node
                 for edge_idx in network.graph.edge_indices() {
+                    // Skip offline branches
+                    if scenario.offline_branches.contains(&edge_idx.index()) {
+                        continue;
+                    }
+
                     if let Some((source, target)) = network.graph.edge_endpoints(edge_idx) {
-                        // Check if this edge is incident to the current node
-                        let neighbor_opt = if source == current {
+                        // Check if this edge connects to the current bus node
+                        let neighbor_node = if source == current_node {
                             Some(target)
-                        } else if target == current {
+                        } else if target == current_node {
                             Some(source)
                         } else {
                             None
                         };
 
-                        if let Some(neighbor) = neighbor_opt {
-                            // Only traverse online branches to unvisited nodes
-                            if !scenario.offline_branches.contains(&edge_idx.index())
-                                && !visited.contains(&neighbor)
-                            {
-                                visited.insert(neighbor);
-                                queue.push_back(neighbor);
+                        if let Some(neighbor) = neighbor_node {
+                            // Get the neighbor's bus ID if it's a bus node
+                            if let Some(Node::Bus(neighbor_bus)) = network.graph.node_weight(neighbor) {
+                                if !visited_buses.contains(&neighbor_bus.id) {
+                                    visited_buses.insert(neighbor_bus.id);
+                                    queue.push_back(neighbor_bus.id);
+                                }
                             }
                         }
                     }
                 }
             }
+
+            bus_reachable.insert(start_bus, visited_buses);
         }
 
-        // Calculate generation deliverable to at least one load
+        // Step 5: Calculate deliverable generation
+        // A generator is deliverable if its bus can reach any load bus
         let mut total_deliverable = 0.0;
 
-        for (gen_node, gen_capacity) in available_gens {
-            // Check if this generator can reach any load node
-            if let Some(reachable) = reachable_from.get(&gen_node) {
-                if reachable.iter().any(|n| load_nodes.contains(n)) {
-                    total_deliverable += gen_capacity;
+        for (gen_bus, capacity) in gen_bus_capacity {
+            if let Some(reachable_buses) = bus_reachable.get(&gen_bus) {
+                if reachable_buses.iter().any(|b| load_buses.contains(b)) {
+                    total_deliverable += capacity;
                 }
             }
         }

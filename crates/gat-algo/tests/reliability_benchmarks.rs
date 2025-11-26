@@ -71,23 +71,18 @@ fn create_benchmark_network(
 
 #[test]
 fn test_nerc_lole_benchmark_range() {
-    // Test that LOLE calculation produces valid, finite values
-    //
-    // NOTE: The current Monte Carlo implementation has a known limitation where
-    // the BFS-based deliverability calculation doesn't correctly trace bus membership
-    // for generators and loads (they're nodes not connected via edges to bus nodes).
-    // This causes all scenarios to show shortfall. A proper fix would require
-    // enhancing calculate_deliverable_generation to understand that generators/loads
-    // belong to buses via their `bus` field, not via graph edges.
-    //
-    // For now, we test that the calculation completes and produces valid numeric results.
+    // NERC reliability standard: LOLE of 0.1 days/year (2.4 hrs/year) is typical target
+    // Our Monte Carlo model tests that the calculation produces realistic values
+    // for a well-provisioned system (2x capacity margin)
 
+    // 200 MW generation, 100 MW load, 5 generators (40 MW each)
     let network = create_benchmark_network("nerc_test", 200.0, 100.0, 5);
 
-    let mut mc = MonteCarlo::new(100);
-    mc.scenario_gen.gen_failure_rate = 0.02;
-    mc.scenario_gen.branch_failure_rate = 0.0;
-    mc.scenario_gen.demand_range = (0.9, 1.0);
+    // Configure Monte Carlo with realistic parameters
+    let mut mc = MonteCarlo::new(1000);
+    mc.scenario_gen.gen_failure_rate = 0.02; // 2% failure rate per generator
+    mc.scenario_gen.branch_failure_rate = 0.0; // No branch failures for this test
+    mc.scenario_gen.demand_range = (0.9, 1.0); // Demand at 90-100% of nominal
 
     let metrics = mc.compute_reliability(&network).unwrap();
 
@@ -95,12 +90,30 @@ fn test_nerc_lole_benchmark_range() {
     assert!(metrics.lole >= 0.0, "LOLE should be non-negative, got {}", metrics.lole);
     assert!(metrics.lole.is_finite(), "LOLE should be finite, got {}", metrics.lole);
 
-    // EUE should also be valid
+    // Sanity check: LOLE shouldn't exceed hours in a year
+    assert!(
+        metrics.lole <= 8766.1,
+        "LOLE should not exceed 8766 hrs/year, got {}",
+        metrics.lole
+    );
+
+    // With 2x capacity margin and 2% failure rate:
+    // - Each generator is 40 MW, need 3+ to fail simultaneously to cause shortfall
+    //   when demand is at max (100 MW) since 2 gens = 80 MW < 100 MW
+    // - Probability of 3+ failures out of 5 with p=0.02 is very low
+    // - Expected LOLE should be well under 1000 hours/year
+    assert!(
+        metrics.lole < 1000.0,
+        "LOLE with 2x capacity margin should be < 1000 hrs/year, got {}",
+        metrics.lole
+    );
+
+    // EUE should also be valid and reasonable
     assert!(metrics.eue >= 0.0, "EUE should be non-negative, got {}", metrics.eue);
     assert!(metrics.eue.is_finite(), "EUE should be finite, got {}", metrics.eue);
 
     // Scenarios should have been analyzed
-    assert_eq!(metrics.scenarios_analyzed, 100);
+    assert_eq!(metrics.scenarios_analyzed, 1000);
 }
 
 #[test]
