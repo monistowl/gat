@@ -36,6 +36,7 @@ pub struct OperationsPaneState {
 
     // Reliability operations (kept inline as it's simpler)
     reliability_metrics: Vec<ReliabilityMetric>,
+    #[allow(dead_code)]
     selected_metric: usize,
     pub metrics_list: ListWidget,
 

@@ -19,15 +19,15 @@
 //!
 //! ```rust,no_run
 //! use gat_io::importers::parse_matpower;
-//! 
+//!
 //! fn main() -> anyhow::Result<()> {
 //!     let result = parse_matpower("case14.m")?;
 //!     let network = result.network;
 //!     let diagnostics = result.diagnostics;
-//! 
+//!
 //!     println!("Buses: {}", network.graph.node_count());
 //!     println!("Branches: {}", network.graph.edge_count());
-//! 
+//!
 //!     Ok(())
 //! }
 //! ```

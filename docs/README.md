@@ -29,6 +29,9 @@ Use `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` to preview the generated tr
 - `docs/guide/demos/README.md` shows how to add training-focused demos (the first one lives in `test_data/demos/reliability_pricing.py`).
 - `docs/guide/gat-tui.md` introduces the Ratatui-powered `gat-tui` monitor for workflow visibility.
 - `docs/guide/scaling.md`: describes the multi-horizon scaling roadmap along with concrete code/CLI targets.
+- `docs/guide/arrow_schema.md`: provides a table-by-table tour of the folder-based Arrow dataset, highlighting how each column supports Newton–Raphson and DC power flow solvers.
+- `docs/guide/convert.md`: documents the new `gat convert format` command that uses Arrow as the intermediary before emitting MATPOWER/PSS/E/CIM/PandaPower exports.
+- `docs/guide/pandapower_schema.md`: maps PandaPower’s `net.bus`, `net.gen`, `net.line`, etc., into the shared Arrow schema so people can follow the conversion.
 - `docs/ROADMAP.md`: the canonical plan for the workspace with phases, milestones, and deliverables.
 
 Running `cargo xtask doc all` keeps this README and the guide content aligned so the MCP server has a single authoritative view.

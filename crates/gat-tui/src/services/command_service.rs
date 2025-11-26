@@ -234,6 +234,7 @@ impl CommandExecution {
 
 /// Service for executing system commands with async support
 pub struct CommandService {
+    #[allow(dead_code)]
     default_timeout: u64,
     max_output_lines: usize,
 }

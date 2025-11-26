@@ -152,7 +152,7 @@ pub struct CapabilityCurvePoint {
 /// Generator data extracted from network for OPF optimization.
 ///
 /// Contains the essential parameters needed for dispatch optimization:
-/// operating limits and cost function coefficients.
+/// operating limits and cost function.
 #[derive(Debug, Clone)]
 pub struct GenData {
     /// Human-readable generator identifier
@@ -177,10 +177,15 @@ pub struct GenData {
     /// Limited by field current heating (lagging power factor).
     pub qmax_mvar: f64,
 
-    /// Cost function coefficients [c₀, c₁, c₂, ...].
+    /// Cost function coefficients [c₀, c₁, c₂, ...] for polynomial costs.
     /// Cost = c₀ + c₁·P + c₂·P² + ...
     /// Units: c₀ in $/hr, c₁ in $/MWh, c₂ in $/MW²h
+    /// Note: For piecewise-linear costs, this is ignored and `cost_model` is used.
     pub cost_coeffs: Vec<f64>,
+
+    /// Full cost model supporting both polynomial and piecewise-linear costs.
+    /// When present, this takes precedence over `cost_coeffs`.
+    pub cost_model: CostModel,
 
     /// Capability curve points (if empty, use rectangular limits).
     /// Points should be sorted by p_mw in ascending order.
@@ -425,16 +430,15 @@ impl AcOpfProblem {
         let mut generators = Vec::new();
         for node_idx in network.graph.node_indices() {
             if let Node::Gen(gen) = &network.graph[node_idx] {
-                // Convert cost model to polynomial coefficients
-                // Piecewise-linear costs are linearized at midpoint
+                // Extract polynomial coefficients (for backwards compatibility)
+                // Piecewise-linear costs use the full cost_model instead
                 let cost_coeffs = match &gen.cost_model {
                     CostModel::NoCost => vec![0.0, 0.0],
                     CostModel::Polynomial(c) => c.clone(),
                     CostModel::PiecewiseLinear(_) => {
-                        // Approximate piecewise-linear with single linear segment
-                        // Uses marginal cost at operating midpoint
-                        let mid = (gen.pmin_mw + gen.pmax_mw) / 2.0;
-                        vec![0.0, gen.cost_model.marginal_cost(mid)]
+                        // For piecewise-linear, coeffs are placeholder only
+                        // The objective() function uses cost_model directly
+                        vec![0.0, 0.0]
                     }
                 };
 
@@ -446,6 +450,7 @@ impl AcOpfProblem {
                     qmin_mvar: gen.qmin_mvar,
                     qmax_mvar: gen.qmax_mvar,
                     cost_coeffs,
+                    cost_model: gen.cost_model.clone(),
                     capability_curve: Vec::new(), // Default: use rectangular limits
                 });
             }
@@ -609,9 +614,9 @@ impl AcOpfProblem {
 
     /// Evaluate the objective function (total generation cost).
     ///
-    /// ```text
-    /// f(x) = Σ_g [ c₀_g + c₁_g · P_g + c₂_g · P_g² ]
-    /// ```
+    /// Supports both polynomial and piecewise-linear cost models:
+    /// - **Polynomial**: f(P) = c₀ + c₁·P + c₂·P² + ...
+    /// - **Piecewise-linear**: Interpolated from (MW, $/hr) breakpoints
     ///
     /// # Arguments
     ///
@@ -624,8 +629,7 @@ impl AcOpfProblem {
     /// # Note
     ///
     /// Generator dispatch values P_g are stored in per-unit in x, but cost
-    /// coefficients are typically defined in MW. We convert back to MW for
-    /// cost evaluation to match standard input data formats.
+    /// models are defined in MW. We convert back to MW for cost evaluation.
     pub fn objective(&self, x: &[f64]) -> f64 {
         let mut cost = 0.0;
 
@@ -634,13 +638,9 @@ impl AcOpfProblem {
             let pg_pu = x[self.pg_offset + i];
             let pg_mw = pg_pu * self.base_mva;
 
-            // Get cost coefficients (defaulting to zero if not specified)
-            let c0 = gen.cost_coeffs.first().copied().unwrap_or(0.0);
-            let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
-            let c2 = gen.cost_coeffs.get(2).copied().unwrap_or(0.0);
-
-            // Polynomial cost: c₀ + c₁·P + c₂·P²
-            cost += c0 + c1 * pg_mw + c2 * pg_mw * pg_mw;
+            // Use the full cost model which handles both polynomial and
+            // piecewise-linear costs correctly via CostModel::evaluate()
+            cost += gen.cost_model.evaluate(pg_mw);
         }
 
         cost
@@ -648,12 +648,14 @@ impl AcOpfProblem {
 
     /// Compute the gradient of the objective function.
     ///
-    /// For polynomial cost f(P) = c₀ + c₁·P + c₂·P²:
-    /// ```text
-    /// ∂f/∂P_pu = (c₁ + 2·c₂·P_MW) · S_base
-    /// ```
+    /// Supports both polynomial and piecewise-linear cost models:
+    /// - **Polynomial**: ∂f/∂P = c₁ + 2·c₂·P + ... (marginal cost)
+    /// - **Piecewise-linear**: Slope of the segment containing current P
     ///
-    /// The scaling by S_base accounts for the per-unit representation.
+    /// The scaling by S_base accounts for the per-unit representation:
+    /// ```text
+    /// ∂f/∂P_pu = marginal_cost(P_MW) · S_base
+    /// ```
     ///
     /// # Arguments
     ///
@@ -669,12 +671,10 @@ impl AcOpfProblem {
             let pg_pu = x[self.pg_offset + i];
             let pg_mw = pg_pu * self.base_mva;
 
-            let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
-            let c2 = gen.cost_coeffs.get(2).copied().unwrap_or(0.0);
-
-            // Chain rule: ∂f/∂P_pu = ∂f/∂P_MW · ∂P_MW/∂P_pu
-            //                      = (c₁ + 2·c₂·P_MW) · S_base
-            grad[self.pg_offset + i] = (c1 + 2.0 * c2 * pg_mw) * self.base_mva;
+            // Use marginal_cost() which handles both polynomial and
+            // piecewise-linear costs correctly
+            // Chain rule: ∂f/∂P_pu = ∂f/∂P_MW · ∂P_MW/∂P_pu = marginal_cost · S_base
+            grad[self.pg_offset + i] = gen.cost_model.marginal_cost(pg_mw) * self.base_mva;
         }
 
         grad
@@ -828,5 +828,82 @@ impl AcOpfProblem {
         }
 
         (lb, ub)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_piecewise_linear_cost_evaluation() {
+        // Create a piecewise-linear cost curve:
+        // 0 MW -> $0/hr
+        // 50 MW -> $500/hr (slope = $10/MWh)
+        // 100 MW -> $1500/hr (slope = $20/MWh - more expensive at higher output)
+        let pwl_cost = CostModel::PiecewiseLinear(vec![
+            (0.0, 0.0),      // P=0, cost=0
+            (50.0, 500.0),   // P=50, cost=500
+            (100.0, 1500.0), // P=100, cost=1500
+        ]);
+
+        // Test cost evaluation at breakpoints
+        assert!((pwl_cost.evaluate(0.0) - 0.0).abs() < 1e-9);
+        assert!((pwl_cost.evaluate(50.0) - 500.0).abs() < 1e-9);
+        assert!((pwl_cost.evaluate(100.0) - 1500.0).abs() < 1e-9);
+
+        // Test interpolation between breakpoints
+        // At 25 MW: should be 250 (halfway between 0 and 500)
+        assert!((pwl_cost.evaluate(25.0) - 250.0).abs() < 1e-9);
+
+        // At 75 MW: should be 1000 (halfway between 500 and 1500)
+        assert!((pwl_cost.evaluate(75.0) - 1000.0).abs() < 1e-9);
+
+        // Test marginal cost (derivative)
+        // First segment: slope = 500/50 = 10 $/MWh
+        assert!((pwl_cost.marginal_cost(25.0) - 10.0).abs() < 1e-9);
+
+        // Second segment: slope = 1000/50 = 20 $/MWh
+        assert!((pwl_cost.marginal_cost(75.0) - 20.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_polynomial_vs_piecewise_cost_models() {
+        // Create a GenData with piecewise-linear cost
+        let pwl_gen = GenData {
+            name: "PWL_Gen".to_string(),
+            bus_id: BusId::new(1),
+            pmin_mw: 0.0,
+            pmax_mw: 100.0,
+            qmin_mvar: -50.0,
+            qmax_mvar: 50.0,
+            cost_coeffs: vec![], // Ignored for PWL
+            cost_model: CostModel::PiecewiseLinear(vec![
+                (0.0, 100.0),    // $100/hr no-load cost
+                (100.0, 1100.0), // $1100/hr at 100 MW (avg $10/MWh)
+            ]),
+            capability_curve: Vec::new(),
+        };
+
+        // Create a GenData with polynomial cost (linear: $100 + $10*P)
+        let poly_gen = GenData {
+            name: "Poly_Gen".to_string(),
+            bus_id: BusId::new(1),
+            pmin_mw: 0.0,
+            pmax_mw: 100.0,
+            qmin_mvar: -50.0,
+            qmax_mvar: 50.0,
+            cost_coeffs: vec![100.0, 10.0, 0.0],
+            cost_model: CostModel::linear(100.0, 10.0),
+            capability_curve: Vec::new(),
+        };
+
+        // For linear PWL, both should give the same cost at any P
+        assert!((pwl_gen.cost_model.evaluate(0.0) - poly_gen.cost_model.evaluate(0.0)).abs() < 1e-9);
+        assert!((pwl_gen.cost_model.evaluate(50.0) - poly_gen.cost_model.evaluate(50.0)).abs() < 1e-9);
+        assert!((pwl_gen.cost_model.evaluate(100.0) - poly_gen.cost_model.evaluate(100.0)).abs() < 1e-9);
+
+        // Marginal costs should also match
+        assert!((pwl_gen.cost_model.marginal_cost(50.0) - poly_gen.cost_model.marginal_cost(50.0)).abs() < 1e-9);
     }
 }

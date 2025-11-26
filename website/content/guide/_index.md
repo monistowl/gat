@@ -34,3 +34,5 @@ Practical guides for CLI operators and analysts using GAT.
 - **[CLI Overview](overview/)** — Command structure and options
 - **[Visualization](viz/)** — Network and results visualization
 - **[Benchmarking](benchmark/)** — Performance testing
+- **[Arrow schema](arrow-schema/)** — Canonical folder layout (system/buses/generators/loads/branches) and manifest provenance
+- **[Convert workflow](convert/)** — `gat convert format` to move between MATPOWER/PSS/E/CIM/PandaPower via Arrow

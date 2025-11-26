@@ -109,6 +109,8 @@ To convert from MATPOWER format and run analysis:
 # Step 1: Import MATPOWER case to Arrow format
 gat import matpower --m test_data/matpower/ieee14.case -o grid.arrow
 
+If you start from a non-MATPOWER source (CIM, PSS/E, PandaPower), use `gat convert format` to auto-detect the format, convert via Arrow, and keep the same downstream commands. See [Convert guide](/guide/convert/) for examples.
+
 # Step 2: Run DC power flow
 gat pf dc grid.arrow --out flows_dc.parquet
 ```

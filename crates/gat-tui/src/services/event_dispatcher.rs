@@ -101,7 +101,7 @@ impl AsyncEvent {
 }
 
 #[cfg(test)]
-mod tests {
+mod async_event_tests {
     use super::*;
 
     #[test]
@@ -307,7 +307,7 @@ impl Default for BackgroundEventProcessor {
 }
 
 #[cfg(test)]
-mod tests {
+mod dispatcher_tests {
     use super::*;
 
     #[test]

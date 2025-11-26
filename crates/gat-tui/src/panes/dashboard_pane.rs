@@ -383,6 +383,7 @@ impl QuickAction {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::GridStatus;
 
     #[test]
     fn test_dashboard_init() {

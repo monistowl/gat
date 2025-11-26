@@ -33,7 +33,6 @@ struct PandapowerNet {
     ext_grid: Option<DataFrameJson>,
     line: Option<DataFrameJson>,
     trafo: Option<DataFrameJson>,
-    shunt: Option<DataFrameJson>,
     // We skip DC, 3-phase, and result tables for now
     #[serde(flatten)]
     _extra: HashMap<String, Value>,
@@ -46,7 +45,6 @@ struct DataFrameJson {
     _class: String,
     /// The actual DataFrame content as a JSON string
     _object: String,
-    orient: Option<String>,
     #[serde(flatten)]
     _extra: HashMap<String, Value>,
 }

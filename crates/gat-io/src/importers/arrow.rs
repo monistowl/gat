@@ -1,14 +1,12 @@
 use std::{collections::HashMap, convert::TryFrom, path::Path};
 
-use crate::arrow_validator::{
-    BranchRecord, BusRecord, GeneratorRecord, LoadRecord, NetworkData, };
+use crate::arrow_manifest::ArrowManifest;
 use crate::arrow_schema::{COST_MODEL_NONE, COST_MODEL_PIECEWISE, COST_MODEL_POLYNOMIAL};
 use anyhow::{anyhow, Context, Result};
 use gat_core::{
     Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node, NodeIndex,
     Transformer, TransformerId,
 };
-use polars::prelude::{DataFrame, NamedFrom, PolarsResult, Series};
 
 pub fn export_network_to_arrow(network: &Network, output_dir: impl AsRef<Path>) -> Result<()> {
     let writer = crate::exporters::ArrowDirectoryWriter::new(output_dir)?;
@@ -16,8 +14,16 @@ pub fn export_network_to_arrow(network: &Network, output_dir: impl AsRef<Path>) 
 }
 
 pub fn load_grid_from_arrow(input_dir: impl AsRef<Path>) -> Result<Network> {
-    let reader = crate::exporters::ArrowDirectoryReader::open(input_dir)?;
-    network_from_directory_reader(&reader)
+    load_grid_from_arrow_with_manifest(input_dir).map(|(network, _)| network)
+}
+
+pub fn load_grid_from_arrow_with_manifest(
+    input_dir: impl AsRef<Path>,
+) -> Result<(Network, ArrowManifest)> {
+    let reader = crate::exporters::ArrowDirectoryReader::open(&input_dir)?;
+    let manifest = reader.manifest().clone();
+    let network = network_from_directory_reader(&reader)?;
+    Ok((network, manifest))
 }
 
 fn network_from_directory_reader(
@@ -158,16 +164,8 @@ fn network_from_directory_reader(
                     .get_as_series(row)
                     .context("piecewise cost_values missing")?;
 
-                let coeffs: Vec<f64> = coeffs_series
-                    .f64()?
-                    .into_iter()
-                    .flatten()
-                    .collect();
-                let values: Vec<f64> = values_series
-                    .f64()?
-                    .into_iter()
-                    .flatten()
-                    .collect();
+                let coeffs: Vec<f64> = coeffs_series.f64()?.into_iter().flatten().collect();
+                let values: Vec<f64> = values_series.f64()?.into_iter().flatten().collect();
 
                 gat_core::CostModel::PiecewiseLinear(
                     coeffs.into_iter().zip(values.into_iter()).collect(),
@@ -177,11 +175,7 @@ fn network_from_directory_reader(
                 let coeffs_series = gen_cost_coeffs_col
                     .get_as_series(row)
                     .context("polynomial cost_coeffs missing")?;
-                let coeffs: Vec<f64> = coeffs_series
-                    .f64()?
-                    .into_iter()
-                    .flatten()
-                    .collect();
+                let coeffs: Vec<f64> = coeffs_series.f64()?.into_iter().flatten().collect();
                 gat_core::CostModel::Polynomial(coeffs)
             }
             _ => gat_core::CostModel::NoCost,
@@ -391,195 +385,4 @@ fn network_from_directory_reader(
     //     .context("imported network failed integrity validation")?;
 
     Ok(network)
-}
-
-fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
-    let mut element_type: Vec<String> = Vec::new();
-    let mut element_id: Vec<i64> = Vec::new();
-    let mut element_name: Vec<String> = Vec::new();
-    let mut voltage_kv: Vec<Option<f64>> = Vec::new();
-    let mut from_bus: Vec<Option<i64>> = Vec::new();
-    let mut to_bus: Vec<Option<i64>> = Vec::new();
-    let mut resistance: Vec<Option<f64>> = Vec::new();
-    let mut reactance: Vec<Option<f64>> = Vec::new();
-    let mut tap_ratio: Vec<Option<f64>> = Vec::new();
-    let mut phase_shift_rad: Vec<Option<f64>> = Vec::new();
-    let mut charging_b_pu: Vec<Option<f64>> = Vec::new();
-    let mut s_max_mva: Vec<Option<f64>> = Vec::new();
-    let mut status: Vec<Option<bool>> = Vec::new();
-    let mut rating_a_mva: Vec<Option<f64>> = Vec::new();
-    let mut active_power: Vec<Option<f64>> = Vec::new();
-    let mut reactive_power: Vec<Option<f64>> = Vec::new();
-
-    for node_idx in network.graph.node_indices() {
-        match &network.graph[node_idx] {
-            Node::Bus(bus) => {
-                element_type.push("bus".to_string());
-                element_id.push(bus.id.value() as i64);
-                element_name.push(bus.name.clone());
-                voltage_kv.push(Some(bus.voltage_kv));
-                from_bus.push(None);
-                to_bus.push(None);
-                resistance.push(None);
-                reactance.push(None);
-                tap_ratio.push(None);
-                phase_shift_rad.push(None);
-                charging_b_pu.push(None);
-                s_max_mva.push(None);
-                status.push(None);
-                rating_a_mva.push(None);
-                active_power.push(None);
-                reactive_power.push(None);
-            }
-            Node::Gen(gen) => {
-                element_type.push("gen".to_string());
-                element_id.push(gen.id.value() as i64);
-                element_name.push(gen.name.clone());
-                voltage_kv.push(None);
-                from_bus.push(Some(gen.bus.value() as i64));
-                to_bus.push(None);
-                resistance.push(None);
-                reactance.push(None);
-                tap_ratio.push(None);
-                phase_shift_rad.push(None);
-                charging_b_pu.push(None);
-                s_max_mva.push(None);
-                status.push(None);
-                rating_a_mva.push(None);
-                active_power.push(Some(gen.active_power_mw));
-                reactive_power.push(Some(gen.reactive_power_mvar));
-            }
-            Node::Load(load) => {
-                element_type.push("load".to_string());
-                element_id.push(load.id.value() as i64);
-                element_name.push(load.name.clone());
-                voltage_kv.push(None);
-                from_bus.push(Some(load.bus.value() as i64));
-                to_bus.push(None);
-                resistance.push(None);
-                reactance.push(None);
-                tap_ratio.push(None);
-                phase_shift_rad.push(None);
-                charging_b_pu.push(None);
-                s_max_mva.push(None);
-                status.push(None);
-                rating_a_mva.push(None);
-                active_power.push(Some(load.active_power_mw));
-                reactive_power.push(Some(load.reactive_power_mvar));
-            }
-        }
-    }
-
-    for edge_idx in network.graph.edge_indices() {
-        let edge = &network.graph[edge_idx];
-        match edge {
-            Edge::Branch(branch) => {
-                element_type.push("branch".to_string());
-                element_id.push(branch.id.value() as i64);
-                element_name.push(branch.name.clone());
-                voltage_kv.push(None);
-                from_bus.push(Some(branch.from_bus.value() as i64));
-                to_bus.push(Some(branch.to_bus.value() as i64));
-                resistance.push(Some(branch.resistance));
-                reactance.push(Some(branch.reactance));
-                tap_ratio.push(Some(branch.tap_ratio));
-                phase_shift_rad.push(Some(branch.phase_shift_rad));
-                charging_b_pu.push(Some(branch.charging_b_pu));
-                s_max_mva.push(branch.s_max_mva);
-                status.push(Some(branch.status));
-                rating_a_mva.push(branch.rating_a_mva);
-                active_power.push(None);
-                reactive_power.push(None);
-            }
-            Edge::Transformer(tx) => {
-                element_type.push("transformer".to_string());
-                element_id.push(tx.id.value() as i64);
-                element_name.push(tx.name.clone());
-                voltage_kv.push(None);
-                from_bus.push(Some(tx.from_bus.value() as i64));
-                to_bus.push(Some(tx.to_bus.value() as i64));
-                resistance.push(None);
-                reactance.push(None);
-                tap_ratio.push(None);
-                phase_shift_rad.push(None);
-                charging_b_pu.push(None);
-                s_max_mva.push(None);
-                status.push(None);
-                rating_a_mva.push(None);
-                active_power.push(None);
-                reactive_power.push(None);
-            }
-        }
-    }
-
-    DataFrame::new(vec![
-        Series::new("type", element_type),
-        Series::new("id", element_id),
-        Series::new("name", element_name),
-        Series::new("voltage_kv", voltage_kv),
-        Series::new("from_bus", from_bus),
-        Series::new("to_bus", to_bus),
-        Series::new("resistance", resistance),
-        Series::new("reactance", reactance),
-        Series::new("tap_ratio", tap_ratio),
-        Series::new("phase_shift_rad", phase_shift_rad),
-        Series::new("charging_b_pu", charging_b_pu),
-        Series::new("s_max_mva", s_max_mva),
-        Series::new("status", status),
-        Series::new("rating_a_mva", rating_a_mva),
-        Series::new("active_power_mw", active_power),
-        Series::new("reactive_power_mvar", reactive_power),
-    ])
-}
-
-// Convert in-memory Network into validator-friendly records
-fn network_to_validator_data(network: &Network) -> NetworkData {
-    let mut data = NetworkData::default();
-
-    for node in network.graph.node_weights() {
-        match node {
-            Node::Bus(bus) => data.buses.push(BusRecord {
-                id: bus.id.value() as i64,
-            }),
-            Node::Gen(gen) => {
-                let (cost_model, cost_coeffs, cost_values) = match &gen.cost_model {
-                    gat_core::CostModel::NoCost => (0, Vec::new(), Vec::new()),
-                    gat_core::CostModel::PiecewiseLinear(points) => {
-                        let mut xs = Vec::with_capacity(points.len());
-                        let mut ys = Vec::with_capacity(points.len());
-                        for (x, y) in points {
-                            xs.push(*x);
-                            ys.push(*y);
-                        }
-                        (1, xs, ys)
-                    }
-                    gat_core::CostModel::Polynomial(coeffs) => (2, coeffs.clone(), Vec::new()),
-                };
-
-                data.generators.push(GeneratorRecord {
-                    id: gen.id.value() as i64,
-                    bus: gen.bus.value() as i64,
-                    cost_model,
-                    cost_coeffs,
-                    cost_values,
-                });
-            }
-            Node::Load(load) => data.loads.push(LoadRecord {
-                id: load.id.value() as i64,
-                bus: load.bus.value() as i64,
-            }),
-        }
-    }
-
-    for edge in network.graph.edge_weights() {
-        if let Edge::Branch(branch) = edge {
-            data.branches.push(BranchRecord {
-                id: branch.id.value() as i64,
-                from_bus: branch.from_bus.value() as i64,
-                to_bus: branch.to_bus.value() as i64,
-            });
-        }
-    }
-
-    data
 }

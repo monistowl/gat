@@ -33,8 +33,8 @@ GAT implements established power systems algorithms:
 
 ## Data Formats
 
-- **[Schemas](#)** — JSON schema definitions
-- **[Arrow Layouts](#)** — Columnar data structures
+- **[Arrow schema](../guide/arrow-schema/)** — Canonical folder layout with `system`, `buses`, `generators`, `loads`, and `branches`.
+- **[gat convert format](../guide/convert/)** — Command-line helper that auto-detects imports and converts via Arrow when crossing MATPOWER, PSS/E, CIM, or PandaPower boundaries.
 - **MATPOWER** — `.m` file format
 - **PSS/E** — RAW file support
 

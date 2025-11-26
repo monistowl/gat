@@ -143,11 +143,13 @@ pub mod pandapower;
 pub mod psse;
 
 pub use crate::exporters::{ArrowDirectoryReader, ArrowDirectoryWriter};
+pub use arrow::{
+    export_network_to_arrow, load_grid_from_arrow, load_grid_from_arrow_with_manifest,
+};
 pub use cim_validator::{
     validate_cim_with_warnings, validate_network_from_cim, CimValidationError,
 };
 pub use format::{Confidence, Format};
-pub use arrow::load_grid_from_arrow;
 
 pub use cim::{import_cim_rdf, parse_cim};
 pub use matpower::{import_matpower_case, load_matpower_network, parse_matpower};

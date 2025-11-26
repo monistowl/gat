@@ -27,12 +27,18 @@
 //!     id: BusId::new(1),
 //!     name: "Bus 1".to_string(),
 //!     voltage_kv: 138.0,
+//!     voltage_pu: 1.0,
+//!     angle_rad: 0.0,
+//!     ..Bus::default()
 //! }));
 //!
 //! let bus2_idx = network.graph.add_node(Node::Bus(Bus {
 //!     id: BusId::new(2),
 //!     name: "Bus 2".to_string(),
 //!     voltage_kv: 138.0,
+//!     voltage_pu: 1.0,
+//!     angle_rad: 0.0,
+//!     ..Bus::default()
 //! }));
 //!
 //! // Add a generator
@@ -557,6 +563,7 @@ impl Network {
     /// Validate network data for common issues that cause solver failures.
     /// Returns a list of warnings/errors found.
     #[deprecated(since = "0.5.0", note = "Use validate_into() with Diagnostics instead")]
+    #[allow(deprecated)]
     pub fn validate(&self) -> Vec<NetworkValidationIssue> {
         let mut diag = Diagnostics::new();
         self.validate_into(&mut diag);
@@ -661,6 +668,7 @@ pub enum NetworkValidationIssue {
     Error(String),
 }
 
+#[allow(deprecated)]
 impl std::fmt::Display for NetworkValidationIssue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

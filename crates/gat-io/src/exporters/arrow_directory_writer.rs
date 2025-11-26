@@ -9,7 +9,7 @@
 use anyhow::{Context, Result};
 use gat_core::{Edge, Network, Node};
 use polars::io::ipc::IpcWriter;
-use polars::prelude::{DataFrame, IntoSeries, ListChunked, NamedFrom, Series, SerWriter};
+use polars::prelude::{DataFrame, IntoSeries, ListChunked, NamedFrom, SerWriter, Series};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -20,6 +20,10 @@ use crate::arrow_schema::{
 // Network validation will be added once normalized structs carry full referential data.
 
 /// System-level metadata used when writing the `system.arrow` table.
+///
+/// The `system.arrow` row captures the per-unit basis and optional descriptive fields so that
+/// downstream solvers (Newton-Raphson, DC approximations, etc.) can reconstruct execution parameters
+/// without needing to re-parse MATPOWER or other source formats.
 #[derive(Clone, Debug)]
 pub struct SystemInfo {
     pub base_mva: f64,
@@ -256,6 +260,9 @@ impl ArrowDirectoryWriter {
         let mut qmax_mvar = Vec::new();
         let mut voltage_setpoint_pu = Vec::new();
         let mut mbase_mva = Vec::new();
+        // Store cost models as explicit integers so downstream readers know whether each generator
+        // uses `no cost`, `piecewise`, or `polynomial` information; lists store the corresponding
+        // coefficients/values for dispatch.
         let mut cost_model: Vec<i32> = Vec::new();
         let mut cost_startup = Vec::new();
         let mut cost_shutdown = Vec::new();
@@ -306,14 +313,20 @@ impl ArrowDirectoryWriter {
             }
         }
 
-        let mut cost_coeffs_series =
-            ListChunked::from_iter(cost_coeffs.iter().map(|coeffs| Series::new("", coeffs.as_slice())))
-                .into_series();
+        let mut cost_coeffs_series = ListChunked::from_iter(
+            cost_coeffs
+                .iter()
+                .map(|coeffs| Series::new("", coeffs.as_slice())),
+        )
+        .into_series();
         cost_coeffs_series.rename("cost_coeffs");
 
-        let mut cost_values_series =
-            ListChunked::from_iter(cost_values.iter().map(|values| Series::new("", values.as_slice())))
-                .into_series();
+        let mut cost_values_series = ListChunked::from_iter(
+            cost_values
+                .iter()
+                .map(|values| Series::new("", values.as_slice())),
+        )
+        .into_series();
         cost_values_series.rename("cost_values");
 
         let cost_model_series = Series::new("cost_model", cost_model.as_slice());

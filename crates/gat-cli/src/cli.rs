@@ -1,5 +1,6 @@
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum, ValueHint};
 use clap_complete::Shell;
+use gat_io::importers::Format;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -157,6 +158,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: VersionCommands,
     },
+    /// Convert between power system formats via the Arrow schema
+    Convert {
+        #[command(subcommand)]
+        command: ConvertCommands,
+    },
     /// Helpers for the terminal dashboard
     #[cfg(feature = "tui")]
     Tui {
@@ -211,6 +217,53 @@ pub enum ImportCommands {
         #[arg(short, long)]
         output: Option<String>,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConvertCommands {
+    /// Convert between supported formats using Arrow as an intermediate representation
+    Format {
+        /// Path to the input file or Arrow directory
+        input: String,
+        /// Input format override (auto-detect by default)
+        #[arg(long, value_enum)]
+        from: Option<ConvertFormat>,
+        /// Target format for conversion
+        #[arg(long, value_enum)]
+        to: ConvertFormat,
+        /// Output directory/file (default inferred from input + target)
+        #[arg(short, long)]
+        output: Option<String>,
+        /// Overwrite existing output without prompting
+        #[arg(long)]
+        force: bool,
+    },
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug)]
+pub enum ConvertFormat {
+    /// Arrow directory
+    Arrow,
+    /// MATPOWER case
+    Matpower,
+    /// PSS/E RAW file
+    Psse,
+    /// CIM RDF/XML file
+    Cim,
+    /// pandapower JSON file
+    Pandapower,
+}
+
+impl ConvertFormat {
+    pub fn to_import_format(self) -> Option<Format> {
+        match self {
+            ConvertFormat::Arrow => None,
+            ConvertFormat::Matpower => Some(Format::Matpower),
+            ConvertFormat::Psse => Some(Format::Psse),
+            ConvertFormat::Cim => Some(Format::Cim),
+            ConvertFormat::Pandapower => Some(Format::Pandapower),
+        }
+    }
 }
 
 #[derive(Subcommand, Debug)]

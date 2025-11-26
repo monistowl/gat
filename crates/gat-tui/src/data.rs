@@ -103,6 +103,7 @@ pub fn create_fixture_datasets() -> Vec<DatasetEntry> {
 }
 
 /// Status of a background job in a queue
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum JobStatus {
     Queued,
@@ -111,6 +112,7 @@ pub enum JobStatus {
     Failed,
 }
 
+#[allow(dead_code)]
 impl JobStatus {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -127,6 +129,7 @@ impl JobStatus {
 }
 
 /// A background job (batch operation, scenario generation, etc.)
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct Job {
     pub id: String,
@@ -137,6 +140,7 @@ pub struct Job {
     pub error_msg: Option<String>,
 }
 
+#[allow(dead_code)]
 impl Job {
     pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
         Self {
@@ -171,6 +175,7 @@ impl Job {
 }
 
 /// File metadata for file browser displays
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct FileInfo {
     pub path: String,
@@ -180,6 +185,7 @@ pub struct FileInfo {
     pub modified: SystemTime,
 }
 
+#[allow(dead_code)]
 impl FileInfo {
     pub fn new(
         path: impl Into<String>,
@@ -215,6 +221,7 @@ impl FileInfo {
 }
 
 /// Status indicator for metric values
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MetricStatus {
     Good,
@@ -222,6 +229,7 @@ pub enum MetricStatus {
     Critical,
 }
 
+#[allow(dead_code)]
 impl MetricStatus {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -241,6 +249,7 @@ impl MetricStatus {
 }
 
 /// A single metric value with optional threshold and status
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct MetricValue {
     pub name: String,
@@ -250,6 +259,7 @@ pub struct MetricValue {
     pub status: MetricStatus,
 }
 
+#[allow(dead_code)]
 impl MetricValue {
     pub fn new(name: impl Into<String>, value: f64, unit: impl Into<String>) -> Self {
         Self {
@@ -295,6 +305,7 @@ impl MetricValue {
 }
 
 /// Configuration field type for form rendering
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum ConfigFieldType {
     Text,
@@ -304,6 +315,7 @@ pub enum ConfigFieldType {
 }
 
 /// A single configuration field
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct ConfigField {
     pub name: String,
@@ -312,6 +324,7 @@ pub struct ConfigField {
     pub value: String,
 }
 
+#[allow(dead_code)]
 impl ConfigField {
     pub fn text(name: impl Into<String>, label: impl Into<String>) -> Self {
         Self {
@@ -379,6 +392,7 @@ impl ConfigField {
 }
 
 /// Scenario template information
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct ScenarioTemplate {
     pub name: String,
@@ -388,6 +402,7 @@ pub struct ScenarioTemplate {
 }
 
 /// Power flow execution result
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct PFResult {
     pub scenario_id: String,

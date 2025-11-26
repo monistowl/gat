@@ -123,6 +123,7 @@ use faer::prelude::SpSolver;
 use faer::{FaerMat, Mat};
 use gat_core::{BusId, Edge, GenId, Network, Node};
 use num_complex::{Complex64, ComplexFloat};
+#[cfg(test)]
 use sprs::{CsMat, TriMat};
 use std::collections::HashMap;
 
@@ -761,6 +762,7 @@ impl AcPowerFlowSolver {
     /// Uses CSR (Compressed Sparse Row) format for efficient storage and
     /// matrix-vector multiplication. For power systems, Jacobian sparsity
     /// follows the network topology - only connected buses have non-zero entries.
+    #[cfg(test)]
     fn build_jacobian_sparse(
         &self,
         y_bus: &[Vec<(f64, f64)>],
@@ -932,6 +934,7 @@ impl AcPowerFlowSolver {
     }
 
     /// Solve linear system Ax = b using Gaussian elimination
+    #[cfg(test)]
     fn solve_linear_system(&self, a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>> {
         let n = b.len();
         if n == 0 {

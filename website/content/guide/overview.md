@@ -14,6 +14,8 @@ Auto-generated docs live under `docs/cli`, `docs/schemas`, and `docs/arrow`. The
 
 Run `cargo xtask doc all` after making CLI, manifest, or schema changes to refresh everything. The MCP docs server (`gat-mcp-docs`) reads this layout and exposes it via HTTP/Model Context Protocol resources. See `docs/guide/doc-workflow.md` for the full beads (`bd`) issue workflow that keeps documentation updates, auto-doc regen, and issue tracking synchronized.
 
+Need a schema reference? The Arrow schema guide (`/guide/arrow-schema/`) walks through each table and why it matters for Newton–Raphson / DC power flow solvers. Need to move between formats? `gat convert format` is the new unified converter that writes Arrow as an intermediate before emitting MATPOWER/PSS/E/CIM/PandaPower outputs; see `/guide/convert/` for examples.
+
 For a high-level explanation of the CLI architecture, including the dispatcher in `crates/gat-cli/src/main.rs` and the modular `commands/` handlers (dataset archives/catalog/formats, runs list/describe/resume, analytics helpers, and GUI/Viz/TUI helpers), see `docs/guide/cli-architecture.md`.
 
 ## Graph overview

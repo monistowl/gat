@@ -77,8 +77,7 @@ fn import_matpower_case_records_system_metadata() {
     let case_path_str = case_path.to_str().expect("utf8 case path");
     import_matpower_case(case_path_str, &output_path).expect("import should succeed");
 
-    let reader =
-        ArrowDirectoryReader::open(&output_path).expect("should open arrow directory");
+    let reader = ArrowDirectoryReader::open(&output_path).expect("should open arrow directory");
     let manifest = reader.manifest();
     let source = manifest
         .source
@@ -87,19 +86,11 @@ fn import_matpower_case_records_system_metadata() {
     assert_eq!(source.format, "matpower");
     assert_eq!(
         source.file,
-        case_path
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .to_string()
+        case_path.file_name().unwrap().to_string_lossy().to_string()
     );
 
-    let tables = reader
-        .load_tables()
-        .expect("loading tables should succeed");
-    let system_table = tables
-        .get("system")
-        .expect("system table should exist");
+    let tables = reader.load_tables().expect("loading tables should succeed");
+    let system_table = tables.get("system").expect("system table should exist");
     let base_mva = system_table
         .column("base_mva")
         .expect("base_mva column")

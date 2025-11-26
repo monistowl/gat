@@ -7,11 +7,11 @@ use caseformat::{read_dir, read_zip, Branch as CaseBranch, Bus as CaseBus, Gen a
 use gat_core::Network;
 
 use super::matpower_parser::{parse_matpower_file, MatpowerCase, MatpowerGenCost};
+use crate::arrow_manifest::{compute_sha256, SourceInfo};
+use crate::exporters::arrow_directory_writer::SystemInfo;
 use crate::helpers::{
     BranchInput, BusInput, GenInput, ImportDiagnostics, ImportResult, LoadInput, NetworkBuilder,
 };
-use crate::arrow_manifest::{compute_sha256, SourceInfo};
-use crate::exporters::arrow_directory_writer::SystemInfo;
 use zip::ZipArchive;
 
 /// Load a MATPOWER case file and return a Network (without writing to disk)
@@ -86,6 +86,7 @@ pub fn load_matpower_network(m_file: &Path) -> Result<Network> {
     ))
 }
 
+/// Extract system/base metadata and provenance for MATPOWER inputs (files or archives).
 fn matpower_metadata(m_file: &Path) -> Result<(Option<SystemInfo>, Option<SourceInfo>)> {
     if !m_file.exists() {
         return Ok((None, None));
@@ -109,30 +110,30 @@ fn matpower_metadata(m_file: &Path) -> Result<(Option<SystemInfo>, Option<Source
             .and_then(|ext| ext.to_str())
             .map(|ext| ext.to_ascii_lowercase());
 
-        let system_info = match ext.as_deref() {
-            Some("m") => parse_matpower_file(m_file).ok().map(|case| SystemInfo {
-                base_mva: case.base_mva,
-                base_frequency_hz: 60.0,
-                name: m_file
-                    .file_stem()
-                    .map(|stem| stem.to_string_lossy().to_string()),
-                description: Some(format!("Imported MATPOWER case {}", file_name)),
-            }),
-            Some("case") => case_metadata_from_archive(m_file)
-                .ok()
-                .flatten()
-                .map(|(case_name, base_mva)| SystemInfo {
-                    base_mva,
+        let system_info =
+            match ext.as_deref() {
+                Some("m") => parse_matpower_file(m_file).ok().map(|case| SystemInfo {
+                    base_mva: case.base_mva,
                     base_frequency_hz: 60.0,
-                    name: case_name.or_else(|| {
-                        m_file
-                            .file_stem()
-                            .map(|stem| stem.to_string_lossy().to_string())
-                    }),
+                    name: m_file
+                        .file_stem()
+                        .map(|stem| stem.to_string_lossy().to_string()),
                     description: Some(format!("Imported MATPOWER case {}", file_name)),
                 }),
-            _ => None,
-        };
+                Some("case") => case_metadata_from_archive(m_file).ok().flatten().map(
+                    |(case_name, base_mva)| SystemInfo {
+                        base_mva,
+                        base_frequency_hz: 60.0,
+                        name: case_name.or_else(|| {
+                            m_file
+                                .file_stem()
+                                .map(|stem| stem.to_string_lossy().to_string())
+                        }),
+                        description: Some(format!("Imported MATPOWER case {}", file_name)),
+                    },
+                ),
+                _ => None,
+            };
 
         return Ok((system_info, Some(source_info)));
     }
@@ -140,6 +141,8 @@ fn matpower_metadata(m_file: &Path) -> Result<(Option<SystemInfo>, Option<Source
     Ok((None, None))
 }
 
+/// Read `case.csv` inside MATPOWER zip archives to recover the case name/base MVA without loading
+/// the entire grid; this keeps the metadata flow cheap while leaving full parsing to later stages.
 fn case_metadata_from_archive(path: &Path) -> Result<Option<(Option<String>, f64)>> {
     let file = File::open(path)?;
     let mut archive = ZipArchive::new(file)?;
@@ -387,10 +390,10 @@ fn build_network_from_matpower_case_impl(
 
         // Phase-shifter detection: non-zero phase shift OR negative reactance OR negative resistance
         let is_phase_shifter = br.shift.abs() > 1e-6 || br.br_x < 0.0 || br.br_r < 0.0;
-        
+
         let tap_ratio = if br.tap == 0.0 { 1.0 } else { br.tap };
         let phase_shift_rad = br.shift.to_radians();
-        
+
         // Determine element type
         let element_type = if tap_ratio != 1.0 || phase_shift_rad.abs() > 1e-9 {
             Some("transformer".to_string())
@@ -534,7 +537,7 @@ fn build_network_from_case_impl(
             case_branch.tap
         };
         let phase_shift_rad = case_branch.shift.to_radians();
-        
+
         // Determine element type
         let element_type = if tap_ratio != 1.0 || phase_shift_rad.abs() > 1e-9 {
             Some("transformer".to_string())

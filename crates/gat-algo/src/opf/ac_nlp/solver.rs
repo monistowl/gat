@@ -730,6 +730,7 @@ mod tests {
             qmin_mvar: -50.0,
             qmax_mvar: 50.0,
             cost_coeffs: vec![0.0, 10.0, 0.0],
+            cost_model: gat_core::CostModel::linear(0.0, 10.0),
             capability_curve: Vec::new(),
         }];
 
