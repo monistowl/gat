@@ -7,6 +7,27 @@ use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
+/// Parse a command string into program and arguments, respecting shell quoting rules.
+///
+/// Handles:
+/// - Double-quoted strings: `"hello world"` → `hello world`
+/// - Single-quoted strings: `'hello world'` → `hello world`
+/// - Escaped spaces: `hello\ world` → `hello world`
+/// - Mixed quoting: `"hello 'nested' world"` → `hello 'nested' world`
+///
+/// Returns an error if the command is empty or contains only whitespace.
+pub fn parse_command(command: &str) -> Result<Vec<String>, CommandError> {
+    let parts = shell_words::split(command).map_err(|e| {
+        CommandError::ExecutionFailed(format!("Failed to parse command: {}", e))
+    })?;
+
+    if parts.is_empty() {
+        return Err(CommandError::ExecutionFailed("Empty command".to_string()));
+    }
+
+    Ok(parts)
+}
+
 /// Error types for command execution
 #[derive(Debug, Clone)]
 pub enum CommandError {
@@ -94,13 +115,9 @@ impl CommandService {
         let start = Instant::now();
         let timeout = std::time::Duration::from_secs(exec.timeout_secs);
 
-        // Parse command into program and args
-        let parts: Vec<&str> = exec.command.split_whitespace().collect();
-        if parts.is_empty() {
-            return Err(CommandError::ExecutionFailed("Empty command".to_string()));
-        }
-
-        let program = parts[0];
+        // Parse command into program and args using shell-words for proper quoting
+        let parts = parse_command(&exec.command)?;
+        let program = &parts[0];
         let args = &parts[1..];
 
         // Build command
@@ -210,13 +227,9 @@ impl CommandService {
         let start = Instant::now();
         let timeout = std::time::Duration::from_secs(exec.timeout_secs);
 
-        // Parse command
-        let parts: Vec<&str> = exec.command.split_whitespace().collect();
-        if parts.is_empty() {
-            return Err(CommandError::ExecutionFailed("Empty command".to_string()));
-        }
-
-        let program = parts[0];
+        // Parse command using shell-words for proper quoting
+        let parts = parse_command(&exec.command)?;
+        let program = &parts[0];
         let args = &parts[1..];
 
         // Build command
@@ -522,5 +535,117 @@ mod tests {
 
         let cmd_result = result.unwrap();
         assert!(cmd_result.stdout.contains("test"));
+    }
+
+    // --- Shell argument parsing tests (using shell-words) ---
+
+    #[tokio::test]
+    async fn test_execute_command_with_quoted_args() {
+        // Test: echo "hello world" should output "hello world" not "hello" "world"
+        let service = CommandService::new(10);
+        let exec = CommandExecution::new(r#"echo "hello world""#.to_string(), 10);
+
+        let result = service.execute(exec).await;
+        assert!(result.is_ok());
+
+        let cmd_result = result.unwrap();
+        assert_eq!(cmd_result.exit_code, 0);
+        // The output should contain "hello world" as a single string
+        // With split_whitespace(), this would fail because it would split into "hello" and "world"
+        assert!(
+            cmd_result.stdout.contains("hello world"),
+            "Expected 'hello world' but got: {}",
+            cmd_result.stdout
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_command_with_single_quoted_args() {
+        // Test: echo 'hello world' should output 'hello world'
+        let service = CommandService::new(10);
+        let exec = CommandExecution::new("echo 'hello world'".to_string(), 10);
+
+        let result = service.execute(exec).await;
+        assert!(result.is_ok());
+
+        let cmd_result = result.unwrap();
+        assert_eq!(cmd_result.exit_code, 0);
+        assert!(
+            cmd_result.stdout.contains("hello world"),
+            "Expected 'hello world' but got: {}",
+            cmd_result.stdout
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_command_with_escaped_spaces() {
+        // Test: echo hello\ world should output "hello world"
+        let service = CommandService::new(10);
+        let exec = CommandExecution::new(r"echo hello\ world".to_string(), 10);
+
+        let result = service.execute(exec).await;
+        assert!(result.is_ok());
+
+        let cmd_result = result.unwrap();
+        assert_eq!(cmd_result.exit_code, 0);
+        assert!(
+            cmd_result.stdout.contains("hello world"),
+            "Expected 'hello world' but got: {}",
+            cmd_result.stdout
+        );
+    }
+
+    #[tokio::test]
+    async fn test_execute_command_with_mixed_quotes() {
+        // Test: echo "hello 'nested' world" should handle mixed quotes
+        let service = CommandService::new(10);
+        let exec = CommandExecution::new(r#"echo "hello 'nested' world""#.to_string(), 10);
+
+        let result = service.execute(exec).await;
+        assert!(result.is_ok());
+
+        let cmd_result = result.unwrap();
+        assert_eq!(cmd_result.exit_code, 0);
+        assert!(
+            cmd_result.stdout.contains("hello 'nested' world"),
+            "Expected \"hello 'nested' world\" but got: {}",
+            cmd_result.stdout
+        );
+    }
+
+    #[test]
+    fn test_parse_command_unit() {
+        // Unit test for the parse_command helper function
+        use super::parse_command;
+
+        // Simple command
+        let result = parse_command("echo hello").unwrap();
+        assert_eq!(result, vec!["echo", "hello"]);
+
+        // Quoted argument
+        let result = parse_command(r#"echo "hello world""#).unwrap();
+        assert_eq!(result, vec!["echo", "hello world"]);
+
+        // Single quoted argument
+        let result = parse_command("echo 'hello world'").unwrap();
+        assert_eq!(result, vec!["echo", "hello world"]);
+
+        // Escaped space
+        let result = parse_command(r"echo hello\ world").unwrap();
+        assert_eq!(result, vec!["echo", "hello world"]);
+
+        // Mixed quotes
+        let result = parse_command(r#"echo "hello 'nested' world""#).unwrap();
+        assert_eq!(result, vec!["echo", "hello 'nested' world"]);
+
+        // Multiple quoted args
+        let result = parse_command(r#"cmd "arg one" "arg two""#).unwrap();
+        assert_eq!(result, vec!["cmd", "arg one", "arg two"]);
+
+        // Empty string should fail
+        assert!(parse_command("").is_err());
+
+        // Whitespace only should fail
+        assert!(parse_command("   ").is_err());
     }
 }

@@ -50,4 +50,7 @@ gat-algo = { path = "../gat-algo" }
 # Thread synchronization
 parking_lot = "0.12"
 
+# Shell argument parsing (for proper quoted argument handling)
+shell-words = "1.1"
+
 [target.'cfg(unix)'.dependencies]

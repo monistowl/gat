@@ -189,6 +189,8 @@ pub struct AcPowerFlowSolver {
     pub max_q_iterations: usize,
     /// Voltage setpoint for PV buses (p.u.)
     pub pv_voltage_setpoint: f64,
+    /// System MVA base for per-unit conversion (default: 100 MVA)
+    pub base_mva: f64,
 }
 
 impl Default for AcPowerFlowSolver {
@@ -206,6 +208,7 @@ impl AcPowerFlowSolver {
             enforce_q_limits: false,
             max_q_iterations: 10,
             pv_voltage_setpoint: 1.0,
+            base_mva: 100.0,
         }
     }
 
@@ -230,6 +233,15 @@ impl AcPowerFlowSolver {
     /// Set PV bus voltage setpoint
     pub fn with_pv_voltage_setpoint(mut self, v_pu: f64) -> Self {
         self.pv_voltage_setpoint = v_pu;
+        self
+    }
+
+    /// Set system MVA base for per-unit conversion
+    ///
+    /// The MVA base is used to convert between MW/MVAR and per-unit values.
+    /// Standard values are typically 100 MVA (default) or 1000 MVA for large systems.
+    pub fn with_base_mva(mut self, base_mva: f64) -> Self {
+        self.base_mva = base_mva;
         self
     }
 
@@ -557,11 +569,10 @@ impl AcPowerFlowSolver {
             }
         }
 
-        // Convert to per-unit (assuming 100 MVA base)
-        let base_mva = 100.0;
+        // Convert to per-unit using configured MVA base
         for i in 0..n {
-            p_spec[i] /= base_mva;
-            q_spec[i] /= base_mva;
+            p_spec[i] /= self.base_mva;
+            q_spec[i] /= self.base_mva;
         }
 
         (p_spec, q_spec)
@@ -1036,7 +1047,6 @@ impl AcPowerFlowSolver {
         v_ang: &[f64],
     ) -> HashMap<GenId, f64> {
         let (_, q_calc) = self.compute_power(y_bus, v_mag, v_ang);
-        let base_mva = 100.0;
 
         // Build load Q at each bus
         let mut load_q: HashMap<BusId, f64> = HashMap::new();
@@ -1051,8 +1061,8 @@ impl AcPowerFlowSolver {
             if let Some(&idx) = bus_idx_map.get(&gen.bus) {
                 // Q injected by network at this bus (in p.u.)
                 let q_net_pu = q_calc[idx];
-                // Convert to MVAR
-                let q_net_mvar = q_net_pu * base_mva;
+                // Convert to MVAR using configured MVA base
+                let q_net_mvar = q_net_pu * self.base_mva;
                 // Generator Q = network Q + load Q
                 let q_load = load_q.get(&gen.bus).copied().unwrap_or(0.0);
                 gen_q.insert(gen.id, q_net_mvar + q_load);
@@ -1082,7 +1092,6 @@ impl AcPowerFlowSolver {
         loads: &[LoadData],
     ) -> bool {
         let mut switched = false;
-        let base_mva = 100.0;
 
         // Build load Q at each bus for updating q_spec
         let mut load_q: HashMap<BusId, f64> = HashMap::new();
@@ -1136,7 +1145,7 @@ impl AcPowerFlowSolver {
                 // q_spec = Q_gen - Q_load (in per unit)
                 if let Some(&bus_idx) = bus_idx_map.get(&bus_id) {
                     let q_load = load_q.get(&bus_id).copied().unwrap_or(0.0);
-                    q_spec[bus_idx] = (q_limit - q_load) / base_mva;
+                    q_spec[bus_idx] = (q_limit - q_load) / self.base_mva;
                 }
             }
         }
