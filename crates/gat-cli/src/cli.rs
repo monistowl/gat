@@ -165,7 +165,7 @@ pub enum ImportCommands {
         raw: String,
         /// Output file path (Arrow format)
         #[arg(short, long)]
-        output: String,
+        output: Option<String>,
     },
     /// Import MATPOWER case file
     Matpower {
@@ -174,7 +174,7 @@ pub enum ImportCommands {
         m: String,
         /// Output file path (Arrow format)
         #[arg(short, long)]
-        output: String,
+        output: Option<String>,
     },
     /// Import CIM RDF file
     Cim {
@@ -183,7 +183,7 @@ pub enum ImportCommands {
         rdf: String,
         /// Output file path (Arrow format)
         #[arg(short, long)]
-        output: String,
+        output: Option<String>,
     },
 }
 
