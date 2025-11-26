@@ -4,17 +4,22 @@
 /// allowing background services to fetch data and dispatch results back to
 /// the UI through a clean, decoupled interface.
 use crate::services::{AsyncEvent, EventResult, TuiServiceLayer};
+use crate::services::{CommandExecution, CommandService};
 use std::sync::Arc;
 
 /// Service that integrates TuiServiceLayer with async event handling
 pub struct AsyncServiceIntegration {
     service_layer: Arc<TuiServiceLayer>,
+    command_service: CommandService,
 }
 
 impl AsyncServiceIntegration {
     /// Create new async integration with a service layer
     pub fn new(service_layer: Arc<TuiServiceLayer>) -> Self {
-        Self { service_layer }
+        Self {
+            service_layer,
+            command_service: CommandService::new(60),
+        }
     }
 
     /// Handle an async event and return the result
@@ -22,6 +27,8 @@ impl AsyncServiceIntegration {
         match event {
             AsyncEvent::FetchDatasets => self.fetch_datasets().await,
             AsyncEvent::FetchDataset(id) => self.fetch_dataset(id).await,
+            AsyncEvent::FetchDatasetDescribe(id) => self.describe_dataset(id).await,
+            AsyncEvent::FetchDatasetFetch(id, out) => self.fetch_dataset_to(id, out).await,
             AsyncEvent::FetchWorkflows => self.fetch_workflows().await,
             AsyncEvent::FetchMetrics => self.fetch_metrics().await,
             AsyncEvent::FetchPipelineConfig => self.fetch_pipeline_config().await,
@@ -48,6 +55,8 @@ impl AsyncServiceIntegration {
             AsyncEvent::RunGeoJoin(left, right, output) => self.geo_join(left, right, output).await,
 
             AsyncEvent::ExecuteCommand(cmd) => self.execute_command(cmd).await,
+            AsyncEvent::DescribeRun(path) => self.describe_run(path).await,
+            AsyncEvent::ResumeRun(path) => self.resume_run(path).await,
 
             AsyncEvent::Shutdown => EventResult::Success("Shutting down".to_string()),
         }
@@ -69,6 +78,18 @@ impl AsyncServiceIntegration {
             Ok(dataset) => EventResult::Success(format!("Fetched dataset: {}", dataset.name)),
             Err(e) => EventResult::Error(format!("Failed to fetch dataset: {}", e)),
         }
+    }
+
+    async fn describe_dataset(&self, id: &str) -> EventResult {
+        let cmd = format!("gat dataset public describe {} --format json", id);
+        self.run_command_and_capture(&cmd, "describe dataset")
+            .await
+    }
+
+    async fn fetch_dataset_to(&self, id: &str, out: &str) -> EventResult {
+        let cmd = format!("gat dataset public fetch {} --out {}", id, out);
+        self.run_command_and_capture(&cmd, "fetch dataset")
+            .await
     }
 
     // ============================================================================
@@ -137,6 +158,38 @@ impl AsyncServiceIntegration {
                     EventResult::Error(format!("Invalid command: {}", e))
                 }
             }
+        }
+    }
+
+    async fn describe_run(&self, run_path: &str) -> EventResult {
+        let cmd = format!("gat runs describe {} --format json", run_path);
+        self.run_command_and_capture(&cmd, "describe run").await
+    }
+
+    async fn resume_run(&self, run_path: &str) -> EventResult {
+        let cmd = format!("gat runs resume {} --execute", run_path);
+        self.run_command_and_capture(&cmd, "resume run").await
+    }
+
+    async fn run_command_and_capture(&self, command: &str, label: &str) -> EventResult {
+        let exec = CommandExecution::new(command.to_string(), 120);
+        match self.command_service.execute(exec).await {
+            Ok(result) if result.exit_code == 0 => {
+                let trimmed = result.stdout.trim();
+                EventResult::Success(format!("{} ok: {}", label, trimmed))
+            }
+            Ok(result) => EventResult::Error(format!(
+                "{} failed (code {}): {}{}",
+                label,
+                result.exit_code,
+                result.stdout.trim(),
+                if result.stderr.is_empty() {
+                    ""
+                } else {
+                    &format!(" | {}", result.stderr.trim())
+                }
+            )),
+            Err(e) => EventResult::Error(format!("{} error: {}", label, e)),
         }
     }
 

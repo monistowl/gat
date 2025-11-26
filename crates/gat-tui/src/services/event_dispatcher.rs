@@ -14,6 +14,8 @@ pub enum AsyncEvent {
     // Data loading events
     FetchDatasets,
     FetchDataset(String),
+    FetchDatasetDescribe(String),
+    FetchDatasetFetch(String, String), // (id, out dir)
     FetchWorkflows,
     FetchMetrics,
     FetchPipelineConfig,
@@ -33,6 +35,8 @@ pub enum AsyncEvent {
 
     // Command execution
     ExecuteCommand(String),
+    DescribeRun(String),  // run.json path
+    ResumeRun(String),    // run.json path
 
     // Lifecycle
     Shutdown,
