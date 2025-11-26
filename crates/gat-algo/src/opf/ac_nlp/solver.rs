@@ -135,6 +135,7 @@
 //!   DOI: [10.1145/192115.192132](https://doi.org/10.1145/192115.192132)
 
 use super::AcOpfProblem;
+use super::compute_single_branch_flow;
 use crate::opf::{OpfError, OpfMethod, OpfSolution};
 use argmin::core::{CostFunction, Executor, Gradient, State};
 use argmin::solver::linesearch::MoreThuenteLineSearch;
@@ -222,6 +223,48 @@ impl<'a> CostFunction for PenaltyProblem<'a> {
             if x[i] > self.ub[i] {
                 let violation = x[i] - self.ub[i];
                 cost += self.penalty * violation * violation;
+            }
+        }
+
+        // ====================================================================
+        // THERMAL LIMIT PENALTY
+        // ====================================================================
+        //
+        // For each branch with rate_mva > 0:
+        //   |S_ij|² ≤ S_max²
+        //   Penalty = μ · max(0, |S_ij|² - S_max²)²
+        //
+        // Using squared form avoids sqrt() and its gradient singularity at 0.
+        // Scale factor 1e-6 improves numerical conditioning (MVA² units are large).
+
+        let (v, theta) = self.problem.extract_v_theta(x);
+        for br in &self.problem.branches {
+            if br.rate_mva <= 0.0 {
+                continue; // No thermal limit
+            }
+
+            let vi = v[br.from_idx];
+            let vj = v[br.to_idx];
+            let theta_ij = theta[br.from_idx] - theta[br.to_idx];
+
+            // Compute power flows at both ends of branch
+            let (pf, qf, pt, qt) = compute_single_branch_flow(br, vi, vj, theta_ij, self.problem.base_mva);
+
+            // Squared apparent power at each end
+            let s_from_sq = pf * pf + qf * qf;
+            let s_to_sq = pt * pt + qt * qt;
+            let s_max_sq = br.rate_mva * br.rate_mva;
+
+            // Penalty for from-end violation
+            if s_from_sq > s_max_sq {
+                let violation = s_from_sq - s_max_sq;
+                cost += self.penalty * violation * violation * 1e-6;
+            }
+
+            // Penalty for to-end violation
+            if s_to_sq > s_max_sq {
+                let violation = s_to_sq - s_max_sq;
+                cost += self.penalty * violation * violation * 1e-6;
             }
         }
 
