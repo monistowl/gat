@@ -121,6 +121,7 @@
 use anyhow::{anyhow, Result};
 use gat_core::{BusId, Edge, GenId, Network, Node};
 use num_complex::{Complex64, ComplexFloat};
+use sprs::{CsMat, TriMat};
 use std::collections::HashMap;
 
 /// Bus type classification for power flow
@@ -283,8 +284,6 @@ impl AcPowerFlowSolver {
         let mut q_spec = q_spec;
 
         // Q-limit outer loop
-        let mut solution = AcPowerFlowSolution::default();
-
         for q_iter in 0..self.max_q_iterations {
             // Run Newton-Raphson with current bus types
             let nr_result = self.newton_raphson(
@@ -324,7 +323,7 @@ impl AcPowerFlowSolver {
             }
 
             // Build partial solution
-            solution = self.build_solution(
+            let solution = self.build_solution(
                 &buses,
                 &bus_idx_map,
                 &bus_types,
@@ -570,7 +569,7 @@ impl AcPowerFlowSolver {
     fn newton_raphson(
         &self,
         buses: &[BusId],
-        bus_idx_map: &HashMap<BusId, usize>,
+        _bus_idx_map: &HashMap<BusId, usize>,
         bus_types: &HashMap<BusId, BusType>,
         y_bus: &[Vec<(f64, f64)>],
         p_spec: &[f64],
@@ -717,7 +716,7 @@ impl AcPowerFlowSolver {
         p_buses: &[usize],
         q_buses: &[usize],
     ) -> Vec<Vec<f64>> {
-        let n = v_mag.len();
+        let _n = v_mag.len();
         let n_p = p_buses.len();
         let n_q = q_buses.len();
         let n_vars = n_p + n_q;
@@ -924,7 +923,7 @@ impl AcPowerFlowSolver {
     /// Compute generator reactive power from power balance
     fn compute_generator_q(
         &self,
-        buses: &[BusId],
+        _buses: &[BusId],
         bus_idx_map: &HashMap<BusId, usize>,
         generators: &[GeneratorData],
         loads: &[LoadData],
