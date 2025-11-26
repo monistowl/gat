@@ -1840,7 +1840,9 @@ name = "gat-gui"
 version = "0.3.4"
 dependencies = [
  "anyhow",
+ "clap",
  "gat-core",
+ "gat-notebook",
  "gat-viz",
  "tempfile",
 ]
@@ -1876,6 +1878,16 @@ dependencies = [
  "serde_json",
  "tokio",
  "walkdir",
+]
+
+[[package]]
+name = "gat-notebook"
+version = "0.3.4"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
