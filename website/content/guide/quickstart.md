@@ -21,7 +21,7 @@ Install GAT using the modular installer:
 
 ```bash
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.3.3/install-modular.sh \
+  https://github.com/monistowl/gat/releases/download/v0.3.4/install-modular.sh \
   | bash
 ```
 
@@ -44,7 +44,7 @@ Or make it permanent by adding the line above to your `~/.bashrc` or `~/.zshrc`.
 gat --version
 ```
 
-You should see: `gat-cli 0.3.3`
+You should see: `gat-cli 0.3.4`
 
 > **Troubleshooting?** See [Installation Troubleshooting](/guide/install-verify/#troubleshooting) for common issues.
 

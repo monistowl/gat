@@ -24,7 +24,7 @@ gat --version
 
 You should see output like:
 ```
-gat 0.3.3
+gat 0.3.4
 ```
 
 If you get "command not found", check that your shell has reloaded the PATH:

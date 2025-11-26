@@ -8,7 +8,7 @@ weight = 11
 
 This reference describes the OPF solver architecture, solution methods, and CLI commands.
 
-## Architecture Overview (v0.3.3)
+## Architecture Overview (v0.3.4)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods with varying accuracy/speed tradeoffs:
 
@@ -17,13 +17,16 @@ GAT provides a unified `OpfSolver` supporting multiple solution methods with var
 | `EconomicDispatch` | ~20% gap | Fastest | ✅ Implemented | Quick estimates, screening |
 | `DcOpf` | ~3-5% gap | Fast | ✅ Implemented | Planning studies |
 | `SocpRelaxation` | ~1-3% gap | Moderate | ✅ Implemented | Research benchmarking |
-| `AcOpf` | <1% gap | Slowest | ✅ Implemented | High-fidelity analysis |
+| `AcOpf` | <1% gap | Slowest | ✅ Implemented (L-BFGS penalty) | High-fidelity analysis |
 
-**Current Status (v0.3.3):** All four OPF methods are now fully implemented:
-- Economic dispatch: Merit-order dispatch without network constraints
-- DC-OPF: Linear approximation with PTDF-based flows
-- **SOCP Relaxation**: Convex second-order cone relaxation (Clarabel solver)
-- **AC-OPF**: Full nonlinear NLP with L-BFGS penalty method (argmin solver)
+### What's new in 0.3.4
+
+- **Full nonlinear AC-OPF path is now routed to the new `ac_nlp` module** instead of returning `NotImplemented`.
+- Robust **Y-bus construction** with transformer taps, phase shifters, and π-model line charging.
+- Explicit **power injection equations and Jacobians** in polar form with voltage magnitude/angle variables.
+- **Penalty-method solver** using argmin's L-BFGS optimizer with automatic penalty ramping and flat-start initialization.
+- **LMP approximation** from marginal generator costs after the penalty solve completes.
+- Expanded **test coverage** (2-bus, 3-bus, SOCP bound comparisons, merit order, and convergence safeguards).
 
 ## Rust API
 
@@ -59,7 +62,7 @@ pub enum OpfMethod {
     /// Second-order cone relaxation of AC-OPF
     #[default]
     SocpRelaxation,
-    /// Full nonlinear AC-OPF (interior point)
+    /// Full nonlinear AC-OPF (penalty-method L-BFGS)
     AcOpf,
 }
 ```
@@ -94,9 +97,9 @@ pub struct OpfSolution {
 }
 ```
 
-**Note:** Not all fields are populated by all methods. Economic dispatch provides generator outputs, objective, and estimated losses. SOCP and AC-OPF provide full voltage, angle, and LMP data.
+**Note:** Not all fields are populated by all methods. Economic dispatch provides generator outputs, objective, and estimated losses. SOCP and AC-OPF provide full voltage, angle, and LMP data; AC-OPF now backfills LMPs using marginal generator costs after the penalty loop finishes.
 
-## SOCP Relaxation (v0.3.3)
+## SOCP Relaxation (v0.3.4)
 
 The SOCP solver implements the Baran-Wu / Farivar-Low branch-flow model:
 
@@ -136,23 +139,30 @@ P_ij² + Q_ij² ≤ w_i · ℓ_ij  (SOC constraint)
 - Farivar & Low (2013): DOI:10.1109/TPWRS.2013.2255317
 - Gan, Li, Topcu & Low (2015): DOI:10.1109/TAC.2014.2332712
 
-## Full AC-OPF (v0.3.3)
+## Full AC-OPF (v0.3.4)
 
-The AC-OPF solver uses polar coordinates with a penalty-method L-BFGS optimizer:
+The AC-OPF solver uses polar coordinates with a penalty-method L-BFGS optimizer and now ships with a complete `ac_nlp` pipeline:
 
 ### Features
 
 | Feature | Status |
 |---------|--------|
 | Polar formulation (V, θ) | ✅ |
-| Y-bus construction | ✅ |
+| Y-bus construction (with taps + phase shifts) | ✅ |
+| Line charging / π-model support | ✅ |
 | Quadratic costs | ✅ |
 | Voltage bounds | ✅ |
 | Generator limits | ✅ |
 | Jacobian computation | ✅ |
-| L-BFGS optimizer | ✅ |
+| L-BFGS penalty optimizer | ✅ |
 | Thermal limits | 🔄 Planned |
 | IPOPT backend | 🔄 Planned |
+
+Key components in `gat_algo::opf::ac_nlp`:
+
+- `ybus.rs`: builds the complex admittance matrix with tap ratios, phase shifters, and shunt line charging.
+- `power_equations.rs`: evaluates P/Q injections and full Jacobians (∂P/∂θ, ∂P/∂V, ∂Q/∂θ, ∂Q/∂V) in polar form.
+- `solver.rs`: wraps argmin's L-BFGS optimizer with a penalty ramp until equality constraints reach feasibility.
 
 ### Mathematical Formulation
 
@@ -169,7 +179,7 @@ P_i = Σⱼ V_i·V_j·(G_ij·cos(θ_i - θ_j) + B_ij·sin(θ_i - θ_j))
 Q_i = Σⱼ V_i·V_j·(G_ij·sin(θ_i - θ_j) - B_ij·cos(θ_i - θ_j))
 ```
 
-**Solver:** argmin L-BFGS with iterative penalty method
+**Solver:** argmin L-BFGS with iterative penalty method (penalty factor ramps until equality constraints are feasible).
 
 ### Usage
 
@@ -253,7 +263,7 @@ gat opf dc grid.arrow \
 
 ### AC OPF (`gat opf ac`)
 
-Runs a Newton–Raphson solve over the AC equations.
+Runs a penalty-method nonlinear solve over the full AC equations (polar form) using argmin's L-BFGS optimizer.
 
 ```bash
 gat opf ac grid.arrow \
