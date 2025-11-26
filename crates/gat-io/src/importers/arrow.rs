@@ -311,6 +311,7 @@ fn dataframe_to_network(df: &DataFrame) -> Result<Network> {
                     qmin_mvar: f64::NEG_INFINITY,
                     qmax_mvar: f64::INFINITY,
                     cost_model: gat_core::CostModel::NoCost,
+                    is_synchronous_condenser: false,
                 }));
             }
             Some("load") => {

@@ -206,6 +206,7 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                 qmin_mvar: qmin,
                 qmax_mvar: qmax,
                 cost_model: gat_core::CostModel::NoCost,
+                is_synchronous_condenser: false,
             }));
         }
     }

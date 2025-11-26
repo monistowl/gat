@@ -7,7 +7,6 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Instant;
 
-use gat_algo::power_flow::AcPowerFlowSolver;
 use gat_algo::validation::{compute_pf_errors, PFReferenceSolution};
 use gat_algo::AcOpfSolver;
 use gat_io::sources::pfdelta::{list_pfdelta_cases, load_pfdelta_case, load_pfdelta_instance};
@@ -193,38 +192,31 @@ fn benchmark_case(
     let solve_start = Instant::now();
 
     // Branch on mode
+    // Note: In 0.3.4, both modes use OPF solver. Dedicated PF solver available in 0.4.0.
     let (converged, iterations, gat_vm, gat_va) = match mode {
         "pf" => {
-            // Use Newton-Raphson AC power flow solver
-            let pf_solver = AcPowerFlowSolver::new()
-                .with_tolerance(tol)
-                .with_max_iterations(max_iter as usize);
+            // In 0.3.4, use OPF solver as fallback (dedicated PF solver in 0.4.0)
+            tracing::debug!("PF mode using OPF solver in 0.3.4");
+            let solver = AcOpfSolver::new()
+                .with_max_iterations(max_iter as usize)
+                .with_tolerance(tol);
 
-            match pf_solver.solve(&instance.network) {
+            let network = load_pfdelta_case(Path::new(&test_case.file_path))?;
+            match solver.solve(&network) {
                 Ok(solution) => {
-                    // Convert BusId -> usize for comparison with reference
                     let gat_vm: HashMap<usize, f64> = solution
-                        .bus_voltage_magnitude
+                        .bus_voltages
                         .iter()
-                        .map(|(bus_id, vm)| (bus_id.value(), *vm))
+                        .filter_map(|(name, vm)| {
+                            name.strip_prefix("bus_")
+                                .and_then(|s| s.parse::<usize>().ok())
+                                .map(|idx| (idx, *vm))
+                        })
                         .collect();
-                    let gat_va: HashMap<usize, f64> = solution
-                        .bus_voltage_angle
-                        .iter()
-                        .map(|(bus_id, va)| (bus_id.value(), va.to_degrees()))
-                        .collect();
-
-                    (
-                        solution.converged,
-                        solution.iterations as u32,
-                        gat_vm,
-                        gat_va,
-                    )
+                    let gat_va: HashMap<usize, f64> = HashMap::new();
+                    (solution.converged, solution.iterations as u32, gat_vm, gat_va)
                 }
-                Err(_) => {
-                    // Solver failed - return empty results
-                    (false, 0u32, HashMap::new(), HashMap::new())
-                }
+                Err(_) => (false, 0u32, HashMap::new(), HashMap::new()),
             }
         }
         _ => {
