@@ -291,6 +291,212 @@
     </div>
   </section>
 
+  <!-- Web Studio & WASM Notebook Section -->
+  <section id="web-studio" class="relative z-10 py-24 bg-slate-900/60 border-y border-slate-800 px-6 overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-r from-orange-500/5 via-transparent to-transparent pointer-events-none"></div>
+    <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center relative">
+      <div class="space-y-6">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-900/20 border border-orange-500/30 text-orange-400 text-xs font-mono">
+          <span>New</span>
+          <span class="text-[10px]">GAT Studio • Browser + WASM</span>
+        </div>
+        <h2 class="text-3xl lg:text-4xl font-bold text-white leading-tight">
+          A demo web GUI that speaks <span class="text-orange-400">Rust</span>, <span class="text-orange-300">WASM</span>, and the GAT CLI.
+        </h2>
+        <p class="text-slate-400 leading-relaxed text-lg">
+          Ship the same workflows to the browser with a WASM build of <strong>gat-notebook</strong>. The Studio mock shows how the CLI, notebook cells, and live outputs stay in lockstep—perfect for interactive docs, training labs, or lightweight field tools.
+        </p>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <div class="text-orange-400 text-xs font-mono mb-2">WASM Bridge</div>
+            <ul class="text-slate-300 text-sm space-y-2 list-disc list-inside">
+              <li>Compile <code>gat-notebook</code> via <code>wasm-pack</code></li>
+              <li>Expose a thin JS harness for file drops and blobs</li>
+              <li>Stream Arrow/Parquet frames to the UI viewer</li>
+            </ul>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+            <div class="text-orange-400 text-xs font-mono mb-2">UI Wiring</div>
+            <ul class="text-slate-300 text-sm space-y-2 list-disc list-inside">
+              <li>Notebook cell buttons call the WASM shim</li>
+              <li>Status badges mirror CLI telemetry</li>
+              <li>Result panes reuse Arrow viewers from the demo</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-3 gap-3 text-sm text-slate-300">
+          <div class="flex items-start gap-3 bg-slate-950 border border-slate-800 rounded-lg p-3">
+            <span class="text-orange-400">①</span>
+            <div>
+              <div class="font-semibold text-white">Build</div>
+              <p class="text-slate-400">Bundle <code>gat-notebook</code> with <code>--target web</code> and publish to <code>static/</code>.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 bg-slate-950 border border-slate-800 rounded-lg p-3">
+            <span class="text-orange-400">②</span>
+            <div>
+              <div class="font-semibold text-white">Wire</div>
+              <p class="text-slate-400">Attach run buttons to the WASM bridge and feed stdin/stdout to the panels.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 bg-slate-950 border border-slate-800 rounded-lg p-3">
+            <span class="text-orange-400">③</span>
+            <div>
+              <div class="font-semibold text-white">Ship</div>
+              <p class="text-slate-400">Reuse this layout for docs, on-prem demos, or embedded field tablets.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Demo Web GUI Mock -->
+      <div class="bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden relative">
+        <div class="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-transparent to-slate-900/40 pointer-events-none"></div>
+        <div class="relative">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-900/60 backdrop-blur">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-orange-500/20 border border-orange-500/50 flex items-center justify-center text-orange-300 font-bold">GN</div>
+              <div>
+                <div class="text-white font-semibold">GAT Notebook (WASM preview)</div>
+                <div class="text-xs text-slate-400">Interactive AC-OPF cell ➜ live result panes</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                id="notebookDrawerToggle"
+                type="button"
+                class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-lg border border-slate-700 transition-colors"
+              >
+                Demo notebooks
+              </button>
+              <span id="notebookStatusBadge" class="px-3 py-1 text-xs rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/40">Idle • ready</span>
+              <button id="notebookRunButton" type="button" class="bg-orange-600 hover:bg-orange-500 text-white text-sm px-4 py-2 rounded-lg shadow-md transition-colors">Run cell in browser</button>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-5 gap-0">
+            <div class="md:col-span-3 border-r border-slate-800 p-5 space-y-4 bg-slate-950/70">
+              <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 flex items-center justify-between">
+                <div class="flex flex-col">
+                  <span class="uppercase tracking-[0.08em] text-[10px] text-orange-400 font-mono">Selected demo</span>
+                  <span id="notebookSelectedTitle" class="text-white font-semibold">AC-OPF quickstart</span>
+                  <span id="notebookSelectedDesc" class="text-slate-400">IEEE 14-bus | parity with CLI</span>
+                </div>
+                <div class="text-right text-[11px] text-slate-400 font-mono">
+                  <div id="notebookSelectedFiles">case14.arrow · limits.csv</div>
+                  <div id="notebookSelectedCommand" class="text-white/70">gat opf ac case14.arrow --limits limits.csv</div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-xs uppercase tracking-[0.08em] text-slate-500">
+                <span class="font-mono">Cell 12 • ac_opf()</span>
+                <span class="flex items-center gap-2 text-orange-400">wasm-bindgen <span class="w-2 h-2 rounded-full bg-orange-400"></span></span>
+              </div>
+              <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-sm text-slate-300 space-y-2">
+                <div class="flex items-start gap-3">
+                  <span class="text-slate-600">1</span>
+                  <span>use gat_notebook::{ac_opf, ArrowSink};</span>
+                </div>
+                <div class="flex items-start gap-3">
+                  <span class="text-slate-600">2</span>
+                  <span>let grid = load_arrow("case14.arrow")?;</span>
+                </div>
+                <div class="flex items-start gap-3">
+                  <span class="text-slate-600">3</span>
+                  <span>let limits = load_csv("branch_limits.csv")?;</span>
+                </div>
+                <div class="flex items-start gap-3">
+                  <span class="text-slate-600">4</span>
+                  <span>let result = ac_opf(grid, limits).await?;</span>
+                </div>
+                <div class="flex items-start gap-3">
+                  <span class="text-slate-600">5</span>
+                  <span>ArrowSink::from(result).download("opf.parquet");</span>
+                </div>
+              </div>
+
+              <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                <div class="text-xs text-slate-400 mb-2">CLI parity</div>
+                <div class="flex flex-wrap gap-2 font-mono text-[11px] text-slate-300">
+                  <span class="px-2 py-1 rounded bg-slate-900 border border-slate-800">gat opf ac grid.arrow --limits branch_limits.csv</span>
+                  <span class="px-2 py-1 rounded bg-slate-900 border border-slate-800">--out opf.parquet</span>
+                  <span class="px-2 py-1 rounded bg-slate-900 border border-slate-800">--mipgap 1e-4</span>
+                  <span class="px-2 py-1 rounded bg-slate-900 border border-slate-800">--solver clarabel</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="md:col-span-2 p-5 space-y-4 bg-slate-950">
+              <div id="notebookDrawer" class="hidden absolute top-20 right-4 w-80 bg-slate-950 border border-slate-800 rounded-xl shadow-2xl z-20">
+                <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div class="text-xs uppercase tracking-[0.08em] text-orange-400 font-mono">Notebook drawer</div>
+                    <div class="text-sm text-white font-semibold">Demo notebooks ready for WASM</div>
+                  </div>
+                  <button id="notebookDrawerClose" class="text-slate-500 hover:text-white text-sm" type="button">✕</button>
+                </div>
+                <div id="notebookList" class="max-h-80 overflow-y-auto divide-y divide-slate-800"></div>
+                <div class="px-4 py-3 text-[11px] text-slate-400 border-t border-slate-800">
+                  Hook these entries into the real wasm bridge to let users run full examples in-browser.
+                </div>
+              </div>
+              <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-4">
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                  <span class="font-semibold text-white">Live outputs</span>
+                  <span class="font-mono text-emerald-300">Parquet</span>
+                </div>
+                <div id="notebookOutput" class="text-sm text-slate-300 space-y-1 font-mono bg-slate-950 border border-slate-800 rounded-lg p-3">
+                  <div>flows.parquet → 14 branches</div>
+                  <div>voltage magnitude: 0.97–1.04 p.u.</div>
+                  <div>binding constraints: 2</div>
+                  <div>objective: 13,284.22</div>
+                </div>
+                <div class="border-t border-slate-800 pt-4">
+                  <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                    <div class="flex items-center gap-2">
+                      <span class="text-orange-400">🔗</span>
+                      <span class="uppercase tracking-[0.08em] font-mono">WASM embed status</span>
+                    </div>
+                    <button id="wasmEmbedButton" type="button" class="text-[11px] px-3 py-1 rounded bg-slate-800 border border-slate-700 text-slate-200 hover:bg-slate-700 transition-colors">Probe bundle</button>
+                  </div>
+                  <div id="wasmEmbedStatus" class="text-xs font-mono text-slate-300 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2">Waiting for wasm-pack output…</div>
+                  <div id="wasmSupportStatus" class="text-[11px] text-slate-500 mt-2">Drop <code>notebook.js</code> and <code>notebook_bg.wasm</code> into <code>static/wasm/gat-notebook</code> to hydrate this embed. The page will look for a <code>run_demo</code> (or <code>run_cell</code>) export to wire the run button.</div>
+                  <div id="wasmEmbedLog" class="text-[11px] text-slate-300 font-mono bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 mt-3 space-y-1">
+                    <div>Awaiting bundle…</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div class="flex items-center gap-2 text-xs uppercase tracking-[0.08em] text-slate-500">
+                  <span class="text-orange-400">▸</span>
+                  <span>Run pipeline</span>
+                </div>
+                <div id="notebookTimeline" class="space-y-2 text-sm text-slate-300">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-slate-700"></span>
+                    <span class="font-mono">Waiting to start</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-slate-700"></span>
+                    <span class="font-mono">Arrow sink idle</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2 text-[11px] text-slate-400 font-mono">
+                <span class="px-2 py-1 rounded bg-slate-900 border border-slate-800">Service worker caching</span>
+                <span class="px-2 py-1 rounded bg-slate-900 border border-slate-800">Edge-friendly</span>
+                <span class="px-2 py-1 rounded bg-slate-900 border border-slate-800">No GPU required</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Documentation Links Section -->
   <section id="docs" class="relative z-10 py-24 bg-slate-900/50 border-y border-slate-800 px-6">
     <div class="max-w-7xl mx-auto">

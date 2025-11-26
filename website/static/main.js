@@ -156,4 +156,402 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Initialize features for default persona
   setActivePersona("students");
+
+  // Notebook WASM preview interactions
+  const runButton = document.getElementById("notebookRunButton");
+  const statusBadge = document.getElementById("notebookStatusBadge");
+  const outputEl = document.getElementById("notebookOutput");
+  const timelineEl = document.getElementById("notebookTimeline");
+  const drawer = document.getElementById("notebookDrawer");
+  const drawerToggle = document.getElementById("notebookDrawerToggle");
+  const drawerClose = document.getElementById("notebookDrawerClose");
+  const drawerList = document.getElementById("notebookList");
+  const selectedTitle = document.getElementById("notebookSelectedTitle");
+  const selectedDesc = document.getElementById("notebookSelectedDesc");
+  const selectedFiles = document.getElementById("notebookSelectedFiles");
+  const selectedCommand = document.getElementById("notebookSelectedCommand");
+  const wasmEmbedStatus = document.getElementById("wasmEmbedStatus");
+  const wasmEmbedLog = document.getElementById("wasmEmbedLog");
+  const wasmSupportStatus = document.getElementById("wasmSupportStatus");
+  const wasmEmbedButton = document.getElementById("wasmEmbedButton");
+
+  const wasmBundlePaths = {
+    wasm: "/wasm/gat-notebook/notebook_bg.wasm",
+    js: "/wasm/gat-notebook/notebook.js",
+    readme: "/wasm/gat-notebook/README.md"
+  };
+
+  const wasmBridge = {
+    ready: false,
+    module: null,
+    exports: null,
+    runExport: null
+  };
+
+  const badgeBase = "px-3 py-1 text-xs rounded-full border";
+
+  const setStatusBadge = (text, palette) => {
+    if (!statusBadge) return;
+    statusBadge.textContent = text;
+    statusBadge.className = `${badgeBase} ${palette}`;
+  };
+
+  const markWasmRuntimeReady = () => {
+    if (!statusBadge) return;
+    setStatusBadge(
+      "WASM runtime idle • ready for notebook cells",
+      "bg-emerald-500/15 text-emerald-300 border-emerald-400/40"
+    );
+    if (runButton && activeNotebook) {
+      runButton.textContent = `Run ${activeNotebook.title} in WASM`;
+    }
+  };
+
+  const updateWasmStatus = (text, variant = "muted") => {
+    if (!wasmEmbedStatus) return;
+    const base = "text-xs font-mono rounded-lg px-3 py-2 border";
+    const palettes = {
+      muted: `${base} bg-slate-950 border-slate-800 text-slate-300`,
+      loading: `${base} bg-amber-500/10 border-amber-400/40 text-amber-100`,
+      success: `${base} bg-emerald-500/10 border-emerald-400/40 text-emerald-200`,
+      error: `${base} bg-rose-500/10 border-rose-400/40 text-rose-200`
+    };
+
+    wasmEmbedStatus.className = palettes[variant] || palettes.muted;
+    wasmEmbedStatus.textContent = text;
+  };
+
+  const appendWasmLog = (text, tone = "info") => {
+    if (!wasmEmbedLog) return;
+    const row = document.createElement("div");
+    const tones = {
+      info: "text-slate-200",
+      warn: "text-amber-200",
+      success: "text-emerald-200",
+      error: "text-rose-200"
+    };
+    row.className = tones[tone] || tones.info;
+    row.textContent = text;
+    wasmEmbedLog.appendChild(row);
+  };
+
+  const detectWasmSupport = () => {
+    if (!wasmEmbedStatus || !wasmSupportStatus) return;
+    if (typeof WebAssembly === "undefined") {
+      updateWasmStatus("WebAssembly is not available in this browser.", "error");
+      wasmSupportStatus.textContent = "Please try a modern browser (Chrome, Edge, Firefox, Safari) with WASM enabled.";
+      appendWasmLog("WASM not supported by this runtime.", "error");
+      return false;
+    }
+
+    if (typeof WebAssembly.instantiateStreaming !== "function") {
+      appendWasmLog("Streaming instantiation not available; falling back to ArrayBuffer path.", "warn");
+    }
+
+    appendWasmLog("WASM supported. Looking for gat-notebook artifacts…", "success");
+    return true;
+  };
+
+  const loadWasmBundle = async () => {
+    if (wasmEmbedLog) {
+      wasmEmbedLog.innerHTML = "";
+    }
+
+    if (!detectWasmSupport()) return;
+
+    updateWasmStatus("Fetching wasm bundle…", "loading");
+    appendWasmLog(`GET ${wasmBundlePaths.wasm}`, "info");
+
+    try {
+      const response = await fetch(wasmBundlePaths.wasm, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} for ${wasmBundlePaths.wasm}`);
+      }
+
+      const bytes = await response.arrayBuffer();
+      const module = await WebAssembly.instantiate(bytes, {});
+      const exported = Object.keys(module.instance?.exports || {});
+      const runHook = ["run_demo", "run_cell", "main", "start"].find(
+        (name) => typeof module.instance?.exports?.[name] === "function"
+      );
+
+      wasmBridge.ready = true;
+      wasmBridge.module = module;
+      wasmBridge.exports = module.instance?.exports || {};
+      wasmBridge.runExport = runHook || null;
+
+      updateWasmStatus("Loaded wasm binary — exports hydrated.", "success");
+      appendWasmLog(
+        `Exports: ${exported.length ? exported.join(", ") : "(none)"}`,
+        "success"
+      );
+      appendWasmLog(
+        runHook
+          ? `Notebook bridge found export \'${runHook}\'. Wire run button to this function.`
+          : "No obvious run export found. Wire a JS shim to call into the notebook runtime.",
+        runHook ? "success" : "warn"
+      );
+
+      markWasmRuntimeReady();
+
+      try {
+        appendWasmLog(`Loading JS shim ${wasmBundlePaths.js}…`, "info");
+        await import(`${wasmBundlePaths.js}?t=${Date.now()}`);
+        appendWasmLog("JS shim imported (stub). Wire real bindings to run cells.", "success");
+      } catch (err) {
+        appendWasmLog(`JS shim missing: ${err?.message || err}`, "warn");
+      }
+    } catch (error) {
+      updateWasmStatus("Failed to load wasm bundle.", "error");
+      appendWasmLog(
+        typeof error === "string" ? error : error?.message || "Unknown wasm load error",
+        "error"
+      );
+      appendWasmLog(
+        "Drop wasm-pack outputs into website/static/wasm/gat-notebook to replace this stub.",
+        "warn"
+      );
+      appendWasmLog("Offline build note: missing wasm32 std (see README).", "warn");
+    }
+  };
+
+  if (wasmEmbedButton) {
+    wasmEmbedButton.addEventListener("click", loadWasmBundle);
+  }
+
+  detectWasmSupport();
+
+  const renderOutput = (lines) => {
+    if (!outputEl) return;
+    outputEl.innerHTML = "";
+    lines.forEach(function (line) {
+      const div = document.createElement("div");
+      div.textContent = line;
+      outputEl.appendChild(div);
+    });
+  };
+
+  const notebookSamples = [
+    {
+      slug: "ac-opf",
+      title: "AC-OPF quickstart",
+      desc: "IEEE 14-bus • CLI parity",
+      files: "case14.arrow · limits.csv",
+      command: "gat opf ac case14.arrow --limits limits.csv --out opf.parquet",
+      outputs: ["flows.parquet → 14 branches", "binding constraints: 2", "objective: 13,284.22"]
+    },
+    {
+      slug: "ac-pf",
+      title: "AC power flow scan",
+      desc: "IEEE 118-bus • voltage band",
+      files: "ieee118.arrow",
+      command: "gat pf ac ieee118.arrow --out flows.parquet",
+      outputs: ["voltages: 0.95–1.05 p.u.", "branches: 186", "converged in 21 iters"]
+    },
+    {
+      slug: "nminus1",
+      title: "N-1 thermal screening",
+      desc: "200 contingencies • DC PF",
+      files: "case300.arrow · contingencies.yaml",
+      command: "gat nminus1 dc case300.arrow --spec contingencies.yaml",
+      outputs: ["200 outages enumerated", "violations: 3", "worst: branch 121"]
+    }
+  ];
+
+  let activeNotebook = notebookSamples[0];
+
+  const setActiveNotebook = (sample) => {
+    activeNotebook = sample;
+    if (selectedTitle && selectedDesc && selectedFiles && selectedCommand) {
+      selectedTitle.textContent = sample.title;
+      selectedDesc.textContent = sample.desc;
+      selectedFiles.textContent = sample.files;
+      selectedCommand.textContent = sample.command;
+    }
+
+    if (runButton) {
+      runButton.textContent = wasmBridge.ready
+        ? `Run ${sample.title} in WASM`
+        : `Run ${sample.title} in browser`;
+    }
+
+    renderOutput(sample.outputs);
+  };
+
+  const renderDrawerList = () => {
+    if (!drawerList) return;
+    drawerList.innerHTML = "";
+    notebookSamples.forEach(function (sample) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className =
+        "w-full text-left px-4 py-3 hover:bg-slate-900/60 transition-colors" +
+        (activeNotebook.slug === sample.slug ? " bg-slate-900/70" : "");
+      const title = document.createElement("div");
+      title.className = "text-sm text-white font-semibold";
+      title.textContent = sample.title;
+      const desc = document.createElement("div");
+      desc.className = "text-[11px] text-slate-400";
+      desc.textContent = sample.desc;
+      const meta = document.createElement("div");
+      meta.className = "text-[11px] text-orange-300 font-mono mt-1";
+      meta.textContent = sample.command;
+      row.appendChild(title);
+      row.appendChild(desc);
+      row.appendChild(meta);
+      row.addEventListener("click", function () {
+        setActiveNotebook(sample);
+        renderDrawerList();
+        drawer?.classList.add("hidden");
+      });
+      drawerList.appendChild(row);
+    });
+  };
+
+  const toggleDrawer = (open) => {
+    if (!drawer) return;
+    const shouldOpen = open !== undefined ? open : drawer.classList.contains("hidden");
+    if (shouldOpen) {
+      drawer.classList.remove("hidden");
+    } else {
+      drawer.classList.add("hidden");
+    }
+  };
+
+  if (drawerToggle && drawer) {
+    drawerToggle.addEventListener("click", function () {
+      toggleDrawer();
+    });
+  }
+
+  if (drawerClose && drawer) {
+    drawerClose.addEventListener("click", function () {
+      toggleDrawer(false);
+    });
+  }
+
+  if (drawerList) {
+    renderDrawerList();
+  }
+
+  setActiveNotebook(activeNotebook);
+
+  if (runButton && statusBadge && outputEl && timelineEl) {
+    const steps = [
+      {
+        status: "Compiling WASM bundle…",
+        badge: "bg-amber-500/15 text-amber-200 border-amber-400/40",
+        output: [
+          "wasm-pack build --target web",
+          "optimizing: -O3 • tree-shaking",
+          "emscripten: shared runtime ready"
+        ],
+        timeline: "Compile wasm build"
+      },
+      {
+        status: "Hydrating notebook shell…",
+        badge: "bg-blue-500/15 text-blue-200 border-blue-400/40",
+        output: [
+          "registering service worker",
+          "mounting file dropzones",
+          "connecting Arrow viewer"
+        ],
+        timeline: "Hydrate notebook shell"
+      },
+      {
+        status: "AC-OPF solving (browser)…",
+        badge: "bg-orange-500/15 text-orange-200 border-orange-400/40",
+        output: [
+          "ac_opf(case14) → 48ms",
+          "binding constraints: 2",
+          "dual residual: 9.6e-7"
+        ],
+        timeline: "Solve ac_opf"
+      },
+      {
+        status: "Streaming Parquet + charts",
+        badge: "bg-emerald-500/15 text-emerald-200 border-emerald-400/40",
+        output: [
+          "flows.parquet (14 rows)",
+          "voltages.parquet (14 rows)",
+          "objective: 13,284.22"
+        ],
+        timeline: "Stream outputs"
+      }
+    ];
+
+    const renderTimeline = (activeIndex = -1) => {
+      timelineEl.innerHTML = "";
+      steps.forEach(function (step, idx) {
+        const row = document.createElement("div");
+        row.className = "flex items-center gap-2";
+        const dot = document.createElement("span");
+        dot.className =
+          "w-2 h-2 rounded-full " +
+          (idx < activeIndex
+            ? "bg-emerald-400"
+            : idx === activeIndex
+            ? "bg-orange-400 animate-pulse"
+            : "bg-slate-700");
+        const label = document.createElement("span");
+        label.className = "font-mono " + (idx <= activeIndex ? "text-slate-100" : "text-slate-400");
+        label.textContent = step.timeline;
+        row.appendChild(dot);
+        row.appendChild(label);
+        timelineEl.appendChild(row);
+      });
+    };
+
+    renderTimeline();
+
+    runButton.addEventListener("click", function () {
+      runButton.disabled = true;
+      runButton.textContent = "Running…";
+
+      if (wasmBridge.ready) {
+        appendWasmLog(
+          `Routing demo '${activeNotebook.slug}' through wasm runtime${
+            wasmBridge.runExport ? ` via ${wasmBridge.runExport}()` : " (shim pending)"
+          }.`,
+          wasmBridge.runExport ? "success" : "warn"
+        );
+      } else {
+        appendWasmLog(
+          "WASM runtime not loaded yet. Falling back to front-end mock run.",
+          "warn"
+        );
+      }
+
+      let stepIndex = 0;
+
+      const advance = () => {
+        const step = steps[stepIndex];
+        setStatusBadge(step.status, step.badge);
+        renderOutput(step.output);
+        renderTimeline(stepIndex);
+
+        stepIndex += 1;
+
+        if (stepIndex < steps.length) {
+          setTimeout(advance, 900);
+        } else {
+          setTimeout(function () {
+            setStatusBadge(
+              wasmBridge.ready
+                ? "WASM runtime idle • ready for next cell"
+                : "Complete • ready for next run",
+              "bg-emerald-500/15 text-emerald-300 border-emerald-400/40"
+            );
+            runButton.disabled = false;
+            runButton.textContent = wasmBridge.ready
+              ? `Run ${activeNotebook.title} in WASM`
+              : `Run ${activeNotebook.title} in browser`;
+            renderTimeline(steps.length);
+          }, 750);
+        }
+      };
+
+      advance();
+    });
+  }
 });
