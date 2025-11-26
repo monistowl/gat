@@ -33,6 +33,9 @@ enum Commands {
         /// Optional path to write a structured launch summary.
         #[arg(long, value_name = "FILE")]
         output: Option<PathBuf>,
+        /// Emit JSON summary to stdout (overrides human-readable when set).
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -50,6 +53,7 @@ fn main() -> CliResult {
             port,
             open_browser,
             output,
+            json,
         } => {
             let options = gat_notebook::NotebookOptions {
                 workspace,
@@ -57,10 +61,36 @@ fn main() -> CliResult {
                 open_browser,
             };
             let report = gat_gui::launch(gat_gui::GuiApp::Notebook(options))?;
-            println!("{}", report.summary());
+            if json {
+                println!("{{\"app\":\"{}\",\"url\":\"{}\",\"workspace\":{}}}",
+                    report.app,
+                    report.url,
+                    report
+                        .workspace
+                        .as_ref()
+                        .map(|p| format!("\"{}\"", p.display()))
+                        .unwrap_or_else(|| "null".to_string())
+                );
+            } else {
+                println!("{}", report.summary());
+            }
 
             if let Some(path) = output {
-                std::fs::write(path, report.summary())?;
+                let content = if json {
+                    format!(
+                        "{{\"app\":\"{}\",\"url\":\"{}\",\"workspace\":{}}}",
+                        report.app,
+                        report.url,
+                        report
+                            .workspace
+                            .as_ref()
+                            .map(|p| format!("\"{}\"", p.display()))
+                            .unwrap_or_else(|| "null".to_string())
+                    )
+                } else {
+                    report.summary()
+                };
+                std::fs::write(path, content)?;
             }
         }
     }

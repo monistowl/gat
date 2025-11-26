@@ -269,7 +269,7 @@ impl MockComponent for CommandsComponent {
         frame.render_widget(instructions, chunks[0]);
 
         // Snippets (as text)
-        let snippets = Paragraph::new("Snippets\n  gat-cli datasets list --limit 5                    Verify connectivity\n  gat-cli derms envelope --grid-file <case>         Preview envelope\n  gat-cli dist import matpower --m <file>            Import test case")
+        let snippets = Paragraph::new("Snippets\n  gat-cli datasets list --limit 5                    Verify connectivity\n  gat-cli datasets fetch --id <id> --out data/      Pull public dataset\n  gat-cli import format --file <path> --out grid.arrow  Auto-detect format\n  gat-cli import pandapower --file <json> --out grid.arrow  Pandapower import")
             .block(Block::default().borders(Borders::ALL).title("Command Snippets"))
             .style(Style::default().fg(Color::White));
         frame.render_widget(snippets, chunks[1]);

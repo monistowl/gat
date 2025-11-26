@@ -2,6 +2,8 @@
 name = "gat-gui"
 version = "0.4.0"
 edition = "2021"
+description = "GUI launcher for GAT notebooks and future dashboards"
+readme = "README.md"
 
 [dependencies]
 gat-core = { path = "../gat-core" }

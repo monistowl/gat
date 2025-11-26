@@ -8,6 +8,8 @@ Interactive terminal UI (TUI) for browsing datasets, executing commands, monitor
 cargo run -p gat-tui --release
 ```
 
+Supports the latest CLI additions (pandapower import, dataset fetch/describe, runs replays).
+
 ## Architecture
 
 **Seven-Pane Layout:**
@@ -29,7 +31,7 @@ cargo run -p gat-tui --release
 - Recent runs list with timestamps and status
 
 ### Commands Pane
-- 19+ built-in command snippets categorized by domain
+- Built-in command snippets (imports, datasets, analytics, batch) including pandapower auto-detect
 - Custom command editor with syntax highlighting
 - Dry-run vs. full execution modes (toggle with `d`)
 - Execution history with status (✓ Success, ✗ Failed, ⟳ Running)
@@ -178,10 +180,9 @@ cargo test -p gat-tui --lib panes::integration_tests
 cargo test -p gat-tui
 ```
 
-**Current Coverage:**
-- 536+ tests passing
-- 7 panes fully tested
-- 37 integration tests covering multi-pane workflows
+**Current Coverage (approx):**
+- Core pane/unit tests plus integration coverage for multi-pane flows
+- Run `cargo test -p gat-tui` for the exact count in your checkout
 
 ## Architecture Files
 

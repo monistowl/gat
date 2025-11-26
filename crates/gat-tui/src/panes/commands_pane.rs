@@ -107,6 +107,18 @@ impl Default for CommandsPaneState {
                 category: "Datasets".into(),
             },
             CommandSnippet {
+                id: "describe-dataset".into(),
+                command: "gat-cli datasets describe --id <id> --format json".into(),
+                description: "Inspect dataset metadata from the catalogue".into(),
+                category: "Datasets".into(),
+            },
+            CommandSnippet {
+                id: "fetch-dataset".into(),
+                command: "gat-cli datasets fetch --id <id> --out data/public".into(),
+                description: "Fetch public dataset to local cache".into(),
+                category: "Datasets".into(),
+            },
+            CommandSnippet {
                 id: "upload-dataset".into(),
                 command: "gat-cli datasets upload --file <path> --name <name>".into(),
                 description: "Upload new dataset to catalogue".into(),
@@ -136,6 +148,18 @@ impl Default for CommandsPaneState {
                 id: "import-matpower".into(),
                 command: "gat-cli dist import matpower --m <file>".into(),
                 description: "Convert MATPOWER test cases before ADMS runs".into(),
+                category: "Distribution".into(),
+            },
+            CommandSnippet {
+                id: "import-pandapower".into(),
+                command: "gat-cli import pandapower --file test_data/adjacent/pandapower/case14.json --out grid.arrow".into(),
+                description: "Load pandapower JSON using new import path".into(),
+                category: "Distribution".into(),
+            },
+            CommandSnippet {
+                id: "import-auto-detect".into(),
+                command: "gat-cli import format --file <path> --out grid.arrow".into(),
+                description: "Auto-detect format across MATPOWER/PSS/E/CIM/pandapower".into(),
                 category: "Distribution".into(),
             },
             CommandSnippet {
@@ -186,7 +210,7 @@ impl Default for CommandsPaneState {
             // Analytics operations
             CommandSnippet {
                 id: "reliability-analysis".into(),
-                command: "gat-cli analytics reliability --dataset <id> --grid <grid>".into(),
+                command: "gat-cli analytics reliability --grid grid.arrow --outages contingencies.yaml".into(),
                 description: "Run reliability metrics (LOLE, EUE)".into(),
                 category: "Analytics".into(),
             },
@@ -240,6 +264,25 @@ impl Default for CommandsPaneState {
                 command: "gat-cli batch status --job-id <id>".into(),
                 description: "Check status of batch job".into(),
                 category: "Batch".into(),
+            },
+            // Runs
+            CommandSnippet {
+                id: "list-runs".into(),
+                command: "gat-cli runs list --root runs --format table".into(),
+                description: "List saved runs".into(),
+                category: "Runs".into(),
+            },
+            CommandSnippet {
+                id: "describe-run".into(),
+                command: "gat-cli runs describe run.json --format json".into(),
+                description: "Describe run from manifest (shows outputs)".into(),
+                category: "Runs".into(),
+            },
+            CommandSnippet {
+                id: "resume-run".into(),
+                command: "gat-cli runs resume run.json --execute".into(),
+                description: "Re-run saved manifest with same arguments".into(),
+                category: "Runs".into(),
             },
             // Utilities
             CommandSnippet {
@@ -595,7 +638,7 @@ mod tests {
     #[test]
     fn test_commands_init() {
         let state = CommandsPaneState::new();
-        assert_eq!(state.snippet_count(), 29);
+        assert!(state.snippet_count() >= 30);
         assert_eq!(state.history_count(), 2);
         assert_eq!(state.execution_mode, ExecutionMode::DryRun);
     }

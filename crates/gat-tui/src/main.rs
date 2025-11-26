@@ -566,7 +566,7 @@ fn render_commands_pane(frame: &mut Frame, area: Rect, state: &CommandsPaneState
     } else {
         Style::default().fg(Color::White)
     };
-    let snippets = Paragraph::new("Snippets\n  gat-cli datasets list --limit 5                    Verify connectivity\n  gat-cli derms envelope --grid-file <case>         Preview envelope\n  gat-cli dist import matpower --m <file>            Import test case")
+    let snippets = Paragraph::new("Snippets\n  gat-cli datasets list --limit 5                    Verify connectivity\n  gat-cli datasets fetch --id <id> --out data/      Pull public dataset\n  gat-cli import format --file <path> --out grid.arrow  Auto-detect format\n  gat-cli import pandapower --file <json> --out grid.arrow  Pandapower import")
         .block(Block::default().borders(Borders::ALL).title("Command Snippets"))
         .style(snippets_style);
     frame.render_widget(snippets, chunks[1]);
