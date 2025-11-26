@@ -217,6 +217,7 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                 qmin_mvar: qmin,
                 qmax_mvar: qmax,
                 cost_model: gat_core::CostModel::NoCost,
+                is_synchronous_condenser: false,
             }));
         }
     }

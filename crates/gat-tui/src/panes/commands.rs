@@ -12,6 +12,7 @@ impl CommandsPane {
                 .body([
                     "Author gat-cli commands, stack them as multi-line snippets, and run with a hotkey.",
                     "Dry-runs print the normalized invocation; full runs stream into the modal output.",
+                    "Run custom gat-cli command straight from the modal",
                 ])
                 .with_table(
                     TableView::new(["Snippet", "Purpose"])

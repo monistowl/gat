@@ -144,6 +144,9 @@ impl PipelinePane {
                 .body([
                     "Pick sources, transformations, and outputs with menus instead of ad-hoc keys.",
                     "Inline instructions keep each section self-guided; subtabs appear when crowded.",
+                    "Scenario materialization sits next to classic and feature transforms for quick swaps.",
+                    "Feature engineering, scenario materialization, and outputs stay in one view.",
+                    "Feature engineering covers GNN, KPI, and Geo exporters upfront.",
                 ])
                 .with_child(source_selection)
                 .with_child(transforms)

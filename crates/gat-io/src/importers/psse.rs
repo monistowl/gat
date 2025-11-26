@@ -300,6 +300,7 @@ fn build_network_from_psse(
             qmin_mvar: f64::NEG_INFINITY,
             qmax_mvar: f64::INFINITY,
             cost_model: gat_core::CostModel::NoCost,
+            is_synchronous_condenser: false,
         }));
         gen_id += 1;
     }

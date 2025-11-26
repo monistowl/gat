@@ -98,6 +98,12 @@ impl AppShell {
         // Render menu bar
         let _ = writeln!(&mut output, "{}", self.menu.render_menu_bar());
 
+        // Surface the modal capability prominently so it appears in compact previews
+        let _ = writeln!(
+            &mut output,
+            "Tip: Run custom gat-cli command from the Commands pane or modal."
+        );
+
         // Render active pane layout
         self.menu
             .render_active_layout_into(&mut output, width, height);
