@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gat_core::{Network, Node, Bus};
+use gat_core::{Network, Node, Bus, Load};
 use std::path::Path;
 use std::fs;
 
@@ -15,6 +15,9 @@ pub fn export_to_psse_string(network: &Network, case_name: &str) -> Result<Strin
 
     // Bus data section
     write_bus_section(network, &mut output);
+
+    // Load data section
+    write_load_section(network, &mut output);
 
     Ok(output)
 }
@@ -53,6 +56,40 @@ fn write_bus_section(network: &Network, output: &mut String) {
         ));
     }
     output.push_str("0 / END OF BUS DATA, BEGIN LOAD DATA\n");
+}
+
+/// Write load data section in PSS/E v33 format
+fn write_load_section(network: &Network, output: &mut String) {
+    // Collect loads
+    let mut loads: Vec<&Load> = network.graph.node_weights()
+        .filter_map(|n| if let Node::Load(l) = n { Some(l) } else { None })
+        .collect();
+    loads.sort_by_key(|l| (l.bus.value(), l.id.value()));
+
+    for (idx, load) in loads.iter().enumerate() {
+        // PSS/E v33 load format:
+        // I, ID, STATUS, AREA, ZONE, PL, QL, IP, IQ, YP, YQ, OWNER, SCALE, INTRPT
+        // I = bus number
+        // ID = load identifier (sequential 1-based in this case)
+        // STATUS = 1 (in service)
+        // AREA = 1 (default)
+        // ZONE = 1 (default)
+        // PL = active power (MW)
+        // QL = reactive power (MVAr)
+        // IP, IQ = constant current components (0.0 for constant power)
+        // YP, YQ = constant admittance components (0.0 for constant power)
+        // OWNER = 1 (default)
+        // SCALE = 1 (no scaling)
+        // INTRPT = 0 (not interruptible)
+        output.push_str(&format!(
+            "{},{},1,1,1,{:.1},{:.1},0.0,0.0,0.0,0.0,1,1,0\n",
+            load.bus.value(),
+            idx + 1,
+            load.active_power_mw,
+            load.reactive_power_mvar,
+        ));
+    }
+    output.push_str("0 / END OF LOAD DATA, BEGIN FIXED SHUNT DATA\n");
 }
 
 /// Export network to PSS/E RAW file
@@ -109,5 +146,30 @@ mod tests {
         // Check bus 1 data (fields: I, NAME, BASKV, IDE, AREA, ZONE, OWNER, VM, VA)
         assert!(output.contains("1,'SLACK"));
         assert!(output.contains("138.0"));
+    }
+
+    #[test]
+    fn export_psse_includes_load_data() {
+        use gat_core::{Load, LoadId};
+
+        let mut network = Network::new();
+        network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "Load1".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: 100.0,
+            reactive_power_mvar: 50.0,
+        }));
+
+        let output = export_to_psse_string(&network, "test").unwrap();
+        assert!(output.contains("0 / END OF LOAD DATA"));
+        assert!(output.contains("100.0")); // PL
+        assert!(output.contains("50.0"));  // QL
     }
 }
