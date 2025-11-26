@@ -484,6 +484,9 @@ pub enum PowerFlowCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Enforce generator Q limits (PV-PQ bus switching)
+        #[arg(long)]
+        q_limits: bool,
     },
 }
 

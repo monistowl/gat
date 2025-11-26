@@ -62,6 +62,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
             solver,
             lp_solver,
             out_partitions,
+            q_limits,
         } => {
             let start = Instant::now();
             let res = (|| -> Result<()> {
@@ -71,6 +72,9 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                 let _ = lp_solver;
                 let partitions = parse_partitions(out_partitions.as_ref());
                 let out_path = Path::new(out);
+                if *q_limits {
+                    tracing::warn!("Q-limit enforcement requested but not yet integrated with legacy solver");
+                }
                 match importers::load_grid_from_arrow(grid_file.as_str()) {
                     Ok(network) => power_flow::ac_power_flow(
                         &network,
@@ -84,6 +88,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                 }
             })();
             let solver_name = solver.parse::<SolverKind>()?.as_str();
+            let q_limits_str = if *q_limits { "true" } else { "false" };
             record_run_timed(
                 out,
                 "pf ac",
@@ -95,6 +100,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                     ("max_iter", &max_iter.to_string()),
                     ("solver", solver_name),
                     ("out_partitions", out_partitions.as_deref().unwrap_or("")),
+                    ("q_limits", q_limits_str),
                 ],
                 start,
                 &res,
