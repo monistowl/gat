@@ -1223,4 +1223,36 @@ mod sparse_tests {
             }
         }
     }
+
+    /// Test that faer-based solver produces same result as Gaussian elimination
+    #[test]
+    fn test_sparse_solver_matches_gaussian() {
+        // Simple 3x3 system: Ax = b
+        // A = [[4, 1, 0], [1, 4, 1], [0, 1, 4]]
+        // b = [1, 2, 1]
+        // Expected x ≈ [0.176, 0.412, 0.147]
+        let a = vec![
+            vec![4.0, 1.0, 0.0],
+            vec![1.0, 4.0, 1.0],
+            vec![0.0, 1.0, 4.0],
+        ];
+        let b = vec![1.0, 2.0, 1.0];
+
+        let solver = AcPowerFlowSolver::new();
+
+        // Solve with existing Gaussian elimination
+        let x_gauss = solver.solve_linear_system(&a, &b).unwrap();
+
+        // Solve with new faer-based solver
+        let x_faer = solver.solve_linear_system_faer(&a, &b).unwrap();
+
+        // Compare results
+        for i in 0..3 {
+            assert!(
+                (x_gauss[i] - x_faer[i]).abs() < 1e-10,
+                "Mismatch at {}: gauss={}, faer={}",
+                i, x_gauss[i], x_faer[i]
+            );
+        }
+    }
 }
