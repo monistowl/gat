@@ -1117,3 +1117,47 @@ struct BranchData {
     tap: f64,
     shift: f64,
 }
+
+#[cfg(test)]
+mod sparse_tests {
+    use super::*;
+
+    /// Test that sparse Jacobian produces same result as dense for 3-bus system
+    #[test]
+    fn test_sparse_jacobian_matches_dense() {
+        // Create simple 3-bus Y-bus matrix (admittance)
+        // Y = [[2, -1, -1], [-1, 2, -1], [-1, -1, 2]] (simple mesh)
+        let y_bus_dense = vec![
+            vec![(2.0, -0.5), (-1.0, 0.1), (-1.0, 0.1)],
+            vec![(-1.0, 0.1), (2.0, -0.5), (-1.0, 0.1)],
+            vec![(-1.0, 0.1), (-1.0, 0.1), (2.0, -0.5)],
+        ];
+
+        let v_mag = vec![1.0, 1.0, 1.0];
+        let v_ang = vec![0.0, -0.05, -0.1];
+        let p_buses = vec![1, 2]; // non-slack buses
+        let q_buses = vec![1, 2]; // PQ buses
+
+        let solver = AcPowerFlowSolver::new();
+
+        // Build dense Jacobian (existing method)
+        let dense_jacobian = solver.build_jacobian(&y_bus_dense, &v_mag, &v_ang, &p_buses, &q_buses);
+
+        // Build sparse Jacobian (new method to implement)
+        let sparse_jacobian = solver.build_jacobian_sparse(&y_bus_dense, &v_mag, &v_ang, &p_buses, &q_buses);
+
+        // Convert sparse back to dense for comparison
+        let n = dense_jacobian.len();
+        for i in 0..n {
+            for j in 0..n {
+                let dense_val = dense_jacobian[i][j];
+                let sparse_val = *sparse_jacobian.get(i, j).unwrap_or(&0.0);
+                assert!(
+                    (dense_val - sparse_val).abs() < 1e-10,
+                    "Mismatch at ({}, {}): dense={}, sparse={}",
+                    i, j, dense_val, sparse_val
+                );
+            }
+        }
+    }
+}
