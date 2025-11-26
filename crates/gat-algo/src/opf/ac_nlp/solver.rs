@@ -457,14 +457,51 @@ pub fn solve(
     max_iterations: usize,
     tolerance: f64,
 ) -> Result<OpfSolution, OpfError> {
+    // Use flat start (V=1.0, θ=0, generators at midpoint)
+    let x0 = problem.initial_point();
+    solve_with_start(problem, x0, max_iterations, tolerance)
+}
+
+/// Solve AC-OPF with a custom initial point (warm-start).
+///
+/// This is useful for:
+/// - **DC→AC refinement**: Start from DC-OPF solution for faster convergence
+/// - **SOCP→AC refinement**: Tighten SOCP relaxation to exact AC solution
+/// - **Multi-period**: Use previous period's solution as warm-start
+/// - **Contingency analysis**: Start from base case solution
+///
+/// # Arguments
+///
+/// * `problem` - AC-OPF problem specification (network, costs, limits)
+/// * `x0` - Initial point vector (use `problem.warm_start_from_solution()`)
+/// * `max_iterations` - Total L-BFGS iterations (split across penalty iterations)
+/// * `tolerance` - Convergence tolerance for constraint violations
+///
+/// # Example
+///
+/// ```ignore
+/// // First solve DC-OPF (fast, globally optimal)
+/// let dc_solution = solve_dc_opf(&network)?;
+///
+/// // Build AC-OPF problem
+/// let ac_problem = AcOpfProblem::from_network(&network)?;
+///
+/// // Warm-start from DC solution
+/// let x0 = ac_problem.warm_start_from_solution(&dc_solution);
+/// let ac_solution = solve_with_start(&ac_problem, x0, 200, 1e-4)?;
+/// ```
+pub fn solve_with_start(
+    problem: &AcOpfProblem,
+    x0: Vec<f64>,
+    max_iterations: usize,
+    tolerance: f64,
+) -> Result<OpfSolution, OpfError> {
     let start = Instant::now();
 
     // ========================================================================
     // INITIALIZATION
     // ========================================================================
 
-    // Flat start: V=1.0, θ=0, generators at midpoint of range
-    let x0 = problem.initial_point();
     let (lb, ub) = problem.variable_bounds();
 
     // ========================================================================

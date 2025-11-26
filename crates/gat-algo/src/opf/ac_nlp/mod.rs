@@ -184,7 +184,7 @@ mod ipopt_solver;
 
 pub use power_equations::PowerEquations;
 pub use problem::{AcOpfProblem, BranchData, BusData, CapabilityCurvePoint, GenData, interpolate_q_limits};
-pub use solver::solve as solve_ac_opf;
+pub use solver::{solve as solve_ac_opf, solve_with_start as solve_ac_opf_warm_start};
 pub use sparse_ybus::SparseYBus;
 pub use ybus::{YBus, YBusBuilder};
 pub use branch_flow::{

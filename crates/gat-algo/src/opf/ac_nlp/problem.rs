@@ -595,6 +595,106 @@ impl AcOpfProblem {
         x
     }
 
+    /// Create a warm-start initial point from a previous OPF solution (DC or SOCP).
+    ///
+    /// Warm-starting significantly improves AC-OPF convergence by providing an
+    /// initial point that is closer to the optimal solution. This is especially
+    /// valuable for:
+    /// - Multi-period optimization (sequential solves)
+    /// - Contingency analysis (similar solutions)
+    /// - DC→AC refinement workflows
+    ///
+    /// # Arguments
+    ///
+    /// * `solution` - A previous OPF solution (from DC-OPF, SOCP, or prior AC-OPF)
+    ///
+    /// # Returns
+    ///
+    /// Vector of length n_var with initial values extracted from the solution.
+    /// Missing values default to the flat-start values.
+    ///
+    /// # How Values Are Used
+    ///
+    /// | Variable | DC-OPF | SOCP | AC-OPF |
+    /// |----------|--------|------|--------|
+    /// | V_i      | 1.0 (assumed) | Relaxed | Direct |
+    /// | θ_i      | From LP (degrees→radians) | From conic | Direct |
+    /// | P_g      | Direct | Direct | Direct |
+    /// | Q_g      | Midpoint (not solved) | Direct | Direct |
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Solve DC-OPF first (fast, globally optimal)
+    /// let dc_solution = solve_dc_opf(&network)?;
+    ///
+    /// // Use DC solution as warm-start for AC-OPF
+    /// let ac_problem = AcOpfProblem::from_network(&network)?;
+    /// let x0 = ac_problem.warm_start_from_solution(&dc_solution);
+    /// let ac_solution = solve_ac_opf_with_start(&ac_problem, x0)?;
+    /// ```
+    pub fn warm_start_from_solution(&self, solution: &crate::opf::OpfSolution) -> Vec<f64> {
+        // Start with flat-start as fallback
+        let mut x = self.initial_point();
+
+        // ====================================================================
+        // VOLTAGE MAGNITUDES FROM SOLUTION
+        // ====================================================================
+        //
+        // DC-OPF assumes V=1.0, so these will be empty/default.
+        // SOCP/AC-OPF provide actual voltage magnitudes.
+
+        for (i, bus) in self.buses.iter().enumerate() {
+            if let Some(&v_mag) = solution.bus_voltage_mag.get(&bus.name) {
+                // Clamp to valid range to avoid infeasible start
+                x[self.v_offset + i] = v_mag.max(bus.v_min).min(bus.v_max);
+            }
+        }
+
+        // ====================================================================
+        // VOLTAGE ANGLES FROM SOLUTION (DEGREES → RADIANS)
+        // ====================================================================
+        //
+        // OpfSolution stores angles in degrees, AC-OPF uses radians.
+
+        for (i, bus) in self.buses.iter().enumerate() {
+            if let Some(&theta_deg) = solution.bus_voltage_ang.get(&bus.name) {
+                x[self.theta_offset + i] = theta_deg.to_radians();
+            }
+        }
+
+        // ====================================================================
+        // GENERATOR REAL POWER FROM SOLUTION
+        // ====================================================================
+        //
+        // This is usually available from all OPF methods.
+        // Convert from MW to per-unit and clamp to bounds.
+
+        for (i, gen) in self.generators.iter().enumerate() {
+            if let Some(&pg_mw) = solution.generator_p.get(&gen.name) {
+                let pg_clamped = pg_mw.max(gen.pmin_mw).min(gen.pmax_mw);
+                x[self.pg_offset + i] = pg_clamped / self.base_mva;
+            }
+        }
+
+        // ====================================================================
+        // GENERATOR REACTIVE POWER FROM SOLUTION
+        // ====================================================================
+        //
+        // DC-OPF doesn't solve Q, so this will be empty.
+        // SOCP/AC-OPF provide reactive power dispatch.
+
+        for (i, gen) in self.generators.iter().enumerate() {
+            if let Some(&qg_mvar) = solution.generator_q.get(&gen.name) {
+                let qg_clamped = qg_mvar.max(gen.qmin_mvar).min(gen.qmax_mvar);
+                x[self.qg_offset + i] = qg_clamped / self.base_mva;
+            }
+            // If Q not available (DC-OPF), keep the midpoint from flat-start
+        }
+
+        x
+    }
+
     /// Extract voltage magnitude and angle vectors from decision variable vector.
     ///
     /// # Arguments
@@ -905,5 +1005,96 @@ mod tests {
 
         // Marginal costs should also match
         assert!((pwl_gen.cost_model.marginal_cost(50.0) - poly_gen.cost_model.marginal_cost(50.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_warm_start_from_solution() {
+        use crate::opf::{OpfMethod, OpfSolution};
+        use gat_core::{Branch, BranchId, Bus, Edge, Gen, GenId, Network, Node};
+
+        // Create a minimal network to test warm-start
+        let mut network = Network::new();
+
+        // Add a bus
+        let bus_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Add a generator
+        network.graph.add_node(Node::Gen(Gen {
+            id: GenId::new(1),
+            name: "Gen1".to_string(),
+            bus: BusId::new(1),
+            pmin_mw: 10.0,
+            pmax_mw: 100.0,
+            qmin_mvar: -50.0,
+            qmax_mvar: 50.0,
+            cost_model: CostModel::linear(0.0, 10.0),
+            ..Gen::default()
+        }));
+
+        // Add a second bus and branch (needed for valid network)
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Bus2".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        network.graph.add_edge(
+            bus_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                name: "Line1-2".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                status: true,
+                ..Branch::default()
+            }),
+        );
+
+        // Build the problem
+        let problem = AcOpfProblem::from_network(&network).unwrap();
+
+        // Create a mock DC-OPF solution
+        let mut dc_solution = OpfSolution {
+            converged: true,
+            method_used: OpfMethod::DcOpf,
+            ..Default::default()
+        };
+
+        // Set values from "DC-OPF"
+        dc_solution.bus_voltage_ang.insert("Bus1".to_string(), 5.0); // 5 degrees
+        dc_solution.bus_voltage_ang.insert("Bus2".to_string(), 3.0); // 3 degrees
+        dc_solution.generator_p.insert("Gen1".to_string(), 75.0); // 75 MW
+
+        // Get warm-start vector
+        let x0 = problem.warm_start_from_solution(&dc_solution);
+
+        // Verify that values are extracted correctly
+        // n_var = 2 * n_bus + 2 * n_gen = 2*2 + 2*1 = 6
+        assert_eq!(x0.len(), 6);
+
+        // Voltage magnitudes should be 1.0 (DC doesn't provide V)
+        assert!((x0[problem.v_offset] - 1.0).abs() < 1e-9);
+        assert!((x0[problem.v_offset + 1] - 1.0).abs() < 1e-9);
+
+        // Angles should be converted from degrees to radians
+        assert!((x0[problem.theta_offset] - 5.0_f64.to_radians()).abs() < 1e-9);
+        assert!((x0[problem.theta_offset + 1] - 3.0_f64.to_radians()).abs() < 1e-9);
+
+        // P should be 75 MW in per-unit (75/100 = 0.75)
+        assert!((x0[problem.pg_offset] - 0.75).abs() < 1e-9);
+
+        // Q should be midpoint since DC doesn't solve Q
+        let gen = &problem.generators[0];
+        let q_midpoint = (gen.qmin_mvar + gen.qmax_mvar) / 2.0 / problem.base_mva;
+        assert!((x0[problem.qg_offset] - q_midpoint).abs() < 1e-9);
     }
 }

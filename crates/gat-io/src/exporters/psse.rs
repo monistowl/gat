@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gat_core::{Network, Node, Bus, Load, Gen};
+use gat_core::{Network, Node, Bus, Load, Gen, Edge, Branch};
 use std::path::Path;
 use std::fs;
 
@@ -21,6 +21,12 @@ pub fn export_to_psse_string(network: &Network, case_name: &str) -> Result<Strin
 
     // Generator data section
     write_generator_section(network, &mut output);
+
+    // Fixed shunt data section (empty for now)
+    write_fixed_shunt_section(network, &mut output);
+
+    // Branch data section
+    write_branch_section(network, &mut output);
 
     Ok(output)
 }
@@ -142,7 +148,59 @@ fn write_generator_section(network: &Network, output: &mut String) {
             gen.pmin_mw,
         ));
     }
-    output.push_str("0 / END OF GENERATOR DATA, BEGIN BRANCH DATA\n");
+    output.push_str("0 / END OF GENERATOR DATA, BEGIN FIXED SHUNT DATA\n");
+}
+
+/// Write fixed shunt data section (empty - not yet supported)
+fn write_fixed_shunt_section(_network: &Network, output: &mut String) {
+    // No fixed shunts in current implementation
+    output.push_str("0 / END OF FIXED SHUNT DATA, BEGIN BRANCH DATA\n");
+}
+
+/// Write branch data section in PSS/E v33 format
+fn write_branch_section(network: &Network, output: &mut String) {
+    // Collect branches from edges
+    let mut branches: Vec<&Branch> = network.graph.edge_weights()
+        .filter_map(|e| if let Edge::Branch(b) = e { Some(b) } else { None })
+        .collect();
+
+    // Sort by (from_bus, to_bus) for deterministic output
+    branches.sort_by_key(|b| (b.from_bus.value(), b.to_bus.value()));
+
+    for branch in branches {
+        // PSS/E v33 non-transformer branch format:
+        // I, J, CKT, R, X, B, RATEA, RATEB, RATEC, GI, BI, GJ, BJ, ST, MET, LEN, O1, F1...
+        // I = from bus number
+        // J = to bus number
+        // CKT = circuit ID (use '1' for single circuits)
+        // R = resistance (pu on 100 MVA base)
+        // X = reactance (pu on 100 MVA base)
+        // B = total charging susceptance (pu)
+        // RATEA/B/C = ratings (MVA)
+        // GI, BI, GJ, BJ = line shunt conductance/susceptance at each end (0.0)
+        // ST = status (1 = in service)
+        // MET = metered end (1)
+        // LEN = length (0.0 if unknown)
+
+        let rate_a = branch.rating_a_mva.unwrap_or(0.0);
+        let rate_b = branch.rating_b_mva.unwrap_or(rate_a);
+        let rate_c = branch.rating_c_mva.unwrap_or(rate_a);
+        let status = if branch.status { 1 } else { 0 };
+
+        output.push_str(&format!(
+            "{},{},'1',{:.6},{:.6},{:.6},{:.1},{:.1},{:.1},0.0,0.0,0.0,0.0,{},1,0.0\n",
+            branch.from_bus.value(),
+            branch.to_bus.value(),
+            branch.resistance,
+            branch.reactance,
+            branch.charging_b_pu,
+            rate_a,
+            rate_b,
+            rate_c,
+            status,
+        ));
+    }
+    output.push_str("0 / END OF BRANCH DATA, BEGIN TRANSFORMER DATA\n");
 }
 
 /// Export network to PSS/E RAW file
@@ -252,8 +310,60 @@ mod tests {
         }));
 
         let output = export_to_psse_string(&network, "test").unwrap();
-        assert!(output.contains("0 / END OF GENERATOR DATA"));
+        assert!(output.contains("0 / END OF GENERATOR DATA, BEGIN FIXED SHUNT DATA"));
         assert!(output.contains("50.0")); // PG
         assert!(output.contains("1.02")); // VS
+    }
+
+    #[test]
+    fn export_psse_includes_branch_data() {
+        use gat_core::{Branch, BranchId, Edge};
+
+        let mut network = Network::new();
+
+        // Add two buses
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Bus2".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Add a branch between them
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                name: "Line 1-2".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                charging_b_pu: 0.05,
+                rating_a_mva: Some(100.0),
+                rating_b_mva: Some(110.0),
+                rating_c_mva: Some(120.0),
+                ..Branch::default()
+            }),
+        );
+
+        let output = export_to_psse_string(&network, "test").unwrap();
+
+        // Check for branch section markers
+        assert!(output.contains("0 / END OF FIXED SHUNT DATA, BEGIN BRANCH DATA"));
+        assert!(output.contains("0 / END OF BRANCH DATA, BEGIN TRANSFORMER DATA"));
+
+        // Check for branch impedance values
+        assert!(output.contains("0.01")); // R
+        assert!(output.contains("0.1"));  // X
+        assert!(output.contains("0.05")); // B
+        assert!(output.contains("100.0")); // RATEA
     }
 }
