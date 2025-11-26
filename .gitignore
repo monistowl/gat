@@ -8,6 +8,13 @@
 .beads/
 gha-creds-*.json
 
+# Editor/IDE cruft
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
 # Rust/Cargo build output and artifacts
 /target/
 /dist/
@@ -19,6 +26,10 @@ zola.tar.gz
 
 # Virtualenvs and user caches
 .venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+gat-notebook/
 
 # Development/agent-facing docs (kept on experimental only)
 # These files are regenerated during development and should not be in staging/main
@@ -26,6 +37,16 @@ PHASE_*.md
 *_PLAN.md
 *_ROADMAP.md
 docs/plans/
+
+# JS tooling
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+
+# Test fixtures and temporary exports
+test_data/**/tmp/
+*.arrow
+*.parquet
 
 # Git worktrees (isolated development workspaces)
 .worktrees/
