@@ -4,7 +4,7 @@ use std::time::Instant;
 use crate::commands::telemetry::record_run_timed;
 use crate::commands::util::{configure_threads, parse_partitions};
 use anyhow::Result;
-use gat_algo::power_flow;
+use gat_algo::power_flow::{self, AcPowerFlowSolver};
 use gat_cli::cli::PowerFlowCommands;
 use gat_core::solver::SolverKind;
 use gat_io::importers;
@@ -72,19 +72,39 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                 let _ = lp_solver;
                 let partitions = parse_partitions(out_partitions.as_ref());
                 let out_path = Path::new(out);
+
+                let network = importers::load_grid_from_arrow(grid_file.as_str())?;
+
                 if *q_limits {
-                    tracing::warn!("Q-limit enforcement requested but not yet integrated with legacy solver");
-                }
-                match importers::load_grid_from_arrow(grid_file.as_str()) {
-                    Ok(network) => power_flow::ac_power_flow(
+                    // Use new Newton-Raphson solver with Q-limit enforcement
+                    let pf_solver = AcPowerFlowSolver::new()
+                        .with_tolerance(*tol)
+                        .with_max_iterations(*max_iter as usize)
+                        .with_q_limit_enforcement(true);
+
+                    let solution = pf_solver.solve(&network)?;
+
+                    // Write results to output file
+                    power_flow::write_ac_pf_solution(&network, &solution, out_path, &partitions)?;
+
+                    if solution.converged {
+                        tracing::info!(
+                            "AC power flow converged in {} iterations (max mismatch: {:.2e})",
+                            solution.iterations,
+                            solution.max_mismatch
+                        );
+                    }
+                    Ok(())
+                } else {
+                    // Use legacy solver without Q-limit enforcement
+                    power_flow::ac_power_flow(
                         &network,
                         solver_impl.as_ref(),
                         *tol,
                         *max_iter,
                         out_path,
                         &partitions,
-                    ),
-                    Err(e) => Err(e),
+                    )
                 }
             })();
             let solver_name = solver.parse::<SolverKind>()?.as_str();
