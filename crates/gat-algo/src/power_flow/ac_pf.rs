@@ -651,7 +651,7 @@ impl AcPowerFlowSolver {
             );
 
             // Solve Jacobian system: J × Δx = mismatch
-            let delta = self.solve_linear_system(&jacobian, &mismatch)?;
+            let delta = self.solve_linear_system_faer(&jacobian, &mismatch)?;
 
             // Update angles for non-slack buses
             for (k, &i) in p_buses.iter().enumerate() {
@@ -1295,5 +1295,61 @@ mod sparse_tests {
                 i, x_gauss[i], x_faer[i]
             );
         }
+    }
+
+    /// Test full Newton-Raphson with faer solver on 2-bus network
+    #[test]
+    fn test_newton_raphson_with_faer_solver() {
+        use gat_core::{Branch, BranchId, Bus, Gen, Load, LoadId};
+
+        let mut network = Network::new();
+
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(0),
+            name: "bus1".to_string(),
+            voltage_kv: 100.0,
+        }));
+
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "bus2".to_string(),
+            voltage_kv: 100.0,
+        }));
+
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                name: "line".to_string(),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+
+        network.graph.add_node(Node::Gen(Gen::new(
+            GenId::new(0),
+            "gen1".to_string(),
+            BusId::new(0),
+        )));
+
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(0),
+            name: "load".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: 50.0,
+            reactive_power_mvar: 10.0,
+        }));
+
+        let solver = AcPowerFlowSolver::new()
+            .with_tolerance(1e-6)
+            .with_max_iterations(20);
+
+        let solution = solver.solve(&network).expect("should converge");
+        assert!(solution.converged);
+        assert!(solution.iterations <= 10);
     }
 }
