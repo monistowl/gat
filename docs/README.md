@@ -7,6 +7,7 @@ The `docs/` tree combines auto-generated content with hand-authored guides.
 - **CLI reference** – `docs/cli/gat.md` (with `docs/man/gat.1` for Unix installs)
 - **Schemas** – `docs/schemas/manifest.schema.json`, `docs/schemas/flows.schema.json`
 - **Arrow layouts** – `docs/arrow/README.md` plus exported `schema.json` files
+- **Historical plans** – `docs/archive/` (previously under `docs/plans/`)
 - **Guides** – `docs/guide/` (see highlights below)
 
 ## Helpful commands

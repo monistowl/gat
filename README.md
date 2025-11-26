@@ -1,6 +1,6 @@
 ![image](./screenshot.png)
 
-# GRID ANALYSIS TOOLKIT (GAT)
+# GRID ANALYSIS TOOLKIT (GAT) — v0.4.0
 
 *A fast Rust-powered command-line toolkit for power-system modeling, flows, dispatch, and time-series analysis.*
 
@@ -31,7 +31,7 @@ If you're comfortable running simple CLI commands and want to start doing *real*
 
 * Full DC/AC power-flow solvers (Newton-Raphson with Q-limit enforcement)
 * DC/AC optimal power-flow (OPF) with polynomial/piecewise costs
-* **Full nonlinear AC-OPF** using L-BFGS penalty method (65/68 PGLib cases converge, median 2.9% gap)
+* **Full nonlinear AC-OPF** using L-BFGS penalty method (passes 65/68 PGLib cases; median 2.9% gap)
 * N-1/N-2 contingency analysis and screening
 * Time-series resampling, joining, aggregation
 * State estimation (weighted least squares)
@@ -112,7 +112,7 @@ Coming in Horizon 7 (planned).
 The modular installer lets you choose components on the fly and installs to `~/.gat` with no dependency on Rust:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh | bash
 ```
 
 Then add to your PATH:
@@ -127,13 +127,13 @@ By default, only the CLI is installed. Choose additional components:
 
 ```bash
 # CLI + TUI (interactive dashboard)
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
 
 # CLI + TUI + GUI dashboard (future)
-GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
 
 # Everything (CLI + TUI + GUI + solvers)
-GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
 ```
 
 Or from the downloaded script:
@@ -161,13 +161,13 @@ If you prefer bundled releases with docs, download and unpack a variant:
 
 ```bash
 # Full variant (CLI + TUI + all features)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.4/gat-0.3.1-linux-x86_64-full.tar.gz | tar xz
-cd gat-0.3.1-linux-x86_64-full
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.4.0/gat-0.4.0-linux-x86_64-full.tar.gz | tar xz
+cd gat-0.4.0-linux-x86_64-full
 ./install.sh
 
 # Headless variant (CLI only, minimal footprint)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.4/gat-0.3.1-linux-x86_64-headless.tar.gz | tar xz
-cd gat-0.3.1-linux-x86_64-headless
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.4.0/gat-0.4.0-linux-x86_64-headless.tar.gz | tar xz
+cd gat-0.4.0-linux-x86_64-headless
 ./install.sh --variant headless
 ```
 
@@ -239,15 +239,16 @@ If you're contributing to GAT:
 
 ## Quick Start
 
-### 1. DC Power Flow (Fastest Starter)
+### 1. Import then DC Power Flow (Fastest Starter)
 
 ```bash
-gat pf dc test_data/matpower/case9.arrow --out out/dc-flows.parquet
+gat import matpower --m test_data/matpower/edge_cases/case9.m -o grid.arrow
+gat pf dc grid.arrow --out out/dc-flows.parquet
 ```
 
 **What this does:**
 
-* Loads MATPOWER case9 as Arrow
+* Converts the bundled MATPOWER case9 to Arrow
 * Solves the DC approximation (linear, very fast)
 * Writes a Parquet branch-flow summary
 
@@ -314,7 +315,7 @@ gat <category> <subcommand> [options]
 ### Data Import & Management
 
 ```
-gat import {psse,matpower,cim}    # Import grid models
+gat import {psse,matpower,cim,pandapower}    # Import grid models
 gat dataset public {list,describe,fetch}  # Fetch public datasets
 gat runs {list,describe,resume}   # Manage previous runs
 ```
@@ -538,12 +539,12 @@ Available datasets include:
 
 ### Installation & Upgrades
 
-**Q: I have v0.1. How do I upgrade to v0.3.4?**
+**Q: I have v0.1 or v0.3.x. How do I upgrade to v0.4.0?**
 
-A: The v0.3.4 release introduces a new modular installation system. Upgrade simply by re-running the installer:
+A: v0.4.0 keeps the modular installer and adds pandapower import plus refreshed schemas. Upgrade by re-running the installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh | bash
 ```
 
 This installs to `~/.gat/bin/` by default (changed from `~/.local/bin/` in v0.1). Update your PATH:
@@ -552,24 +553,25 @@ This installs to `~/.gat/bin/` by default (changed from `~/.local/bin/` in v0.1)
 export PATH="$HOME/.gat/bin:$PATH"
 ```
 
-**Q: Can I keep both v0.1 and v0.3.4 installed?**
+**Q: Can I keep multiple versions installed?**
 
-A: Yes. Use the `--prefix` flag to install v0.3.4 elsewhere:
+A: Yes. Use the `--prefix` flag to install v0.4.0 elsewhere:
 
 ```bash
-bash scripts/install-modular.sh --prefix /opt/gat-0.3.1
+bash scripts/install-modular.sh --prefix /opt/gat-0.4.0
 ```
 
 Then choose which to use in your PATH by ordering the paths or using full paths.
 
-**Q: What changed between v0.1 and v0.3.4?**
+**Q: What changed between v0.1/0.3.x and v0.4.0?**
 
 A: Major improvements include:
 
 * **Modular installation** — Install only what you need (CLI, TUI, GUI, solvers)
-* **Centralized config** — All config in `~/.gat/config/` instead of scattered locations
+* **Centralized config** — All config in `~/.gat/config/`
 * **New TUI** — Interactive 7-pane dashboard for exploration and batch jobs
 * **Distribution tools** — ADMS, DERMS, hosting-capacity analysis
+* **Pandapower import** — Load pandapower JSON directly with `gat import pandapower`
 * **Binary-first delivery** — Pre-built binaries for Linux/macOS x86_64 and ARM64
 * **Improved CLI** — Better error messages, more commands, faster execution
 
@@ -588,7 +590,7 @@ A: No. The CLI is fully featured and standalone. The TUI is optional and great f
 Install it with:
 
 ```bash
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
 ```
 
 **Q: What are the solver components for?**
@@ -596,7 +598,7 @@ GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monis
 A: The `solvers` component includes additional solver backends (CBC, HiGHS) beyond the default Clarabel. Install with:
 
 ```bash
-GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
 ```
 
 Then use them with:
@@ -708,7 +710,7 @@ rm -rf /opt/gat/  # Or whatever prefix you used
 A: Install the solver binaries:
 
 ```bash
-GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
 ```
 
 Or build from source (slower but self-contained):

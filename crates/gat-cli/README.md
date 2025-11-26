@@ -5,8 +5,9 @@ The primary entry point for GAT workflows. `gat` provides fast, reproducible com
 ## Quick Start
 
 ```bash
-# Power flow analysis
-gat pf dc test_data/matpower/case9.arrow --out flows.parquet
+# Import + power flow analysis
+gat import matpower --m test_data/matpower/edge_cases/case9.m --out grid.arrow
+gat pf dc grid.arrow --out flows.parquet
 
 # Optimal dispatch
 gat opf dc grid.arrow --cost costs.csv --limits limits.csv --out opf.parquet
@@ -24,7 +25,7 @@ gat batch pf --manifest runs/scenarios/scenario_manifest.json --out runs/batch
 ## Architecture
 
 **Categories:**
-- `import` — Load grid models (MATPOWER, PSS/E, CIM)
+- `import` — Load grid models (MATPOWER, PSS/E, CIM, pandapower)
 - `pf` — Power flow (DC/AC)
 - `opf` — Optimal power flow (DC/AC)
 - `nminus1` — N-1 contingency screening
@@ -49,6 +50,7 @@ gat batch pf --manifest runs/scenarios/scenario_manifest.json --out runs/batch
 ### Data Import & Management
 ```bash
 gat import matpower --file case9.raw --out grid.arrow
+gat import pandapower --file test_data/adjacent/pandapower/case14.json --out grid.arrow
 gat dataset public list --tag ieee
 gat dataset public fetch opsd-time-series-2020 --out data/
 ```
