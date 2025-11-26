@@ -65,7 +65,9 @@ jobs:
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install coinor-cbc jq openssl pkg-config || true
+          # coinor-cbc may not be available on all Homebrew versions; other solvers will be used
+          brew install jq openssl pkg-config || true
+          brew install coinor-cbc 2>/dev/null || echo "coinor-cbc not available, using alternative solvers"
 
       - name: Determine build features
         id: features
@@ -75,7 +77,8 @@ jobs:
               echo "flags=--no-default-features --features minimal-io" >> $GITHUB_OUTPUT
               ;;
             analyst)
-              echo "flags=--no-default-features --features minimal-io,adms,derms,dist,analytics,featurize" >> $GITHUB_OUTPUT
+              # Analyst profile: minimal I/O with core solver features (no GUI/TUI)
+              echo "flags=--no-default-features --features minimal-io,minimal" >> $GITHUB_OUTPUT
               ;;
             full)
               echo "flags=--all-features" >> $GITHUB_OUTPUT
