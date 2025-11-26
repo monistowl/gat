@@ -62,6 +62,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
             solver,
             lp_solver,
             out_partitions,
+            q_limits,
         } => {
             let start = Instant::now();
             let res = (|| -> Result<()> {
@@ -71,19 +72,26 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                 let _ = lp_solver;
                 let partitions = parse_partitions(out_partitions.as_ref());
                 let out_path = Path::new(out);
-                match importers::load_grid_from_arrow(grid_file.as_str()) {
-                    Ok(network) => power_flow::ac_power_flow(
-                        &network,
-                        solver_impl.as_ref(),
-                        *tol,
-                        *max_iter,
-                        out_path,
-                        &partitions,
-                    ),
-                    Err(e) => Err(e),
+
+                let network = importers::load_grid_from_arrow(grid_file.as_str())?;
+
+                // Note: --q-limits flag is accepted but not yet implemented in 0.3.4
+                // Q-limit enforcement will be available in 0.4.0
+                if *q_limits {
+                    tracing::warn!("--q-limits flag is not yet implemented in 0.3.4, ignoring");
                 }
+
+                power_flow::ac_power_flow(
+                    &network,
+                    solver_impl.as_ref(),
+                    *tol,
+                    *max_iter,
+                    out_path,
+                    &partitions,
+                )
             })();
             let solver_name = solver.parse::<SolverKind>()?.as_str();
+            let q_limits_str = if *q_limits { "true" } else { "false" };
             record_run_timed(
                 out,
                 "pf ac",
@@ -95,6 +103,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                     ("max_iter", &max_iter.to_string()),
                     ("solver", solver_name),
                     ("out_partitions", out_partitions.as_deref().unwrap_or("")),
+                    ("q_limits", q_limits_str),
                 ],
                 start,
                 &res,

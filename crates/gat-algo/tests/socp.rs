@@ -43,6 +43,7 @@ fn simple_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -56,6 +57,7 @@ fn simple_network() -> Network {
         pmax_mw: 100.0,
         qmin_mvar: -50.0,
         qmax_mvar: 50.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
     }));
 
@@ -130,6 +132,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -150,6 +153,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -170,6 +174,7 @@ fn three_bus_network() -> Network {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -184,6 +189,7 @@ fn three_bus_network() -> Network {
         pmax_mw: 200.0,
         qmin_mvar: -100.0,
         qmax_mvar: 100.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
     }));
 
@@ -198,6 +204,7 @@ fn three_bus_network() -> Network {
         pmax_mw: 150.0,
         qmin_mvar: -50.0,
         qmax_mvar: 50.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 15.0),
     }));
 
@@ -284,6 +291,7 @@ fn socp_quadratic_cost() {
         pmax_mw: 200.0,
         qmin_mvar: -100.0,
         qmax_mvar: 100.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::Polynomial(vec![100.0, 10.0, 0.05]),
     }));
 
@@ -298,6 +306,7 @@ fn socp_quadratic_cost() {
         pmax_mw: 200.0,
         qmin_mvar: -100.0,
         qmax_mvar: 100.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::Polynomial(vec![50.0, 20.0, 0.02]),
     }));
 
@@ -381,6 +390,7 @@ fn socp_thermal_limit_binding() {
             s_max_mva: Some(50.0), // Tight limit
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -394,6 +404,7 @@ fn socp_thermal_limit_binding() {
         pmax_mw: 200.0,
         qmin_mvar: -100.0,
         qmax_mvar: 100.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
     }));
 
@@ -471,6 +482,7 @@ fn socp_phase_shifting_transformer() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -492,6 +504,7 @@ fn socp_phase_shifting_transformer() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: true,
         }),
     );
 
@@ -512,6 +525,7 @@ fn socp_phase_shifting_transformer() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -525,6 +539,7 @@ fn socp_phase_shifting_transformer() {
         pmax_mw: 200.0,
         qmin_mvar: -100.0,
         qmax_mvar: 100.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
     }));
 
@@ -597,6 +612,7 @@ fn socp_tap_ratio_transformer() {
             s_max_mva: Some(100.0),
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -610,6 +626,7 @@ fn socp_tap_ratio_transformer() {
         pmax_mw: 200.0,
         qmin_mvar: -100.0,
         qmax_mvar: 100.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
     }));
 
@@ -689,6 +706,7 @@ fn socp_10_bus_meshed_network() {
                 s_max_mva: None,
                 status: true,
                 rating_a_mva: None,
+                is_phase_shifter: false,
             }),
         );
     }
@@ -705,6 +723,7 @@ fn socp_10_bus_meshed_network() {
             pmax_mw: 150.0,
             qmin_mvar: -50.0,
             qmax_mvar: 50.0,
+            is_synchronous_condenser: false,
             cost_model: CostModel::linear(0.0, *cost),
         }));
     }
@@ -796,6 +815,7 @@ fn socp_line_charging() {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }),
     );
 
@@ -809,6 +829,7 @@ fn socp_line_charging() {
         pmax_mw: 200.0,
         qmin_mvar: -100.0,
         qmax_mvar: 100.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
     }));
 

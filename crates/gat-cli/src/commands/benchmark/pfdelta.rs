@@ -192,21 +192,37 @@ fn benchmark_case(
     let solve_start = Instant::now();
 
     // Branch on mode
+    // Note: In 0.3.4, both modes use OPF solver. Dedicated PF solver available in 0.4.0.
     let (converged, iterations, gat_vm, gat_va) = match mode {
         "pf" => {
-            // For PF mode, we use the reference solution as validation
-            // The actual PF solve would go here, but for now we just compare
-            // For a real PF benchmark, we'd call an AC power flow solver
-            // TODO: Integrate actual AC power flow solver when available
-            //
-            // For now, return the reference solution as "solved" values
-            // This lets us test the infrastructure even without a PF solver
-            (
-                true,
-                0u32,
-                instance.solution.vm.clone(),
-                instance.solution.va.clone(),
-            )
+            // In 0.3.4, use OPF solver as fallback (dedicated PF solver in 0.4.0)
+            tracing::debug!("PF mode using OPF solver in 0.3.4");
+            let solver = AcOpfSolver::new()
+                .with_max_iterations(max_iter as usize)
+                .with_tolerance(tol);
+
+            let network = load_pfdelta_case(Path::new(&test_case.file_path))?;
+            match solver.solve(&network) {
+                Ok(solution) => {
+                    let gat_vm: HashMap<usize, f64> = solution
+                        .bus_voltages
+                        .iter()
+                        .filter_map(|(name, vm)| {
+                            name.strip_prefix("bus_")
+                                .and_then(|s| s.parse::<usize>().ok())
+                                .map(|idx| (idx, *vm))
+                        })
+                        .collect();
+                    let gat_va: HashMap<usize, f64> = HashMap::new();
+                    (
+                        solution.converged,
+                        solution.iterations as u32,
+                        gat_vm,
+                        gat_va,
+                    )
+                }
+                Err(_) => (false, 0u32, HashMap::new(), HashMap::new()),
+            }
         }
         _ => {
             let solver = AcOpfSolver::new()

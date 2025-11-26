@@ -1,5 +1,5 @@
 use super::*;
-use gat_core::Node;
+use gat_core::{CostModel, Node};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -280,4 +280,48 @@ fn test_cim_validation_warnings() {
     let warnings = validate_cim_with_warnings(&network);
     assert!(!warnings.is_empty());
     assert!(warnings[0].issue.contains("Unusual voltage"));
+}
+
+#[test]
+fn test_gencost_polynomial_loaded() {
+    // case14_ieee has polynomial gencost (model=2)
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = manifest_dir
+        .join("..")
+        .join("..")
+        .canonicalize()
+        .expect("repo root should exist");
+    let path = repo_root.join("data/pglib-opf/pglib_opf_case14_ieee.m");
+    if !path.exists() {
+        eprintln!("Skipping test: PGLib data not available at {:?}", path);
+        return;
+    }
+
+    let network = load_matpower_network(&path).expect("Failed to load case14");
+
+    // Find a generator and check it has cost data
+    let mut found_cost = false;
+    for node in network.graph.node_weights() {
+        if let Node::Gen(gen) = node {
+            match &gen.cost_model {
+                CostModel::Polynomial(coeffs) => {
+                    assert!(
+                        !coeffs.is_empty(),
+                        "Polynomial cost should have coefficients"
+                    );
+                    found_cost = true;
+                    break;
+                }
+                CostModel::NoCost => {
+                    // This is the bug we're fixing
+                }
+                _ => {}
+            }
+        }
+    }
+
+    assert!(
+        found_cost,
+        "At least one generator should have polynomial cost from gencost"
+    );
 }

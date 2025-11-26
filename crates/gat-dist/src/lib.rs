@@ -435,6 +435,7 @@ fn add_virtual_der(network: &Network, bus_id: usize, injection: f64, step: usize
         qmin_mvar: 0.0,
         qmax_mvar: 0.0,
         cost_model: gat_core::CostModel::NoCost,
+        is_synchronous_condenser: false,
     };
     clone.graph.add_node(Node::Gen(der));
     clone

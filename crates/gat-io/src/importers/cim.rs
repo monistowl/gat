@@ -533,6 +533,7 @@ fn build_network_from_cim(
                 qmin_mvar: f64::NEG_INFINITY,
                 qmax_mvar: f64::INFINITY,
                 cost_model: gat_core::CostModel::NoCost,
+                is_synchronous_condenser: false,
             }));
             gen_counter += 1;
         }

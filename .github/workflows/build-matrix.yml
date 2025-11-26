@@ -65,7 +65,9 @@ jobs:
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install coinor-cbc jq openssl pkg-config || true
+          # coinor-cbc may not be available on all Homebrew versions; other solvers will be used
+          brew install jq openssl pkg-config || true
+          brew install coinor-cbc 2>/dev/null || echo "coinor-cbc not available, using alternative solvers"
 
       - name: Determine build features
         id: features
@@ -75,10 +77,17 @@ jobs:
               echo "flags=--no-default-features --features minimal-io" >> $GITHUB_OUTPUT
               ;;
             analyst)
-              echo "flags=--no-default-features --features minimal-io,adms,derms,dist,analytics,featurize" >> $GITHUB_OUTPUT
+              # Analyst profile: minimal I/O with core solver features (no GUI/TUI)
+              echo "flags=--no-default-features --features minimal-io,minimal" >> $GITHUB_OUTPUT
               ;;
             full)
-              echo "flags=--all-features" >> $GITHUB_OUTPUT
+              if [[ "${{ runner.os }}" == "macOS" ]]; then
+                # macOS: exclude solver-coin_cbc (not available on Homebrew ARM)
+                # List all features except solver-coin_cbc
+                echo "flags=--no-default-features --features default,docs,gui,tui,solver-clarabel,solver-highs,polars-lazy,polars-parquet,polars-ipc" >> $GITHUB_OUTPUT
+              else
+                echo "flags=--all-features" >> $GITHUB_OUTPUT
+              fi
               ;;
           esac
 

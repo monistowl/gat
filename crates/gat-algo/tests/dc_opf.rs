@@ -48,6 +48,7 @@ fn create_2bus_network() -> Network {
         pmax_mw: 100.0,
         qmin_mvar: -50.0,
         qmax_mvar: 50.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
     }));
 
@@ -225,6 +226,7 @@ fn create_3bus_network() -> Network {
         pmax_mw: 100.0,
         qmin_mvar: -50.0,
         qmax_mvar: 50.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
     }));
 
@@ -239,6 +241,7 @@ fn create_3bus_network() -> Network {
         pmax_mw: 100.0,
         qmin_mvar: -50.0,
         qmax_mvar: 50.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 30.0),
     }));
 

@@ -30,6 +30,7 @@ fn create_simple_network(name: &str, gen_capacity: f64, load_capacity: f64) -> N
         pmax_mw: 1000.0,
         qmin_mvar: -1000.0,
         qmax_mvar: 1000.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
     }));
 

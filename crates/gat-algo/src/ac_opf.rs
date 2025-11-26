@@ -141,10 +141,10 @@ impl AcOpfSolver {
                         ));
                     }
 
-                    // Generators should have non-negative active power
-                    if gen.active_power_mw < 0.0 {
+                    // Generators should have non-negative active power (unless synchronous condenser)
+                    if gen.active_power_mw < 0.0 && !gen.is_synchronous_condenser {
                         return Err(AcOpfError::DataValidation(format!(
-                            "Generator {} has negative active_power_mw ({})",
+                            "Generator {} has negative active_power_mw ({}). Use .as_synchronous_condenser() for reactive-only devices.",
                             gen.name, gen.active_power_mw
                         )));
                     }
@@ -177,10 +177,12 @@ impl AcOpfSolver {
                         ));
                     }
 
-                    // Resistance and reactance should be non-negative
-                    if branch.resistance < 0.0 || branch.reactance < 0.0 {
+                    // Resistance and reactance should be non-negative (unless phase-shifter)
+                    if (branch.resistance < 0.0 || branch.reactance < 0.0)
+                        && !branch.is_phase_shifter
+                    {
                         return Err(AcOpfError::DataValidation(format!(
-                            "Branch {}: resistance and reactance must be non-negative",
+                            "Branch {}: resistance and reactance must be non-negative (use .as_phase_shifter() for PSTs)",
                             branch.name
                         )));
                     }

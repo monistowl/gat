@@ -33,6 +33,7 @@ fn create_simple_network() -> Network {
         pmax_mw: 1000.0,
         qmin_mvar: -1000.0,
         qmax_mvar: 1000.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
     }));
 
@@ -142,6 +143,7 @@ fn test_monte_carlo_perfect_reliability() {
         pmax_mw: 1000.0,
         qmin_mvar: -1000.0,
         qmax_mvar: 1000.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
     }));
 
@@ -205,6 +207,7 @@ fn test_monte_carlo_tight_reliability() {
         pmax_mw: 1000.0,
         qmin_mvar: -1000.0,
         qmax_mvar: 1000.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
     }));
 
@@ -289,6 +292,7 @@ fn test_monte_carlo_multiple_networks() {
         pmax_mw: 1000.0,
         qmin_mvar: -1000.0,
         qmax_mvar: 1000.0,
+        is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
     }));
 
