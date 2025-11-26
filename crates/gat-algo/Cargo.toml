@@ -10,6 +10,7 @@ csv = "1.4"
 gat-core = { path = "../gat-core" }
 good_lp = { version = "1.14", default-features = false }
 sprs = "0.11"
+faer = "0.17"
 num-complex = "0.4"
 polars = { version = "0.35", default-features = false }
 rayon = "1.7"
