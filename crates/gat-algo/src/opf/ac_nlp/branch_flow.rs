@@ -162,6 +162,7 @@ mod tests {
             tap: 1.0,
             shift: 0.0,
             rate_mva: 100.0,
+            angle_diff_max: 0.0,
         };
 
         let (pf, qf, pt, qt) = compute_single_branch_flow(&br, 1.0, 1.0, 0.0, 100.0);
@@ -187,6 +188,7 @@ mod tests {
             tap: 1.0,
             shift: 0.0,
             rate_mva: 100.0,
+            angle_diff_max: 0.0,
         };
 
         // θ_ij = 0.1 radians (~5.7°)
@@ -214,6 +216,7 @@ mod tests {
             tap: 1.0,
             shift: 0.0,
             rate_mva: 100.0,
+            angle_diff_max: 0.0,
         };
 
         let (pf, _qf, pt, _qt) = compute_single_branch_flow(&br, 1.0, 0.98, 0.05, 100.0);

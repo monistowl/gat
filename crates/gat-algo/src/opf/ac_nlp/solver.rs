@@ -268,6 +268,29 @@ impl<'a> CostFunction for PenaltyProblem<'a> {
             }
         }
 
+        // ====================================================================
+        // ANGLE DIFFERENCE PENALTY
+        // ====================================================================
+        //
+        // For branches with angle_diff_max > 0:
+        //   |θ_i - θ_j| ≤ θ_max
+        //   Penalty = μ · max(0, |θ_ij| - θ_max)²
+        //
+        // Angle constraints ensure system stability and prevent unrealistic
+        // operating points where lines would trip on out-of-step protection.
+
+        for br in &self.problem.branches {
+            if br.angle_diff_max <= 0.0 {
+                continue; // No angle limit
+            }
+
+            let theta_diff = (theta[br.from_idx] - theta[br.to_idx]).abs();
+            if theta_diff > br.angle_diff_max {
+                let violation = theta_diff - br.angle_diff_max;
+                cost += self.penalty * violation * violation;
+            }
+        }
+
         Ok(cost)
     }
 }
@@ -588,4 +611,161 @@ pub fn solve(
     }
 
     Ok(solution)
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::opf::ac_nlp::{BranchData, BusData, GenData, YBusBuilder};
+    use gat_core::{Branch, BranchId, Bus, BusId, Edge, Network, Node};
+
+    #[test]
+    fn test_angle_difference_penalty() {
+        // Create a minimal 2-bus network to test angle difference constraints
+        let mut network = Network::new();
+
+        let bus1 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        let bus2 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Bus2".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        network.graph.add_edge(
+            bus1,
+            bus2,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                name: "Line1-2".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                charging_b_pu: 0.0,
+                tap_ratio: 1.0,
+                phase_shift_rad: 0.0,
+                status: true,
+                ..Branch::default()
+            }),
+        );
+
+        // Build Y-bus from network
+        let ybus = YBusBuilder::from_network(&network).unwrap();
+
+        let buses = vec![
+            BusData {
+                id: BusId::new(1),
+                name: "Bus1".to_string(),
+                index: 0,
+                v_min: 0.9,
+                v_max: 1.1,
+                p_load: 0.0,
+                q_load: 0.0,
+            },
+            BusData {
+                id: BusId::new(2),
+                name: "Bus2".to_string(),
+                index: 1,
+                v_min: 0.9,
+                v_max: 1.1,
+                p_load: 0.0,
+                q_load: 0.0,
+            },
+        ];
+
+        let generators = vec![GenData {
+            name: "Gen1".to_string(),
+            bus_id: BusId::new(1),
+            pmin_mw: 0.0,
+            pmax_mw: 100.0,
+            qmin_mvar: -50.0,
+            qmax_mvar: 50.0,
+            cost_coeffs: vec![0.0, 10.0, 0.0],
+        }];
+
+        // Create a branch with angle difference limit
+        let branches = vec![BranchData {
+            name: "Line1-2".to_string(),
+            from_idx: 0,
+            to_idx: 1,
+            r: 0.01,
+            x: 0.1,
+            b_charging: 0.0,
+            tap: 1.0,
+            shift: 0.0,
+            rate_mva: 0.0, // No thermal limit
+            angle_diff_max: 0.5, // ~28.6 degrees
+        }];
+
+        let problem = AcOpfProblem {
+            ybus,
+            buses,
+            generators,
+            ref_bus: 0,
+            base_mva: 100.0,
+            n_bus: 2,
+            n_gen: 1,
+            n_var: 6, // 2 buses * 2 (V, θ) + 1 gen * 2 (P, Q)
+            v_offset: 0,
+            theta_offset: 2,
+            pg_offset: 4,
+            qg_offset: 5,
+            gen_bus_idx: vec![0],
+            branches,
+            n_branch: 1,
+        };
+
+        // Test: Verify angle violation penalty is applied correctly
+        // We'll test with a branch that has angle_diff_max and one without
+        let mut x = vec![1.0, 1.0, 0.0, 0.2, 0.5, 0.1]; // θ_diff = 0.2 rad < 0.5 rad
+        let (lb, ub) = problem.variable_bounds();
+        let penalty_problem = PenaltyProblem {
+            problem: &problem,
+            penalty: 1000.0,
+            lb,
+            ub,
+        };
+
+        let cost_no_violation = penalty_problem.cost(&x).unwrap();
+
+        // Now test with angle violation: θ_diff = 0.7 rad > 0.5 rad
+        x[3] = 0.7; // Set bus 2 angle to 0.7 rad (bus 1 is at 0.0)
+        let cost_with_violation = penalty_problem.cost(&x).unwrap();
+
+        // Verify that violation increases cost
+        assert!(
+            cost_with_violation > cost_no_violation,
+            "Angle violation should increase cost. \
+             No violation: {}, With violation: {}",
+            cost_no_violation,
+            cost_with_violation
+        );
+
+        // The cost increase should include the angle penalty
+        // Expected angle penalty: μ * (0.2)^2 = 1000 * 0.04 = 40
+        // But note: changing the angle also changes power balance constraints,
+        // so the total cost increase will be larger than just the angle penalty.
+        // We just verify that the angle penalty is contributing to the cost.
+        let cost_increase = cost_with_violation - cost_no_violation;
+        let expected_angle_penalty = 1000.0 * 0.2 * 0.2;
+
+        // The increase should be at least the angle penalty
+        assert!(
+            cost_increase >= expected_angle_penalty,
+            "Cost increase ({}) should be at least the angle penalty ({})",
+            cost_increase,
+            expected_angle_penalty
+        );
+    }
 }

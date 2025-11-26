@@ -156,6 +156,9 @@ pub struct BranchData {
     pub shift: f64,
     /// Thermal limit (MVA), 0 = unlimited
     pub rate_mva: f64,
+    /// Maximum angle difference (radians), 0 = no limit
+    /// Typical values: 30-60 degrees (0.52-1.05 radians)
+    pub angle_diff_max: f64,
 }
 
 /// Bus data extracted from network for OPF optimization.
@@ -449,6 +452,7 @@ impl AcOpfProblem {
                     tap: branch.tap_ratio,
                     shift: branch.phase_shift_rad,
                     rate_mva: branch.rating_a_mva.unwrap_or(0.0),
+                    angle_diff_max: 0.0, // Default: no limit (could be extracted from Branch if available)
                 });
             }
         }
