@@ -119,6 +119,8 @@
 //!   DOI: [10.1007/978-0-387-75536-6](https://doi.org/10.1007/978-0-387-75536-6)
 
 use anyhow::{anyhow, Result};
+use faer::prelude::SpSolver;
+use faer::{FaerMat, Mat};
 use gat_core::{BusId, Edge, GenId, Network, Node};
 use num_complex::{Complex64, ComplexFloat};
 use sprs::{CsMat, TriMat};
@@ -978,6 +980,45 @@ impl AcPowerFlowSolver {
                 sum -= aug[i][j] * x[j];
             }
             x[i] = sum / aug[i][i];
+        }
+
+        Ok(x)
+    }
+
+    /// Solve linear system Ax = b using faer's optimized LU decomposition
+    ///
+    /// This is significantly faster than hand-rolled Gaussian elimination
+    /// for larger systems, with better numerical stability.
+    fn solve_linear_system_faer(&self, a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>> {
+        let n = b.len();
+        if n == 0 {
+            return Ok(vec![]);
+        }
+
+        // Convert to faer Mat
+        let mut mat = Mat::zeros(n, n);
+        for i in 0..n {
+            for j in 0..n {
+                mat.write(i, j, a[i][j]);
+            }
+        }
+
+        // Convert b to faer column vector
+        let mut rhs = Mat::zeros(n, 1);
+        for i in 0..n {
+            rhs.write(i, 0, b[i]);
+        }
+
+        // Solve using LU decomposition with partial pivoting
+        let lu = mat.partial_piv_lu();
+        let solution = lu.solve(&rhs);
+
+        // Extract solution
+        let x: Vec<f64> = (0..n).map(|i| solution.read(i, 0)).collect();
+
+        // Check for NaN/Inf (indicates singular matrix)
+        if x.iter().any(|&v| !v.is_finite()) {
+            return Err(anyhow!("Singular Jacobian matrix (faer solver)"));
         }
 
         Ok(x)
