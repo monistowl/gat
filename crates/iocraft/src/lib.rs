@@ -47,6 +47,7 @@ pub mod terminal {
     }
 }
 
+#[cfg(unix)]
 pub mod input {
     use std::io::{self, Read};
     use std::os::unix::io::AsRawFd;
@@ -155,6 +156,85 @@ pub mod input {
 
             match handle.read(&mut self.buffer) {
                 Ok(0) => Ok(Event::Quit), // EOF
+                Ok(_) => {
+                    let c = self.buffer[0] as char;
+                    match c {
+                        'q' => Ok(Event::Quit),
+                        c => Ok(Event::Key(c)),
+                    }
+                }
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => Ok(Event::Tick),
+                Err(e) => Err(e),
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+pub mod input {
+    use std::io::{self, Read};
+    use std::time::Duration;
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub enum Event {
+        Quit,
+        Tick,
+        Key(char),
+    }
+
+    pub trait EventSource {
+        fn poll(&mut self, _timeout: Duration) -> io::Result<bool> {
+            Ok(false)
+        }
+
+        fn read(&mut self) -> io::Result<Event> {
+            Ok(Event::Quit)
+        }
+    }
+
+    /// No-op guard on Windows: console mode is managed by the OS/console host.
+    pub struct RawModeGuard;
+
+    impl RawModeGuard {
+        pub fn enable() -> io::Result<Self> {
+            Ok(Self)
+        }
+    }
+
+    impl Drop for RawModeGuard {
+        fn drop(&mut self) {
+            // No-op: Windows console modes are not modified here.
+        }
+    }
+
+    /// Simple stdin-based event source; blocks for one character.
+    pub struct StdinEventSource {
+        buffer: [u8; 1],
+    }
+
+    impl StdinEventSource {
+        pub fn new() -> Self {
+            Self { buffer: [0; 1] }
+        }
+    }
+
+    impl Default for StdinEventSource {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl EventSource for StdinEventSource {
+        fn poll(&mut self, _timeout: Duration) -> io::Result<bool> {
+            Ok(true)
+        }
+
+        fn read(&mut self) -> io::Result<Event> {
+            let stdin = io::stdin();
+            let mut handle = stdin.lock();
+
+            match handle.read(&mut self.buffer) {
+                Ok(0) => Ok(Event::Quit),
                 Ok(_) => {
                     let c = self.buffer[0] as char;
                     match c {

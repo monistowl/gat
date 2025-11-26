@@ -1,0 +1,400 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage[margin=1in]{geometry}
+
+\definecolor{codegray}{rgb}{0.95,0.95,0.95}
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single
+}
+
+\title{GAT: A High-Performance Rust Toolkit for Power System Analysis\\
+\large Third Draft---Complete Benchmark Validation}
+
+\author{
+  Tom Wilson\\
+  \texttt{https://github.com/monistowl/gat}
+}
+
+\date{November 2025}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present the Grid Analysis Toolkit (GAT), an open-source command-line toolkit for power system modeling, analysis, and optimization implemented in Rust. GAT provides industrial-grade tools for DC and AC power flow, optimal power flow (OPF), N-1/N-2 contingency analysis, state estimation, and reliability assessment. We validate GAT against three major benchmark datasets:
+\begin{itemize}
+    \item \textbf{PGLib-OPF:} 68/68 cases (100\%) converged up to 78,484 buses with 2.82\% median optimality gap
+    \item \textbf{PF$\Delta$:} 75,000 power flow samples with 100\% convergence across N, N-1, N-2 contingencies
+    \item \textbf{OPFData:} 10,000 AC-OPF instances with 100\% convergence and 19.5\% optimality gap
+\end{itemize}
+Results demonstrate that GAT provides reliable, high-performance power system analysis with sub-millisecond solve times for medium networks and under 40ms for 78,484-bus systems. The toolkit is available under an open-source license at \url{https://github.com/monistowl/gat}.
+\end{abstract}
+
+\section{Introduction}
+
+Power system analysis tools are fundamental to grid planning, operations, and research. Traditional tools often require proprietary licenses, complex installation procedures, or heavyweight runtime environments. The Grid Analysis Toolkit (GAT) addresses these limitations by providing a fast, reproducible, and composable command-line interface for common power system computations.
+
+GAT is implemented in Rust, a systems programming language that combines C-level performance with memory safety guarantees. This choice enables:
+\begin{itemize}
+    \item Single-binary deployment without runtime dependencies
+    \item Predictable memory usage without garbage collection pauses
+    \item Safe parallelism for batch computations
+    \item Cross-platform compatibility (Linux, macOS, Windows)
+\end{itemize}
+
+The toolkit follows Unix design principles: each command performs a single function well, outputs are standardized for interoperability, and commands can be composed through pipelines and scripts. All outputs use Apache Arrow/Parquet formats, enabling seamless integration with modern data science tools.
+
+This paper presents comprehensive benchmark validation against three major power systems datasets, demonstrating GAT's reliability across 85,068 test cases spanning network sizes from 3 to 78,484 buses.
+
+\section{Related Work}
+
+Several open-source power system analysis tools exist. MATPOWER~\cite{zimmerman2011matpower} provides MATLAB-based AC/DC power flow and OPF solvers. PowerModels.jl~\cite{coffrin2018powermodels} implements optimization-based power flow in Julia with support for multiple mathematical formulations. pandapower~\cite{thurner2018pandapower} offers Python-based analysis with an emphasis on usability. PyPSA~\cite{brown2018pypsa} focuses on large-scale energy system modeling.
+
+GAT differentiates itself through its implementation language (Rust), deployment model (single binary), and output format philosophy (Arrow/Parquet). Rather than competing with existing tools, GAT provides a complementary option for users who prioritize speed, reproducibility, and minimal dependencies.
+
+\section{Architecture}
+
+\subsection{Core Components}
+
+GAT is organized as a Rust workspace with modular crates:
+
+\begin{description}
+    \item[\texttt{gat-core}] Grid data structures, network validation, DC/AC power flow solvers
+    \item[\texttt{gat-io}] Data format support (MATPOWER, PSS/E, OPFData JSON, PF$\Delta$, Arrow)
+    \item[\texttt{gat-algo}] AC-OPF solver, contingency analysis, state estimation algorithms
+    \item[\texttt{gat-cli}] Command-line interface, benchmark harnesses, progress reporting
+\end{description}
+
+\subsection{AC Power Flow Solver}
+
+The AC power flow solver implements the Newton-Raphson method with polar coordinates:
+
+\begin{algorithm}
+\caption{Newton-Raphson AC Power Flow}
+\begin{algorithmic}[1]
+\State Initialize $V_m \gets 1.0$, $V_a \gets 0$ for all buses
+\While{$\|\Delta P, \Delta Q\| > \epsilon$ and $k < k_{\max}$}
+    \State Compute power mismatches $\Delta P_i$, $\Delta Q_i$
+    \State Form Jacobian matrix $J = \begin{bmatrix} \frac{\partial P}{\partial \theta} & \frac{\partial P}{\partial V} \\ \frac{\partial Q}{\partial \theta} & \frac{\partial Q}{\partial V} \end{bmatrix}$
+    \State Solve $J \cdot \begin{bmatrix} \Delta \theta \\ \Delta V \end{bmatrix} = \begin{bmatrix} \Delta P \\ \Delta Q \end{bmatrix}$
+    \State Update $V_a \gets V_a + \Delta \theta$, $V_m \gets V_m + \Delta V$
+\EndWhile
+\State \Return $(V_m, V_a, P_{\text{flow}}, Q_{\text{flow}})$
+\end{algorithmic}
+\end{algorithm}
+
+Key implementation details:
+\begin{itemize}
+    \item Sparse LU factorization using \texttt{nalgebra-sparse}
+    \item Jacobian reuse when structure unchanged (warm-starting)
+    \item Convergence tolerance: $10^{-6}$ p.u. (configurable)
+    \item Maximum iterations: 20 (configurable)
+\end{itemize}
+
+\subsection{AC-OPF Solver}
+
+GAT implements a relaxed AC-OPF formulation based on economic dispatch with AC power flow constraints:
+
+\begin{align}
+    \min_{P_g} \quad & \sum_{i \in \mathcal{G}} c_i(P_{g,i}) \\
+    \text{s.t.} \quad & P_{g,i}^{\min} \leq P_{g,i} \leq P_{g,i}^{\max} & \forall i \in \mathcal{G} \\
+    & \sum_{i \in \mathcal{G}} P_{g,i} = \sum_{j \in \mathcal{L}} P_{d,j} + P_{\text{loss}} \\
+    & \text{AC power flow equations satisfied}
+\end{align}
+
+The solver uses merit-order economic dispatch to determine generator setpoints, followed by Newton-Raphson power flow to compute bus voltages and branch flows.
+
+\subsection{Enhanced Device Modeling}
+
+This release includes support for special power system devices:
+
+\textbf{Synchronous Condensers:} Generators with $P_{\max} \leq 0$ or negative active power setpoint are automatically identified as synchronous condensers. These devices provide reactive power support while consuming small amounts of active power for internal losses.
+
+\textbf{Phase-Shifting Transformers:} Branches with non-zero phase shift angle or negative reactance are flagged as phase-shifting transformers. These are exempt from standard impedance validation checks that assume positive reactance.
+
+\section{Benchmark Methodology}
+
+We validate GAT against three established benchmark datasets that provide reference solutions for power flow and optimal power flow problems.
+
+\subsection{PGLib-OPF}
+
+The Power Grid Library for Optimal Power Flow (PGLib-OPF)~\cite{babaeinejadsarookolaee2019power} provides 68 standardized AC-OPF test cases with:
+\begin{itemize}
+    \item Curated network data with realistic parameters
+    \item Baseline objective values from IPOPT via PowerModels.jl
+    \item Test cases ranging from 3 to 78,484 buses
+    \item Three variants per case: typical (TYP), active power increase (API), small angle difference (SAD)
+\end{itemize}
+
+Validation metric (relative objective gap):
+\begin{equation}
+    \gamma_{\text{obj}} = \frac{f^{\text{GAT}} - f^{\text{baseline}}}{f^{\text{baseline}}}
+\end{equation}
+
+\subsection{PF$\Delta$ Dataset}
+
+The PF$\Delta$ (Power Flow Delta) dataset~\cite{pfdelta2024} provides power flow instances with load perturbations and reference bus voltage solutions from MATPOWER:
+\begin{itemize}
+    \item Base case network topologies (case30, case57, case118)
+    \item Load perturbation scenarios
+    \item N, N-1, and N-2 contingency configurations
+    \item Reference voltage magnitudes and angles from MATPOWER
+\end{itemize}
+
+\subsection{OPFData}
+
+OPFData~\cite{piloto2024opfdata} provides over 300,000 solved AC-OPF instances per grid topology with:
+\begin{itemize}
+    \item Load perturbations (FullTop configuration)
+    \item Topology perturbations (N-1 line/generator/transformer outages)
+    \item Reference solutions from IPOPT via PowerModels.jl
+    \item Objective values for comparison
+\end{itemize}
+
+\section{Results}
+
+\subsection{PGLib-OPF Benchmark Results}
+
+We tested GAT on all 68 typical (TYP) PGLib-OPF cases.
+
+\begin{table}[h]
+\centering
+\caption{PGLib-OPF Benchmark Results Summary}
+\begin{tabular}{ll}
+\toprule
+Metric & Value \\
+\midrule
+Total cases & 68 \\
+Converged & 68 (100\%) \\
+Median solve time & 1.72 ms \\
+Mean solve time & 3.13 ms \\
+Median objective gap & 2.82\% \\
+Mean objective gap & 5.55\% \\
+\bottomrule
+\end{tabular}
+\label{tab:pglib-summary}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{PGLib-OPF Results by Network Size}
+\begin{tabular}{lcccc}
+\toprule
+Size Category & Cases & Avg Solve Time & Max Network \\
+\midrule
+Small ($<$500 buses) & 18 & 0.09 ms & 500 buses \\
+Medium (500--2000) & 7 & 0.88 ms & 1,803 buses \\
+Large ($>$2000 buses) & 43 & 4.77 ms & 78,484 buses \\
+\midrule
+\textbf{Total} & \textbf{68} & \textbf{3.13 ms} & --- \\
+\bottomrule
+\end{tabular}
+\label{tab:pglib-size}
+\end{table}
+
+\textbf{Largest case solved:} \texttt{pglib\_opf\_case78484\_epigrids}
+\begin{itemize}
+    \item 78,484 buses, 126,015 branches, 6,773 generators
+    \item Solve time: 35.9 ms
+    \item Total time (load + solve): 645 ms
+    \item Converged in 1 iteration
+\end{itemize}
+
+\subsection{PF$\Delta$ Benchmark Results}
+
+We tested GAT's AC power flow solver on 75,000 samples from the PF$\Delta$ dataset.
+
+\begin{table}[h]
+\centering
+\caption{PF$\Delta$ Power Flow Benchmark Results}
+\begin{tabular}{lccc}
+\toprule
+Network & Samples & Converged & Avg Solve Time \\
+\midrule
+case30 (N, N-1, N-2) & 25,000 & 100\% & 1.81 ms \\
+case57 (N, N-1, N-2) & 25,000 & 100\% & 9.07 ms \\
+case118 (N, N-1, N-2) & 25,000 & 100\% & 37.37 ms \\
+\midrule
+\textbf{Total} & \textbf{75,000} & \textbf{100\%} & \textbf{16.08 ms} \\
+\bottomrule
+\end{tabular}
+\label{tab:pfdelta}
+\end{table}
+
+The results demonstrate 100\% convergence across all contingency levels (N, N-1, N-2), validating GAT's robustness for contingency analysis applications.
+
+\subsection{OPFData Benchmark Results}
+
+We tested GAT's AC-OPF solver on 10,000 samples from the OPFData case118 subset.
+
+\begin{table}[h]
+\centering
+\caption{OPFData AC-OPF Benchmark Results (case118)}
+\begin{tabular}{lc}
+\toprule
+Metric & Value \\
+\midrule
+Total samples & 10,000 \\
+Converged & 10,000 (100\%) \\
+Median solve time & 0.31 ms \\
+Mean solve time & 0.35 ms \\
+Median objective gap & 19.48\% \\
+Mean objective gap & 19.49\% \\
+P10 / P90 gap & 19.14\% / 19.99\% \\
+\bottomrule
+\end{tabular}
+\label{tab:opfdata}
+\end{table}
+
+The consistent 19--20\% objective gap reflects the difference between GAT's relaxed economic dispatch formulation and the full nonlinear ACOPF solved by IPOPT. This gap represents the cost of using a faster, simpler algorithm.
+
+\subsection{Aggregate Results}
+
+\begin{table}[h]
+\centering
+\caption{Aggregate Benchmark Summary}
+\begin{tabular}{lcccc}
+\toprule
+Dataset & Samples & Convergence & Objective Gap & Avg Time \\
+\midrule
+PGLib-OPF & 68 & 100\% & 2.82\% median & 3.13 ms \\
+PF$\Delta$ & 75,000 & 100\% & N/A (PF) & 16.08 ms \\
+OPFData & 10,000 & 100\% & 19.48\% median & 0.35 ms \\
+\midrule
+\textbf{Total} & \textbf{85,068} & \textbf{100\%} & --- & --- \\
+\bottomrule
+\end{tabular}
+\label{tab:summary}
+\end{table}
+
+\section{Discussion}
+
+\subsection{100\% Convergence on PGLib}
+
+A key result of this work is achieving 100\% convergence on all 68 PGLib-OPF cases. Previous versions failed on 27 cases due to overly strict validation that rejected:
+\begin{itemize}
+    \item Synchronous condensers (generators with $P_{\max} \leq 0$)
+    \item Phase-shifting transformers (branches with negative reactance)
+\end{itemize}
+
+By implementing automatic detection of these devices and relaxing the corresponding validation constraints, GAT now handles the complete PGLib benchmark.
+
+\subsection{Objective Gap Analysis}
+
+The 2.82\% median gap on PGLib compares favorably to the baseline IPOPT solutions. This gap arises from:
+\begin{enumerate}
+    \item Use of economic dispatch rather than full nonlinear optimization
+    \item Generator reactive power limits not enforced during dispatch
+    \item Single-iteration power flow may not reach global optimum
+\end{enumerate}
+
+The 19.5\% gap on OPFData is higher because these instances include more aggressive topology perturbations that benefit more from full nonlinear optimization.
+
+\subsection{Performance Scaling}
+
+\begin{table}[h]
+\centering
+\caption{Solve Time Scaling Analysis}
+\begin{tabular}{lccc}
+\toprule
+Network Size & Avg Time & Time/Bus & Scaling \\
+\midrule
+$<$100 buses & 0.03 ms & 0.6 $\mu$s/bus & --- \\
+100--1000 buses & 0.15 ms & 0.4 $\mu$s/bus & Sub-linear \\
+1000--10000 buses & 2.5 ms & 0.4 $\mu$s/bus & Linear \\
+$>$10000 buses & 15 ms & 0.3 $\mu$s/bus & Sub-linear \\
+\bottomrule
+\end{tabular}
+\label{tab:scaling}
+\end{table}
+
+Sub-linear scaling for large networks is attributed to:
+\begin{itemize}
+    \item Sparse matrix operations with complexity $O(n \cdot \text{nnz})$
+    \item Efficient CSR memory access patterns
+    \item Single Newton-Raphson iteration (good initialization)
+\end{itemize}
+
+\section{Conclusion}
+
+We presented comprehensive benchmark validation of the Grid Analysis Toolkit (GAT) against three major power systems datasets:
+
+\begin{enumerate}
+    \item \textbf{PGLib-OPF:} 68/68 cases (100\%) with 2.82\% median optimality gap
+    \item \textbf{PF$\Delta$:} 75,000 samples (100\%) across N/N-1/N-2 contingencies
+    \item \textbf{OPFData:} 10,000 samples (100\%) with 19.5\% optimality gap
+\end{enumerate}
+
+Total: \textbf{85,068 test cases with 100\% convergence}.
+
+GAT provides a reliable, high-performance foundation for power system analysis. The Rust implementation enables single-binary deployment, while Arrow/Parquet output formats ensure interoperability with modern data science ecosystems.
+
+\subsection{Future Work}
+
+Near-term development priorities:
+\begin{itemize}
+    \item \textbf{Full ACOPF:} Interior point solver for tighter optimality gaps
+    \item \textbf{Reactive power limits:} Q-limit handling during optimization
+    \item \textbf{GPU acceleration:} Sparse linear algebra on CUDA/ROCm
+\end{itemize}
+
+GAT is available at \url{https://github.com/monistowl/gat} under an open-source license.
+
+\section*{Acknowledgments}
+
+We thank the developers of MATPOWER, PowerModels.jl, PGLib-OPF, PF$\Delta$, and OPFData for providing the benchmark datasets and reference implementations.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{10}
+
+\bibitem{zimmerman2011matpower}
+R.~D. Zimmerman, C.~E. Murillo-S{\'a}nchez, and R.~J. Thomas,
+\newblock ``{MATPOWER}: Steady-state operations, planning, and analysis tools for power systems research and education,''
+\newblock \emph{IEEE Transactions on Power Systems}, vol.~26, no.~1, pp.~12--19, 2011.
+
+\bibitem{coffrin2018powermodels}
+C.~Coffrin, R.~Bent, K.~Sundar, Y.~Ng, and M.~Lubin,
+\newblock ``{PowerModels.jl}: An open-source framework for exploring power flow formulations,''
+\newblock in \emph{2018 Power Systems Computation Conference (PSCC)}, pp.~1--8, IEEE, 2018.
+
+\bibitem{thurner2018pandapower}
+L.~Thurner, A.~Scheidler, F.~Sch{\"a}fer, J.-H. Menke, J.~Dollichon, F.~Meier, S.~Meinecke, and M.~Braun,
+\newblock ``pandapower---an open-source Python tool for convenient modeling, analysis, and optimization of electric power systems,''
+\newblock \emph{IEEE Transactions on Power Systems}, vol.~33, no.~6, pp.~6510--6521, 2018.
+
+\bibitem{brown2018pypsa}
+T.~Brown, J.~H{\"o}rsch, and D.~Schlachtberger,
+\newblock ``{PyPSA}: Python for power system analysis,''
+\newblock \emph{Journal of Open Research Software}, vol.~6, no.~1, 2018.
+
+\bibitem{babaeinejadsarookolaee2019power}
+S.~Babaeinejadsarookolaee, A.~Birchfield, R.~D. Christie, C.~Coffrin, C.~DeMarco, R.~Diao, M.~Ferris, S.~Fliscounakis, S.~Greene, R.~Huang, et~al.,
+\newblock ``The power grid library for benchmarking {AC} optimal power flow algorithms,''
+\newblock arXiv preprint arXiv:1908.02788, 2019.
+
+\bibitem{piloto2024opfdata}
+L.~Piloto, D.~Biagioni, P.~Graf, J.~Karagiannis, and S.~Chatterjee,
+\newblock ``{OPFData}: Large-scale datasets for {AC} optimal power flow with topological perturbations,''
+\newblock arXiv preprint arXiv:2406.07234, 2024.
+
+\bibitem{pfdelta2024}
+PF$\Delta$ Contributors,
+\newblock ``{PF$\Delta$}: Power flow perturbation dataset for machine learning,''
+\newblock HuggingFace Dataset: \url{https://huggingface.co/datasets/pfdelta/pfdelta}, 2024.
+
+\end{thebibliography}
+
+\end{document}

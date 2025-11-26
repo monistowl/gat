@@ -198,6 +198,16 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                 * 100.0;
             let status = gen_array.get(7).and_then(|v| v.as_f64()).unwrap_or(1.0);
 
+            // Cost coefficients at indices 8, 9, 10: [c2, c1, c0]
+            // OPFData stores coefficients for p.u. power: cost = c2*p_pu^2 + c1*p_pu + c0
+            // With Sbase=100, p_pu = P_mw/100, so:
+            // cost = c2*(P/100)^2 + c1*(P/100) + c0
+            //      = (c2/10000)*P^2 + (c1/100)*P + c0
+            // For solver expecting cost(P_mw): c2_mw = c2/10000, c1_mw = c1/100, c0_mw = c0
+            let c2 = gen_array.get(8).and_then(|v| v.as_f64()).unwrap_or(0.0) / 10000.0;
+            let c1 = gen_array.get(9).and_then(|v| v.as_f64()).unwrap_or(0.0) / 100.0;
+            let c0 = gen_array.get(10).and_then(|v| v.as_f64()).unwrap_or(0.0);
+
             if status < 0.5 {
                 continue; // Generator offline
             }
@@ -205,6 +215,13 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             // Get bus from context or default to first bus
             let gen_bus_idx = gen_bus_map.get(gen_idx).copied().unwrap_or(0);
             let bus_id = BusId::new(gen_bus_idx + 1);
+
+            // Build cost model: polynomial [c0, c1, c2]
+            let cost_model = if c0 == 0.0 && c1 == 0.0 && c2 == 0.0 {
+                gat_core::CostModel::NoCost
+            } else {
+                gat_core::CostModel::Polynomial(vec![c0, c1, c2])
+            };
 
             network.graph.add_node(Node::Gen(Gen {
                 id: GenId::new(gen_idx),
@@ -216,42 +233,55 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                 pmax_mw: pmax,
                 qmin_mvar: qmin,
                 qmax_mvar: qmax,
-                cost_model: gat_core::CostModel::NoCost,
+                cost_model,
                 is_synchronous_condenser: false,
             }));
         }
     }
 
-    // Add loads - from context load_p and load_q arrays
-    if let Some(ctx) = context {
-        let load_p: Vec<f64> = ctx
-            .get("load_p")
+    // Add loads - from nodes.load with load_link for bus mapping
+    // Format: nodes.load = [[pd_pu, qd_pu], ...]
+    // load_link.senders = load indices, load_link.receivers = bus indices
+    let edges = grid
+        .get("edges")
+        .ok_or_else(|| anyhow::anyhow!("missing 'edges' field"))?;
+
+    let load_data = nodes.get("load").and_then(|v| v.as_array());
+    let load_link = edges.get("load_link").and_then(|v| v.as_object());
+
+    if let (Some(loads), Some(link)) = (load_data, load_link) {
+        let load_bus_map: Vec<usize> = link
+            .get("receivers")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect())
-            .unwrap_or_default();
-        let load_q: Vec<f64> = ctx
-            .get("load_q")
-            .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_u64().map(|u| u as usize))
+                    .collect()
+            })
             .unwrap_or_default();
 
-        for (bus_idx, (p, q)) in load_p.iter().zip(load_q.iter()).enumerate() {
-            if *p != 0.0 || *q != 0.0 {
+        for (load_idx, load_row) in loads.iter().enumerate() {
+            let load_array = load_row
+                .as_array()
+                .ok_or_else(|| anyhow::anyhow!("load row not array"))?;
+
+            let pd_pu = load_array.first().and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let qd_pu = load_array.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+            if pd_pu != 0.0 || qd_pu != 0.0 {
+                let bus_idx = load_bus_map.get(load_idx).copied().unwrap_or(0);
                 network.graph.add_node(Node::Load(Load {
-                    id: LoadId::new(bus_idx),
-                    name: format!("Load {}", bus_idx + 1),
+                    id: LoadId::new(load_idx),
+                    name: format!("Load {}@{}", load_idx, bus_idx + 1),
                     bus: BusId::new(bus_idx + 1),
-                    active_power_mw: p * 100.0, // p.u. to MW
-                    reactive_power_mvar: q * 100.0,
+                    active_power_mw: pd_pu * 100.0, // p.u. to MW
+                    reactive_power_mvar: qd_pu * 100.0,
                 }));
             }
         }
     }
 
-    // Parse edges - ac_line and transformer
-    let edges = grid
-        .get("edges")
-        .ok_or_else(|| anyhow::anyhow!("missing 'edges' field"))?;
+    // Parse edges - ac_line and transformer (edges already fetched above)
 
     // AC lines
     let mut branch_id = 0usize;

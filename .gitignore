@@ -12,6 +12,11 @@ gha-creds-*.json
 /target/
 /dist/
 
+# Local datasets and benchmark outputs (keep local; too large for remote)
+/data/
+/results/
+zola.tar.gz
+
 # Virtualenvs and user caches
 .venv/
 

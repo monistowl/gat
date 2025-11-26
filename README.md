@@ -29,9 +29,10 @@ If you're comfortable running simple CLI commands and want to start doing *real*
 
 ### For Advanced Users
 
-* Full DC/AC power-flow solvers
-* DC/AC optimal power-flow (OPF) with costs and constraints
-* N-1 contingency analysis and screening
+* Full DC/AC power-flow solvers (Newton-Raphson with Q-limit enforcement)
+* DC/AC optimal power-flow (OPF) with polynomial/piecewise costs
+* **Full nonlinear AC-OPF** using L-BFGS penalty method (65/68 PGLib cases converge, median 2.9% gap)
+* N-1/N-2 contingency analysis and screening
 * Time-series resampling, joining, aggregation
 * State estimation (weighted least squares)
 * **Distribution automation** (FLISR/VVO/outage coordination via ADMS)
@@ -111,7 +112,7 @@ Coming in Horizon 7 (planned).
 The modular installer lets you choose components on the fly and installs to `~/.gat` with no dependency on Rust:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh | bash
 ```
 
 Then add to your PATH:
@@ -126,13 +127,13 @@ By default, only the CLI is installed. Choose additional components:
 
 ```bash
 # CLI + TUI (interactive dashboard)
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
 
 # CLI + TUI + GUI dashboard (future)
-GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
 
 # Everything (CLI + TUI + GUI + solvers)
-GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
 ```
 
 Or from the downloaded script:
@@ -160,12 +161,12 @@ If you prefer bundled releases with docs, download and unpack a variant:
 
 ```bash
 # Full variant (CLI + TUI + all features)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/gat-0.3.1-linux-x86_64-full.tar.gz | tar xz
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.4/gat-0.3.1-linux-x86_64-full.tar.gz | tar xz
 cd gat-0.3.1-linux-x86_64-full
 ./install.sh
 
 # Headless variant (CLI only, minimal footprint)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.1/gat-0.3.1-linux-x86_64-headless.tar.gz | tar xz
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.4/gat-0.3.1-linux-x86_64-headless.tar.gz | tar xz
 cd gat-0.3.1-linux-x86_64-headless
 ./install.sh --variant headless
 ```
@@ -273,17 +274,28 @@ gat opf dc test_data/matpower/case9.arrow \
 * Branch flows
 * Violation flags
 
-### 3. AC Optimal Power Flow (Nonlinear)
+### 3. AC Optimal Power Flow (Full Nonlinear)
 
 ```bash
 gat opf ac test_data/matpower/case9.arrow \
   --out out/ac-opf.parquet \
-  --tol 1e-6 --max-iter 20
+  --tol 1e-4 --max-iter 200
 ```
 
-Graduate from the linear DC baseline to Newton–Raphson solves.
+Full nonlinear AC-OPF using penalty method with L-BFGS. Handles polar variables (V, θ) with explicit power balance constraints.
 
-### 4. Interactive Exploration with TUI
+### 4. Benchmark Against PGLib
+
+```bash
+gat benchmark pglib \
+  --pglib-dir /path/to/pglib-opf \
+  --baseline baseline.csv \
+  --out results.csv
+```
+
+Run the AC-OPF solver against the industry-standard PGLib benchmark suite (68 MATPOWER cases from 14 to 13,659 buses).
+
+### 5. Interactive Exploration with TUI
 
 ```bash
 gat-tui
@@ -344,6 +356,12 @@ gat alloc {rents,kpi}             # Allocation metrics
 
 ```
 gat analytics {ptdf,reliability,elcc,ds,deliverability}  # Grid metrics
+```
+
+### Benchmarking
+
+```
+gat benchmark {pglib,pfdelta,opfdata}  # Run solver benchmarks against public datasets
 ```
 
 ### Interfaces
@@ -520,12 +538,12 @@ Available datasets include:
 
 ### Installation & Upgrades
 
-**Q: I have v0.1. How do I upgrade to v0.3.1?**
+**Q: I have v0.1. How do I upgrade to v0.3.4?**
 
-A: The v0.3.1 release introduces a new modular installation system. Upgrade simply by re-running the installer:
+A: The v0.3.4 release introduces a new modular installation system. Upgrade simply by re-running the installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh | bash
 ```
 
 This installs to `~/.gat/bin/` by default (changed from `~/.local/bin/` in v0.1). Update your PATH:
@@ -534,9 +552,9 @@ This installs to `~/.gat/bin/` by default (changed from `~/.local/bin/` in v0.1)
 export PATH="$HOME/.gat/bin:$PATH"
 ```
 
-**Q: Can I keep both v0.1 and v0.3.1 installed?**
+**Q: Can I keep both v0.1 and v0.3.4 installed?**
 
-A: Yes. Use the `--prefix` flag to install v0.3.1 elsewhere:
+A: Yes. Use the `--prefix` flag to install v0.3.4 elsewhere:
 
 ```bash
 bash scripts/install-modular.sh --prefix /opt/gat-0.3.1
@@ -544,7 +562,7 @@ bash scripts/install-modular.sh --prefix /opt/gat-0.3.1
 
 Then choose which to use in your PATH by ordering the paths or using full paths.
 
-**Q: What changed between v0.1 and v0.3.1?**
+**Q: What changed between v0.1 and v0.3.4?**
 
 A: Major improvements include:
 
@@ -570,7 +588,7 @@ A: No. The CLI is fully featured and standalone. The TUI is optional and great f
 Install it with:
 
 ```bash
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
 ```
 
 **Q: What are the solver components for?**
@@ -578,7 +596,7 @@ GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monis
 A: The `solvers` component includes additional solver backends (CBC, HiGHS) beyond the default Clarabel. Install with:
 
 ```bash
-GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
 ```
 
 Then use them with:
@@ -690,7 +708,7 @@ rm -rf /opt/gat/  # Or whatever prefix you used
 A: Install the solver binaries:
 
 ```bash
-GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.1/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.3.4/scripts/install-modular.sh)
 ```
 
 Or build from source (slower but self-contained):

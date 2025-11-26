@@ -5,10 +5,11 @@
   {% include "partials/header.html" %}
 
   <div class="max-w-screen-2xl mx-auto px-6 py-8 grid lg:grid-cols-12 gap-6 xl:gap-8">
-    {% import "partials/sidebar.html" as sidebar %}
     {% set doc_home = get_section(path=section.path) %}
     {% set doc_home_label = doc_home.title | default(value="Docs") %}
-    {{ sidebar::render(current_path=current_path, doc_home_url=doc_home.permalink, doc_home_label=doc_home_label) }}
+    {% set current_path = current_path %}
+    {% set doc_home_url = doc_home.permalink %}
+    {% include "partials/sidebar.html" %}
 
     <main class="lg:col-span-9 xl:col-span-9">
       <article class="bg-slate-900/20 border border-slate-800 rounded-lg p-8 lg:p-12">

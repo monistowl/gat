@@ -162,8 +162,12 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
         if !bus_index_map.contains_key(&gen.gen_bus) {
             return Err(anyhow!("generator references unknown bus {}", gen.gen_bus));
         }
-        // Synchronous condenser detection: Pmax <= 0 OR negative active power with Q range
-        let is_syncon = (gen.pmax <= 0.0 || gen.pg < 0.0) && gen.qmax > gen.qmin;
+        // Synchronous condenser detection:
+        // 1. Pmax <= 0 (can only absorb power or provide reactive support)
+        // 2. Negative active power setpoint (absorbing P)
+        // 3. Negative Pmin with Pmax near zero (typical syncon with small motor load)
+        // Note: Some syncons have Qmax=Qmin=0 for units without Q capability
+        let is_syncon = gen.pmax <= 0.0 || gen.pg < 0.0 || (gen.pmin < 0.0 && gen.pmax <= 0.1);
         network.graph.add_node(Node::Gen(Gen {
             id: GenId::new(gen_id),
             name: format!("Gen {}@{}", gen_id, gen.gen_bus),

@@ -1,8 +1,15 @@
 use anyhow::Result;
+#[cfg(not(target_os = "windows"))]
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+#[cfg(target_os = "windows")]
+use crossterm::{
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode},
 };
 use std::io;
 use std::time::Duration;
@@ -771,7 +778,10 @@ async fn main() -> Result<()> {
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
+    #[cfg(not(target_os = "windows"))]
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    #[cfg(target_os = "windows")]
+    execute!(stdout, EnableMouseCapture)?;
 
     // Create tuirealm application without automatic event listener
     // We'll handle events manually via crossterm
@@ -976,7 +986,10 @@ async fn main() -> Result<()> {
     // Cleanup
     terminal.restore()?;
     disable_raw_mode()?;
+    #[cfg(not(target_os = "windows"))]
     execute!(stdout, LeaveAlternateScreen, DisableMouseCapture)?;
+    #[cfg(target_os = "windows")]
+    execute!(stdout, DisableMouseCapture)?;
 
     Ok(())
 }

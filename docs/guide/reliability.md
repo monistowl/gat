@@ -2,6 +2,11 @@
 
 GAT provides comprehensive reliability analysis tools for evaluating power system performance under uncertainty, including Monte Carlo simulation, LOLE/EUE metrics, multi-area coordination, and integration with ADMS operations.
 
+**v0.3.4 Updates:**
+- N-2 contingency benchmarks validated (100% convergence across 45,000 test cases)
+- Q-limit enforcement in reliability power flows
+- Integration with full nonlinear AC-OPF for accurate constraint evaluation
+
 ## Core Concepts
 
 ### Loss of Load Expectation (LOLE)

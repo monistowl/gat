@@ -1,25 +1,30 @@
 [package]
 name = "gat-io"
-version = "0.3.4"
+version = "0.4.0"
 edition = "2021"
 
 [features]
-default = ["minimal"]
-minimal = []
-parquet = ["polars/parquet"]
-ipc = ["polars/ipc"]
+default = ["native-io"]
+native-io = ["polars"]
+minimal = ["native-io"]
+parquet = ["polars", "polars/parquet"]
+ipc = ["polars", "polars/ipc"]
 full = ["parquet", "ipc"]
+
+# WASM/WASI-safe mode: no Polars/Arrow/Parquet compiled
+wasm = []
 
 [dependencies]
 anyhow = "1.0"
 caseformat = "0.1"
 gat-core = { path = "../gat-core" }
-polars = { version = "0.35", default-features = false, features = ["lazy", "csv"] }
+# Note: polars unused when building with feature `wasm`
+polars = { version = "0.35", default-features = false, features = ["lazy", "csv"], optional = true }
 power_flow_data = "0.1"
 quick-xml = "0.31"
 serde = { version = "1.0", features = ["derive"] }
 sophia = "0.8"
-zip = "0.6"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 serde_json = "1.0"
 ureq = { version = "2.10", features = ["json"] }
 chrono = { version = "0.4.42", features = ["serde"] }

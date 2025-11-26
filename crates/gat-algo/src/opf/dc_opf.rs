@@ -1,9 +1,122 @@
-//! DC Optimal Power Flow with B-matrix formulation
+//! # DC Optimal Power Flow (DC-OPF)
 //!
-//! Linearized OPF using DC power flow approximation:
-//! - Ignores reactive power
-//! - Assumes flat voltage magnitudes (|V| = 1.0 p.u.)
-//! - Linearizes branch flows: P_ij = (θ_i - θ_j) / x_ij
+//! This module implements DC Optimal Power Flow using the B-matrix (susceptance)
+//! formulation. DC-OPF is a linearized approximation of AC-OPF that enables
+//! fast, globally optimal solutions using linear programming.
+//!
+//! ## The DC Power Flow Approximation
+//!
+//! DC power flow makes three key simplifying assumptions:
+//!
+//! ```text
+//! ┌─────────────────────────────────────────────────────────────────────────┐
+//! │  DC POWER FLOW ASSUMPTIONS                                               │
+//! │  ─────────────────────────                                               │
+//! │                                                                           │
+//! │  1. FLAT VOLTAGE:  |V_i| ≈ 1.0 p.u. for all buses                        │
+//! │     → Voltage magnitudes are near nominal                                 │
+//! │     → Valid when voltages are tightly controlled                          │
+//! │                                                                           │
+//! │  2. SMALL ANGLES:  sin(θ_i - θ_j) ≈ θ_i - θ_j                            │
+//! │                    cos(θ_i - θ_j) ≈ 1                                     │
+//! │     → Angle differences < 10-15° between adjacent buses                   │
+//! │     → True for most operating conditions                                  │
+//! │                                                                           │
+//! │  3. LOSSLESS LINES: R << X (resistance negligible vs reactance)          │
+//! │     → Valid for high-voltage transmission (X/R > 5-10)                    │
+//! │     → Less accurate for distribution or low-voltage                       │
+//! └─────────────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! ## Mathematical Formulation
+//!
+//! Under DC assumptions, the nonlinear AC power flow equations simplify to:
+//!
+//! ```text
+//! AC:   P_ij = V_i·V_j·(G_ij·cos(θ_ij) + B_ij·sin(θ_ij))
+//!              └───────────────────────────────────────────────┘
+//!                              nonlinear
+//!
+//! DC:   P_ij = (θ_i - θ_j) / x_ij = b_ij · (θ_i - θ_j)
+//!              └─────────────────────────────────────────┘
+//!                           linear
+//! ```
+//!
+//! where b_ij = 1/x_ij is the susceptance of branch ij.
+//!
+//! The **B' matrix** (susceptance matrix) relates bus angles to power injections:
+//!
+//! ```text
+//! P = B' · θ
+//!
+//! where:
+//!   B'_ij = -b_ij             for i ≠ j (off-diagonal)
+//!   B'_ii = Σ_k b_ik          for all k (diagonal = sum of connected susceptances)
+//! ```
+//!
+//! ## DC-OPF Formulation
+//!
+//! ```text
+//! minimize    Σ_g (c₀_g + c₁_g · P_g)         Linear generation cost
+//!
+//! subject to  Σ P_gen - Σ P_load = 0          Power balance (no losses)
+//!             P_g^min ≤ P_g ≤ P_g^max         Generator limits
+//!             |P_ij| ≤ P_ij^max               Branch flow limits (optional)
+//!             θ_ref = 0                        Reference angle
+//! ```
+//!
+//! This is a **Linear Program (LP)** solvable in polynomial time with:
+//! - Guaranteed global optimum
+//! - Fast solution times (seconds for 10,000+ buses)
+//! - No convergence issues
+//!
+//! ## When to Use DC-OPF vs AC-OPF
+//!
+//! **Use DC-OPF for:**
+//! - Real-time market clearing (speed critical)
+//! - Initial screening of many scenarios
+//! - High-voltage transmission analysis
+//! - Contingency ranking
+//! - Unit commitment integer programming
+//!
+//! **Use AC-OPF for:**
+//! - Final dispatch validation
+//! - Voltage/reactive power studies
+//! - Distribution system analysis
+//! - Networks with high R/X ratios
+//! - Accuracy-critical applications
+//!
+//! ## Accuracy Considerations
+//!
+//! DC-OPF introduces systematic errors:
+//!
+//! | Effect | DC-OPF | Error Magnitude |
+//! |--------|--------|-----------------|
+//! | Losses | Ignored | 2-5% of generation |
+//! | Reactive power | Ignored | May miss voltage issues |
+//! | Flow direction | May reverse | Near voltage limit |
+//! | Objective | Underestimated | Due to ignored losses |
+//!
+//! For critical decisions, validate DC-OPF solutions with AC power flow.
+//!
+//! ## Implementation Details
+//!
+//! This module uses:
+//! - **Clarabel solver** (default): Open-source interior point solver
+//! - **good_lp** abstraction: Enables solver switching (HiGHS, CBC)
+//! - **Sparse matrices**: Efficient for large networks via `sprs` crate
+//!
+//! ## References
+//!
+//! - **Overbye et al. (2004)**: "A Comparison of the AC and DC Power Flow Models"
+//!   PICA Conference. Quantifies DC approximation errors.
+//!
+//! - **Purchala et al. (2005)**: "Usefulness of DC Power Flow for Active Power
+//!   Flow Analysis"
+//!   IEEE PES General Meeting. Systematic error analysis.
+//!
+//! - **Wood & Wollenberg (2013)**: "Power Generation, Operation, and Control"
+//!   3rd Ed., Chapter 3. Standard textbook treatment.
 
 use crate::opf::{OpfMethod, OpfSolution};
 use crate::OpfError;

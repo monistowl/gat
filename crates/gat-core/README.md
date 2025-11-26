@@ -11,9 +11,11 @@ Fundamental data structures and algorithms for power-system modeling, power-flow
 - Transmission and distribution networks
 
 **Solvers:**
-- DC/AC power flow (feasibility checking)
+- DC/AC power flow (feasibility checking, Q-limit enforcement)
 - DC/AC optimal power flow (cost minimization)
-- N-1 contingency analysis
+- **Full nonlinear AC-OPF** (v0.3.4) — penalty-based L-BFGS solver
+- SOCP relaxation for fast convex approximation
+- N-1/N-2 contingency analysis
 - State estimation (weighted least squares)
 
 **Outputs:**
@@ -93,11 +95,20 @@ let piecewise = CostModel::PiecewiseLinear(vec![
 ```rust
 use gat_algo::{OpfSolver, OpfMethod};
 
-// Create solver with method selection
+// DC economic dispatch
 let solver = OpfSolver::new()
-    .with_method(OpfMethod::EconomicDispatch);
+    .with_method(OpfMethod::DcOpf);
+let solution = solver.solve(&network)?;
 
-// Solve
+// SOCP relaxation (fast, convex)
+let solver = OpfSolver::new()
+    .with_method(OpfMethod::SocpRelaxation);
+
+// Full nonlinear AC-OPF (v0.3.4)
+let solver = OpfSolver::new()
+    .with_method(OpfMethod::AcOpf)
+    .with_max_iterations(200)
+    .with_tolerance(1e-4);
 let solution = solver.solve(&network)?;
 println!("Objective: ${:.2}/hr", solution.objective_value);
 ```
@@ -128,7 +139,7 @@ Pluggable LP/QP solver integration via `good_lp`:
 - **Clarabel** (default, pure Rust, open-source)
 - **HiGHS** (dual simplex, high performance)
 - **CBC** (COIN-OR, robust and mature)
-- **IPOPT** (interior-point, nonlinear OPF)
+- **argmin L-BFGS** (full AC-OPF nonlinear optimization, v0.3.4)
 
 Select solver at build time or runtime:
 ```bash

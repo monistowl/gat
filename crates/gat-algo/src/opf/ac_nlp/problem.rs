@@ -1,89 +1,293 @@
-//! AC-OPF Problem Formulation
+//! # AC-OPF Problem Formulation
 //!
-//! Defines the nonlinear program (NLP) for AC optimal power flow.
+//! This module defines the mathematical optimization problem for AC Optimal Power Flow.
+//! It transforms network data (buses, generators, loads, branches) into a structured
+//! nonlinear program (NLP) that can be solved by various optimization algorithms.
 //!
-//! ## Variable Layout
+//! ## Decision Variable Layout
+//!
+//! The optimization variables are laid out in a single vector `x` as:
 //!
 //! ```text
-//! x = [ V_1, ..., V_n, θ_1, ..., θ_n, P_g1, ..., P_gm, Q_g1, ..., Q_gm ]
-//!     |<--- n_bus --->|<-- n_bus -->|<--- n_gen --->|<--- n_gen --->|
+//! x = [ V₁, V₂, ..., V_n,  θ₁, θ₂, ..., θ_n,  P_g1, ..., P_gm,  Q_g1, ..., Q_gm ]
+//!     |<─── voltages ───>|<─── angles ───>|<── real power ─>|<── reactive ──>|
+//!     |      n_bus       |     n_bus      |      n_gen      |      n_gen     |
+//!     |<─────────────────────────────────────────────────────────────────────>|
+//!                                    n_var = 2*n_bus + 2*n_gen
 //! ```
 //!
-//! ## Constraints
+//! **Variable groups:**
+//! - **V (voltage magnitudes)**: Per-unit voltage at each bus (typically 0.9-1.1)
+//! - **θ (voltage angles)**: Phase angle at each bus in radians (-π/2 to +π/2)
+//! - **P_g (real power)**: Generator active power dispatch in per-unit
+//! - **Q_g (reactive power)**: Generator reactive power dispatch in per-unit
 //!
-//! Equality constraints (g(x) = 0):
-//!   - Power balance at each bus: P_inj - P_gen + P_load = 0
-//!   - Q balance: Q_inj - Q_gen + Q_load = 0
-//!   - Reference bus angle: θ_ref = 0
+//! ## Objective Function
 //!
-//! Inequality constraints (h(x) ≤ 0):
-//!   - Voltage bounds: V_min ≤ V ≤ V_max
-//!   - Generator limits: P_min ≤ P_g ≤ P_max, Q_min ≤ Q_g ≤ Q_max
-//!   - Thermal limits: P_ij² + Q_ij² ≤ S_max²
+//! Minimize total generation cost using polynomial cost functions:
+//!
+//! ```text
+//! minimize  Σ_g [ c₀_g + c₁_g · P_g + c₂_g · P_g² ]
+//!
+//! where:
+//!   c₀ = No-load cost ($/hr) - fixed cost when generator is online
+//!   c₁ = Linear cost ($/MWh) - incremental fuel cost
+//!   c₂ = Quadratic cost ($/MW²h) - efficiency degradation at high/low output
+//! ```
+//!
+//! **Physical interpretation:** This models the thermal heat rate curve of generators.
+//! More efficient generators have lower c₁ coefficients. The quadratic term captures
+//! the efficiency reduction when operating far from optimal heat rate.
+//!
+//! ## Equality Constraints
+//!
+//! Power balance at each bus (Kirchhoff's current law):
+//!
+//! ```text
+//! P_gen - P_load - P_injected(V, θ) = 0    (n_bus equations)
+//! Q_gen - Q_load - Q_injected(V, θ) = 0    (n_bus equations)
+//! θ_ref = 0                                 (1 equation)
+//! ```
+//!
+//! The reference angle constraint breaks the symmetry since only angle *differences*
+//! affect power flow. Any bus can be chosen as reference; we use bus 0.
+//!
+//! ## Inequality Constraints
+//!
+//! Physical operating limits:
+//!
+//! ```text
+//! V_min ≤ V_i ≤ V_max         Voltage limits (equipment insulation, stability)
+//! P_min ≤ P_g ≤ P_max         Generator MW limits (turbine capability)
+//! Q_min ≤ Q_g ≤ Q_max         Generator MVAr limits (field current, heating)
+//! θ_min ≤ θ_i ≤ θ_max         Angle limits (numerical stability, ±π/2)
+//! ```
+//!
+//! **Note:** Branch thermal limits (S_ij ≤ S_max) are not currently implemented
+//! as explicit constraints, but could be added as quadratic inequality constraints.
+//!
+//! ## Per-Unit System
+//!
+//! All electrical quantities are normalized to a common base, typically 100 MVA:
+//!
+//! ```text
+//! P_pu = P_MW / S_base          where S_base = 100 MVA
+//! Q_pu = Q_MVAr / S_base
+//! V_pu = V / V_base             where V_base is bus nominal voltage
+//! ```
+//!
+//! This scaling improves numerical conditioning by keeping most values near 1.0.
+//!
+//! ## References
+//!
+//! - **Zimmerman et al. (2011)**: "MATPOWER: Steady-State Operations, Planning,
+//!   and Analysis Tools for Power Systems Research and Education"
+//!   IEEE Trans. Power Systems, 26(1), 12-19
+//!   DOI: [10.1109/TPWRS.2010.2051168](https://doi.org/10.1109/TPWRS.2010.2051168)
+//!
+//! - **Frank et al. (2012)**: "Optimal Power Flow: A Bibliographic Survey"
+//!   Energy Systems, 3(3), 221-258
+//!   DOI: [10.1007/s12667-012-0056-y](https://doi.org/10.1007/s12667-012-0056-y)
 
 use super::{PowerEquations, YBus, YBusBuilder};
 use crate::opf::OpfError;
 use gat_core::{BusId, CostModel, Network, Node};
 use std::collections::HashMap;
 
-/// Generator data for OPF
+// ============================================================================
+// DATA STRUCTURES
+// ============================================================================
+
+/// Generator data extracted from network for OPF optimization.
+///
+/// Contains the essential parameters needed for dispatch optimization:
+/// operating limits and cost function coefficients.
 #[derive(Debug, Clone)]
 pub struct GenData {
+    /// Human-readable generator identifier
     pub name: String,
+
+    /// Bus where generator connects (injection point)
     pub bus_id: BusId,
+
+    /// Minimum real power output (MW).
+    /// Below this, the generator must shut down (minimum stable operation).
     pub pmin_mw: f64,
+
+    /// Maximum real power output (MW).
+    /// Limited by turbine size, boiler capacity, or heat rate degradation.
     pub pmax_mw: f64,
+
+    /// Minimum reactive power output (MVAr).
+    /// Limited by under-excitation (leading power factor) capability.
     pub qmin_mvar: f64,
+
+    /// Maximum reactive power output (MVAr).
+    /// Limited by field current heating (lagging power factor).
     pub qmax_mvar: f64,
+
+    /// Cost function coefficients [c₀, c₁, c₂, ...].
+    /// Cost = c₀ + c₁·P + c₂·P² + ...
+    /// Units: c₀ in $/hr, c₁ in $/MWh, c₂ in $/MW²h
     pub cost_coeffs: Vec<f64>,
 }
 
-/// Bus data for OPF
+/// Bus data extracted from network for OPF optimization.
+///
+/// Represents an electrical node with load injection and voltage limits.
 #[derive(Debug, Clone)]
 pub struct BusData {
+    /// External bus identifier (from input data)
     pub id: BusId,
+
+    /// Human-readable bus name
     pub name: String,
+
+    /// Internal 0-based index for matrix operations
     pub index: usize,
+
+    /// Minimum allowed voltage magnitude (per-unit).
+    /// Typically 0.9-0.95 p.u. to prevent voltage collapse and equipment damage.
     pub v_min: f64,
+
+    /// Maximum allowed voltage magnitude (per-unit).
+    /// Typically 1.05-1.1 p.u. to prevent insulation breakdown.
     pub v_max: f64,
+
+    /// Real power load at this bus (MW).
+    /// Positive value = power consumed (sink).
     pub p_load: f64,
+
+    /// Reactive power load at this bus (MVAr).
+    /// Positive = inductive load (absorbs VARs).
     pub q_load: f64,
 }
 
-/// AC-OPF Problem definition
+// ============================================================================
+// AC-OPF PROBLEM DEFINITION
+// ============================================================================
+
+/// Complete AC-OPF problem specification.
+///
+/// This struct packages all information needed to solve the optimization:
+/// - Network topology (Y-bus)
+/// - Bus and generator data
+/// - Variable indexing scheme
+///
+/// # Example
+///
+/// ```ignore
+/// let problem = AcOpfProblem::from_network(&network)?;
+///
+/// // Get initial guess
+/// let x0 = problem.initial_point();
+///
+/// // Evaluate objective and constraints
+/// let cost = problem.objective(&x0);
+/// let violations = problem.equality_constraints(&x0);
+/// ```
 pub struct AcOpfProblem {
-    /// Y-bus admittance matrix
+    /// Y-bus admittance matrix encoding network topology and impedances.
+    /// Used to compute power flow equations.
     pub ybus: YBus,
-    /// Bus data
+
+    /// Bus data including loads and voltage limits.
+    /// Indexed by internal bus index (0 to n_bus-1).
     pub buses: Vec<BusData>,
-    /// Generator data
+
+    /// Generator data including limits and costs.
+    /// Indexed by generator index (0 to n_gen-1).
     pub generators: Vec<GenData>,
-    /// Reference bus index
+
+    /// Index of reference bus (angle fixed to 0).
+    /// Typically the largest generator or a well-connected bus.
     pub ref_bus: usize,
-    /// Per-unit base (MVA)
+
+    /// Per-unit base power (MVA).
+    /// All MW/MVAr values are divided by this for normalization.
+    /// Standard value: 100 MVA.
     pub base_mva: f64,
 
-    // Variable indices
+    // ========================================================================
+    // PROBLEM DIMENSIONS
+    // ========================================================================
+
+    /// Number of buses in the network
     pub n_bus: usize,
+
+    /// Number of generators (dispatchable units)
     pub n_gen: usize,
+
+    /// Total number of optimization variables = 2*n_bus + 2*n_gen
     pub n_var: usize,
 
-    // Index offsets
+    // ========================================================================
+    // VARIABLE INDEX OFFSETS
+    // ========================================================================
+    //
+    // These offsets define where each variable group starts in the x vector.
+    // Using offsets allows efficient extraction of subvectors.
+
+    /// Offset to voltage magnitudes: x[v_offset + i] = V_i
     pub v_offset: usize,
+
+    /// Offset to voltage angles: x[theta_offset + i] = θ_i
     pub theta_offset: usize,
+
+    /// Offset to generator P: x[pg_offset + g] = P_g
     pub pg_offset: usize,
+
+    /// Offset to generator Q: x[qg_offset + g] = Q_g
     pub qg_offset: usize,
 
-    // Generator-to-bus mapping
+    // ========================================================================
+    // GENERATOR-BUS MAPPING
+    // ========================================================================
+
+    /// Maps generator index to bus index where it injects power.
+    /// gen_bus_idx[g] = internal bus index for generator g
     pub gen_bus_idx: Vec<usize>,
 }
 
 impl AcOpfProblem {
-    /// Build problem from network
+    /// Build OPF problem from Network graph.
+    ///
+    /// Extracts buses, generators, and loads from the network graph,
+    /// builds the Y-bus matrix, and sets up variable indexing.
+    ///
+    /// # Arguments
+    ///
+    /// * `network` - Network graph with Bus, Gen, Load, and Branch nodes/edges
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(AcOpfProblem)` - Ready to solve
+    /// * `Err(OpfError)` - Invalid network (no buses, no generators, etc.)
+    ///
+    /// # Algorithm
+    ///
+    /// 1. Build Y-bus from network branches
+    /// 2. Extract bus data and assign internal indices
+    /// 3. Sum loads at each bus (may have multiple loads per bus)
+    /// 4. Extract generator data and cost models
+    /// 5. Set up variable offsets
     pub fn from_network(network: &Network) -> Result<Self, OpfError> {
+        // ====================================================================
+        // BUILD Y-BUS MATRIX
+        // ====================================================================
+        //
+        // The Y-bus encodes network topology and branch impedances.
+        // This is computed first because it determines bus indexing.
+
         let ybus = YBusBuilder::from_network(network)?;
 
-        // Extract buses
+        // ====================================================================
+        // EXTRACT BUS DATA
+        // ====================================================================
+        //
+        // Iterate through network nodes to find all Bus elements.
+        // Assign sequential internal indices (0, 1, 2, ...) for matrix operations.
+
         let mut buses = Vec::new();
         let mut loads: HashMap<BusId, (f64, f64)> = HashMap::new();
         let mut bus_idx = 0;
@@ -91,18 +295,21 @@ impl AcOpfProblem {
         for node_idx in network.graph.node_indices() {
             match &network.graph[node_idx] {
                 Node::Bus(bus) => {
+                    // Create bus with default voltage limits (can be overridden)
                     buses.push(BusData {
                         id: bus.id,
                         name: bus.name.clone(),
                         index: bus_idx,
-                        v_min: 0.9,
-                        v_max: 1.1,
+                        v_min: 0.9, // Typical minimum (could be 0.95 for tighter control)
+                        v_max: 1.1, // Typical maximum (could be 1.05)
                         p_load: 0.0,
                         q_load: 0.0,
                     });
                     bus_idx += 1;
                 }
                 Node::Load(load) => {
+                    // Accumulate loads at each bus (there may be multiple)
+                    // This handles distributed loads modeled as separate entities
                     let entry = loads.entry(load.bus).or_insert((0.0, 0.0));
                     entry.0 += load.active_power_mw;
                     entry.1 += load.reactive_power_mvar;
@@ -111,7 +318,7 @@ impl AcOpfProblem {
             }
         }
 
-        // Apply loads to buses
+        // Apply accumulated loads to bus data
         for bus in &mut buses {
             if let Some((p, q)) = loads.get(&bus.id) {
                 bus.p_load = *p;
@@ -119,14 +326,26 @@ impl AcOpfProblem {
             }
         }
 
-        // Extract generators
+        // ====================================================================
+        // EXTRACT GENERATOR DATA
+        // ====================================================================
+        //
+        // Each generator contributes:
+        // - Decision variables (P_g, Q_g)
+        // - Objective function terms (cost model)
+        // - Constraints (operating limits)
+
         let mut generators = Vec::new();
         for node_idx in network.graph.node_indices() {
             if let Node::Gen(gen) = &network.graph[node_idx] {
+                // Convert cost model to polynomial coefficients
+                // Piecewise-linear costs are linearized at midpoint
                 let cost_coeffs = match &gen.cost_model {
                     CostModel::NoCost => vec![0.0, 0.0],
                     CostModel::Polynomial(c) => c.clone(),
                     CostModel::PiecewiseLinear(_) => {
+                        // Approximate piecewise-linear with single linear segment
+                        // Uses marginal cost at operating midpoint
                         let mid = (gen.pmin_mw + gen.pmax_mw) / 2.0;
                         vec![0.0, gen.cost_model.marginal_cost(mid)]
                     }
@@ -150,11 +369,23 @@ impl AcOpfProblem {
             ));
         }
 
+        // ====================================================================
+        // COMPUTE DIMENSIONS AND OFFSETS
+        // ====================================================================
+        //
+        // Variable layout: [V | θ | P_g | Q_g]
+        //
+        // Offsets enable O(1) access to any variable type:
+        //   x[v_offset + i]     → voltage at bus i
+        //   x[theta_offset + i] → angle at bus i
+        //   x[pg_offset + g]    → real power of generator g
+        //   x[qg_offset + g]    → reactive power of generator g
+
         let n_bus = buses.len();
         let n_gen = generators.len();
         let n_var = 2 * n_bus + 2 * n_gen;
 
-        // Compute generator-to-bus index mapping
+        // Build generator-to-bus index mapping for power balance equations
         let bus_map: HashMap<BusId, usize> = buses.iter().map(|b| (b.id, b.index)).collect();
         let gen_bus_idx: Vec<usize> = generators
             .iter()
@@ -165,8 +396,8 @@ impl AcOpfProblem {
             ybus,
             buses,
             generators,
-            ref_bus: 0,
-            base_mva: 100.0,
+            ref_bus: 0, // Use first bus as reference (could be configurable)
+            base_mva: 100.0, // Standard per-unit base
 
             n_bus,
             n_gen,
@@ -181,18 +412,51 @@ impl AcOpfProblem {
         })
     }
 
-    /// Get initial point (flat start)
+    /// Generate a "flat start" initial point.
+    ///
+    /// A flat start assumes:
+    /// - All voltages at 1.0 p.u. (nominal)
+    /// - All angles at 0 radians (synchronized)
+    /// - Generators at midpoint of operating range
+    ///
+    /// This is a common initialization strategy that works well for most networks.
+    /// For difficult cases, a DC power flow solution may provide a better start.
+    ///
+    /// # Returns
+    ///
+    /// Vector of length n_var with initial values for all decision variables.
     pub fn initial_point(&self) -> Vec<f64> {
         let mut x = vec![0.0; self.n_var];
 
-        // Voltage magnitudes = 1.0
+        // ====================================================================
+        // VOLTAGE MAGNITUDES: FLAT START (V = 1.0)
+        // ====================================================================
+        //
+        // Starting at 1.0 p.u. is reasonable because:
+        // - Most systems operate within ±10% of nominal
+        // - This is the center of typical voltage bands
+        // - Ensures initial point is within bounds
+
         for i in 0..self.n_bus {
             x[self.v_offset + i] = 1.0;
         }
 
-        // Angles = 0.0 (already initialized)
+        // ====================================================================
+        // VOLTAGE ANGLES: ZERO START (θ = 0)
+        // ====================================================================
+        //
+        // All angles start at zero (synchronized system).
+        // Already initialized by vec![0.0; n_var]
 
-        // Generator setpoints at midpoint of range
+        // ====================================================================
+        // GENERATOR DISPATCH: MIDPOINT START
+        // ====================================================================
+        //
+        // Starting at midpoint of [P_min, P_max] is a safe choice:
+        // - Guaranteed to be feasible
+        // - Provides room to adjust up or down
+        // - Roughly balances load with generation
+
         for (i, gen) in self.generators.iter().enumerate() {
             x[self.pg_offset + i] = (gen.pmin_mw + gen.pmax_mw) / 2.0 / self.base_mva;
             x[self.qg_offset + i] = (gen.qmin_mvar + gen.qmax_mvar) / 2.0 / self.base_mva;
@@ -201,30 +465,78 @@ impl AcOpfProblem {
         x
     }
 
-    /// Extract voltage magnitude and angle vectors
+    /// Extract voltage magnitude and angle vectors from decision variable vector.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Full decision variable vector
+    ///
+    /// # Returns
+    ///
+    /// Tuple `(V, θ)` where:
+    /// * `V[i]` = voltage magnitude at bus i (p.u.)
+    /// * `θ[i]` = voltage angle at bus i (radians)
     pub fn extract_v_theta(&self, x: &[f64]) -> (Vec<f64>, Vec<f64>) {
         let v: Vec<f64> = (0..self.n_bus).map(|i| x[self.v_offset + i]).collect();
         let theta: Vec<f64> = (0..self.n_bus).map(|i| x[self.theta_offset + i]).collect();
         (v, theta)
     }
 
-    /// Evaluate objective function: Σ (c₀ + c₁·P_g + c₂·P_g²)
+    /// Evaluate the objective function (total generation cost).
+    ///
+    /// ```text
+    /// f(x) = Σ_g [ c₀_g + c₁_g · P_g + c₂_g · P_g² ]
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Decision variable vector
+    ///
+    /// # Returns
+    ///
+    /// Total generation cost in $/hr
+    ///
+    /// # Note
+    ///
+    /// Generator dispatch values P_g are stored in per-unit in x, but cost
+    /// coefficients are typically defined in MW. We convert back to MW for
+    /// cost evaluation to match standard input data formats.
     pub fn objective(&self, x: &[f64]) -> f64 {
         let mut cost = 0.0;
+
         for (i, gen) in self.generators.iter().enumerate() {
+            // Extract dispatch in per-unit and convert to MW
             let pg_pu = x[self.pg_offset + i];
             let pg_mw = pg_pu * self.base_mva;
 
+            // Get cost coefficients (defaulting to zero if not specified)
             let c0 = gen.cost_coeffs.first().copied().unwrap_or(0.0);
             let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
             let c2 = gen.cost_coeffs.get(2).copied().unwrap_or(0.0);
 
+            // Polynomial cost: c₀ + c₁·P + c₂·P²
             cost += c0 + c1 * pg_mw + c2 * pg_mw * pg_mw;
         }
+
         cost
     }
 
-    /// Evaluate objective gradient
+    /// Compute the gradient of the objective function.
+    ///
+    /// For polynomial cost f(P) = c₀ + c₁·P + c₂·P²:
+    /// ```text
+    /// ∂f/∂P_pu = (c₁ + 2·c₂·P_MW) · S_base
+    /// ```
+    ///
+    /// The scaling by S_base accounts for the per-unit representation.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Decision variable vector
+    ///
+    /// # Returns
+    ///
+    /// Gradient vector of length n_var. Only entries at pg_offset are non-zero.
     pub fn objective_gradient(&self, x: &[f64]) -> Vec<f64> {
         let mut grad = vec![0.0; self.n_var];
 
@@ -235,24 +547,49 @@ impl AcOpfProblem {
             let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
             let c2 = gen.cost_coeffs.get(2).copied().unwrap_or(0.0);
 
-            // d/dP_pu (c1 * P_mw + c2 * P_mw²) = (c1 + 2*c2*P_mw) * base_mva
+            // Chain rule: ∂f/∂P_pu = ∂f/∂P_MW · ∂P_MW/∂P_pu
+            //                      = (c₁ + 2·c₂·P_MW) · S_base
             grad[self.pg_offset + i] = (c1 + 2.0 * c2 * pg_mw) * self.base_mva;
         }
 
         grad
     }
 
-    /// Evaluate equality constraints (power balance)
+    /// Evaluate equality constraints (power balance equations).
     ///
-    /// Returns vector of constraint violations (should be zero at feasible point)
+    /// The constraints enforce:
+    /// ```text
+    /// g₁: P_gen - P_load - P_inj(V,θ) = 0  for each bus
+    /// g₂: Q_gen - Q_load - Q_inj(V,θ) = 0  for each bus
+    /// g₃: θ_ref = 0                         reference angle
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Decision variable vector
+    ///
+    /// # Returns
+    ///
+    /// Constraint violation vector of length 2*n_bus + 1.
+    /// A feasible point has all entries near zero.
     pub fn equality_constraints(&self, x: &[f64]) -> Vec<f64> {
+        // Extract voltages and angles
         let (v, theta) = self.extract_v_theta(x);
+
+        // Compute power injections from AC power flow equations
         let (p_inj, q_inj) = PowerEquations::compute_injections(&self.ybus, &v, &theta);
 
-        // 2*n_bus constraints (P balance + Q balance) + 1 (reference angle)
+        // Pre-allocate constraint vector
+        // Layout: [P balance for each bus | Q balance for each bus | ref angle]
         let mut g = Vec::with_capacity(2 * self.n_bus + 1);
 
-        // Build generator injections at each bus
+        // ====================================================================
+        // SUM GENERATOR INJECTIONS AT EACH BUS
+        // ====================================================================
+        //
+        // Multiple generators may connect to the same bus.
+        // We sum their contributions before forming the balance equation.
+
         let mut pg_bus = vec![0.0; self.n_bus];
         let mut qg_bus = vec![0.0; self.n_bus];
 
@@ -261,48 +598,105 @@ impl AcOpfProblem {
             qg_bus[bus_idx] += x[self.qg_offset + i];
         }
 
-        // P balance: P_inj - P_gen + P_load = 0
+        // ====================================================================
+        // REAL POWER BALANCE: P_inj - P_gen + P_load = 0
+        // ====================================================================
+        //
+        // Rearranged from: P_gen = P_load + P_inj
+        // At a feasible point, generation equals load plus network injection.
+
         for (i, bus) in self.buses.iter().enumerate() {
             let p_load_pu = bus.p_load / self.base_mva;
             g.push(p_inj[i] - pg_bus[i] + p_load_pu);
         }
 
-        // Q balance: Q_inj - Q_gen + Q_load = 0
+        // ====================================================================
+        // REACTIVE POWER BALANCE: Q_inj - Q_gen + Q_load = 0
+        // ====================================================================
+
         for (i, bus) in self.buses.iter().enumerate() {
             let q_load_pu = bus.q_load / self.base_mva;
             g.push(q_inj[i] - qg_bus[i] + q_load_pu);
         }
 
-        // Reference angle: θ_ref = 0
+        // ====================================================================
+        // REFERENCE ANGLE: θ_ref = 0
+        // ====================================================================
+        //
+        // One angle must be fixed because only angle differences affect power flow.
+        // This breaks the rotational symmetry of the problem.
+
         g.push(x[self.theta_offset + self.ref_bus]);
 
         g
     }
 
-    /// Get variable bounds: (lower, upper)
+    /// Get variable bounds for box constraints.
+    ///
+    /// # Returns
+    ///
+    /// Tuple `(lb, ub)` where:
+    /// * `lb[i]` = lower bound for x[i]
+    /// * `ub[i]` = upper bound for x[i]
     pub fn variable_bounds(&self) -> (Vec<f64>, Vec<f64>) {
         let mut lb = vec![f64::NEG_INFINITY; self.n_var];
         let mut ub = vec![f64::INFINITY; self.n_var];
 
-        // Voltage bounds
+        // ====================================================================
+        // VOLTAGE BOUNDS
+        // ====================================================================
+        //
+        // V_min ≤ V_i ≤ V_max
+        //
+        // Typical range: 0.9-1.1 p.u. (±10% of nominal)
+        // - Too low: voltage collapse, motor stalling
+        // - Too high: insulation breakdown, equipment damage
+
         for (i, bus) in self.buses.iter().enumerate() {
             lb[self.v_offset + i] = bus.v_min;
             ub[self.v_offset + i] = bus.v_max;
         }
 
-        // Angle bounds (±π/2 for numerical stability)
+        // ====================================================================
+        // ANGLE BOUNDS
+        // ====================================================================
+        //
+        // -π/2 ≤ θ_i ≤ π/2
+        //
+        // Practical limits for numerical stability. Real systems rarely
+        // exceed ±30° angle differences between adjacent buses.
+        // The ±90° limit prevents wrap-around issues with trig functions.
+
         for i in 0..self.n_bus {
             lb[self.theta_offset + i] = -std::f64::consts::FRAC_PI_2;
             ub[self.theta_offset + i] = std::f64::consts::FRAC_PI_2;
         }
 
-        // Generator P limits
+        // ====================================================================
+        // GENERATOR REAL POWER LIMITS
+        // ====================================================================
+        //
+        // P_min ≤ P_g ≤ P_max
+        //
+        // P_min: Minimum stable generation (below this, must shut down)
+        // P_max: Maximum capacity (turbine/boiler limit)
+
         for (i, gen) in self.generators.iter().enumerate() {
             lb[self.pg_offset + i] = gen.pmin_mw / self.base_mva;
             ub[self.pg_offset + i] = gen.pmax_mw / self.base_mva;
         }
 
-        // Generator Q limits
+        // ====================================================================
+        // GENERATOR REACTIVE POWER LIMITS
+        // ====================================================================
+        //
+        // Q_min ≤ Q_g ≤ Q_max
+        //
+        // Q_min: Under-excitation limit (leading PF capability)
+        // Q_max: Over-excitation limit (field heating constraint)
+        //
+        // These limits form the generator capability curve (D-curve).
+
         for (i, gen) in self.generators.iter().enumerate() {
             lb[self.qg_offset + i] = gen.qmin_mvar / self.base_mva;
             ub[self.qg_offset + i] = gen.qmax_mvar / self.base_mva;

@@ -1,7 +1,3 @@
-pub mod ac_pf;
-#[cfg(test)]
-mod q_limits;
-
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -16,7 +12,7 @@ use crate::OutputStage;
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
 use gat_core::solver::SolverBackend;
-use gat_core::{BusId, Edge, Network, Node};
+use gat_core::{Edge, Network, Node};
 use good_lp::solvers::clarabel::clarabel as clarabel_solver;
 #[cfg(feature = "solver-coin_cbc")]
 use good_lp::solvers::coin_cbc::coin_cbc as coin_cbc_solver;
@@ -87,101 +83,6 @@ pub enum LpSolverKind {
     CoinCbc,
     #[cfg(feature = "solver-highs")]
     Highs,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum BusType {
-    Slack,
-    PV,
-    PQ,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct AcPowerFlowSolution {
-    pub bus_voltage_magnitude: HashMap<BusId, f64>,
-    pub bus_voltage_angle: HashMap<BusId, f64>,
-    pub bus_types: HashMap<BusId, BusType>,
-    pub iterations: usize,
-    pub max_mismatch: f64,
-    pub converged: bool,
-}
-
-/// Simple AC power flow solver wrapper used by the CLI.
-///
-/// This lightweight implementation provides a stable interface for the TUI/CLI
-/// while reusing the existing AC power flow pipeline. It classifies bus types
-/// and returns placeholder voltage estimates so that downstream reporting can
-/// format AC results, even when Q-limit enforcement is toggled on.
-pub struct AcPowerFlowSolver {
-    tolerance: f64,
-    max_iterations: usize,
-    enforce_q_limits: bool,
-}
-
-impl AcPowerFlowSolver {
-    pub fn new() -> Self {
-        Self {
-            tolerance: 1e-6,
-            max_iterations: 25,
-            enforce_q_limits: false,
-        }
-    }
-
-    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
-        self.tolerance = tolerance;
-        self
-    }
-
-    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
-        self.max_iterations = max_iterations;
-        self
-    }
-
-    pub fn with_q_limit_enforcement(mut self, enabled: bool) -> Self {
-        self.enforce_q_limits = enabled;
-        self
-    }
-
-    pub fn solve(&self, network: &Network) -> anyhow::Result<AcPowerFlowSolution> {
-        let mut gen_buses: HashSet<BusId> = HashSet::new();
-        for node in network.graph.node_weights() {
-            if let Node::Gen(gen) = node {
-                gen_buses.insert(gen.bus);
-            }
-        }
-
-        let mut bus_voltage_magnitude = HashMap::new();
-        let mut bus_voltage_angle = HashMap::new();
-        let mut bus_types = HashMap::new();
-
-        let mut slack_assigned = false;
-        for node in network.graph.node_weights() {
-            if let Node::Bus(bus) = node {
-                let bus_id = bus.id;
-                let bus_type = if !slack_assigned {
-                    slack_assigned = true;
-                    BusType::Slack
-                } else if gen_buses.contains(&bus_id) {
-                    BusType::PV
-                } else {
-                    BusType::PQ
-                };
-
-                bus_types.insert(bus_id, bus_type);
-                bus_voltage_magnitude.insert(bus_id, 1.0);
-                bus_voltage_angle.insert(bus_id, 0.0);
-            }
-        }
-
-        Ok(AcPowerFlowSolution {
-            bus_voltage_magnitude,
-            bus_voltage_angle,
-            bus_types,
-            iterations: self.max_iterations.min(1),
-            max_mismatch: self.tolerance,
-            converged: true,
-        })
-    }
 }
 
 impl LpSolverKind {
@@ -1102,72 +1003,6 @@ fn bus_result_dataframe(network: &Network) -> PolarsResult<DataFrame> {
         Series::new("voltage_kv", voltages),
         Series::new("angle", angles),
     ])
-}
-
-/// Write AC power flow solution (including Q-limit enforcement) to Parquet.
-pub fn write_ac_pf_solution(
-    network: &Network,
-    solution: &AcPowerFlowSolution,
-    output_path: &Path,
-    partitions: &[String],
-) -> Result<()> {
-    let mut bus_ids: Vec<u32> = Vec::new();
-    let mut bus_names: Vec<String> = Vec::new();
-    let mut vm_values: Vec<f64> = Vec::new();
-    let mut va_values: Vec<f64> = Vec::new();
-    let mut bus_type_values: Vec<String> = Vec::new();
-
-    for node in network.graph.node_weights() {
-        if let Node::Bus(bus) = node {
-            bus_ids.push(bus.id.value() as u32);
-            bus_names.push(bus.name.clone());
-
-            let vm = solution
-                .bus_voltage_magnitude
-                .get(&bus.id)
-                .copied()
-                .unwrap_or(1.0);
-            let va = solution
-                .bus_voltage_angle
-                .get(&bus.id)
-                .copied()
-                .unwrap_or(0.0);
-            let bus_type = solution
-                .bus_types
-                .get(&bus.id)
-                .map(|t| match t {
-                    BusType::Slack => "Slack",
-                    BusType::PV => "PV",
-                    BusType::PQ => "PQ",
-                })
-                .unwrap_or("PQ");
-
-            vm_values.push(vm);
-            va_values.push(va.to_degrees());
-            bus_type_values.push(bus_type.to_string());
-        }
-    }
-
-    let mut df = DataFrame::new(vec![
-        Series::new("bus_id", bus_ids),
-        Series::new("bus_name", bus_names),
-        Series::new("vm_pu", vm_values),
-        Series::new("va_deg", va_values),
-        Series::new("bus_type", bus_type_values),
-    ])?;
-
-    crate::io::persist_dataframe(&mut df, output_path, partitions, "pf_ac_qlim")?;
-
-    println!(
-        "AC power flow (Q-limits): {} buses, converged={}, iterations={}, max_mismatch={:.2e}, output={}",
-        df.height(),
-        solution.converged,
-        solution.iterations,
-        solution.max_mismatch,
-        output_path.display()
-    );
-
-    Ok(())
 }
 
 fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {

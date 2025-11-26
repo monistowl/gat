@@ -36,6 +36,11 @@ default-members = [
 ]
 resolver = "2" # See https://doc.rust-lang.org/cargo/reference/workspaces.html#the-resolver-field
 
+# Workspace-level metadata used for cross-target feature coordination
+[workspace.metadata.wasm]
+# Enables pure-Rust backends and disables native compression when building for WASM/WASI
+recommended_feature = "wasm"
+
 [profile.dev]
 opt-level = 1
 
@@ -43,4 +48,4 @@ opt-level = 1
 opt-level = 3
 
 [workspace.metadata.release]
-version = "0.3.4"
+version = "0.4.0"

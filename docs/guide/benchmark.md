@@ -1,6 +1,75 @@
 # Benchmarking GAT Against Public Datasets
 
-GAT includes integrated benchmarking tools for systematically evaluating AC OPF solver performance against public power flow datasets. The primary benchmark suite uses the **PFDelta** project: 859,800 solved power flow instances across IEEE standard test cases with N/N-1/N-2 contingencies.
+GAT includes integrated benchmarking tools for systematically evaluating AC-OPF solver performance against public power flow datasets. Three benchmark suites are supported:
+
+1. **PGLib-OPF** (recommended) — 68 MATPOWER cases from industry-standard IEEE/PEGASE/GOC networks
+2. **PFDelta** — 859,800 solved power flow instances with N/N-1/N-2 contingencies
+3. **OPFData** — GNN-format JSON for machine learning benchmarks
+
+## PGLib-OPF Integration (v0.3.4)
+
+### Dataset Overview
+
+PGLib-OPF (https://github.com/power-grid-lib/pglib-opf) is the industry-standard benchmark suite:
+- **68 test cases** from 14 to 19,402 buses
+- **Multiple network types**: IEEE, PEGASE, GOC, RTE, NESTA, epigrids
+- **Baseline solutions** for objective comparison
+- **MATPOWER format** (.m files)
+
+### Basic Usage
+
+```bash
+# Clone PGLib-OPF
+git clone --depth 1 https://github.com/power-grid-lib/pglib-opf.git
+
+# Organize files into directories (GAT expects case directories)
+cd pglib-opf
+for f in pglib_opf_*.m; do
+  dir="${f%.m}"
+  mkdir -p "$dir"
+  mv "$f" "$dir/case.m"
+done
+
+# Run benchmark
+gat benchmark pglib \
+  --pglib-dir /path/to/pglib-opf \
+  --baseline /path/to/pglib-opf/baseline.csv \
+  --out results.csv
+```
+
+### Options
+
+- `--pglib-dir`: Directory containing PGLib MATPOWER case directories
+- `--baseline`: Optional CSV with reference objective values
+- `--case-filter`: Filter cases by name (e.g., "case14", "case118")
+- `--max-cases`: Limit number of cases (0 = all)
+- `--out`: Output CSV path
+- `--threads`: Parallel threads (auto = CPU count)
+- `--tol`: Convergence tolerance (default 1e-6)
+- `--max-iter`: Maximum iterations (default 20)
+
+### v0.3.4 Benchmark Results
+
+Running against all 68 PGLib cases:
+
+| Metric | Value |
+|--------|-------|
+| Cases tested | 68 |
+| Cases converged | 65 (95.6%) |
+| Cases with <5% gap | 48 (76%) |
+| Median objective gap | **2.91%** |
+| Best case | 0.01% (case5658_epigrids) |
+
+**Objective Gap Distribution:**
+- < 1%: 9 cases
+- 1-5%: 39 cases
+- 5-10%: 4 cases
+- 10-20%: 6 cases
+- > 20%: 5 cases
+
+**Note:** 3 cases fail due to synchronous condenser validation (negative Pg without explicit marking).
+
+---
 
 ## PFDelta Integration (v0.3)
 

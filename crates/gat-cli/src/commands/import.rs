@@ -76,9 +76,7 @@ fn prepare_import(
 }
 
 fn ensure_input_file(path: &Path, expected_extensions: &[&str], friendly_name: &str) -> Result<()> {
-    let canonical = fs::canonicalize(path)
-        .or_else(|_| Ok(path.to_path_buf()))
-        .unwrap_or_else(|_| path.to_path_buf());
+    let canonical = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
 
     if !canonical.exists() {
         anyhow::bail!(
