@@ -305,7 +305,10 @@ fn test_gencost_polynomial_loaded() {
         if let Node::Gen(gen) = node {
             match &gen.cost_model {
                 CostModel::Polynomial(coeffs) => {
-                    assert!(!coeffs.is_empty(), "Polynomial cost should have coefficients");
+                    assert!(
+                        !coeffs.is_empty(),
+                        "Polynomial cost should have coefficients"
+                    );
                     found_cost = true;
                     break;
                 }

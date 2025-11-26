@@ -214,7 +214,12 @@ fn benchmark_case(
                         })
                         .collect();
                     let gat_va: HashMap<usize, f64> = HashMap::new();
-                    (solution.converged, solution.iterations as u32, gat_vm, gat_va)
+                    (
+                        solution.converged,
+                        solution.iterations as u32,
+                        gat_vm,
+                        gat_va,
+                    )
                 }
                 Err(_) => (false, 0u32, HashMap::new(), HashMap::new()),
             }

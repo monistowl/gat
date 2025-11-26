@@ -233,8 +233,8 @@ fn app_renders_preview_shell() {
     let app = App::new();
     let output = app.render();
     assert!(output.contains("GAT Terminal UI"));
-    assert!(output.contains("Commands"));  // Menu item visible
-    assert!(output.contains("Dashboard"));  // Default pane visible
+    assert!(output.contains("Commands")); // Menu item visible
+    assert!(output.contains("Dashboard")); // Default pane visible
 }
 
 #[test]
@@ -259,12 +259,12 @@ fn pane_switching_changes_layouts() {
     pilot.press('3').screenshot();
     pilot
         .assert_contains("Data catalog")
-        .assert_contains("Available datasets");  // Updated to match current text
+        .assert_contains("Available datasets"); // Updated to match current text
 
     pilot.press('2').screenshot();
     pilot
         .assert_active("Operations")
-        .assert_contains("DERMS + ADMS");  // Core content visible; sidebar may be truncated
+        .assert_contains("DERMS + ADMS"); // Core content visible; sidebar may be truncated
 }
 
 #[test]
@@ -400,7 +400,7 @@ fn operations_shows_batch_and_allocation() {
         .assert_active("Operations")
         .assert_contains("Batch Operations")
         .assert_contains("Allocation Analysis")
-        .assert_contains("Congestion Rents");  // Updated to match actual text
+        .assert_contains("Congestion Rents"); // Updated to match actual text
 }
 
 // Uncomment to use for manual testing:

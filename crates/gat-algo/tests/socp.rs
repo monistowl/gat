@@ -724,7 +724,7 @@ fn socp_10_bus_meshed_network() {
             qmin_mvar: -50.0,
             qmax_mvar: 50.0,
             is_synchronous_condenser: false,
-        cost_model: CostModel::linear(0.0, *cost),
+            cost_model: CostModel::linear(0.0, *cost),
         }));
     }
 

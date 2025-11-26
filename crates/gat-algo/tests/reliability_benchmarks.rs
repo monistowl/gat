@@ -40,7 +40,7 @@ fn create_benchmark_network(
             qmin_mvar: -1000.0,
             qmax_mvar: 1000.0,
             is_synchronous_condenser: false,
-        cost_model: CostModel::NoCost,
+            cost_model: CostModel::NoCost,
         }));
     }
 

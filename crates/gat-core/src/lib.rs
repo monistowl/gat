@@ -543,7 +543,9 @@ mod tests {
     fn test_network_validation_empty() {
         let network = Network::new();
         let issues = network.validate();
-        assert!(issues.iter().any(|i| matches!(i, NetworkValidationIssue::Error(_))));
+        assert!(issues
+            .iter()
+            .any(|i| matches!(i, NetworkValidationIssue::Error(_))));
     }
 
     #[test]
@@ -554,7 +556,11 @@ mod tests {
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
         }));
-        network.graph.add_node(Node::Gen(Gen::new(GenId::new(0), "Gen 1".to_string(), BusId(0))));
+        network.graph.add_node(Node::Gen(Gen::new(
+            GenId::new(0),
+            "Gen 1".to_string(),
+            BusId(0),
+        )));
 
         let issues = network.validate();
         // Should warn about no loads
@@ -590,15 +596,19 @@ mod tests {
             active_power_mw: 50.0,
             reactive_power_mvar: 10.0,
         }));
-        network.graph.add_edge(bus1, bus2, Edge::Branch(Branch {
-            id: BranchId(0),
-            name: "Branch 1-2".to_string(),
-            from_bus: BusId(0),
-            to_bus: BusId(1),
-            resistance: 0.01,
-            reactance: 0.1,
-            ..Branch::default()
-        }));
+        network.graph.add_edge(
+            bus1,
+            bus2,
+            Edge::Branch(Branch {
+                id: BranchId(0),
+                name: "Branch 1-2".to_string(),
+                from_bus: BusId(0),
+                to_bus: BusId(1),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
 
         let stats = network.stats();
         assert_eq!(stats.num_buses, 2);
@@ -610,15 +620,17 @@ mod tests {
 
         // Valid network should have no errors
         let issues = network.validate();
-        assert!(issues.iter().all(|i| !matches!(i, NetworkValidationIssue::Error(_))));
+        assert!(issues
+            .iter()
+            .all(|i| !matches!(i, NetworkValidationIssue::Error(_))));
     }
 
     #[test]
     fn test_synchronous_condenser_flag() {
         // Test that synchronous condenser flag can be set
         let gen = Gen::new(GenId::new(1), "SynCon1".to_string(), BusId::new(1))
-            .with_p_limits(-10.0, 0.0)  // Consumes up to 10 MW
-            .with_q_limits(-100.0, 100.0)  // Provides reactive power
+            .with_p_limits(-10.0, 0.0) // Consumes up to 10 MW
+            .with_q_limits(-100.0, 100.0) // Provides reactive power
             .as_synchronous_condenser();
 
         assert!(gen.is_synchronous_condenser);
