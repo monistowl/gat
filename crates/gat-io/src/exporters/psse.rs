@@ -1,5 +1,5 @@
 use anyhow::Result;
-use gat_core::{Network, Node, Bus, Load};
+use gat_core::{Network, Node, Bus, Load, Gen};
 use std::path::Path;
 use std::fs;
 
@@ -18,6 +18,9 @@ pub fn export_to_psse_string(network: &Network, case_name: &str) -> Result<Strin
 
     // Load data section
     write_load_section(network, &mut output);
+
+    // Generator data section
+    write_generator_section(network, &mut output);
 
     Ok(output)
 }
@@ -90,6 +93,56 @@ fn write_load_section(network: &Network, output: &mut String) {
         ));
     }
     output.push_str("0 / END OF LOAD DATA, BEGIN FIXED SHUNT DATA\n");
+}
+
+/// Write generator data section in PSS/E v33 format
+fn write_generator_section(network: &Network, output: &mut String) {
+    // Collect generators
+    let mut generators: Vec<&Gen> = network.graph.node_weights()
+        .filter_map(|n| if let Node::Gen(g) = n { Some(g) } else { None })
+        .collect();
+    generators.sort_by_key(|g| (g.bus.value(), g.id.value()));
+
+    for (idx, gen) in generators.iter().enumerate() {
+        // PSS/E v33 generator format:
+        // I, ID, PG, QG, QT, QB, VS, IREG, MBASE, ZR, ZX, RT, XT, GTAP, STAT, RMPCT, PT, PB, O1, F1...
+        // I = bus number
+        // ID = generator ID (sequential 1-based)
+        // PG = active power output (MW)
+        // QG = reactive power output (MVAr)
+        // QT = max reactive power (MVAr)
+        // QB = min reactive power (MVAr)
+        // VS = voltage setpoint (pu)
+        // IREG = 0 (no regulated bus)
+        // MBASE = machine base MVA
+        // ZR, ZX = 0.0 (source impedance)
+        // RT, XT = 0.0 (transformer impedance)
+        // GTAP = 1.0
+        // STAT = 1 (in service) or 0 (out of service)
+        // RMPCT = 100.0
+        // PT = Pmax
+        // PB = Pmin
+
+        let vs = gen.voltage_setpoint_pu.unwrap_or(1.0);
+        let mbase = gen.mbase_mva.unwrap_or(100.0);
+        let stat = if gen.status { 1 } else { 0 };
+
+        output.push_str(&format!(
+            "{},{},{:.1},{:.1},{:.1},{:.1},{:.2},0,{:.1},0.0,0.0,0.0,0.0,1.0,{},100.0,{:.1},{:.1}\n",
+            gen.bus.value(),
+            idx + 1,
+            gen.active_power_mw,
+            gen.reactive_power_mvar,
+            gen.qmax_mvar,
+            gen.qmin_mvar,
+            vs,
+            mbase,
+            stat,
+            gen.pmax_mw,
+            gen.pmin_mw,
+        ));
+    }
+    output.push_str("0 / END OF GENERATOR DATA, BEGIN BRANCH DATA\n");
 }
 
 /// Export network to PSS/E RAW file
@@ -171,5 +224,36 @@ mod tests {
         assert!(output.contains("0 / END OF LOAD DATA"));
         assert!(output.contains("100.0")); // PL
         assert!(output.contains("50.0"));  // QL
+    }
+
+    #[test]
+    fn export_psse_includes_generator_data() {
+        use gat_core::{Gen, GenId};
+
+        let mut network = Network::new();
+        network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+        network.graph.add_node(Node::Gen(Gen {
+            id: GenId::new(1),
+            name: "Gen1".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: 50.0,
+            reactive_power_mvar: 25.0,
+            voltage_setpoint_pu: Some(1.02),
+            qmax_mvar: 100.0,
+            qmin_mvar: -50.0,
+            pmax_mw: 100.0,
+            pmin_mw: 10.0,
+            ..Gen::default()
+        }));
+
+        let output = export_to_psse_string(&network, "test").unwrap();
+        assert!(output.contains("0 / END OF GENERATOR DATA"));
+        assert!(output.contains("50.0")); // PG
+        assert!(output.contains("1.02")); // VS
     }
 }
