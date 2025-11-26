@@ -1,0 +1,89 @@
+{% macro render(current_path, doc_home_url, doc_home_label) %}
+<aside class="lg:col-span-3 lg:sticky lg:top-24 h-fit">
+  <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6">
+    <h3 class="text-sm font-bold text-orange-500 uppercase tracking-wider mb-4">Navigation</h3>
+    <nav class="space-y-2">
+      <a href="{{ doc_home_url | safe }}" class="block text-slate-400 hover:text-white transition-colors py-1">
+        ← Back to {{ doc_home_label }}
+      </a>
+      <div class="border-t border-slate-800 my-4"></div>
+
+      {% set current_path = current_path | default(value="") %}
+
+      <!-- Getting Started -->
+      <div class="mb-4">
+        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Getting Started</div>
+        {% set quickstart = "/guide/quickstart/" %}
+        {% set verify = "/guide/install-verify/" %}
+        {% set overview = "/guide/overview/" %}
+        <a href="{{ get_url(path=quickstart) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(quickstart) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Quickstart (5 min)</a>
+        <a href="{{ get_url(path=verify) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(verify) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Verify Installation</a>
+        <a href="{{ get_url(path=overview) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(overview) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Overview</a>
+        <a href="{{ config.extra.repo_url }}/tree/main/examples" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Examples</a>
+      </div>
+
+      <!-- Analysis Section -->
+      <div class="mb-4">
+        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Analysis</div>
+        {% set pf = "/guide/pf/" %}
+        {% set opf = "/guide/opf/" %}
+        {% set ts = "/guide/ts/" %}
+        {% set se = "/guide/se/" %}
+        {% set reliability = "/reference/analytics/" %}
+        {% set graph = "/reference/graph/" %}
+        <a href="{{ get_url(path=pf) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(pf) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Power Flow</a>
+        <a href="{{ get_url(path=opf) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(opf) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Optimal Power Flow</a>
+        <a href="{{ get_url(path=ts) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(ts) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Time Series</a>
+        <a href="{{ get_url(path=se) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(se) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">State Estimation</a>
+        <a href="{{ get_url(path=reliability) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(reliability) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Reliability</a>
+        <a href="{{ get_url(path=graph) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(graph) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Graph Analysis</a>
+      </div>
+
+      <!-- Domain -->
+      <div class="mb-4">
+        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Domain</div>
+        {% set adms = "/guide/adms/" %}
+        {% set derms = "/guide/derms/" %}
+        {% set dist = "/guide/dist/" %}
+        <a href="{{ get_url(path=adms) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(adms) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">ADMS</a>
+        <a href="{{ get_url(path=derms) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(derms) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">DERMS</a>
+        <a href="{{ get_url(path=dist) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(dist) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Distribution</a>
+      </div>
+
+      <!-- Integration -->
+      <div class="mb-4">
+        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Integration</div>
+        {% set mcp = "/internals/mcp-onboarding/" %}
+        {% set datasets = "/guide/datasets/" %}
+        {% set cicd = "/internals/ci-cd/" %}
+        {% set features = "/internals/feature-matrix/" %}
+        <a href="{{ get_url(path=mcp) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(mcp) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">MCP Server</a>
+        <a href="{{ get_url(path=datasets) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(datasets) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Datasets</a>
+        <a href="{{ get_url(path=cicd) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(cicd) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">CI/CD</a>
+        <a href="{{ get_url(path=features) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(features) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Features</a>
+      </div>
+
+      <!-- Tools & Resources -->
+      <div class="mb-4">
+        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Tools & Resources</div>
+        {% set builder = "/command-builder/" %}
+        {% set faq = "/faq/" %}
+        {% set blog = "/blog/" %}
+        <a href="{{ get_url(path=builder) }}" class="block text-sm py-1 transition-colors flex items-center gap-1 {% if current_path is starting_with(builder) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+          <span class="text-xs">🔧</span>
+          <span>Command Builder</span>
+        </a>
+        <a href="{{ get_url(path=faq) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(faq) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">FAQ</a>
+        <a href="{{ get_url(path=blog) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(blog) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Blog</a>
+      </div>
+    </nav>
+
+    <div class="border-t border-slate-800 mt-6 pt-6">
+      <a href="{{ config.extra.repo_url }}/tree/main/docs"
+         class="block text-xs text-slate-500 hover:text-orange-500 transition-colors">
+        View on GitHub →
+      </a>
+    </div>
+  </div>
+</aside>
+{% endmacro render %}

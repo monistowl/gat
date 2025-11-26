@@ -6,7 +6,7 @@
       Join the researchers, startups, and operators replacing legacy toolchains with GAT.
     </p>
     <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-      <a href="{{ config.base_url }}/docs/" class="bg-white text-slate-900 hover:bg-slate-200 px-8 py-3 rounded-lg font-bold transition-colors">
+      <a href="{{ get_url(path='/docs/') }}" class="bg-white text-slate-900 hover:bg-slate-200 px-8 py-3 rounded-lg font-bold transition-colors">
         Read the Docs
       </a>
       <a href="{{ config.extra.repo_url }}" class="bg-slate-800 text-white hover:bg-slate-700 border border-slate-700 px-8 py-3 rounded-lg font-medium transition-colors">
@@ -27,7 +27,7 @@
       <div>
         <h4 class="text-white font-bold mb-4">Resources</h4>
         <ul class="space-y-2 text-sm text-slate-500">
-          <li><a href="{{ config.base_url }}/docs/" class="hover:text-orange-500 transition-colors">Documentation</a></li>
+          <li><a href="{{ get_url(path='/docs/') }}" class="hover:text-orange-500 transition-colors">Documentation</a></li>
           <li><a href="{{ config.extra.repo_url }}/tree/main/docs" class="hover:text-orange-500 transition-colors">API Reference</a></li>
           <li><a href="{{ config.extra.repo_url }}/tree/main/examples" class="hover:text-orange-500 transition-colors">Case Studies</a></li>
           <li><a href="{{ config.extra.repo_url }}/discussions" class="hover:text-orange-500 transition-colors">Community</a></li>

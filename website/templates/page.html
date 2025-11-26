@@ -8,77 +8,11 @@
   {% include "partials/header.html" %}
 
   <div class="max-w-screen-2xl mx-auto px-6 py-8 grid lg:grid-cols-12 gap-6 xl:gap-8">
-    <!-- Sidebar Navigation -->
-    <aside class="lg:col-span-3 lg:sticky lg:top-24 h-fit">
-      <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6">
-        <h3 class="text-sm font-bold text-orange-500 uppercase tracking-wider mb-4">Navigation</h3>
-        <nav class="space-y-2">
-          <a href="{{ config.base_url }}/docs/" class="block text-slate-400 hover:text-white transition-colors py-1">
-            ← Back to Docs
-          </a>
-          <div class="border-t border-slate-800 my-4"></div>
-
-          <!-- Getting Started -->
-          <div class="mb-4">
-            <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Getting Started</div>
-            <a href="{{ config.base_url }}/guide/quickstart/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Quickstart (5 min)</a>
-            <a href="{{ config.base_url }}/guide/install-verify/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Verify Installation</a>
-            <a href="{{ config.base_url }}/guide/overview/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Overview</a>
-            <a href="{{ config.extra.repo_url }}/tree/main/examples" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Examples</a>
-          </div>
-
-          <!-- Analysis Section -->
-          <div class="mb-4">
-            <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Analysis</div>
-            <a href="{{ config.base_url }}/guide/pf/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Power Flow</a>
-            <a href="{{ config.base_url }}/guide/opf/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Optimal Power Flow</a>
-            <a href="{{ config.base_url }}/guide/ts/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Time Series</a>
-            <a href="{{ config.base_url }}/guide/se/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">State Estimation</a>
-            <a href="{{ config.base_url }}/reference/analytics/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Reliability</a>
-            <a href="{{ config.base_url }}/reference/graph/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Graph Analysis</a>
-          </div>
-
-          <div class="mb-4">
-            <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Domain</div>
-            <a href="{{ config.base_url }}/guide/adms/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">ADMS</a>
-            <a href="{{ config.base_url }}/guide/derms/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">DERMS</a>
-            <a href="{{ config.base_url }}/guide/dist/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Distribution</a>
-          </div>
-
-          <div class="mb-4">
-            <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Integration</div>
-            <a href="{{ config.base_url }}/internals/mcp-onboarding/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">MCP Server</a>
-            <a href="{{ config.base_url }}/guide/datasets/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Datasets</a>
-            <a href="{{ config.base_url }}/internals/ci-cd/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">CI/CD</a>
-            <a href="{{ config.base_url }}/internals/feature-matrix/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Features</a>
-          </div>
-
-          <div class="mb-4">
-            <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Reference</div>
-            <a href="{{ config.base_url }}/internals/cli-architecture/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">CLI Architecture</a>
-            <a href="{{ config.base_url }}/internals/gat-tui/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">TUI Reference</a>
-            <a href="{{ config.base_url }}/internals/scaling/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Scaling</a>
-          </div>
-
-          <div class="mb-4">
-            <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Tools & Resources</div>
-            <a href="{{ config.base_url }}/command-builder/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1 flex items-center gap-1">
-              <span class="text-xs">🔧</span>
-              <span>Command Builder</span>
-            </a>
-            <a href="{{ config.base_url }}/faq/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">FAQ</a>
-            <a href="{{ config.base_url }}/blog/" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Blog</a>
-          </div>
-        </nav>
-
-        <div class="border-t border-slate-800 mt-6 pt-6">
-          <a href="{{ config.extra.repo_url }}/tree/main/docs"
-             class="block text-xs text-slate-500 hover:text-orange-500 transition-colors">
-            View on GitHub →
-          </a>
-        </div>
-      </div>
-    </aside>
+    {% import "partials/sidebar.html" as sidebar %}
+    {% set doc_root = page.ancestors | first | default(value="docs/_index.md") %}
+    {% set doc_home = get_section(path=doc_root) %}
+    {% set doc_home_label = doc_home.title | default(value="Docs") %}
+    {{ sidebar::render(current_path=current_path, doc_home_url=doc_home.permalink, doc_home_label=doc_home_label) }}
 
     <!-- Table of Contents (Right Sidebar) -->
     {% include "partials/toc.html" %}
@@ -91,7 +25,7 @@
           <div>
             <a href="{{ config.base_url }}/" class="hover:text-orange-500 transition-colors">Home</a>
             <span class="mx-2">/</span>
-            <a href="{{ config.base_url }}/docs/" class="hover:text-orange-500 transition-colors">Docs</a>
+            <a href="{{ get_url(path='/docs/') }}" class="hover:text-orange-500 transition-colors">Docs</a>
             {% if page.ancestors %}
               {% for ancestor in page.ancestors %}
                 {% set section = get_section(path=ancestor) %}
