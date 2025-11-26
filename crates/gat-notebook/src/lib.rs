@@ -295,6 +295,12 @@ Recommended starters:
 # Convert a MATPOWER RAW file to Arrow
 gat import matpower --file data/ieee14.raw --out datasets/ieee14.arrow
 
+# Auto-detect format (MATPOWER / PSS/E / CIM / pandapower)
+gat import format --file data/case.any --out datasets/grid.arrow
+
+# Pandapower JSON import
+gat import pandapower --file ../test_data/adjacent/pandapower/case14.json --out datasets/case14.arrow
+
 # Validate and summarize
 gat validate --file datasets/ieee14.arrow --schema grid
 gat graph stats datasets/ieee14.arrow
@@ -350,7 +356,7 @@ and runnable commands. Fill in the prompts below as you explore.
 ## Quick commands
 ```bash
 # Prepare a dataset
-gat import matpower --file data/ieee14.raw --out datasets/ieee14.arrow
+gat import format --file data/ieee14.raw --out datasets/ieee14.arrow
 
 # Run a DC power flow and keep the outputs next to this note
 gat pf dc datasets/ieee14.arrow --out notebooks/ieee14_flows.parquet
@@ -360,6 +366,9 @@ gat ts solve --grid datasets/ieee14.arrow --timeseries datasets/forecast.parquet
 
 # Map buses to a polygon layer
 gat geo join --grid datasets/ieee14.arrow --polygons datasets/tracts.parquet --out datasets/bus_to_tract.parquet
+
+# Resume a saved run manifest
+gat runs resume run.json --execute
 ```
 
 ## Notes & decisions

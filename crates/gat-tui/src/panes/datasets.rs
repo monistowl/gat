@@ -105,7 +105,8 @@ impl PaneView for DatasetsPane {
 
     fn context_buttons(&self, _context: &PaneContext) -> Vec<ContextButton> {
         vec![
-            ContextButton::new('f', "[f] Fetch dataset"),
+            ContextButton::new('f', "[f] Fetch dataset (gat dataset public fetch)"),
+            ContextButton::new('d', "[d] Describe dataset (gat dataset public describe)"),
             ContextButton::new('i', "[i] Inspect schema"),
             ContextButton::new('v', "[v] Validate dataset inline"),
             ContextButton::new('p', "[p] Preview rows"),
