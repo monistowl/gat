@@ -162,8 +162,8 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
         if !bus_index_map.contains_key(&gen.gen_bus) {
             return Err(anyhow!("generator references unknown bus {}", gen.gen_bus));
         }
-        // Synchronous condenser detection: Pmax <= 0 but has Q range
-        let is_syncon = gen.pmax <= 0.0 && gen.qmax > gen.qmin;
+        // Synchronous condenser detection: Pmax <= 0 OR negative active power with Q range
+        let is_syncon = (gen.pmax <= 0.0 || gen.pg < 0.0) && gen.qmax > gen.qmin;
         network.graph.add_node(Node::Gen(Gen {
             id: GenId::new(gen_id),
             name: format!("Gen {}@{}", gen_id, gen.gen_bus),
@@ -194,6 +194,9 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
             .get(&br.t_bus)
             .with_context(|| format!("branch references unknown to bus {}", br.t_bus))?;
 
+        // Phase-shifter detection: non-zero phase shift OR negative reactance OR negative resistance
+        let is_phase_shifter = br.shift.abs() > 1e-6 || br.br_x < 0.0 || br.br_r < 0.0;
+
         let branch = Branch {
             id: BranchId::new(branch_id),
             name: format!("Branch {}-{}", br.f_bus, br.t_bus),
@@ -207,6 +210,7 @@ fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
             s_max_mva: (br.rate_a > 0.0).then_some(br.rate_a),
             status: br.br_status != 0,
             rating_a_mva: (br.rate_a > 0.0).then_some(br.rate_a),
+            is_phase_shifter,
             ..Branch::default()
         };
 

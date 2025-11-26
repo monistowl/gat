@@ -91,6 +91,8 @@ pub struct Branch {
     pub status: bool,
     /// Optional rating A to track nameplate limits
     pub rating_a_mva: Option<f64>,
+    /// Phase-shifting transformer flag (allows negative reactance)
+    pub is_phase_shifter: bool,
 }
 
 impl Default for Branch {
@@ -108,6 +110,7 @@ impl Default for Branch {
             s_max_mva: None,
             status: true,
             rating_a_mva: None,
+            is_phase_shifter: false,
         }
     }
 }
@@ -136,6 +139,12 @@ impl Branch {
     /// Attach a symmetric thermal limit in MVA.
     pub fn with_s_max(mut self, s_max_mva: Option<f64>) -> Self {
         self.s_max_mva = s_max_mva;
+        self
+    }
+
+    /// Mark branch as phase-shifting transformer (allows negative reactance).
+    pub fn as_phase_shifter(mut self) -> Self {
+        self.is_phase_shifter = true;
         self
     }
 }

@@ -177,10 +177,12 @@ impl AcOpfSolver {
                         ));
                     }
 
-                    // Resistance and reactance should be non-negative
-                    if branch.resistance < 0.0 || branch.reactance < 0.0 {
+                    // Resistance and reactance should be non-negative (unless phase-shifter)
+                    if (branch.resistance < 0.0 || branch.reactance < 0.0)
+                        && !branch.is_phase_shifter
+                    {
                         return Err(AcOpfError::DataValidation(format!(
-                            "Branch {}: resistance and reactance must be non-negative",
+                            "Branch {}: resistance and reactance must be non-negative (use .as_phase_shifter() for PSTs)",
                             branch.name
                         )));
                     }
