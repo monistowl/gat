@@ -108,15 +108,7 @@ fn run_job(job: &BatchJob, config: &BatchRunnerConfig) -> BatchJobRecord {
 
     // Closure that performs the actual computation
     let runner = || -> Result<()> {
-        let grid_path = job.grid_file.to_str().ok_or_else(|| {
-            anyhow!(
-                "grid path '{}' is not valid unicode",
-                job.grid_file.display()
-            )
-        })?;
-
-        // Load scenario-specific grid snapshot (from gat scenarios materialize)
-        let network = importers::load_grid_from_arrow(grid_path)?;
+        let network = importers::load_grid_from_arrow(&job.grid_file)?;
         let solver_impl = config.solver.build_solver();
 
         // Dispatch to appropriate solver routine based on task type

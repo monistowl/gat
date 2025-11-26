@@ -122,7 +122,10 @@ impl PaneView for OperationsPane {
             ContextButton::new('b', "[b] Run batch PF/OPF"),
             ContextButton::new('d', "[d] Dispatch DERMS action"),
             ContextButton::new('a', "[a] Allocation analysis"),
-            ContextButton::new('r', "[r] Show run outputs (gat runs describe --format json)"),
+            ContextButton::new(
+                'r',
+                "[r] Show run outputs (gat runs describe --format json)",
+            ),
             ContextButton::new('s', "[s] Resume last run (gat runs resume run.json)"),
         ]
     }

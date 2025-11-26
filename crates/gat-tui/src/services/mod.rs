@@ -16,7 +16,7 @@ mod grid_integration_tests;
 
 pub use async_service_integration::AsyncServiceIntegration;
 pub use command_export::{CommandExporter, CommandStats, ExportFormat};
-pub use command_service::{CommandError, CommandExecution, CommandService};
+pub use command_service::{CommandError, CommandExecution, CommandService, SecureCommandBuilder};
 pub use command_validator::{CommandValidator, ValidCommand, ValidationError};
 pub use event_dispatcher::{
     AsyncEvent, BackgroundEventProcessor, EventDispatcher, EventDispatcherConfig, EventHandler,

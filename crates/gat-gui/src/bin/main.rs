@@ -62,7 +62,8 @@ fn main() -> CliResult {
             };
             let report = gat_gui::launch(gat_gui::GuiApp::Notebook(options))?;
             if json {
-                println!("{{\"app\":\"{}\",\"url\":\"{}\",\"workspace\":{}}}",
+                println!(
+                    "{{\"app\":\"{}\",\"url\":\"{}\",\"workspace\":{}}}",
                     report.app,
                     report.url,
                     report

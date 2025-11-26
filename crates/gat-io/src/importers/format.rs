@@ -183,7 +183,10 @@ impl std::str::FromStr for Format {
             "psse" | "raw" => Ok(Format::Psse),
             "cim" | "rdf" | "cgmes" => Ok(Format::Cim),
             "pandapower" | "pp" => Ok(Format::Pandapower),
-            _ => anyhow::bail!("Unknown format: {}. Supported: matpower, psse, cim, pandapower", s),
+            _ => anyhow::bail!(
+                "Unknown format: {}. Supported: matpower, psse, cim, pandapower",
+                s
+            ),
         }
     }
 }

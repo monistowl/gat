@@ -14,7 +14,7 @@ use gat_core::{
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::helpers::{ImportDiagnostics, ImportResult};
+use crate::helpers::{safe_u64_to_usize, ImportDiagnostics, ImportResult};
 
 /// Top-level pandapower JSON structure
 #[derive(Debug, Deserialize)]
@@ -59,61 +59,90 @@ struct DataFrameContent {
     data: Vec<Vec<Value>>,
 }
 
-impl DataFrameJson {
-    /// Parse the inner JSON string into rows with named columns
-    fn parse_rows(&self) -> Result<Vec<HashMap<String, Value>>> {
-        let content: DataFrameContent = serde_json::from_str(&self._object)
-            .with_context(|| "parsing DataFrame JSON content")?;
+/// Zero-copy view into a parsed DataFrame.
+///
+/// This struct provides efficient access to DataFrame cells without cloning
+/// strings or values. It pre-computes a column name -> index mapping for O(1) lookups.
+struct DataFrameView<'a> {
+    index: &'a [usize],
+    data: &'a [Vec<Value>],
+    /// Column name to index mapping for fast lookups
+    col_map: HashMap<&'a str, usize>,
+}
 
-        let mut rows = Vec::with_capacity(content.data.len());
-        for (i, row_data) in content.data.iter().enumerate() {
-            let mut row = HashMap::new();
-            // Add the index as a special column
-            row.insert(
-                "_index".to_string(),
-                Value::Number(content.index.get(i).copied().unwrap_or(i).into()),
-            );
-            for (j, col_name) in content.columns.iter().enumerate() {
-                if let Some(val) = row_data.get(j) {
-                    row.insert(col_name.clone(), val.clone());
-                }
-            }
-            rows.push(row);
+impl<'a> DataFrameView<'a> {
+    /// Create a view over the DataFrame content
+    fn new(content: &'a DataFrameContent) -> Self {
+        let col_map = content
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(i, name)| (name.as_str(), i))
+            .collect();
+        Self {
+            index: &content.index,
+            data: &content.data,
+            col_map,
         }
-        Ok(rows)
+    }
+
+    /// Number of rows in the DataFrame
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Get the index value for a row (the pandas index, not array position)
+    fn get_index(&self, row: usize) -> usize {
+        self.index.get(row).copied().unwrap_or(row)
+    }
+
+    /// Get a reference to a cell value by row index and column name
+    fn get(&self, row: usize, col: &str) -> Option<&'a Value> {
+        let col_idx = self.col_map.get(col)?;
+        self.data.get(row)?.get(*col_idx)
+    }
+}
+
+impl DataFrameJson {
+    /// Parse the inner JSON string and return a view over the data.
+    ///
+    /// This returns the parsed content which can be wrapped in a DataFrameView
+    /// for zero-copy access to cells.
+    fn parse_content(&self) -> Result<DataFrameContent> {
+        serde_json::from_str(&self._object).with_context(|| "parsing DataFrame JSON content")
     }
 }
 
 // ============================================================================
-// Helper functions for extracting typed values from JSON
+// Helper functions for extracting typed values from DataFrameView
 // ============================================================================
 
-fn get_f64(row: &HashMap<String, Value>, key: &str) -> Option<f64> {
-    row.get(key).and_then(|v| match v {
+fn view_get_f64(view: &DataFrameView, row: usize, key: &str) -> Option<f64> {
+    view.get(row, key).and_then(|v| match v {
         Value::Number(n) => n.as_f64(),
         Value::Null => None,
         _ => None,
     })
 }
 
-fn get_usize(row: &HashMap<String, Value>, key: &str) -> Option<usize> {
-    row.get(key).and_then(|v| match v {
-        Value::Number(n) => n.as_u64().map(|x| x as usize),
+fn view_get_usize(view: &DataFrameView, row: usize, key: &str) -> Option<usize> {
+    view.get(row, key).and_then(|v| match v {
+        Value::Number(n) => n.as_u64().and_then(|x| safe_u64_to_usize(x).ok()),
         Value::Null => None,
         _ => None,
     })
 }
 
-fn get_bool(row: &HashMap<String, Value>, key: &str) -> Option<bool> {
-    row.get(key).and_then(|v| match v {
+fn view_get_bool(view: &DataFrameView, row: usize, key: &str) -> Option<bool> {
+    view.get(row, key).and_then(|v| match v {
         Value::Bool(b) => Some(*b),
         Value::Null => None,
         _ => None,
     })
 }
 
-fn get_string(row: &HashMap<String, Value>, key: &str) -> Option<String> {
-    row.get(key).and_then(|v| match v {
+fn view_get_string(view: &DataFrameView, row: usize, key: &str) -> Option<String> {
+    view.get(row, key).and_then(|v| match v {
         Value::String(s) => Some(s.clone()),
         Value::Number(n) => Some(n.to_string()),
         Value::Null => None,
@@ -162,18 +191,23 @@ fn build_network_from_pandapower(
     diag: &mut ImportDiagnostics,
 ) -> Result<Network> {
     let mut network = Network::new();
-    let mut bus_index_map: HashMap<usize, NodeIndex> = HashMap::new();
 
     // =========================================================================
     // 1. Parse buses
     // =========================================================================
+    // Use reasonable default capacity to reduce HashMap reallocations
+    // (typical power networks have 10-10000 buses)
+    let mut bus_index_map: HashMap<usize, NodeIndex> = HashMap::with_capacity(256);
+
     if let Some(bus_df) = &pp.bus {
-        let rows = bus_df.parse_rows()?;
-        for row in &rows {
-            let idx = get_usize(row, "_index").unwrap_or(0);
-            let name = get_string(row, "name").unwrap_or_else(|| format!("Bus {}", idx));
-            let vn_kv = get_f64(row, "vn_kv").unwrap_or(1.0);
-            let in_service = get_bool(row, "in_service").unwrap_or(true);
+        let content = bus_df.parse_content()?;
+        let view = DataFrameView::new(&content);
+        for row in 0..view.len() {
+            let idx = view.get_index(row);
+            let name =
+                view_get_string(&view, row, "name").unwrap_or_else(|| format!("Bus {}", idx));
+            let vn_kv = view_get_f64(&view, row, "vn_kv").unwrap_or(1.0);
+            let in_service = view_get_bool(&view, row, "in_service").unwrap_or(true);
 
             if !in_service {
                 diag.stats.skipped_lines += 1;
@@ -185,6 +219,7 @@ fn build_network_from_pandapower(
                 id: bus_id,
                 name,
                 voltage_kv: vn_kv,
+                ..Default::default()
             }));
             bus_index_map.insert(idx, node_idx);
             diag.stats.buses += 1;
@@ -196,14 +231,17 @@ fn build_network_from_pandapower(
     // =========================================================================
     let mut load_id = 0usize;
     if let Some(load_df) = &pp.load {
-        let rows = load_df.parse_rows()?;
-        for row in &rows {
-            let idx = get_usize(row, "_index").unwrap_or(load_id);
-            let bus = get_usize(row, "bus").ok_or_else(|| anyhow!("load missing 'bus' field"))?;
-            let p_mw = get_f64(row, "p_mw").unwrap_or(0.0);
-            let q_mvar = get_f64(row, "q_mvar").unwrap_or(0.0);
-            let in_service = get_bool(row, "in_service").unwrap_or(true);
-            let name = get_string(row, "name").unwrap_or_else(|| format!("Load {}", idx));
+        let content = load_df.parse_content()?;
+        let view = DataFrameView::new(&content);
+        for row in 0..view.len() {
+            let idx = view.get_index(row);
+            let bus = view_get_usize(&view, row, "bus")
+                .ok_or_else(|| anyhow!("load missing 'bus' field"))?;
+            let p_mw = view_get_f64(&view, row, "p_mw").unwrap_or(0.0);
+            let q_mvar = view_get_f64(&view, row, "q_mvar").unwrap_or(0.0);
+            let in_service = view_get_bool(&view, row, "in_service").unwrap_or(true);
+            let name =
+                view_get_string(&view, row, "name").unwrap_or_else(|| format!("Load {}", idx));
 
             if !in_service {
                 diag.stats.skipped_lines += 1;
@@ -237,12 +275,15 @@ fn build_network_from_pandapower(
 
     // ext_grid entries are slack/reference buses - model as generators
     if let Some(ext_grid_df) = &pp.ext_grid {
-        let rows = ext_grid_df.parse_rows()?;
-        for row in &rows {
-            let idx = get_usize(row, "_index").unwrap_or(gen_id);
-            let bus = get_usize(row, "bus").ok_or_else(|| anyhow!("ext_grid missing 'bus'"))?;
-            let in_service = get_bool(row, "in_service").unwrap_or(true);
-            let name = get_string(row, "name").unwrap_or_else(|| format!("Slack {}", idx));
+        let content = ext_grid_df.parse_content()?;
+        let view = DataFrameView::new(&content);
+        for row in 0..view.len() {
+            let idx = view.get_index(row);
+            let bus = view_get_usize(&view, row, "bus")
+                .ok_or_else(|| anyhow!("ext_grid missing 'bus'"))?;
+            let in_service = view_get_bool(&view, row, "in_service").unwrap_or(true);
+            let name =
+                view_get_string(&view, row, "name").unwrap_or_else(|| format!("Slack {}", idx));
 
             if !in_service {
                 diag.stats.skipped_lines += 1;
@@ -258,10 +299,10 @@ fn build_network_from_pandapower(
             }
 
             // ext_grid P/Q limits
-            let max_p = get_f64(row, "max_p_mw");
-            let min_p = get_f64(row, "min_p_mw");
-            let max_q = get_f64(row, "max_q_mvar");
-            let min_q = get_f64(row, "min_q_mvar");
+            let max_p = view_get_f64(&view, row, "max_p_mw");
+            let min_p = view_get_f64(&view, row, "min_p_mw");
+            let max_q = view_get_f64(&view, row, "max_q_mvar");
+            let min_q = view_get_f64(&view, row, "min_q_mvar");
 
             network.graph.add_node(Node::Gen(Gen {
                 id: GenId::new(gen_id),
@@ -275,6 +316,7 @@ fn build_network_from_pandapower(
                 qmax_mvar: max_q.unwrap_or(f64::INFINITY),
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
+                ..Gen::default()
             }));
             gen_id += 1;
             diag.stats.generators += 1;
@@ -283,13 +325,16 @@ fn build_network_from_pandapower(
 
     // Regular generators
     if let Some(gen_df) = &pp.gen {
-        let rows = gen_df.parse_rows()?;
-        for row in &rows {
-            let idx = get_usize(row, "_index").unwrap_or(gen_id);
-            let bus = get_usize(row, "bus").ok_or_else(|| anyhow!("gen missing 'bus' field"))?;
-            let p_mw = get_f64(row, "p_mw").unwrap_or(0.0);
-            let in_service = get_bool(row, "in_service").unwrap_or(true);
-            let name = get_string(row, "name").unwrap_or_else(|| format!("Gen {}@{}", idx, bus));
+        let content = gen_df.parse_content()?;
+        let view = DataFrameView::new(&content);
+        for row in 0..view.len() {
+            let idx = view.get_index(row);
+            let bus = view_get_usize(&view, row, "bus")
+                .ok_or_else(|| anyhow!("gen missing 'bus' field"))?;
+            let p_mw = view_get_f64(&view, row, "p_mw").unwrap_or(0.0);
+            let in_service = view_get_bool(&view, row, "in_service").unwrap_or(true);
+            let name = view_get_string(&view, row, "name")
+                .unwrap_or_else(|| format!("Gen {}@{}", idx, bus));
 
             if !in_service {
                 diag.stats.skipped_lines += 1;
@@ -304,10 +349,10 @@ fn build_network_from_pandapower(
                 continue;
             }
 
-            let min_q = get_f64(row, "min_q_mvar");
-            let max_q = get_f64(row, "max_q_mvar");
-            let min_p = get_f64(row, "min_p_mw");
-            let max_p = get_f64(row, "max_p_mw");
+            let min_q = view_get_f64(&view, row, "min_q_mvar");
+            let max_q = view_get_f64(&view, row, "max_q_mvar");
+            let min_p = view_get_f64(&view, row, "min_p_mw");
+            let max_p = view_get_f64(&view, row, "max_p_mw");
 
             network.graph.add_node(Node::Gen(Gen {
                 id: GenId::new(gen_id),
@@ -321,6 +366,7 @@ fn build_network_from_pandapower(
                 qmax_mvar: max_q.unwrap_or(f64::INFINITY),
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
+                ..Gen::default()
             }));
             gen_id += 1;
             diag.stats.generators += 1;
@@ -332,14 +378,15 @@ fn build_network_from_pandapower(
     // =========================================================================
     let mut branch_id = 0usize;
     if let Some(line_df) = &pp.line {
-        let rows = line_df.parse_rows()?;
-        for row in &rows {
-            let idx = get_usize(row, "_index").unwrap_or(branch_id);
-            let from_bus =
-                get_usize(row, "from_bus").ok_or_else(|| anyhow!("line missing 'from_bus'"))?;
-            let to_bus =
-                get_usize(row, "to_bus").ok_or_else(|| anyhow!("line missing 'to_bus'"))?;
-            let in_service = get_bool(row, "in_service").unwrap_or(true);
+        let content = line_df.parse_content()?;
+        let view = DataFrameView::new(&content);
+        for row in 0..view.len() {
+            let idx = view.get_index(row);
+            let from_bus = view_get_usize(&view, row, "from_bus")
+                .ok_or_else(|| anyhow!("line missing 'from_bus'"))?;
+            let to_bus = view_get_usize(&view, row, "to_bus")
+                .ok_or_else(|| anyhow!("line missing 'to_bus'"))?;
+            let in_service = view_get_bool(&view, row, "in_service").unwrap_or(true);
 
             if !in_service {
                 diag.stats.skipped_lines += 1;
@@ -368,12 +415,12 @@ fn build_network_from_pandapower(
             };
 
             // Pandapower stores per-km values, need to multiply by length
-            let length_km = get_f64(row, "length_km").unwrap_or(1.0);
-            let r_ohm_per_km = get_f64(row, "r_ohm_per_km").unwrap_or(0.0);
-            let x_ohm_per_km = get_f64(row, "x_ohm_per_km").unwrap_or(0.0);
-            let c_nf_per_km = get_f64(row, "c_nf_per_km").unwrap_or(0.0);
-            let max_i_ka = get_f64(row, "max_i_ka");
-            let parallel = get_usize(row, "parallel").unwrap_or(1) as f64;
+            let length_km = view_get_f64(&view, row, "length_km").unwrap_or(1.0);
+            let r_ohm_per_km = view_get_f64(&view, row, "r_ohm_per_km").unwrap_or(0.0);
+            let x_ohm_per_km = view_get_f64(&view, row, "x_ohm_per_km").unwrap_or(0.0);
+            let c_nf_per_km = view_get_f64(&view, row, "c_nf_per_km").unwrap_or(0.0);
+            let max_i_ka = view_get_f64(&view, row, "max_i_ka");
+            let parallel = view_get_usize(&view, row, "parallel").unwrap_or(1) as f64;
 
             // Convert to per-unit (requires base voltage from bus)
             // For now, store as raw ohms - we'd need Sbase and Vbase for proper pu conversion
@@ -386,7 +433,7 @@ fn build_network_from_pandapower(
             let omega = 2.0 * std::f64::consts::PI * 50.0; // Assuming 50 Hz
             let b_total = omega * (c_nf_per_km * 1e-9) * length_km * parallel;
 
-            let name = get_string(row, "name")
+            let name = view_get_string(&view, row, "name")
                 .unwrap_or_else(|| format!("Line {}-{}", from_bus, to_bus));
 
             // Calculate MVA rating from current rating if available
@@ -427,14 +474,15 @@ fn build_network_from_pandapower(
     // 5. Parse transformers (trafo)
     // =========================================================================
     if let Some(trafo_df) = &pp.trafo {
-        let rows = trafo_df.parse_rows()?;
-        for row in &rows {
-            let idx = get_usize(row, "_index").unwrap_or(branch_id);
-            let hv_bus =
-                get_usize(row, "hv_bus").ok_or_else(|| anyhow!("trafo missing 'hv_bus'"))?;
-            let lv_bus =
-                get_usize(row, "lv_bus").ok_or_else(|| anyhow!("trafo missing 'lv_bus'"))?;
-            let in_service = get_bool(row, "in_service").unwrap_or(true);
+        let content = trafo_df.parse_content()?;
+        let view = DataFrameView::new(&content);
+        for row in 0..view.len() {
+            let idx = view.get_index(row);
+            let hv_bus = view_get_usize(&view, row, "hv_bus")
+                .ok_or_else(|| anyhow!("trafo missing 'hv_bus'"))?;
+            let lv_bus = view_get_usize(&view, row, "lv_bus")
+                .ok_or_else(|| anyhow!("trafo missing 'lv_bus'"))?;
+            let in_service = view_get_bool(&view, row, "in_service").unwrap_or(true);
 
             if !in_service {
                 diag.stats.skipped_lines += 1;
@@ -462,15 +510,15 @@ fn build_network_from_pandapower(
                 }
             };
 
-            let sn_mva = get_f64(row, "sn_mva").unwrap_or(100.0);
-            let vn_hv_kv = get_f64(row, "vn_hv_kv").unwrap_or(1.0);
-            let vn_lv_kv = get_f64(row, "vn_lv_kv").unwrap_or(1.0);
-            let vk_percent = get_f64(row, "vk_percent").unwrap_or(0.0);
-            let vkr_percent = get_f64(row, "vkr_percent").unwrap_or(0.0);
-            let shift_degree = get_f64(row, "shift_degree").unwrap_or(0.0);
-            let tap_pos = get_f64(row, "tap_pos");
-            let tap_neutral = get_f64(row, "tap_neutral");
-            let tap_step_percent = get_f64(row, "tap_step_percent");
+            let sn_mva = view_get_f64(&view, row, "sn_mva").unwrap_or(100.0);
+            let vn_hv_kv = view_get_f64(&view, row, "vn_hv_kv").unwrap_or(1.0);
+            let vn_lv_kv = view_get_f64(&view, row, "vn_lv_kv").unwrap_or(1.0);
+            let vk_percent = view_get_f64(&view, row, "vk_percent").unwrap_or(0.0);
+            let vkr_percent = view_get_f64(&view, row, "vkr_percent").unwrap_or(0.0);
+            let shift_degree = view_get_f64(&view, row, "shift_degree").unwrap_or(0.0);
+            let tap_pos = view_get_f64(&view, row, "tap_pos");
+            let tap_neutral = view_get_f64(&view, row, "tap_neutral");
+            let tap_step_percent = view_get_f64(&view, row, "tap_step_percent");
 
             // Calculate tap ratio
             let tap_ratio = if let (Some(pos), Some(neutral), Some(step)) =
@@ -488,7 +536,7 @@ fn build_network_from_pandapower(
             let r_pu = vkr_percent / 100.0;
             let x_pu = (z_pu * z_pu - r_pu * r_pu).sqrt();
 
-            let name = get_string(row, "name")
+            let name = view_get_string(&view, row, "name")
                 .unwrap_or_else(|| format!("Trafo {}-{}", hv_bus, lv_bus));
 
             let branch = Branch {
@@ -508,9 +556,7 @@ fn build_network_from_pandapower(
                 ..Branch::default()
             };
 
-            network
-                .graph
-                .add_edge(hv_idx, lv_idx, Edge::Branch(branch));
+            network.graph.add_edge(hv_idx, lv_idx, Edge::Branch(branch));
             branch_id += 1;
             diag.stats.branches += 1;
         }
@@ -538,7 +584,8 @@ mod tests {
             return;
         }
 
-        let result = parse_pandapower(path.to_str().unwrap()).expect("should parse");
+        let result =
+            parse_pandapower(path.to_str().unwrap()).expect("should parse pandapower sample");
         let diag = &result.diagnostics;
 
         // IEEE 14-bus should have:

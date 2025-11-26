@@ -5,7 +5,8 @@ pub mod analytics_pane;
 pub mod commands_pane;
 pub mod dashboard_pane;
 pub mod datasets_pane;
-pub mod operations_pane;
+pub mod operations_pane; // Re-exports from operations_state for backward compatibility
+pub mod operations_state; // Refactored operations state (focused sub-modules)
 pub mod pipeline_pane;
 pub mod settings_pane;
 
@@ -32,7 +33,9 @@ pub use commands_pane::{
 };
 pub use dashboard_pane::{ActionType, DashboardPaneState, KPIMetrics, QuickAction, RecentRun};
 pub use datasets_pane::{
-    Dataset, DatasetMetadata, DatasetStatus, DatasetsPaneState, UploadJob, UploadStatus,
+    Dataset, DatasetMetadata, DatasetStatus, DatasetTab, DatasetsPaneState, GeoLayer,
+    GeoLayerStatus, GeoLayerType, LagConfig, ScenarioStatus, ScenarioTemplate, SpatialJoinConfig,
+    SpatialJoinType, UploadJob, UploadStatus, WeightMatrixType,
 };
 pub use operations_pane::{
     AllocationResult, BatchJob, JobStatus, MetricStatus, OperationType, OperationsPaneState,

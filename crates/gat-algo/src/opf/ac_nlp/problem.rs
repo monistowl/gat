@@ -211,7 +211,6 @@ pub struct AcOpfProblem {
     // ========================================================================
     // PROBLEM DIMENSIONS
     // ========================================================================
-
     /// Number of buses in the network
     pub n_bus: usize,
 
@@ -227,7 +226,6 @@ pub struct AcOpfProblem {
     //
     // These offsets define where each variable group starts in the x vector.
     // Using offsets allows efficient extraction of subvectors.
-
     /// Offset to voltage magnitudes: x[v_offset + i] = V_i
     pub v_offset: usize,
 
@@ -243,7 +241,6 @@ pub struct AcOpfProblem {
     // ========================================================================
     // GENERATOR-BUS MAPPING
     // ========================================================================
-
     /// Maps generator index to bus index where it injects power.
     /// gen_bus_idx[g] = internal bus index for generator g
     pub gen_bus_idx: Vec<usize>,
@@ -396,7 +393,7 @@ impl AcOpfProblem {
             ybus,
             buses,
             generators,
-            ref_bus: 0, // Use first bus as reference (could be configurable)
+            ref_bus: 0,      // Use first bus as reference (could be configurable)
             base_mva: 100.0, // Standard per-unit base
 
             n_bus,

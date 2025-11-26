@@ -4,7 +4,7 @@ version = "0.4.0"
 edition = "2021"
 
 [features]
-default = ["native-io"]
+default = ["native-io", "ipc"]
 native-io = ["polars"]
 minimal = ["native-io"]
 parquet = ["polars", "polars/parquet"]
@@ -16,8 +16,10 @@ wasm = []
 
 [dependencies]
 anyhow = "1.0"
+arrow-schema = "53"
 caseformat = "0.1"
 gat-core = { path = "../gat-core" }
+thiserror = "1.0"
 # Note: polars unused when building with feature `wasm`
 polars = { version = "0.35", default-features = false, features = ["lazy", "csv"], optional = true }
 power_flow_data = "0.1"
@@ -28,6 +30,13 @@ zip = { version = "0.6", default-features = false, features = ["deflate"] }
 serde_json = "1.0"
 ureq = { version = "2.10", features = ["json"] }
 chrono = { version = "0.4.42", features = ["serde"] }
+semver = "1.0"
+sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = "3"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "arrow_benchmarks"
+harness = false

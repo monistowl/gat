@@ -1,4 +1,6 @@
-use gat_cli::manifest::{record_manifest, record_manifest_with_diagnostics, ManifestTelemetry, Param};
+use gat_cli::manifest::{
+    record_manifest, record_manifest_with_diagnostics, ManifestTelemetry, Param,
+};
 use gat_io::helpers::ImportDiagnostics;
 use std::{env, path::Path, time::Instant};
 

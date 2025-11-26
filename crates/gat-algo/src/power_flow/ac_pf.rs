@@ -276,7 +276,8 @@ impl AcPowerFlowSolver {
         let y_bus = self.build_y_bus(&buses, &bus_idx_map, &branches);
 
         // Compute net injections (P, Q specified)
-        let (p_spec, q_spec) = self.compute_specified_power(&buses, &bus_idx_map, &generators, &loads);
+        let (p_spec, q_spec) =
+            self.compute_specified_power(&buses, &bus_idx_map, &generators, &loads);
 
         // Generator Q limits
         let gen_q_limits: HashMap<GenId, (f64, f64)> = generators
@@ -285,10 +286,7 @@ impl AcPowerFlowSolver {
             .collect();
 
         // Generator to bus mapping
-        let gen_bus_map: HashMap<GenId, BusId> = generators
-            .iter()
-            .map(|g| (g.id, g.bus))
-            .collect();
+        let gen_bus_map: HashMap<GenId, BusId> = generators.iter().map(|g| (g.id, g.bus)).collect();
 
         // Track which generators are Q-limited (and at which limit)
         // When a generator is Q-limited, its Q is fixed at the limit
@@ -392,11 +390,8 @@ impl AcPowerFlowSolver {
         }
         buses.sort_by_key(|b| b.value());
 
-        let bus_idx_map: HashMap<BusId, usize> = buses
-            .iter()
-            .enumerate()
-            .map(|(i, &id)| (id, i))
-            .collect();
+        let bus_idx_map: HashMap<BusId, usize> =
+            buses.iter().enumerate().map(|(i, &id)| (id, i)).collect();
 
         (buses, bus_idx_map)
     }
@@ -653,13 +648,7 @@ impl AcPowerFlowSolver {
             }
 
             // Build Jacobian matrix
-            let jacobian = self.build_jacobian(
-                y_bus,
-                v_mag,
-                v_ang,
-                &p_buses,
-                &q_buses,
-            );
+            let jacobian = self.build_jacobian(y_bus, v_mag, v_ang, &p_buses, &q_buses);
 
             // Solve Jacobian system: J × Δx = mismatch
             let delta = self.solve_linear_system_faer(&jacobian, &mismatch)?;
@@ -1101,7 +1090,10 @@ impl AcPowerFlowSolver {
 
         for gen in generators {
             let q = gen_q.get(&gen.id).copied().unwrap_or(0.0);
-            let (qmin, qmax) = gen_q_limits.get(&gen.id).copied().unwrap_or((f64::NEG_INFINITY, f64::INFINITY));
+            let (qmin, qmax) = gen_q_limits
+                .get(&gen.id)
+                .copied()
+                .unwrap_or((f64::NEG_INFINITY, f64::INFINITY));
 
             let bus_id = gen_bus_map.get(&gen.id).copied().unwrap_or(gen.bus);
             let current_type = bus_types.get(&bus_id).copied().unwrap_or(BusType::PQ);
@@ -1254,10 +1246,12 @@ mod sparse_tests {
         let solver = AcPowerFlowSolver::new();
 
         // Build dense Jacobian (existing method)
-        let dense_jacobian = solver.build_jacobian(&y_bus_dense, &v_mag, &v_ang, &p_buses, &q_buses);
+        let dense_jacobian =
+            solver.build_jacobian(&y_bus_dense, &v_mag, &v_ang, &p_buses, &q_buses);
 
         // Build sparse Jacobian (new method to implement)
-        let sparse_jacobian = solver.build_jacobian_sparse(&y_bus_dense, &v_mag, &v_ang, &p_buses, &q_buses);
+        let sparse_jacobian =
+            solver.build_jacobian_sparse(&y_bus_dense, &v_mag, &v_ang, &p_buses, &q_buses);
 
         // Convert sparse back to dense for comparison
         let n = dense_jacobian.len();
@@ -1268,7 +1262,10 @@ mod sparse_tests {
                 assert!(
                     (dense_val - sparse_val).abs() < 1e-10,
                     "Mismatch at ({}, {}): dense={}, sparse={}",
-                    i, j, dense_val, sparse_val
+                    i,
+                    j,
+                    dense_val,
+                    sparse_val
                 );
             }
         }
@@ -1301,7 +1298,9 @@ mod sparse_tests {
             assert!(
                 (x_gauss[i] - x_faer[i]).abs() < 1e-10,
                 "Mismatch at {}: gauss={}, faer={}",
-                i, x_gauss[i], x_faer[i]
+                i,
+                x_gauss[i],
+                x_faer[i]
             );
         }
     }
@@ -1317,12 +1316,14 @@ mod sparse_tests {
             id: BusId::new(0),
             name: "bus1".to_string(),
             voltage_kv: 100.0,
+            ..Bus::default()
         }));
 
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "bus2".to_string(),
             voltage_kv: 100.0,
+            ..Bus::default()
         }));
 
         network.graph.add_edge(

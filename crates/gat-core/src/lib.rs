@@ -1,8 +1,111 @@
+//! # gat-core: Power Grid Modeling Core
+//!
+//! Provides the fundamental data structures and graph-based network models for power system analysis.
+//!
+//! ## Design Philosophy
+//!
+//! Networks are modeled as **undirected multigraphs** where:
+//! - **Nodes**: Buses (buses), Generators (gen), Loads (load)
+//! - **Edges**: Branches (transmission lines and transformers)
+//!
+//! This graph-based approach enables:
+//! - Fast topological queries (connectivity, island detection)
+//! - Efficient parallel analysis using rayon
+//! - Type-safe element access with newtype IDs
+//! - Support for multiple edge types between same nodes (parallel branches)
+//!
+//! ## Quick Start
+//!
+//! ```rust,no_run
+//! use gat_core::*;
+//!
+//! // Create a network
+//! let mut network = Network::new();
+//!
+//! // Add buses
+//! let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+//!     id: BusId::new(1),
+//!     name: "Bus 1".to_string(),
+//!     voltage_kv: 138.0,
+//! }));
+//!
+//! let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+//!     id: BusId::new(2),
+//!     name: "Bus 2".to_string(),
+//!     voltage_kv: 138.0,
+//! }));
+//!
+//! // Add a generator
+//! network.graph.add_node(Node::Gen(Gen::new(
+//!     GenId::new(1),
+//!     "Gen 1".to_string(),
+//!     BusId::new(1),
+//! ).with_p_limits(0.0, 100.0)));
+//!
+//! // Add a load
+//! network.graph.add_node(Node::Load(Load {
+//!     id: LoadId::new(1),
+//!     name: "Load 1".to_string(),
+//!     bus: BusId::new(2),
+//!     active_power_mw: 50.0,
+//!     reactive_power_mvar: 10.0,
+//! }));
+//!
+//! // Connect buses with a branch
+//! network.graph.add_edge(
+//!     bus1_idx,
+//!     bus2_idx,
+//!     Edge::Branch(Branch {
+//!         id: BranchId::new(1),
+//!         name: "Line 1-2".to_string(),
+//!         from_bus: BusId::new(1),
+//!         to_bus: BusId::new(2),
+//!         resistance: 0.01,
+//!         reactance: 0.1,
+//!         ..Branch::default()
+//!     }),
+//! );
+//! ```
+//!
+//! ## Core Data Structures
+//!
+//! - [`Network`] - The main network container (petgraph `UnDiGraph<Node, Edge>`)
+//! - [`Node`] - Enum for Bus, Gen, Load elements
+//! - [`Edge`] - Enum for Branch, Transformer connections
+//! - Type-safe IDs: [`BusId`], [`GenId`], [`LoadId`], [`BranchId`], [`TransformerId`]
+//!
+//! ## ID System
+//!
+//! Every element has a unique ID (newtype wrapper around `usize`):
+//! - **Bus IDs** (1-based in MATPOWER): Bus#1, Bus#2, ...
+//! - **Generator IDs**: Gen#1, Gen#2, ...
+//! - **Load IDs**: Load#1, Load#2, ...
+//! - **Branch IDs**: Branch#1, Branch#2, ...
+//!
+//! IDs enable:
+//! - Type safety: Can't confuse bus IDs with generator IDs
+//! - Foreign key validation in Arrow schemas
+//! - Consistent roundtrip import/export
+//!
+//! ## Modules
+//!
+//! - [`diagnostics`] - Validation and diagnostic reporting
+//! - [`graph_utils`] - Topological analysis (connectivity, islands, etc.)
+//! - [`solver`] - Power flow and optimization algorithms
+//!
+//! ## Integration with gat-io
+//!
+//! The gat-io crate provides importers from various formats (MATPOWER, PSS/E, CIM, pandapower)
+//! that construct [`Network`] graphs from external data.
+
 use petgraph::{prelude::*, Undirected};
 
+pub mod diagnostics;
 pub mod graph_utils;
-pub use graph_utils::*;
 pub mod solver;
+
+pub use diagnostics::{DiagnosticIssue, Diagnostics, ImportDiagnostics, ImportStats, Severity};
+pub use graph_utils::*;
 pub use petgraph::graph::NodeIndex;
 pub use solver::*;
 
@@ -69,6 +172,28 @@ pub struct Bus {
     pub id: BusId,
     pub name: String,
     pub voltage_kv: f64,
+    pub voltage_pu: f64,
+    pub angle_rad: f64,
+    pub vmin_pu: Option<f64>,
+    pub vmax_pu: Option<f64>,
+    pub area_id: Option<i64>,
+    pub zone_id: Option<i64>,
+}
+
+impl Default for Bus {
+    fn default() -> Self {
+        Self {
+            id: BusId(0),
+            name: String::new(),
+            voltage_kv: 0.0,
+            voltage_pu: 1.0,
+            angle_rad: 0.0,
+            vmin_pu: None,
+            vmax_pu: None,
+            area_id: None,
+            zone_id: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -87,10 +212,17 @@ pub struct Branch {
     pub charging_b_pu: f64,
     /// Symmetric thermal limit in MVA
     pub s_max_mva: Option<f64>,
+    /// Normal/emergency/short-term ratings
+    pub rating_a_mva: Option<f64>,
+    pub rating_b_mva: Option<f64>,
+    pub rating_c_mva: Option<f64>,
     /// Operational status flag
     pub status: bool,
-    /// Optional rating A to track nameplate limits
-    pub rating_a_mva: Option<f64>,
+    /// Optional angle limits (radians)
+    pub angle_min_rad: Option<f64>,
+    pub angle_max_rad: Option<f64>,
+    /// Element type: line or transformer
+    pub element_type: String,
     /// Phase-shifting transformer flag (allows negative reactance)
     pub is_phase_shifter: bool,
 }
@@ -108,8 +240,13 @@ impl Default for Branch {
             phase_shift_rad: 0.0,
             charging_b_pu: 0.0,
             s_max_mva: None,
-            status: true,
             rating_a_mva: None,
+            rating_b_mva: None,
+            rating_c_mva: None,
+            status: true,
+            angle_min_rad: None,
+            angle_max_rad: None,
+            element_type: "line".to_string(),
             is_phase_shifter: false,
         }
     }
@@ -253,10 +390,43 @@ pub struct Gen {
     pub qmin_mvar: f64,
     /// Maximum reactive power output (MVAr)
     pub qmax_mvar: f64,
+    /// In-service status
+    pub status: bool,
+    /// Voltage setpoint (per-unit)
+    pub voltage_setpoint_pu: Option<f64>,
+    /// Machine MVA base
+    pub mbase_mva: Option<f64>,
+    /// Startup cost
+    pub cost_startup: Option<f64>,
+    /// Shutdown cost
+    pub cost_shutdown: Option<f64>,
     /// Cost function for OPF
     pub cost_model: CostModel,
     /// Synchronous condenser flag (allows negative Pg for reactive-only devices)
     pub is_synchronous_condenser: bool,
+}
+
+impl Default for Gen {
+    fn default() -> Self {
+        Self {
+            id: GenId(0),
+            name: String::new(),
+            bus: BusId(0),
+            active_power_mw: 0.0,
+            reactive_power_mvar: 0.0,
+            pmin_mw: 0.0,
+            pmax_mw: f64::INFINITY,
+            qmin_mvar: f64::NEG_INFINITY,
+            qmax_mvar: f64::INFINITY,
+            status: true,
+            voltage_setpoint_pu: None,
+            mbase_mva: None,
+            cost_startup: None,
+            cost_shutdown: None,
+            cost_model: CostModel::NoCost,
+            is_synchronous_condenser: false,
+        }
+    }
 }
 
 impl Gen {
@@ -272,6 +442,11 @@ impl Gen {
             pmax_mw: f64::INFINITY,
             qmin_mvar: f64::NEG_INFINITY,
             qmax_mvar: f64::INFINITY,
+            status: true,
+            voltage_setpoint_pu: None,
+            mbase_mva: None,
+            cost_startup: None,
+            cost_shutdown: None,
             cost_model: CostModel::NoCost,
             is_synchronous_condenser: false,
         }
@@ -381,53 +556,67 @@ impl Network {
 
     /// Validate network data for common issues that cause solver failures.
     /// Returns a list of warnings/errors found.
+    #[deprecated(since = "0.5.0", note = "Use validate_into() with Diagnostics instead")]
     pub fn validate(&self) -> Vec<NetworkValidationIssue> {
-        let mut issues = Vec::new();
+        let mut diag = Diagnostics::new();
+        self.validate_into(&mut diag);
+
+        // Convert to legacy format
+        diag.issues
+            .into_iter()
+            .map(|issue| match issue.severity {
+                Severity::Warning => NetworkValidationIssue::Warning(issue.message),
+                Severity::Error => NetworkValidationIssue::Error(issue.message),
+            })
+            .collect()
+    }
+
+    /// Validate network data for common issues that cause solver failures.
+    ///
+    /// Populates the provided `Diagnostics` with any warnings/errors found.
+    /// This is the preferred validation method.
+    pub fn validate_into(&self, diag: &mut Diagnostics) {
         let stats = self.stats();
 
         // Check for empty network
         if stats.num_buses == 0 {
-            issues.push(NetworkValidationIssue::Error(
-                "Network has no buses".to_string(),
-            ));
-            return issues; // Can't check further
+            diag.add_error("structure", "Network has no buses");
+            return; // Can't check further
         }
 
         // Check for zero load (likely parser bug)
         if stats.total_load_mw.abs() < 1e-9 && stats.num_loads > 0 {
-            issues.push(NetworkValidationIssue::Error(format!(
-                "Total load is 0 MW but {} loads exist - likely parser bug",
-                stats.num_loads
-            )));
+            diag.add_error(
+                "structure",
+                &format!(
+                    "Total load is 0 MW but {} loads exist - likely parser bug",
+                    stats.num_loads
+                ),
+            );
         } else if stats.total_load_mw.abs() < 1e-9 {
-            issues.push(NetworkValidationIssue::Warning(
-                "Network has no loads".to_string(),
-            ));
+            diag.add_warning("structure", "Network has no loads");
         }
 
         // Check for no generators
         if stats.num_gens == 0 {
-            issues.push(NetworkValidationIssue::Error(
-                "Network has no generators".to_string(),
-            ));
+            diag.add_error("structure", "Network has no generators");
         }
 
         // Check gen capacity vs load
         if stats.total_gen_capacity_mw < stats.total_load_mw {
-            issues.push(NetworkValidationIssue::Warning(format!(
-                "Total generation capacity ({:.1} MW) is less than total load ({:.1} MW)",
-                stats.total_gen_capacity_mw, stats.total_load_mw
-            )));
+            diag.add_warning(
+                "capacity",
+                &format!(
+                    "Total generation capacity ({:.1} MW) is less than total load ({:.1} MW)",
+                    stats.total_gen_capacity_mw, stats.total_load_mw
+                ),
+            );
         }
 
         // Check for branches
         if stats.num_branches == 0 && stats.num_buses > 1 {
-            issues.push(NetworkValidationIssue::Error(
-                "Network has multiple buses but no branches".to_string(),
-            ));
+            diag.add_error("structure", "Network has multiple buses but no branches");
         }
-
-        issues
     }
 }
 
@@ -460,6 +649,12 @@ impl std::fmt::Display for NetworkStats {
 }
 
 /// Validation issue found in a network
+///
+/// **Deprecated**: Use [`DiagnosticIssue`] from the [`diagnostics`] module instead.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use DiagnosticIssue from the diagnostics module instead"
+)]
 #[derive(Debug, Clone)]
 pub enum NetworkValidationIssue {
     Warning(String),
@@ -508,11 +703,13 @@ mod tests {
             id: BusId(0),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId(1),
             name: "Bus 2".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
 
         let _branch = network.graph.add_edge(
@@ -542,8 +739,10 @@ mod tests {
     #[test]
     fn test_network_validation_empty() {
         let network = Network::new();
-        let issues = network.validate();
-        assert!(issues.iter().any(|i| matches!(i, NetworkValidationIssue::Error(_))));
+        let mut diag = Diagnostics::new();
+        network.validate_into(&mut diag);
+        assert!(diag.has_errors());
+        assert!(diag.errors().any(|i| i.message.contains("no buses")));
     }
 
     #[test]
@@ -553,18 +752,18 @@ mod tests {
             id: BusId(0),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
-        network.graph.add_node(Node::Gen(Gen::new(GenId::new(0), "Gen 1".to_string(), BusId(0))));
+        network.graph.add_node(Node::Gen(Gen::new(
+            GenId::new(0),
+            "Gen 1".to_string(),
+            BusId(0),
+        )));
 
-        let issues = network.validate();
+        let mut diag = Diagnostics::new();
+        network.validate_into(&mut diag);
         // Should warn about no loads
-        assert!(issues.iter().any(|i| {
-            if let NetworkValidationIssue::Warning(msg) = i {
-                msg.contains("no loads")
-            } else {
-                false
-            }
-        }));
+        assert!(diag.warnings().any(|i| i.message.contains("no loads")));
     }
 
     #[test]
@@ -574,11 +773,13 @@ mod tests {
             id: BusId(0),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId(1),
             name: "Bus 2".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         let mut gen = Gen::new(GenId::new(0), "Gen 1".to_string(), BusId(0));
         gen.pmax_mw = 100.0;
@@ -590,15 +791,19 @@ mod tests {
             active_power_mw: 50.0,
             reactive_power_mvar: 10.0,
         }));
-        network.graph.add_edge(bus1, bus2, Edge::Branch(Branch {
-            id: BranchId(0),
-            name: "Branch 1-2".to_string(),
-            from_bus: BusId(0),
-            to_bus: BusId(1),
-            resistance: 0.01,
-            reactance: 0.1,
-            ..Branch::default()
-        }));
+        network.graph.add_edge(
+            bus1,
+            bus2,
+            Edge::Branch(Branch {
+                id: BranchId(0),
+                name: "Branch 1-2".to_string(),
+                from_bus: BusId(0),
+                to_bus: BusId(1),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
 
         let stats = network.stats();
         assert_eq!(stats.num_buses, 2);
@@ -609,16 +814,17 @@ mod tests {
         assert!((stats.total_gen_capacity_mw - 100.0).abs() < 0.01);
 
         // Valid network should have no errors
-        let issues = network.validate();
-        assert!(issues.iter().all(|i| !matches!(i, NetworkValidationIssue::Error(_))));
+        let mut diag = Diagnostics::new();
+        network.validate_into(&mut diag);
+        assert!(!diag.has_errors());
     }
 
     #[test]
     fn test_synchronous_condenser_flag() {
         // Test that synchronous condenser flag can be set
         let gen = Gen::new(GenId::new(1), "SynCon1".to_string(), BusId::new(1))
-            .with_p_limits(-10.0, 0.0)  // Consumes up to 10 MW
-            .with_q_limits(-100.0, 100.0)  // Provides reactive power
+            .with_p_limits(-10.0, 0.0) // Consumes up to 10 MW
+            .with_q_limits(-100.0, 100.0) // Provides reactive power
             .as_synchronous_condenser();
 
         assert!(gen.is_synchronous_condenser);

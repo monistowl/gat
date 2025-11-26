@@ -15,9 +15,9 @@ use crate::commands::telemetry::record_run_timed_with_diagnostics;
 /// Verbosity level for import diagnostics
 #[derive(Clone, Copy)]
 pub enum Verbosity {
-    Normal,   // Just counts
-    Verbose,  // Grouped warnings
-    Debug,    // Line-level details
+    Normal,  // Just counts
+    Verbose, // Grouped warnings
+    Debug,   // Line-level details
 }
 
 impl From<u8> for Verbosity {
@@ -30,7 +30,12 @@ impl From<u8> for Verbosity {
     }
 }
 
-pub fn handle(command: &ImportCommands, verbose: u8, strict: bool, run_validation: bool) -> Result<()> {
+pub fn handle(
+    command: &ImportCommands,
+    verbose: u8,
+    strict: bool,
+    run_validation: bool,
+) -> Result<()> {
     let verbosity = Verbosity::from(verbose);
 
     // Extract format and input path from command
@@ -56,11 +61,20 @@ pub fn handle(command: &ImportCommands, verbose: u8, strict: bool, run_validatio
         ImportCommands::Psse { raw, output } => (Format::Psse, raw.as_str(), output.as_deref()),
         ImportCommands::Matpower { m, output } => (Format::Matpower, m.as_str(), output.as_deref()),
         ImportCommands::Cim { rdf, output } => (Format::Cim, rdf.as_str(), output.as_deref()),
-        ImportCommands::Pandapower { json, output } => (Format::Pandapower, json.as_str(), output.as_deref()),
+        ImportCommands::Pandapower { json, output } => {
+            (Format::Pandapower, json.as_str(), output.as_deref())
+        }
     };
 
     // Run the unified import workflow
-    run_import(format, input_path, output, verbosity, strict, run_validation)
+    run_import(
+        format,
+        input_path,
+        output,
+        verbosity,
+        strict,
+        run_validation,
+    )
 }
 
 /// Unified import workflow for all formats.
@@ -75,12 +89,8 @@ fn run_import(
     let start = Instant::now();
 
     // Prepare paths
-    let (input_path, output_path) = prepare_import(
-        input,
-        output,
-        format.extensions(),
-        format.friendly_name(),
-    )?;
+    let (input_path, output_path) =
+        prepare_import(input, output, format.extensions(), format.friendly_name())?;
 
     // Parse using the format's parser
     let mut result = format.parse(&input_path)?;
@@ -123,7 +133,11 @@ fn print_diagnostics(diag: &ImportDiagnostics, verbosity: Verbosity, validated: 
     let validation_marker = if validated { " [validated]" } else { "" };
     println!(
         "✓ Imported {} buses, {} branches, {} generators, {} loads{}",
-        diag.stats.buses, diag.stats.branches, diag.stats.generators, diag.stats.loads, validation_marker
+        diag.stats.buses,
+        diag.stats.branches,
+        diag.stats.generators,
+        diag.stats.loads,
+        validation_marker
     );
 
     let warning_count = diag.warning_count();

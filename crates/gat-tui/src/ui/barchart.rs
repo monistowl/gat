@@ -139,7 +139,7 @@ impl BarChartView {
             self.bars
                 .iter()
                 .map(|b| b.value)
-                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less))
                 .unwrap_or(1.0)
         });
 

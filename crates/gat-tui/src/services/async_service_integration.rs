@@ -6,6 +6,8 @@
 use crate::services::{AsyncEvent, EventResult, TuiServiceLayer};
 use crate::services::{CommandExecution, CommandService};
 use std::sync::Arc;
+use tokio::time::timeout;
+use tokio_util::sync::CancellationToken;
 
 /// Service that integrates TuiServiceLayer with async event handling
 pub struct AsyncServiceIntegration {
@@ -24,6 +26,34 @@ impl AsyncServiceIntegration {
 
     /// Handle an async event and return the result
     pub async fn handle_event(&self, event: &AsyncEvent) -> EventResult {
+        // Default token that is never cancelled; callers can supply their own via
+        // `handle_event_with_cancel` for user-initiated aborts.
+        let token = CancellationToken::new();
+        self.handle_event_with_cancel(event, &token).await
+    }
+
+    /// Handle an async event with a cancellation token for user-initiated aborts.
+    pub async fn handle_event_with_cancel(
+        &self,
+        event: &AsyncEvent,
+        cancel: &CancellationToken,
+    ) -> EventResult {
+        let duration = event.default_timeout();
+        tokio::select! {
+            _ = cancel.cancelled() => EventResult::Error(format!("{} cancelled", event.name())),
+            res = timeout(duration, self.handle_event_inner(event)) => match res {
+            Ok(result) => result,
+            Err(_) => EventResult::Error(format!(
+                "{} timed out after {:?}",
+                event.name(),
+                duration
+            )),
+        },
+        }
+    }
+
+    /// Inner handler that performs the actual work for an event.
+    async fn handle_event_inner(&self, event: &AsyncEvent) -> EventResult {
         match event {
             AsyncEvent::FetchDatasets => self.fetch_datasets().await,
             AsyncEvent::FetchDataset(id) => self.fetch_dataset(id).await,
@@ -82,14 +112,12 @@ impl AsyncServiceIntegration {
 
     async fn describe_dataset(&self, id: &str) -> EventResult {
         let cmd = format!("gat dataset public describe {} --format json", id);
-        self.run_command_and_capture(&cmd, "describe dataset")
-            .await
+        self.run_command_and_capture(&cmd, "describe dataset").await
     }
 
     async fn fetch_dataset_to(&self, id: &str, out: &str) -> EventResult {
         let cmd = format!("gat dataset public fetch {} --out {}", id, out);
-        self.run_command_and_capture(&cmd, "fetch dataset")
-            .await
+        self.run_command_and_capture(&cmd, "fetch dataset").await
     }
 
     // ============================================================================
@@ -178,17 +206,20 @@ impl AsyncServiceIntegration {
                 let trimmed = result.stdout.trim();
                 EventResult::Success(format!("{} ok: {}", label, trimmed))
             }
-            Ok(result) => EventResult::Error(format!(
-                "{} failed (code {}): {}{}",
-                label,
-                result.exit_code,
-                result.stdout.trim(),
-                if result.stderr.is_empty() {
-                    ""
+            Ok(result) => {
+                let stderr_fmt = if result.stderr.is_empty() {
+                    String::new()
                 } else {
-                    &format!(" | {}", result.stderr.trim())
-                }
-            )),
+                    format!(" | {}", result.stderr.trim())
+                };
+                EventResult::Error(format!(
+                    "{} failed (code {}): {}{}",
+                    label,
+                    result.exit_code,
+                    result.stdout.trim(),
+                    stderr_fmt
+                ))
+            }
             Err(e) => EventResult::Error(format!("{} error: {}", label, e)),
         }
     }
@@ -276,6 +307,7 @@ impl AsyncServiceIntegration {
 mod tests {
     use super::*;
     use crate::services::MockQueryBuilder;
+    use tokio_util::sync::CancellationToken;
 
     #[tokio::test]
     async fn test_async_integration_creation() {
@@ -412,6 +444,24 @@ mod tests {
         match result {
             EventResult::Success(msg) => assert!(msg.contains("geo join")),
             _ => panic!("Expected success"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_cancelled_event() {
+        let qb = Arc::new(MockQueryBuilder);
+        let service = Arc::new(TuiServiceLayer::new(qb));
+        let integration = AsyncServiceIntegration::new(service);
+        let token = CancellationToken::new();
+        token.cancel();
+
+        let result = integration
+            .handle_event_with_cancel(&AsyncEvent::FetchDatasets, &token)
+            .await;
+
+        match result {
+            EventResult::Error(msg) => assert!(msg.contains("cancelled")),
+            other => panic!("expected cancellation error, got {:?}", other),
         }
     }
 

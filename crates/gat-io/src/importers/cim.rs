@@ -11,7 +11,7 @@ use quick_xml::{
 };
 use zip::ZipArchive;
 
-use super::arrow::write_network_to_arrow;
+use super::arrow::export_network_to_arrow;
 use crate::helpers::{ImportDiagnostics, ImportResult};
 
 pub fn import_cim_rdf(rdf_path: &str, output_file: &str) -> Result<Network> {
@@ -30,7 +30,7 @@ pub fn import_cim_rdf(rdf_path: &str, output_file: &str) -> Result<Network> {
         eprintln!("⚠ Warning: {}", w);
     }
 
-    write_network_to_arrow(&network, output_file)?;
+    export_network_to_arrow(&network, output_file)?;
     Ok(network)
 }
 
@@ -65,7 +65,10 @@ pub fn parse_cim(rdf_path: &str) -> Result<ImportResult> {
         );
     }
 
-    Ok(ImportResult { network, diagnostics: diag })
+    Ok(ImportResult {
+        network,
+        diagnostics: diag,
+    })
 }
 
 pub(crate) struct CimBus {
@@ -513,13 +516,15 @@ fn build_network_from_cim(
     transformers: Vec<CimTransformer>,
 ) -> Result<Network> {
     let mut network = Network::new();
-    let mut node_map: HashMap<String, (BusId, NodeIndex)> = HashMap::new();
+    // Pre-allocate HashMap with known bus count
+    let mut node_map: HashMap<String, (BusId, NodeIndex)> = HashMap::with_capacity(buses.len());
     for (idx, bus) in buses.into_iter().enumerate() {
         let bus_id = BusId::new(idx + 1);
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id: bus_id,
             name: bus.name,
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         node_map.insert(bus.id, (bus_id, node_idx));
     }
@@ -569,6 +574,7 @@ fn build_network_from_cim(
                 qmax_mvar: f64::INFINITY,
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
+                ..Gen::default()
             }));
             gen_counter += 1;
         }
@@ -644,7 +650,8 @@ fn build_network_from_cim_with_diagnostics(
     diag: &mut ImportDiagnostics,
 ) -> Result<Network> {
     let mut network = Network::new();
-    let mut node_map: HashMap<String, (BusId, NodeIndex)> = HashMap::new();
+    // Pre-allocate HashMap with known bus count
+    let mut node_map: HashMap<String, (BusId, NodeIndex)> = HashMap::with_capacity(buses.len());
 
     for (idx, bus) in buses.into_iter().enumerate() {
         let bus_id = BusId::new(idx + 1);
@@ -652,6 +659,7 @@ fn build_network_from_cim_with_diagnostics(
             id: bus_id,
             name: bus.name,
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         node_map.insert(bus.id, (bus_id, node_idx));
         diag.stats.buses += 1;
@@ -681,7 +689,10 @@ fn build_network_from_cim_with_diagnostics(
         } else {
             diag.add_warning(
                 "orphan_load",
-                &format!("load '{}' references unknown bus '{}'", load.name, load.bus_id),
+                &format!(
+                    "load '{}' references unknown bus '{}'",
+                    load.name, load.bus_id
+                ),
             );
         }
     }
@@ -710,13 +721,17 @@ fn build_network_from_cim_with_diagnostics(
                 qmax_mvar: f64::INFINITY,
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
+                ..Gen::default()
             }));
             gen_counter += 1;
             diag.stats.generators += 1;
         } else {
             diag.add_warning(
                 "orphan_generator",
-                &format!("generator '{}' references unknown bus '{}'", gen.name, gen.bus_id),
+                &format!(
+                    "generator '{}' references unknown bus '{}'",
+                    gen.name, gen.bus_id
+                ),
             );
         }
     }
@@ -730,7 +745,10 @@ fn build_network_from_cim_with_diagnostics(
             None => {
                 diag.add_warning(
                     "orphan_branch",
-                    &format!("line '{}' references unknown from bus '{}'", line.name, line.from),
+                    &format!(
+                        "line '{}' references unknown from bus '{}'",
+                        line.name, line.from
+                    ),
                 );
                 continue;
             }
@@ -740,7 +758,10 @@ fn build_network_from_cim_with_diagnostics(
             None => {
                 diag.add_warning(
                     "orphan_branch",
-                    &format!("line '{}' references unknown to bus '{}'", line.name, line.to),
+                    &format!(
+                        "line '{}' references unknown to bus '{}'",
+                        line.name, line.to
+                    ),
                 );
                 continue;
             }

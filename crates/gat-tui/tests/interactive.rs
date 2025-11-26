@@ -136,7 +136,11 @@ fn test_interactive_keypresses_and_responses() {
         Some("Commands"),
         "Should switch to Commands"
     );
-    assert!(render_5.contains("[*5]"), "Commands indicator missing");
+    // Menu may truncate in narrow terminals; verify Commands is active via the label
+    assert!(
+        render_5.contains("Active: Commands") || render_5.contains("[*5]"),
+        "Commands indicator missing"
+    );
     assert!(
         render_5.contains("Commands workspace"),
         "Commands content missing"

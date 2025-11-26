@@ -167,6 +167,7 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
             id: BusId::new(bus_idx),
             name: bus_name,
             voltage_kv,
+            ..Bus::default()
         }));
 
         bus_node_map.insert(bus_idx, node_idx);
@@ -207,6 +208,7 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                 qmax_mvar: qmax,
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
+                ..Gen::default()
             }));
         }
     }

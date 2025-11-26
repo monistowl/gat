@@ -215,7 +215,7 @@ fn seed_workspace(path: &Path) -> Result<()> {
 
     let scenario_batch = path.join("notebooks/demos/scenario-batch.md");
     write_if_absent(&scenario_batch, render_scenario_batch_demo())?;
-    
+
     let rag_context = path.join("notebooks/demos/rag-context.md");
     write_if_absent(&rag_context, render_rag_context_demo())?;
 
@@ -911,19 +911,18 @@ mod tests {
         assert!(rag_context.contains("gat nminus1 dc"));
         assert!(rag_context.contains("gat analytics deliverability"));
 
-        let research_tracking = fs::read_to_string(
-            workspace.join("notebooks/demos/research-tracking.md"),
-        )
-        .unwrap();
+        let research_tracking =
+            fs::read_to_string(workspace.join("notebooks/demos/research-tracking.md")).unwrap();
         assert!(research_tracking.contains("experiment_log"));
         assert!(research_tracking.contains("md5sum"));
 
-        let validation = fs::read_to_string(workspace.join("notebooks/demos/validation.md"))
-            .unwrap();
+        let validation =
+            fs::read_to_string(workspace.join("notebooks/demos/validation.md")).unwrap();
         assert!(validation.contains("gat graph islands"));
         assert!(validation.contains("gat validate"));
 
-        let time_series = fs::read_to_string(workspace.join("notebooks/demos/time-series.md")).unwrap();
+        let time_series =
+            fs::read_to_string(workspace.join("notebooks/demos/time-series.md")).unwrap();
         assert!(time_series.contains("gat ts solve"));
         assert!(time_series.contains("gat ts stats"));
 
@@ -936,24 +935,19 @@ mod tests {
         assert!(reliability.contains("gat derms hosting-capacity"));
         assert!(reliability.contains("gat analytics elcc"));
 
-        let contingency = fs::read_to_string(
-            workspace.join("notebooks/demos/contingency-resilience.md"),
-        )
-        .unwrap();
+        let contingency =
+            fs::read_to_string(workspace.join("notebooks/demos/contingency-resilience.md"))
+                .unwrap();
         assert!(contingency.contains("gat nminus1 dc"));
         assert!(contingency.contains("gat opf dc"));
 
-        let sensitivity_sweeps = fs::read_to_string(
-            workspace.join("notebooks/demos/sensitivity-sweeps.md"),
-        )
-        .unwrap();
+        let sensitivity_sweeps =
+            fs::read_to_string(workspace.join("notebooks/demos/sensitivity-sweeps.md")).unwrap();
         assert!(sensitivity_sweeps.contains("scenarios materialize"));
         assert!(sensitivity_sweeps.contains("batch pf"));
 
-        let solver_benchmarks = fs::read_to_string(
-            workspace.join("notebooks/demos/solver-benchmarks.md"),
-        )
-        .unwrap();
+        let solver_benchmarks =
+            fs::read_to_string(workspace.join("notebooks/demos/solver-benchmarks.md")).unwrap();
         assert!(solver_benchmarks.contains("gat opf dc"));
         assert!(solver_benchmarks.contains("/usr/bin/time"));
 

@@ -152,6 +152,7 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             id: bus_id,
             name: format!("Bus {}", bus_idx + 1),
             voltage_kv: base_kv,
+            ..Bus::default()
         }));
         bus_index_map.insert(bus_idx, node_idx);
     }
@@ -235,6 +236,7 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                 qmax_mvar: qmax,
                 cost_model,
                 is_synchronous_condenser: false,
+                ..Gen::default()
             }));
         }
     }

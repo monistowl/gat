@@ -132,7 +132,11 @@ pub fn handle(command: &GraphCommands) -> Result<()> {
                         "Summary: {} warning(s), {} error(s){}",
                         warning_count,
                         error_count,
-                        if *verbose == 0 { " (use -v for details)" } else { "" }
+                        if *verbose == 0 {
+                            " (use -v for details)"
+                        } else {
+                            ""
+                        }
                     );
 
                     if *strict && (warning_count > 0 || error_count > 0) {

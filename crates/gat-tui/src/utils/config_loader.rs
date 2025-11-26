@@ -118,9 +118,10 @@ impl ConfigManager {
     /// - GAT_TUI_CLI_GAT_CLI_PATH
     /// - GAT_TUI_LOGGING_LEVEL
     pub fn load() -> Result<Self, ConfigError> {
+        let defaults = Config::try_from(&AppConfig::default())?;
         let config = Config::builder()
             // Start with defaults
-            .add_source(Config::try_from(&AppConfig::default()).unwrap())
+            .add_source(defaults)
             // Try loading from project root
             .add_source(File::with_name("gat-tui").required(false))
             // Try loading from user home config directory
@@ -148,8 +149,9 @@ impl ConfigManager {
 
     /// Load configuration from a specific file
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
+        let defaults = Config::try_from(&AppConfig::default())?;
         let config = Config::builder()
-            .add_source(Config::try_from(&AppConfig::default()).unwrap())
+            .add_source(defaults)
             .add_source(File::from(path.as_ref()))
             .build()?
             .try_deserialize::<AppConfig>()?;

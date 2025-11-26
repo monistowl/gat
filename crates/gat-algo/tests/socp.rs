@@ -20,11 +20,13 @@ fn simple_network() -> Network {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     network.graph.add_edge(
@@ -103,16 +105,19 @@ fn three_bus_network() -> Network {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus3".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
 
     // Line 1-2
@@ -259,11 +264,13 @@ fn socp_quadratic_cost() {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     network.graph.add_edge(
@@ -366,11 +373,13 @@ fn socp_thermal_limit_binding() {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     // Branch with tight thermal limit (50 MVA)
@@ -453,16 +462,19 @@ fn socp_phase_shifting_transformer() {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus3".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
 
     // Normal line 1-2
@@ -588,11 +600,13 @@ fn socp_tap_ratio_transformer() {
         id: BusId::new(0),
         name: "bus1_hv".to_string(),
         voltage_kv: 230.0, // High voltage side
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2_lv".to_string(),
         voltage_kv: 138.0, // Low voltage side
+        ..Bus::default()
     }));
 
     // Transformer with off-nominal tap ratio (1.05 = 5% boost)
@@ -669,6 +683,7 @@ fn socp_10_bus_meshed_network() {
             id: BusId::new(i),
             name: format!("bus{}", i + 1),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         bus_indices.push(bus_idx);
     }
@@ -724,7 +739,7 @@ fn socp_10_bus_meshed_network() {
             qmin_mvar: -50.0,
             qmax_mvar: 50.0,
             is_synchronous_condenser: false,
-        cost_model: CostModel::linear(0.0, *cost),
+            cost_model: CostModel::linear(0.0, *cost),
         }));
     }
 
@@ -791,11 +806,13 @@ fn socp_line_charging() {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 345.0, // High voltage = more charging
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 345.0,
+        ..Bus::default()
     }));
 
     // Long line with significant charging

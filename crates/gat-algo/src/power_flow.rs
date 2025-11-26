@@ -1733,11 +1733,13 @@ mod tests {
             id: BusId::new(0),
             name: "Bus 0".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         let b1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         network.graph.add_edge(
             b0,
@@ -1762,11 +1764,13 @@ mod tests {
             id: BusId::new(0),
             name: "Bus 0".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         let b1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         network.graph.add_edge(
             b0,

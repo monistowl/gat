@@ -1,14 +1,18 @@
-use std::{collections::HashMap, fs::File, path::Path};
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use caseformat::{read_dir, read_zip, Branch as CaseBranch, Bus as CaseBus, Gen as CaseGen};
-use gat_core::{
-    Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node, NodeIndex,
-};
+use gat_core::Network;
 
-use super::arrow::write_network_to_arrow;
 use super::matpower_parser::{parse_matpower_file, MatpowerCase, MatpowerGenCost};
-use crate::helpers::{ImportDiagnostics, ImportResult};
+use crate::helpers::{
+    BranchInput, BusInput, GenInput, ImportDiagnostics, ImportResult, LoadInput, NetworkBuilder,
+};
+use crate::arrow_manifest::{compute_sha256, SourceInfo};
+use crate::exporters::arrow_directory_writer::SystemInfo;
+use zip::ZipArchive;
 
 /// Load a MATPOWER case file and return a Network (without writing to disk)
 ///
@@ -82,11 +86,95 @@ pub fn load_matpower_network(m_file: &Path) -> Result<Network> {
     ))
 }
 
-pub fn import_matpower_case(m_file: &str, output_file: &str) -> Result<Network> {
-    println!("Importing MATPOWER from {} to {}", m_file, output_file);
+fn matpower_metadata(m_file: &Path) -> Result<(Option<SystemInfo>, Option<SourceInfo>)> {
+    if !m_file.exists() {
+        return Ok((None, None));
+    }
+
+    if m_file.is_file() {
+        let file_hash = compute_sha256(m_file)?;
+        let file_name = m_file
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_else(|| m_file.display().to_string());
+
+        let source_info = SourceInfo {
+            file: file_name.clone(),
+            format: "matpower".to_string(),
+            file_hash,
+        };
+
+        let ext = m_file
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_ascii_lowercase());
+
+        let system_info = match ext.as_deref() {
+            Some("m") => parse_matpower_file(m_file).ok().map(|case| SystemInfo {
+                base_mva: case.base_mva,
+                base_frequency_hz: 60.0,
+                name: m_file
+                    .file_stem()
+                    .map(|stem| stem.to_string_lossy().to_string()),
+                description: Some(format!("Imported MATPOWER case {}", file_name)),
+            }),
+            Some("case") => case_metadata_from_archive(m_file)
+                .ok()
+                .flatten()
+                .map(|(case_name, base_mva)| SystemInfo {
+                    base_mva,
+                    base_frequency_hz: 60.0,
+                    name: case_name.or_else(|| {
+                        m_file
+                            .file_stem()
+                            .map(|stem| stem.to_string_lossy().to_string())
+                    }),
+                    description: Some(format!("Imported MATPOWER case {}", file_name)),
+                }),
+            _ => None,
+        };
+
+        return Ok((system_info, Some(source_info)));
+    }
+
+    Ok((None, None))
+}
+
+fn case_metadata_from_archive(path: &Path) -> Result<Option<(Option<String>, f64)>> {
+    let file = File::open(path)?;
+    let mut archive = ZipArchive::new(file)?;
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index)?;
+        if entry.name().to_lowercase().ends_with("case.csv") {
+            let mut contents = String::new();
+            entry.read_to_string(&mut contents)?;
+            let mut lines = contents.lines();
+            lines.next(); // skip header
+            if let Some(row) = lines.next() {
+                let cols: Vec<&str> = row.split(',').collect();
+                let case_name = cols.get(0).map(|s| s.to_string());
+                let base_mva = cols
+                    .get(2)
+                    .and_then(|v| v.trim().parse::<f64>().ok())
+                    .unwrap_or(100.0);
+                return Ok(Some((case_name, base_mva)));
+            }
+        }
+    }
+    Ok(None)
+}
+
+pub fn import_matpower_case(m_file: &str, output_dir: impl AsRef<Path>) -> Result<Network> {
+    println!(
+        "Importing MATPOWER from {} to {}",
+        m_file,
+        output_dir.as_ref().display()
+    );
     let path = Path::new(m_file);
+    let (system_info, source_info) = matpower_metadata(path)?;
     let network = load_matpower_network(path)?;
-    write_network_to_arrow(&network, output_file)?;
+    let writer = crate::exporters::ArrowDirectoryWriter::new(output_dir)?;
+    writer.write_network(&network, system_info, source_info)?;
     Ok(network)
 }
 
@@ -96,7 +184,10 @@ pub fn parse_matpower(m_file: &str) -> Result<ImportResult> {
     let path = Path::new(m_file);
     let mut diag = ImportDiagnostics::new();
     let network = load_matpower_network_with_diagnostics(path, &mut diag)?;
-    Ok(ImportResult { network, diagnostics: diag })
+    Ok(ImportResult {
+        network,
+        diagnostics: diag,
+    })
 }
 
 /// Load MATPOWER network with diagnostics tracking.
@@ -203,184 +294,90 @@ fn gencost_to_cost_model(gencost: Option<&MatpowerGenCost>) -> gat_core::CostMod
 
 /// Build network from our MATPOWER parser output
 fn build_network_from_matpower_case(case: &MatpowerCase) -> Result<Network> {
-    let mut network = Network::new();
-    let mut bus_index_map: HashMap<usize, NodeIndex> = HashMap::new();
-
-    // Add buses
-    for bus in &case.bus {
-        let bus_id = BusId::new(bus.bus_i);
-        let node_idx = network.graph.add_node(Node::Bus(Bus {
-            id: bus_id,
-            name: format!("Bus {}", bus.bus_i),
-            voltage_kv: bus.base_kv,
-        }));
-        bus_index_map.insert(bus.bus_i, node_idx);
-    }
-
-    // Add loads
-    let mut load_id = 0usize;
-    for bus in &case.bus {
-        if bus.pd != 0.0 || bus.qd != 0.0 {
-            network.graph.add_node(Node::Load(Load {
-                id: LoadId::new(load_id),
-                name: format!("Load {}", bus.bus_i),
-                bus: BusId::new(bus.bus_i),
-                active_power_mw: bus.pd,
-                reactive_power_mvar: bus.qd,
-            }));
-            load_id += 1;
-        }
-    }
-
-    // Add generators
-    let mut gen_id = 0usize;
-    for (i, gen) in case.gen.iter().enumerate() {
-        if gen.gen_status == 0 {
-            continue;
-        }
-        if !bus_index_map.contains_key(&gen.gen_bus) {
-            return Err(anyhow!("generator references unknown bus {}", gen.gen_bus));
-        }
-        // Synchronous condenser detection:
-        // 1. Pmax <= 0 (can only absorb power or provide reactive support)
-        // 2. Negative active power setpoint (absorbing P)
-        // 3. Negative Pmin with Pmax near zero (typical syncon with small motor load)
-        // Note: Some syncons have Qmax=Qmin=0 for units without Q capability
-        let is_syncon = gen.pmax <= 0.0 || gen.pg < 0.0 || (gen.pmin < 0.0 && gen.pmax <= 0.1);
-        network.graph.add_node(Node::Gen(Gen {
-            id: GenId::new(gen_id),
-            name: format!("Gen {}@{}", gen_id, gen.gen_bus),
-            bus: BusId::new(gen.gen_bus),
-            active_power_mw: gen.pg,
-            reactive_power_mvar: gen.qg,
-            pmin_mw: gen.pmin,
-            pmax_mw: gen.pmax,
-            qmin_mvar: gen.qmin,
-            qmax_mvar: gen.qmax,
-            cost_model: gencost_to_cost_model(case.gencost.get(i)),
-            is_synchronous_condenser: is_syncon,
-        }));
-        gen_id += 1;
-    }
-
-    // Add branches
-    let mut branch_id = 0usize;
-    for br in &case.branch {
-        if br.br_status == 0 {
-            continue;
-        }
-
-        let from_idx = *bus_index_map
-            .get(&br.f_bus)
-            .with_context(|| format!("branch references unknown from bus {}", br.f_bus))?;
-        let to_idx = *bus_index_map
-            .get(&br.t_bus)
-            .with_context(|| format!("branch references unknown to bus {}", br.t_bus))?;
-
-        // Phase-shifter detection: non-zero phase shift OR negative reactance OR negative resistance
-        let is_phase_shifter = br.shift.abs() > 1e-6 || br.br_x < 0.0 || br.br_r < 0.0;
-
-        let branch = Branch {
-            id: BranchId::new(branch_id),
-            name: format!("Branch {}-{}", br.f_bus, br.t_bus),
-            from_bus: BusId::new(br.f_bus),
-            to_bus: BusId::new(br.t_bus),
-            resistance: br.br_r,
-            reactance: br.br_x,
-            tap_ratio: if br.tap == 0.0 { 1.0 } else { br.tap },
-            phase_shift_rad: br.shift.to_radians(),
-            charging_b_pu: br.br_b,
-            s_max_mva: (br.rate_a > 0.0).then_some(br.rate_a),
-            status: br.br_status != 0,
-            rating_a_mva: (br.rate_a > 0.0).then_some(br.rate_a),
-            is_phase_shifter,
-            ..Branch::default()
-        };
-
-        network
-            .graph
-            .add_edge(from_idx, to_idx, Edge::Branch(branch));
-
-        branch_id += 1;
-    }
-
-    Ok(network)
+    build_network_from_matpower_case_impl(case, None)
 }
 
-/// Build network from MATPOWER case with diagnostics tracking
-fn build_network_from_matpower_case_with_diagnostics(
+/// Internal implementation shared by with/without diagnostics variants
+fn build_network_from_matpower_case_impl(
     case: &MatpowerCase,
-    diag: &mut ImportDiagnostics,
+    diag: Option<&mut ImportDiagnostics>,
 ) -> Result<Network> {
-    let mut network = Network::new();
-    let mut bus_index_map: HashMap<usize, NodeIndex> = HashMap::new();
+    // Pre-allocate with capacity hints based on known data sizes
+    let bus_capacity = case.bus.len();
+    let mut builder = match diag {
+        Some(d) => NetworkBuilder::with_diagnostics_and_capacity(d, bus_capacity),
+        None => NetworkBuilder::with_capacity(bus_capacity),
+    };
 
     // Add buses
     for bus in &case.bus {
-        let bus_id = BusId::new(bus.bus_i);
-        let node_idx = network.graph.add_node(Node::Bus(Bus {
-            id: bus_id,
-            name: format!("Bus {}", bus.bus_i),
+        builder.add_bus(BusInput {
+            id: bus.bus_i,
+            name: None,
             voltage_kv: bus.base_kv,
-        }));
-        bus_index_map.insert(bus.bus_i, node_idx);
-        diag.stats.buses += 1;
+            voltage_pu: Some(bus.vm),
+            angle_rad: Some(bus.va.to_radians()),
+            vmin_pu: Some(bus.vmin),
+            vmax_pu: Some(bus.vmax),
+            area_id: Some(bus.area as i64),
+            zone_id: Some(bus.zone as i64),
+        });
     }
 
-    // Add loads
-    let mut load_id = 0usize;
+    // Add loads (embedded in MATPOWER bus data)
     for bus in &case.bus {
         if bus.pd != 0.0 || bus.qd != 0.0 {
-            network.graph.add_node(Node::Load(Load {
-                id: LoadId::new(load_id),
-                name: format!("Load {}", bus.bus_i),
-                bus: BusId::new(bus.bus_i),
+            builder.add_load(LoadInput {
+                bus_id: bus.bus_i,
+                name: Some(format!("Load {}", bus.bus_i)),
                 active_power_mw: bus.pd,
                 reactive_power_mvar: bus.qd,
-            }));
-            load_id += 1;
-            diag.stats.loads += 1;
+            });
         }
     }
 
     // Add generators
-    let mut gen_id = 0usize;
     let mut skipped_gens = 0usize;
     for (i, gen) in case.gen.iter().enumerate() {
         if gen.gen_status == 0 {
             skipped_gens += 1;
             continue;
         }
-        if !bus_index_map.contains_key(&gen.gen_bus) {
-            diag.add_warning(
-                "orphan_generator",
-                &format!("generator references unknown bus {}", gen.gen_bus),
-            );
-            continue;
-        }
+
+        // Synchronous condenser detection:
+        // 1. Pmax <= 0 (can only absorb power or provide reactive support)
+        // 2. Negative active power setpoint (absorbing P)
+        // 3. Negative Pmin with Pmax near zero (typical syncon with small motor load)
         let is_syncon = gen.pmax <= 0.0 || gen.pg < 0.0 || (gen.pmin < 0.0 && gen.pmax <= 0.1);
-        network.graph.add_node(Node::Gen(Gen {
-            id: GenId::new(gen_id),
-            name: format!("Gen {}@{}", gen_id, gen.gen_bus),
-            bus: BusId::new(gen.gen_bus),
-            active_power_mw: gen.pg,
-            reactive_power_mvar: gen.qg,
-            pmin_mw: gen.pmin,
-            pmax_mw: gen.pmax,
-            qmin_mvar: gen.qmin,
-            qmax_mvar: gen.qmax,
-            cost_model: gencost_to_cost_model(case.gencost.get(i)),
+
+        // Get cost data if available
+        let gencost = case.gencost.get(i);
+        let cost_model = gencost_to_cost_model(gencost);
+        let cost_startup = gencost.map(|gc| gc.startup);
+        let cost_shutdown = gencost.map(|gc| gc.shutdown);
+
+        builder.add_gen(GenInput {
+            bus_id: gen.gen_bus,
+            name: None,
+            pg: gen.pg,
+            qg: gen.qg,
+            pmin: gen.pmin,
+            pmax: gen.pmax,
+            qmin: gen.qmin,
+            qmax: gen.qmax,
+            voltage_setpoint_pu: Some(gen.vg),
+            mbase_mva: Some(gen.mbase),
+            cost_startup,
+            cost_shutdown,
+            cost_model,
             is_synchronous_condenser: is_syncon,
-        }));
-        gen_id += 1;
-        diag.stats.generators += 1;
+        });
     }
     if skipped_gens > 0 {
-        diag.stats.skipped_lines += skipped_gens;
+        builder.record_skipped(skipped_gens);
     }
 
     // Add branches
-    let mut branch_id = 0usize;
     let mut skipped_branches = 0usize;
     for br in &case.branch {
         if br.br_status == 0 {
@@ -388,58 +385,50 @@ fn build_network_from_matpower_case_with_diagnostics(
             continue;
         }
 
-        let from_idx = match bus_index_map.get(&br.f_bus) {
-            Some(idx) => *idx,
-            None => {
-                diag.add_warning(
-                    "orphan_branch",
-                    &format!("branch references unknown from bus {}", br.f_bus),
-                );
-                continue;
-            }
-        };
-        let to_idx = match bus_index_map.get(&br.t_bus) {
-            Some(idx) => *idx,
-            None => {
-                diag.add_warning(
-                    "orphan_branch",
-                    &format!("branch references unknown to bus {}", br.t_bus),
-                );
-                continue;
-            }
-        };
-
+        // Phase-shifter detection: non-zero phase shift OR negative reactance OR negative resistance
         let is_phase_shifter = br.shift.abs() > 1e-6 || br.br_x < 0.0 || br.br_r < 0.0;
+        
+        let tap_ratio = if br.tap == 0.0 { 1.0 } else { br.tap };
+        let phase_shift_rad = br.shift.to_radians();
+        
+        // Determine element type
+        let element_type = if tap_ratio != 1.0 || phase_shift_rad.abs() > 1e-9 {
+            Some("transformer".to_string())
+        } else {
+            Some("line".to_string())
+        };
 
-        let branch = Branch {
-            id: BranchId::new(branch_id),
-            name: format!("Branch {}-{}", br.f_bus, br.t_bus),
-            from_bus: BusId::new(br.f_bus),
-            to_bus: BusId::new(br.t_bus),
+        builder.add_branch(BranchInput {
+            from_bus: br.f_bus,
+            to_bus: br.t_bus,
+            name: None,
             resistance: br.br_r,
             reactance: br.br_x,
-            tap_ratio: if br.tap == 0.0 { 1.0 } else { br.tap },
-            phase_shift_rad: br.shift.to_radians(),
-            charging_b_pu: br.br_b,
-            s_max_mva: (br.rate_a > 0.0).then_some(br.rate_a),
-            status: br.br_status != 0,
-            rating_a_mva: (br.rate_a > 0.0).then_some(br.rate_a),
+            charging_b: br.br_b,
+            tap_ratio,
+            phase_shift_rad,
+            rate_mva: (br.rate_a > 0.0).then_some(br.rate_a),
+            rating_b_mva: (br.rate_b > 0.0).then_some(br.rate_b),
+            rating_c_mva: (br.rate_c > 0.0).then_some(br.rate_c),
+            angle_min_rad: Some(br.angmin.to_radians()),
+            angle_max_rad: Some(br.angmax.to_radians()),
+            element_type,
             is_phase_shifter,
-            ..Branch::default()
-        };
-
-        network
-            .graph
-            .add_edge(from_idx, to_idx, Edge::Branch(branch));
-
-        branch_id += 1;
-        diag.stats.branches += 1;
+        });
     }
     if skipped_branches > 0 {
-        diag.stats.skipped_lines += skipped_branches;
+        builder.record_skipped(skipped_branches);
     }
 
-    Ok(network)
+    Ok(builder.build())
+}
+
+/// Build network from MATPOWER case with diagnostics tracking
+fn build_network_from_matpower_case_with_diagnostics(
+    case: &MatpowerCase,
+    diag: &mut ImportDiagnostics,
+) -> Result<Network> {
+    build_network_from_matpower_case_impl(case, Some(diag))
 }
 
 /// Build network from caseformat structs
@@ -448,100 +437,7 @@ fn build_network_from_case(
     case_branches: Vec<CaseBranch>,
     case_gens: Vec<CaseGen>,
 ) -> Result<Network> {
-    let mut network = Network::new();
-    let mut bus_index_map: HashMap<usize, NodeIndex> = HashMap::new();
-    for case_bus in &case_buses {
-        let bus_id = BusId::new(case_bus.bus_i);
-        let node_idx = network.graph.add_node(Node::Bus(Bus {
-            id: bus_id,
-            name: format!("Bus {}", case_bus.bus_i),
-            voltage_kv: case_bus.base_kv,
-        }));
-        bus_index_map.insert(case_bus.bus_i, node_idx);
-    }
-
-    let mut load_id = 0usize;
-    for case_bus in &case_buses {
-        if case_bus.pd != 0.0 || case_bus.qd != 0.0 {
-            network.graph.add_node(Node::Load(Load {
-                id: LoadId::new(load_id),
-                name: format!("Load {}", case_bus.bus_i),
-                bus: BusId::new(case_bus.bus_i),
-                active_power_mw: case_bus.pd,
-                reactive_power_mvar: case_bus.qd,
-            }));
-            load_id += 1;
-        }
-    }
-
-    let mut gen_id = 0usize;
-    for case_gen in case_gens {
-        if case_gen.gen_status == 0 {
-            continue;
-        }
-        if !bus_index_map.contains_key(&case_gen.gen_bus) {
-            return Err(anyhow!(
-                "generator references unknown bus {}",
-                case_gen.gen_bus
-            ));
-        }
-        network.graph.add_node(Node::Gen(Gen {
-            id: GenId::new(gen_id),
-            name: format!("Gen {}@{}", gen_id, case_gen.gen_bus),
-            bus: BusId::new(case_gen.gen_bus),
-            active_power_mw: case_gen.pg,
-            reactive_power_mvar: case_gen.qg,
-            pmin_mw: case_gen.pmin,
-            pmax_mw: case_gen.pmax,
-            qmin_mvar: case_gen.qmin,
-            qmax_mvar: case_gen.qmax,
-            cost_model: gat_core::CostModel::NoCost,
-            is_synchronous_condenser: false,
-        }));
-        gen_id += 1;
-    }
-
-    let mut branch_id = 0usize;
-    for case_branch in case_branches {
-        if !case_branch.is_on() {
-            continue;
-        }
-
-        let from_idx = *bus_index_map
-            .get(&case_branch.f_bus)
-            .with_context(|| format!("branch references unknown from bus {}", case_branch.f_bus))?;
-        let to_idx = *bus_index_map
-            .get(&case_branch.t_bus)
-            .with_context(|| format!("branch references unknown to bus {}", case_branch.t_bus))?;
-
-        let branch = Branch {
-            id: BranchId::new(branch_id),
-            name: format!("Branch {}-{}", case_branch.f_bus, case_branch.t_bus),
-            from_bus: BusId::new(case_branch.f_bus),
-            to_bus: BusId::new(case_branch.t_bus),
-            resistance: case_branch.br_r,
-            reactance: case_branch.br_x,
-            tap_ratio: if case_branch.tap == 0.0 {
-                1.0
-            } else {
-                case_branch.tap
-            },
-            phase_shift_rad: case_branch.shift.to_radians(),
-            charging_b_pu: case_branch.br_b,
-            s_max_mva: (case_branch.rate_a > 0.0).then_some(case_branch.rate_a),
-            status: case_branch.is_on(),
-            rating_a_mva: (case_branch.rate_a > 0.0).then_some(case_branch.rate_a),
-            ..Branch::default()
-        };
-
-        network
-            .graph
-            .add_edge(from_idx, to_idx, Edge::Branch(branch));
-
-        branch_id += 1;
-    }
-
-    Ok(network)
+    build_network_from_case_impl(case_buses, case_branches, case_gens, None)
 }
 
 /// Build network from caseformat structs with diagnostics tracking
@@ -551,70 +447,80 @@ fn build_network_from_case_with_diagnostics(
     case_gens: Vec<CaseGen>,
     diag: &mut ImportDiagnostics,
 ) -> Result<Network> {
-    let mut network = Network::new();
-    let mut bus_index_map: HashMap<usize, NodeIndex> = HashMap::new();
+    build_network_from_case_impl(case_buses, case_branches, case_gens, Some(diag))
+}
 
+/// Internal implementation shared by with/without diagnostics variants
+fn build_network_from_case_impl(
+    case_buses: Vec<CaseBus>,
+    case_branches: Vec<CaseBranch>,
+    case_gens: Vec<CaseGen>,
+    diag: Option<&mut ImportDiagnostics>,
+) -> Result<Network> {
+    // Pre-allocate with capacity hints based on known data sizes
+    let bus_capacity = case_buses.len();
+    let mut builder = match diag {
+        Some(d) => NetworkBuilder::with_diagnostics_and_capacity(d, bus_capacity),
+        None => NetworkBuilder::with_capacity(bus_capacity),
+    };
+
+    // Add buses
     for case_bus in &case_buses {
-        let bus_id = BusId::new(case_bus.bus_i);
-        let node_idx = network.graph.add_node(Node::Bus(Bus {
-            id: bus_id,
-            name: format!("Bus {}", case_bus.bus_i),
+        builder.add_bus(BusInput {
+            id: case_bus.bus_i,
+            name: None,
             voltage_kv: case_bus.base_kv,
-        }));
-        bus_index_map.insert(case_bus.bus_i, node_idx);
-        diag.stats.buses += 1;
+            voltage_pu: Some(case_bus.vm),
+            angle_rad: Some(case_bus.va.to_radians()),
+            vmin_pu: Some(case_bus.vmin),
+            vmax_pu: Some(case_bus.vmax),
+            area_id: None,
+            zone_id: Some(case_bus.zone as i64),
+        });
     }
 
-    let mut load_id = 0usize;
+    // Add loads (embedded in caseformat bus data)
     for case_bus in &case_buses {
         if case_bus.pd != 0.0 || case_bus.qd != 0.0 {
-            network.graph.add_node(Node::Load(Load {
-                id: LoadId::new(load_id),
-                name: format!("Load {}", case_bus.bus_i),
-                bus: BusId::new(case_bus.bus_i),
+            builder.add_load(LoadInput {
+                bus_id: case_bus.bus_i,
+                name: Some(format!("Load {}", case_bus.bus_i)),
                 active_power_mw: case_bus.pd,
                 reactive_power_mvar: case_bus.qd,
-            }));
-            load_id += 1;
-            diag.stats.loads += 1;
+            });
         }
     }
 
-    let mut gen_id = 0usize;
+    // Add generators
     let mut skipped_gens = 0usize;
     for case_gen in case_gens {
         if case_gen.gen_status == 0 {
             skipped_gens += 1;
             continue;
         }
-        if !bus_index_map.contains_key(&case_gen.gen_bus) {
-            diag.add_warning(
-                "orphan_generator",
-                &format!("generator references unknown bus {}", case_gen.gen_bus),
-            );
-            continue;
-        }
-        network.graph.add_node(Node::Gen(Gen {
-            id: GenId::new(gen_id),
-            name: format!("Gen {}@{}", gen_id, case_gen.gen_bus),
-            bus: BusId::new(case_gen.gen_bus),
-            active_power_mw: case_gen.pg,
-            reactive_power_mvar: case_gen.qg,
-            pmin_mw: case_gen.pmin,
-            pmax_mw: case_gen.pmax,
-            qmin_mvar: case_gen.qmin,
-            qmax_mvar: case_gen.qmax,
+
+        builder.add_gen(GenInput {
+            bus_id: case_gen.gen_bus,
+            name: None,
+            pg: case_gen.pg,
+            qg: case_gen.qg,
+            pmin: case_gen.pmin,
+            pmax: case_gen.pmax,
+            qmin: case_gen.qmin,
+            qmax: case_gen.qmax,
+            voltage_setpoint_pu: Some(case_gen.vg),
+            mbase_mva: Some(case_gen.mbase),
+            cost_startup: None,
+            cost_shutdown: None,
             cost_model: gat_core::CostModel::NoCost,
             is_synchronous_condenser: false,
-        }));
-        gen_id += 1;
-        diag.stats.generators += 1;
+        });
     }
     if skipped_gens > 0 {
-        diag.stats.skipped_lines += skipped_gens;
+        builder.record_skipped(skipped_gens);
     }
 
-    let mut branch_id = 0usize;
+    // Add branches
     let mut skipped_branches = 0usize;
     for case_branch in case_branches {
         if !case_branch.is_on() {
@@ -622,57 +528,41 @@ fn build_network_from_case_with_diagnostics(
             continue;
         }
 
-        let from_idx = match bus_index_map.get(&case_branch.f_bus) {
-            Some(idx) => *idx,
-            None => {
-                diag.add_warning(
-                    "orphan_branch",
-                    &format!("branch references unknown from bus {}", case_branch.f_bus),
-                );
-                continue;
-            }
+        let tap_ratio = if case_branch.tap == 0.0 {
+            1.0
+        } else {
+            case_branch.tap
         };
-        let to_idx = match bus_index_map.get(&case_branch.t_bus) {
-            Some(idx) => *idx,
-            None => {
-                diag.add_warning(
-                    "orphan_branch",
-                    &format!("branch references unknown to bus {}", case_branch.t_bus),
-                );
-                continue;
-            }
+        let phase_shift_rad = case_branch.shift.to_radians();
+        
+        // Determine element type
+        let element_type = if tap_ratio != 1.0 || phase_shift_rad.abs() > 1e-9 {
+            Some("transformer".to_string())
+        } else {
+            Some("line".to_string())
         };
 
-        let branch = Branch {
-            id: BranchId::new(branch_id),
-            name: format!("Branch {}-{}", case_branch.f_bus, case_branch.t_bus),
-            from_bus: BusId::new(case_branch.f_bus),
-            to_bus: BusId::new(case_branch.t_bus),
+        builder.add_branch(BranchInput {
+            from_bus: case_branch.f_bus,
+            to_bus: case_branch.t_bus,
+            name: None,
             resistance: case_branch.br_r,
             reactance: case_branch.br_x,
-            tap_ratio: if case_branch.tap == 0.0 {
-                1.0
-            } else {
-                case_branch.tap
-            },
-            phase_shift_rad: case_branch.shift.to_radians(),
-            charging_b_pu: case_branch.br_b,
-            s_max_mva: (case_branch.rate_a > 0.0).then_some(case_branch.rate_a),
-            status: case_branch.is_on(),
-            rating_a_mva: (case_branch.rate_a > 0.0).then_some(case_branch.rate_a),
-            ..Branch::default()
-        };
-
-        network
-            .graph
-            .add_edge(from_idx, to_idx, Edge::Branch(branch));
-
-        branch_id += 1;
-        diag.stats.branches += 1;
+            charging_b: case_branch.br_b,
+            tap_ratio,
+            phase_shift_rad,
+            rate_mva: (case_branch.rate_a > 0.0).then_some(case_branch.rate_a),
+            rating_b_mva: (case_branch.rate_b > 0.0).then_some(case_branch.rate_b),
+            rating_c_mva: (case_branch.rate_c > 0.0).then_some(case_branch.rate_c),
+            angle_min_rad: case_branch.angmin.map(|v| v.to_radians()),
+            angle_max_rad: case_branch.angmax.map(|v| v.to_radians()),
+            element_type,
+            is_phase_shifter: false,
+        });
     }
     if skipped_branches > 0 {
-        diag.stats.skipped_lines += skipped_branches;
+        builder.record_skipped(skipped_branches);
     }
 
-    Ok(network)
+    Ok(builder.build())
 }

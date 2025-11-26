@@ -325,7 +325,9 @@ impl MonteCarlo {
 
                         if let Some(neighbor) = neighbor_node {
                             // Get the neighbor's bus ID if it's a bus node
-                            if let Some(Node::Bus(neighbor_bus)) = network.graph.node_weight(neighbor) {
+                            if let Some(Node::Bus(neighbor_bus)) =
+                                network.graph.node_weight(neighbor)
+                            {
                                 if !visited_buses.contains(&neighbor_bus.id) {
                                     visited_buses.insert(neighbor_bus.id);
                                     queue.push_back(neighbor_bus.id);

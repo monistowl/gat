@@ -35,8 +35,8 @@ pub enum AsyncEvent {
 
     // Command execution
     ExecuteCommand(String),
-    DescribeRun(String),  // run.json path
-    ResumeRun(String),    // run.json path
+    DescribeRun(String), // run.json path
+    ResumeRun(String),   // run.json path
 
     // Lifecycle
     Shutdown,
@@ -47,6 +47,8 @@ impl AsyncEvent {
         match self {
             Self::FetchDatasets => "FetchDatasets",
             Self::FetchDataset(_) => "FetchDataset",
+            Self::FetchDatasetDescribe(_) => "FetchDatasetDescribe",
+            Self::FetchDatasetFetch(_, _) => "FetchDatasetFetch",
             Self::FetchWorkflows => "FetchWorkflows",
             Self::FetchMetrics => "FetchMetrics",
             Self::FetchPipelineConfig => "FetchPipelineConfig",
@@ -58,8 +60,68 @@ impl AsyncEvent {
             Self::RunBatchOPF(_, _, _) => "RunBatchOPF",
             Self::RunGeoJoin(_, _, _) => "RunGeoJoin",
             Self::ExecuteCommand(_) => "ExecuteCommand",
+            Self::DescribeRun(_) => "DescribeRun",
+            Self::ResumeRun(_) => "ResumeRun",
             Self::Shutdown => "Shutdown",
         }
+    }
+
+    /// Default timeout for the event. Keep conservative values to avoid
+    /// hanging the TUI on long-running background tasks.
+    pub fn default_timeout(&self) -> Duration {
+        match self {
+            // Lightweight metadata calls
+            Self::FetchDatasets
+            | Self::FetchDataset(_)
+            | Self::FetchDatasetDescribe(_)
+            | Self::FetchDatasetFetch(_, _)
+            | Self::FetchWorkflows
+            | Self::FetchMetrics
+            | Self::FetchPipelineConfig
+            | Self::FetchCommands => Duration::from_secs(30),
+
+            // Analytics and scenarios can be heavier
+            Self::RunAnalytics(_, _)
+            | Self::RunScenarioValidation(_)
+            | Self::RunScenarioMaterialize(_, _)
+            | Self::RunGeoJoin(_, _, _) => Duration::from_secs(120),
+
+            // Batch operations may fan out
+            Self::RunBatchPowerFlow(_, _) | Self::RunBatchOPF(_, _, _) => Duration::from_secs(180),
+
+            // Arbitrary user commands
+            Self::ExecuteCommand(_) | Self::DescribeRun(_) | Self::ResumeRun(_) => {
+                Duration::from_secs(180)
+            }
+
+            // Shutdown should be immediate but give a small budget
+            Self::Shutdown => Duration::from_secs(5),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_timeout_is_reasonable_per_event() {
+        assert_eq!(
+            AsyncEvent::FetchDatasets.default_timeout(),
+            Duration::from_secs(30)
+        );
+        assert_eq!(
+            AsyncEvent::RunAnalytics("r".into(), vec![]).default_timeout(),
+            Duration::from_secs(120)
+        );
+        assert_eq!(
+            AsyncEvent::RunBatchPowerFlow("m".into(), 10).default_timeout(),
+            Duration::from_secs(180)
+        );
+        assert_eq!(
+            AsyncEvent::Shutdown.default_timeout(),
+            Duration::from_secs(5)
+        );
     }
 }
 

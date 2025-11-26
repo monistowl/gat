@@ -16,12 +16,14 @@ fn create_2bus_network() -> Network {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     network.graph.add_edge(
@@ -158,18 +160,21 @@ fn create_3bus_network() -> Network {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus3".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     // Triangle topology

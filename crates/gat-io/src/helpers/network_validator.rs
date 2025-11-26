@@ -2,10 +2,9 @@
 //!
 //! This validator performs consistency checks on the imported Network model,
 //! catching issues that individual format parsers might miss. Results are
-//! reported through the ImportDiagnostics infrastructure.
+//! reported through the Diagnostics infrastructure from gat-core.
 
-use super::diagnostics::ImportDiagnostics;
-use gat_core::{Edge, Network, Node};
+use gat_core::{Edge, ImportDiagnostics, Network, Node};
 use std::collections::{HashMap, HashSet};
 
 /// Configuration for network validation behavior
@@ -38,7 +37,11 @@ impl ValidationConfig {
 /// - **Reference integrity**: All bus references point to existing buses
 /// - **Topological**: Connectivity and island detection
 /// - **Physical sanity**: Reasonable impedance, voltage, and power values
-pub fn validate_network(network: &Network, diag: &mut ImportDiagnostics, config: &ValidationConfig) {
+pub fn validate_network(
+    network: &Network,
+    diag: &mut ImportDiagnostics,
+    config: &ValidationConfig,
+) {
     // Phase 1: Structural validation
     validate_structure(network, diag);
 
@@ -93,14 +96,24 @@ fn validate_structure(network: &Network, diag: &mut ImportDiagnostics) {
 
     // Warning: Multiple buses but no branches
     if bus_count > 1 && branch_count == 0 {
-        diag.add_error("structure", "Multiple buses but no branches connecting them");
+        diag.add_error(
+            "structure",
+            "Multiple buses but no branches connecting them",
+        );
     }
 }
 
 /// Validate that all bus references point to existing buses
 fn validate_references(network: &Network, diag: &mut ImportDiagnostics) {
-    // Build set of valid bus IDs
-    let mut valid_buses: HashSet<usize> = HashSet::new();
+    // Count buses for capacity hint
+    let bus_count = network
+        .graph
+        .node_weights()
+        .filter(|n| matches!(n, Node::Bus(_)))
+        .count();
+
+    // Build set of valid bus IDs with pre-allocated capacity
+    let mut valid_buses: HashSet<usize> = HashSet::with_capacity(bus_count);
     for node in network.graph.node_weights() {
         if let Node::Bus(bus) = node {
             valid_buses.insert(bus.id.value());
@@ -179,8 +192,8 @@ fn validate_topology(network: &Network, diag: &mut ImportDiagnostics) {
         return; // Single bus or empty - no topology to check
     }
 
-    // Build adjacency for buses only via active branches
-    let mut bus_id_to_idx: HashMap<usize, usize> = HashMap::new();
+    // Build adjacency for buses only via active branches (pre-allocated)
+    let mut bus_id_to_idx: HashMap<usize, usize> = HashMap::with_capacity(bus_nodes.len());
     for (i, idx) in bus_nodes.iter().enumerate() {
         if let Node::Bus(bus) = &network.graph[*idx] {
             bus_id_to_idx.insert(bus.id.value(), i);
@@ -217,8 +230,8 @@ fn validate_topology(network: &Network, diag: &mut ImportDiagnostics) {
         }
     }
 
-    // Count distinct components
-    let mut roots: HashSet<usize> = HashSet::new();
+    // Count distinct components (pre-allocated for worst case: all isolated)
+    let mut roots: HashSet<usize> = HashSet::with_capacity(bus_nodes.len());
     for i in 0..bus_nodes.len() {
         roots.insert(find(&mut parent, i));
     }
@@ -234,7 +247,7 @@ fn validate_topology(network: &Network, diag: &mut ImportDiagnostics) {
         );
 
         // Identify isolated buses (single-bus islands)
-        let mut component_sizes: HashMap<usize, usize> = HashMap::new();
+        let mut component_sizes: HashMap<usize, usize> = HashMap::with_capacity(island_count);
         for i in 0..bus_nodes.len() {
             let root = find(&mut parent, i);
             *component_sizes.entry(root).or_insert(0) += 1;
@@ -465,16 +478,17 @@ mod tests {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
 
         network.graph.add_node(Node::Gen(
-            Gen::new(GenId::new(1), "Gen 1".to_string(), BusId::new(1))
-                .with_p_limits(0.0, 100.0),
+            Gen::new(GenId::new(1), "Gen 1".to_string(), BusId::new(1)).with_p_limits(0.0, 100.0),
         ));
         network.graph.add_node(Node::Load(Load {
             id: LoadId::new(1),
@@ -540,7 +554,10 @@ mod tests {
             diag.error_count() > 0,
             "Zero impedance should produce error"
         );
-        assert!(diag.issues.iter().any(|i| i.message.contains("zero impedance")));
+        assert!(diag
+            .issues
+            .iter()
+            .any(|i| i.message.contains("zero impedance")));
     }
 
     #[test]
@@ -551,6 +568,7 @@ mod tests {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
 
         // Generator references non-existent bus 999
@@ -563,7 +581,10 @@ mod tests {
         validate_network(&network, &mut diag, &ValidationConfig::default());
 
         assert!(diag.error_count() > 0);
-        assert!(diag.issues.iter().any(|i| i.message.contains("non-existent bus")));
+        assert!(diag
+            .issues
+            .iter()
+            .any(|i| i.message.contains("non-existent bus")));
     }
 
     #[test]
@@ -575,11 +596,13 @@ mod tests {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
         // No branch connecting them
 
@@ -598,6 +621,7 @@ mod tests {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
 
         // Generator with Pmax < Pmin
@@ -610,7 +634,10 @@ mod tests {
         validate_network(&network, &mut diag, &ValidationConfig::default());
 
         assert!(diag.error_count() > 0);
-        assert!(diag.issues.iter().any(|i| i.message.contains("Pmax") && i.message.contains("Pmin")));
+        assert!(diag
+            .issues
+            .iter()
+            .any(|i| i.message.contains("Pmax") && i.message.contains("Pmin")));
     }
 
     #[test]
@@ -621,13 +648,22 @@ mod tests {
             id: BusId::new(1),
             name: "Weird Bus".to_string(),
             voltage_kv: 0.05, // 50V - very unusual
+            voltage_pu: 1.0,
+            angle_rad: 0.0,
+            vmin_pu: Some(0.95),
+            vmax_pu: Some(1.05),
+            area_id: None,
+            zone_id: None,
         }));
 
         let mut diag = ImportDiagnostics::new();
         validate_network(&network, &mut diag, &ValidationConfig::default());
 
         assert!(diag.warning_count() > 0);
-        assert!(diag.issues.iter().any(|i| i.message.contains("Unusual voltage")));
+        assert!(diag
+            .issues
+            .iter()
+            .any(|i| i.message.contains("Unusual voltage")));
     }
 
     #[test]

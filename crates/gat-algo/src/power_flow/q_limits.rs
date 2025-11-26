@@ -6,9 +6,7 @@
 #[cfg(test)]
 mod tests {
     use crate::power_flow::ac_pf::{AcPowerFlowSolver, BusType};
-    use gat_core::{
-        Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node,
-    };
+    use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
     /// Create a simple 2-bus network where generator Q limit will be hit.
     ///
@@ -25,6 +23,7 @@ mod tests {
             id: BusId::new(1),
             name: "Slack".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
 
         // Bus 2: PV bus with limited Q capability
@@ -32,6 +31,7 @@ mod tests {
             id: BusId::new(2),
             name: "PV".to_string(),
             voltage_kv: 138.0,
+            ..Bus::default()
         }));
 
         // Generator at bus 1 (slack, large Q limits)
@@ -67,10 +67,12 @@ mod tests {
             "Line1".to_string(),
             BusId::new(1),
             BusId::new(2),
-            0.01,  // resistance
-            0.1,   // reactance
+            0.01, // resistance
+            0.1,  // reactance
         );
-        network.graph.add_edge(bus1_idx, bus2_idx, Edge::Branch(branch));
+        network
+            .graph
+            .add_edge(bus1_idx, bus2_idx, Edge::Branch(branch));
 
         network
     }
@@ -80,15 +82,22 @@ mod tests {
         let network = create_q_limit_test_network();
 
         // Solve power flow with Q-limit enforcement enabled
-        let solver = AcPowerFlowSolver::new()
-            .with_q_limit_enforcement(true);
+        let solver = AcPowerFlowSolver::new().with_q_limit_enforcement(true);
         let result = solver.solve(&network);
 
-        assert!(result.is_ok(), "Power flow should converge: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Power flow should converge: {:?}",
+            result.err()
+        );
         let solution = result.unwrap();
 
         // Gen2's Q should be at its limit (10 MVAR), not higher
-        let gen2_q = solution.generator_q_mvar.get(&GenId::new(2)).copied().unwrap_or(0.0);
+        let gen2_q = solution
+            .generator_q_mvar
+            .get(&GenId::new(2))
+            .copied()
+            .unwrap_or(0.0);
         assert!(
             gen2_q <= 10.0 + 0.1, // Allow small tolerance
             "Gen2 Q ({}) should be at or below limit (10 MVAR)",
@@ -98,7 +107,11 @@ mod tests {
         // Bus 2 voltage should have dropped below setpoint (can't hold it with limited Q)
         // In a real implementation, PV buses have a voltage setpoint (e.g., 1.05 pu).
         // When Q-limited, the bus becomes PQ and voltage is free to drop.
-        let bus2_vm = solution.bus_voltage_magnitude.get(&BusId::new(2)).copied().unwrap_or(1.0);
+        let bus2_vm = solution
+            .bus_voltage_magnitude
+            .get(&BusId::new(2))
+            .copied()
+            .unwrap_or(1.0);
         assert!(
             bus2_vm < 1.05,
             "Bus 2 voltage ({}) should drop below setpoint when Q-limited",
@@ -119,25 +132,29 @@ mod tests {
 
         // Without Q-limit enforcement, gen2 may produce more Q than its limit
         // (standard power flow doesn't enforce generator limits)
-        let gen2_q = solution.generator_q_mvar.get(&GenId::new(2)).copied().unwrap_or(0.0);
+        let gen2_q = solution
+            .generator_q_mvar
+            .get(&GenId::new(2))
+            .copied()
+            .unwrap_or(0.0);
         // The Q should be whatever is needed to maintain voltage, potentially above limit
         // This test just verifies the solver runs - actual Q may vary
-        assert!(
-            gen2_q.is_finite(),
-            "Gen2 Q should be computed"
-        );
+        assert!(gen2_q.is_finite(), "Gen2 Q should be computed");
     }
 
     #[test]
     fn test_q_clamped_at_limit() {
         let network = create_q_limit_test_network();
 
-        let solver = AcPowerFlowSolver::new()
-            .with_q_limit_enforcement(true);
+        let solver = AcPowerFlowSolver::new().with_q_limit_enforcement(true);
         let result = solver.solve(&network).unwrap();
 
         // Gen2's Q should be clamped to exactly Qmax when limited
-        let gen2_q = result.generator_q_mvar.get(&GenId::new(2)).copied().unwrap_or(0.0);
+        let gen2_q = result
+            .generator_q_mvar
+            .get(&GenId::new(2))
+            .copied()
+            .unwrap_or(0.0);
 
         // Should be clamped to exactly Qmax (within tolerance)
         assert!(
@@ -151,8 +168,7 @@ mod tests {
     fn test_pv_to_pq_switching() {
         let network = create_q_limit_test_network();
 
-        let solver = AcPowerFlowSolver::new()
-            .with_q_limit_enforcement(true);
+        let solver = AcPowerFlowSolver::new().with_q_limit_enforcement(true);
         let result = solver.solve(&network).unwrap();
 
         // Bus 2 should have switched from PV to PQ

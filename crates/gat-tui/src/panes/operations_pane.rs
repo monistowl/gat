@@ -1,617 +1,25 @@
-/// Operations Pane - Batch processing, allocation, and reliability analysis
-///
-/// The operations pane provides:
-/// - Batch job management
-/// - Allocation operations (rents, contributions)
-/// - Reliability metrics and analysis
-/// - Multi-tab interface for different operation types
-use crate::components::*;
-use crate::data::Workflow;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OperationType {
-    Batch,
-    Allocation,
-    Reliability,
-}
-
-impl OperationType {
-    pub fn label(&self) -> &'static str {
-        match self {
-            OperationType::Batch => "Batch",
-            OperationType::Allocation => "Allocation",
-            OperationType::Reliability => "Reliability",
-        }
-    }
-
-    pub fn index(&self) -> usize {
-        match self {
-            OperationType::Batch => 0,
-            OperationType::Allocation => 1,
-            OperationType::Reliability => 2,
-        }
-    }
-}
-
-/// Batch job entry
-#[derive(Clone, Debug)]
-pub struct BatchJob {
-    pub id: String,
-    pub name: String,
-    pub status: JobStatus,
-    pub progress: u32,
-    pub start_time: String,
-    pub est_completion: String,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum JobStatus {
-    Queued,
-    Running,
-    Completed,
-    Failed,
-}
-
-impl JobStatus {
-    pub fn symbol(&self) -> &'static str {
-        match self {
-            JobStatus::Queued => "⏳",
-            JobStatus::Running => "⟳",
-            JobStatus::Completed => "✓",
-            JobStatus::Failed => "✗",
-        }
-    }
-}
-
-/// Allocation result with comprehensive metrics
-#[derive(Clone, Debug)]
-pub struct AllocationResult {
-    pub node_id: String,
-    pub rents: f64,
-    pub contribution: f64,
-    pub allocation_factor: f64,
-    pub revenue_adequacy: f64, // Percentage of revenue needs met
-    pub cost_recovery: f64,    // Percentage of costs recovered
-    pub surplus_deficit: f64,  // Surplus/deficit in currency units
-}
-
-/// Reliability metric
-#[derive(Clone, Debug)]
-pub struct ReliabilityMetric {
-    pub metric_name: String,
-    pub value: f64,
-    pub unit: String,
-    pub status: MetricStatus,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MetricStatus {
-    Excellent,
-    Good,
-    Warning,
-    Critical,
-}
-
-impl MetricStatus {
-    pub fn symbol(&self) -> &'static str {
-        match self {
-            MetricStatus::Excellent => "✓",
-            MetricStatus::Good => "◐",
-            MetricStatus::Warning => "⚠",
-            MetricStatus::Critical => "✗",
-        }
-    }
-}
-
-/// Operations pane state
-#[derive(Clone, Debug)]
-pub struct OperationsPaneState {
-    // Tab selection
-    pub active_tab: OperationType,
-
-    // Batch operations
-    pub batch_jobs: Vec<BatchJob>,
-    pub selected_batch: usize,
-
-    // Allocation operations
-    pub allocation_results: Vec<AllocationResult>,
-    pub selected_allocation: usize,
-
-    // Reliability operations
-    pub reliability_metrics: Vec<ReliabilityMetric>,
-    pub selected_metric: usize,
-
-    // Workflow tracking (Phase 3)
-    pub recent_workflows: Vec<Workflow>,
-    pub selected_workflow: usize,
-
-    // Command execution (Phase 4)
-    pub command_input: String,
-    pub command_output: Vec<String>,
-    pub command_executing: bool,
-    pub command_validated: bool,
-    pub last_exit_code: Option<i32>,
-    pub last_duration_ms: Option<u64>,
-
-    // Component states
-    pub jobs_list: ListWidget,
-    pub allocation_list: ListWidget,
-    pub metrics_list: ListWidget,
-    pub config_input: InputWidget,
-    pub status_indicator: StatusWidget,
-
-    // UI state
-    pub run_in_progress: bool,
-    pub selected_config: String,
-}
-
-impl Default for OperationsPaneState {
-    fn default() -> Self {
-        let batch_jobs = vec![
-            BatchJob {
-                id: "job_001".into(),
-                name: "Daily Load Flow".into(),
-                status: JobStatus::Completed,
-                progress: 100,
-                start_time: "2024-11-21 08:00".into(),
-                est_completion: "2024-11-21 08:45".into(),
-            },
-            BatchJob {
-                id: "job_002".into(),
-                name: "Scenario Analysis".into(),
-                status: JobStatus::Running,
-                progress: 65,
-                start_time: "2024-11-21 14:00".into(),
-                est_completion: "2024-11-21 16:30".into(),
-            },
-        ];
-
-        let allocation_results = vec![
-            AllocationResult {
-                node_id: "NODE_A".into(),
-                rents: 1250.5,
-                contribution: 45.2,
-                allocation_factor: 0.85,
-                revenue_adequacy: 95.3,
-                cost_recovery: 98.2,
-                surplus_deficit: 152.40,
-            },
-            AllocationResult {
-                node_id: "NODE_B".into(),
-                rents: 890.3,
-                contribution: 32.1,
-                allocation_factor: 0.72,
-                revenue_adequacy: 87.6,
-                cost_recovery: 91.5,
-                surplus_deficit: 65.20,
-            },
-            AllocationResult {
-                node_id: "NODE_C".into(),
-                rents: 675.8,
-                contribution: 28.5,
-                allocation_factor: 0.68,
-                revenue_adequacy: 82.1,
-                cost_recovery: 85.3,
-                surplus_deficit: -45.30,
-            },
-        ];
-
-        let reliability_metrics = vec![
-            ReliabilityMetric {
-                metric_name: "Deliverability Score".into(),
-                value: 85.5,
-                unit: "%".into(),
-                status: MetricStatus::Good,
-            },
-            ReliabilityMetric {
-                metric_name: "LOLE".into(),
-                value: 9.2,
-                unit: "h/yr".into(),
-                status: MetricStatus::Warning,
-            },
-            ReliabilityMetric {
-                metric_name: "EUE".into(),
-                value: 15.3,
-                unit: "MWh/yr".into(),
-                status: MetricStatus::Good,
-            },
-        ];
-
-        let mut jobs_list = ListWidget::new("operations_jobs");
-        for job in &batch_jobs {
-            jobs_list.add_item(
-                format!("{} {} ({}%)", job.status.symbol(), job.name, job.progress),
-                job.id.clone(),
-            );
-        }
-
-        let mut allocation_list = ListWidget::new("operations_allocation");
-        for result in &allocation_results {
-            allocation_list.add_item(
-                format!("{}: ${:.2}", result.node_id, result.rents),
-                result.node_id.clone(),
-            );
-        }
-
-        let mut metrics_list = ListWidget::new("operations_metrics");
-        for metric in &reliability_metrics {
-            metrics_list.add_item(
-                format!("{} {:.1}{}", metric.metric_name, metric.value, metric.unit),
-                metric.metric_name.clone(),
-            );
-        }
-
-        OperationsPaneState {
-            active_tab: OperationType::Batch,
-            batch_jobs,
-            selected_batch: 0,
-            allocation_results,
-            selected_allocation: 0,
-            reliability_metrics,
-            selected_metric: 0,
-            recent_workflows: Vec::new(),
-            selected_workflow: 0,
-            command_input: String::new(),
-            command_output: Vec::new(),
-            command_executing: false,
-            command_validated: false,
-            last_exit_code: None,
-            last_duration_ms: None,
-            jobs_list,
-            allocation_list,
-            metrics_list,
-            config_input: InputWidget::new("operations_config")
-                .with_placeholder("Configuration options..."),
-            status_indicator: StatusWidget::new("operations_status"),
-            run_in_progress: false,
-            selected_config: String::new(),
-        }
-    }
-}
-
-impl OperationsPaneState {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn switch_tab(&mut self, tab: OperationType) {
-        self.active_tab = tab;
-    }
-
-    pub fn next_tab(&mut self) {
-        self.active_tab = match self.active_tab {
-            OperationType::Batch => OperationType::Allocation,
-            OperationType::Allocation => OperationType::Reliability,
-            OperationType::Reliability => OperationType::Batch,
-        };
-    }
-
-    pub fn prev_tab(&mut self) {
-        self.active_tab = match self.active_tab {
-            OperationType::Batch => OperationType::Reliability,
-            OperationType::Allocation => OperationType::Batch,
-            OperationType::Reliability => OperationType::Allocation,
-        };
-    }
-
-    pub fn select_next_job(&mut self) {
-        if self.selected_batch < self.batch_jobs.len().saturating_sub(1) {
-            self.selected_batch += 1;
-        }
-    }
-
-    pub fn select_prev_job(&mut self) {
-        if self.selected_batch > 0 {
-            self.selected_batch -= 1;
-        }
-    }
-
-    pub fn selected_job(&self) -> Option<&BatchJob> {
-        self.batch_jobs.get(self.selected_batch)
-    }
-
-    pub fn add_job(&mut self, job: BatchJob) {
-        self.batch_jobs.insert(0, job.clone());
-        self.jobs_list.add_item(
-            format!("{} {} ({}%)", job.status.symbol(), job.name, job.progress),
-            job.id,
-        );
-    }
-
-    pub fn start_operation(&mut self) {
-        self.run_in_progress = true;
-        self.status_indicator =
-            StatusWidget::new("operations_status").set_info("Running operation...");
-    }
-
-    pub fn complete_operation(&mut self, success: bool) {
-        self.run_in_progress = false;
-        if success {
-            self.status_indicator = StatusWidget::new("operations_status")
-                .set_success("Operation completed successfully");
-        } else {
-            self.status_indicator =
-                StatusWidget::new("operations_status").set_error("Operation failed");
-        }
-    }
-
-    pub fn job_count(&self) -> usize {
-        self.batch_jobs.len()
-    }
-
-    pub fn allocation_count(&self) -> usize {
-        self.allocation_results.len()
-    }
-
-    pub fn metric_count(&self) -> usize {
-        self.reliability_metrics.len()
-    }
-
-    pub fn total_rents(&self) -> f64 {
-        self.allocation_results.iter().map(|r| r.rents).sum()
-    }
-
-    // Enhanced allocation methods (Phase 5)
-
-    pub fn select_next_allocation(&mut self) {
-        if self.selected_allocation < self.allocation_results.len().saturating_sub(1) {
-            self.selected_allocation += 1;
-        }
-    }
-
-    pub fn select_prev_allocation(&mut self) {
-        if self.selected_allocation > 0 {
-            self.selected_allocation -= 1;
-        }
-    }
-
-    pub fn selected_allocation(&self) -> Option<&AllocationResult> {
-        self.allocation_results.get(self.selected_allocation)
-    }
-
-    pub fn get_allocation_details(&self) -> String {
-        if let Some(result) = self.selected_allocation() {
-            format!(
-                "Node: {}\nRents: ${:.2}\nContribution: ${:.2}\nAllocation Factor: {:.2}\nRevenue Adequacy: {:.1}%\nCost Recovery: {:.1}%\nSurplus/Deficit: ${:.2}",
-                result.node_id,
-                result.rents,
-                result.contribution,
-                result.allocation_factor,
-                result.revenue_adequacy,
-                result.cost_recovery,
-                result.surplus_deficit,
-            )
-        } else {
-            "No allocation results selected".into()
-        }
-    }
-
-    pub fn total_contributions(&self) -> f64 {
-        self.allocation_results.iter().map(|r| r.contribution).sum()
-    }
-
-    pub fn avg_allocation_factor(&self) -> f64 {
-        if self.allocation_results.is_empty() {
-            return 0.0;
-        }
-        let sum: f64 = self
-            .allocation_results
-            .iter()
-            .map(|r| r.allocation_factor)
-            .sum();
-        sum / self.allocation_results.len() as f64
-    }
-
-    pub fn avg_revenue_adequacy(&self) -> f64 {
-        if self.allocation_results.is_empty() {
-            return 0.0;
-        }
-        let sum: f64 = self
-            .allocation_results
-            .iter()
-            .map(|r| r.revenue_adequacy)
-            .sum();
-        sum / self.allocation_results.len() as f64
-    }
-
-    pub fn avg_cost_recovery(&self) -> f64 {
-        if self.allocation_results.is_empty() {
-            return 0.0;
-        }
-        let sum: f64 = self
-            .allocation_results
-            .iter()
-            .map(|r| r.cost_recovery)
-            .sum();
-        sum / self.allocation_results.len() as f64
-    }
-
-    pub fn total_surplus_deficit(&self) -> f64 {
-        self.allocation_results
-            .iter()
-            .map(|r| r.surplus_deficit)
-            .sum()
-    }
-
-    pub fn add_allocation(&mut self, result: AllocationResult) {
-        self.allocation_results.insert(0, result.clone());
-        self.allocation_list.add_item(
-            format!("{}: ${:.2}", result.node_id, result.rents),
-            result.node_id,
-        );
-    }
-
-    pub fn get_allocation_summary(&self) -> String {
-        format!(
-            "Total Rents: ${:.2}\nTotal Contributions: ${:.2}\nAvg Allocation Factor: {:.2}\nAvg Revenue Adequacy: {:.1}%\nAvg Cost Recovery: {:.1}%\nTotal Surplus/Deficit: ${:.2}",
-            self.total_rents(),
-            self.total_contributions(),
-            self.avg_allocation_factor(),
-            self.avg_revenue_adequacy(),
-            self.avg_cost_recovery(),
-            self.total_surplus_deficit(),
-        )
-    }
-
-    pub fn avg_deliverability(&self) -> f64 {
-        self.reliability_metrics
-            .iter()
-            .find(|m| m.metric_name == "Deliverability Score")
-            .map(|m| m.value)
-            .unwrap_or(0.0)
-    }
-
-    // Workflow tracking methods (Phase 3)
-
-    /// Add a workflow to recent workflows
-    pub fn add_workflow(&mut self, workflow: Workflow) {
-        self.recent_workflows.insert(0, workflow);
-        // Keep only last 20 workflows for display
-        if self.recent_workflows.len() > 20 {
-            self.recent_workflows.pop();
-        }
-        self.selected_workflow = 0;
-    }
-
-    /// Get currently selected workflow
-    pub fn selected_workflow(&self) -> Option<&Workflow> {
-        self.recent_workflows.get(self.selected_workflow)
-    }
-
-    /// Navigate to next workflow
-    pub fn select_next_workflow(&mut self) {
-        if self.selected_workflow < self.recent_workflows.len().saturating_sub(1) {
-            self.selected_workflow += 1;
-        }
-    }
-
-    /// Navigate to previous workflow
-    pub fn select_prev_workflow(&mut self) {
-        if self.selected_workflow > 0 {
-            self.selected_workflow -= 1;
-        }
-    }
-
-    /// Get workflow count
-    pub fn workflow_count(&self) -> usize {
-        self.recent_workflows.len()
-    }
-
-    /// Clear all workflows
-    pub fn clear_workflows(&mut self) {
-        self.recent_workflows.clear();
-        self.selected_workflow = 0;
-    }
-
-    // Command execution methods (Phase 4)
-
-    /// Set the command input text
-    pub fn set_command_input(&mut self, input: String) {
-        self.command_input = input;
-        self.command_validated = false;
-    }
-
-    /// Add a character to command input
-    pub fn add_command_char(&mut self, ch: char) {
-        self.command_input.push(ch);
-        self.command_validated = false;
-    }
-
-    /// Remove last character from command input
-    pub fn command_backspace(&mut self) {
-        self.command_input.pop();
-        self.command_validated = false;
-    }
-
-    /// Clear command input
-    pub fn clear_command_input(&mut self) {
-        self.command_input.clear();
-        self.command_validated = false;
-    }
-
-    /// Mark command as being validated
-    pub fn set_command_validated(&mut self, validated: bool) {
-        self.command_validated = validated;
-    }
-
-    /// Get the current command input
-    pub fn get_command_input(&self) -> &str {
-        &self.command_input
-    }
-
-    /// Start command execution
-    pub fn start_command_execution(&mut self) {
-        self.command_executing = true;
-        self.command_output.clear();
-        self.last_exit_code = None;
-        self.last_duration_ms = None;
-    }
-
-    /// Add output line from running command
-    pub fn add_command_output(&mut self, line: String) {
-        self.command_output.push(line);
-        // Limit output to 1000 lines to prevent memory issues
-        if self.command_output.len() > 1000 {
-            self.command_output.remove(0);
-        }
-    }
-
-    /// Complete command execution with result
-    pub fn complete_command_execution(&mut self, exit_code: i32, duration_ms: u64) {
-        self.command_executing = false;
-        self.last_exit_code = Some(exit_code);
-        self.last_duration_ms = Some(duration_ms);
-    }
-
-    /// Get all command output lines
-    pub fn get_command_output(&self) -> &[String] {
-        &self.command_output
-    }
-
-    /// Get command output as single string
-    pub fn get_command_output_text(&self) -> String {
-        self.command_output.join("\n")
-    }
-
-    /// Check if command is currently executing
-    pub fn is_command_executing(&self) -> bool {
-        self.command_executing
-    }
-
-    /// Get last exit code
-    pub fn get_last_exit_code(&self) -> Option<i32> {
-        self.last_exit_code
-    }
-
-    /// Get last command duration in milliseconds
-    pub fn get_last_duration_ms(&self) -> Option<u64> {
-        self.last_duration_ms
-    }
-
-    /// Clear command output
-    pub fn clear_command_output(&mut self) {
-        self.command_output.clear();
-    }
-
-    /// Get command execution status string
-    pub fn command_status(&self) -> &'static str {
-        if self.command_executing {
-            "Running..."
-        } else if let Some(code) = self.last_exit_code {
-            if code == 0 {
-                "Success"
-            } else {
-                "Failed"
-            }
-        } else {
-            "Ready"
-        }
-    }
-}
+//! Operations Pane - Batch processing, allocation, and reliability analysis
+//!
+//! This module re-exports from the refactored `operations_state` module which
+//! provides focused state machines for different operation types.
+//!
+//! The operations pane provides:
+//! - Batch job management (via `BatchState`)
+//! - Allocation operations with rents and contributions (via `AllocationState`)
+//! - Reliability metrics and analysis
+//! - Command execution (via `CommandState`)
+//! - Multi-tab interface for different operation types
+
+// Re-export everything from operations_state for backward compatibility
+pub use super::operations_state::{
+    AllocationResult, AllocationState, BatchJob, BatchState, CommandState, JobStatus, MetricStatus,
+    OperationType, OperationsPaneState, ReliabilityMetric,
+};
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::{Workflow, WorkflowStatus};
 
     #[test]
     fn test_operations_init() {
@@ -637,9 +45,9 @@ mod tests {
     fn test_job_selection() {
         let mut state = OperationsPaneState::new();
         state.select_next_job();
-        assert_eq!(state.selected_batch, 1);
+        assert_eq!(state.selected_batch(), 1);
         state.select_prev_job();
-        assert_eq!(state.selected_batch, 0);
+        assert_eq!(state.selected_batch(), 0);
     }
 
     #[test]
@@ -651,11 +59,11 @@ mod tests {
     #[test]
     fn test_operation_execution() {
         let mut state = OperationsPaneState::new();
-        assert!(!state.run_in_progress);
+        assert!(!state.run_in_progress());
         state.start_operation();
-        assert!(state.run_in_progress);
+        assert!(state.run_in_progress());
         state.complete_operation(true);
-        assert!(!state.run_in_progress);
+        assert!(!state.run_in_progress());
     }
 
     #[test]
@@ -666,24 +74,24 @@ mod tests {
         assert_eq!(state.avg_deliverability(), 85.5);
     }
 
-    // Enhanced allocation tests (Phase 5)
+    // Allocation tests
 
     #[test]
     fn test_allocation_selection() {
         let mut state = OperationsPaneState::new();
-        assert_eq!(state.selected_allocation, 0);
+        assert_eq!(state.selected_allocation_index(), 0);
 
         state.select_next_allocation();
-        assert_eq!(state.selected_allocation, 1);
+        assert_eq!(state.selected_allocation_index(), 1);
 
         state.select_next_allocation();
-        assert_eq!(state.selected_allocation, 2);
+        assert_eq!(state.selected_allocation_index(), 2);
 
         state.select_next_allocation();
-        assert_eq!(state.selected_allocation, 2); // Bounds check
+        assert_eq!(state.selected_allocation_index(), 2); // Bounds check
 
         state.select_prev_allocation();
-        assert_eq!(state.selected_allocation, 1);
+        assert_eq!(state.selected_allocation_index(), 1);
     }
 
     #[test]
@@ -795,7 +203,7 @@ mod tests {
         assert_eq!(OperationType::Allocation.label(), "Allocation");
     }
 
-    // Workflow tracking tests (Phase 3)
+    // Workflow tracking tests
 
     #[test]
     fn test_operations_workflows_init() {
@@ -806,8 +214,6 @@ mod tests {
 
     #[test]
     fn test_add_workflow() {
-        use crate::data::WorkflowStatus;
-
         let mut state = OperationsPaneState::new();
         let workflow = Workflow {
             id: "wf_001".to_string(),
@@ -817,15 +223,13 @@ mod tests {
             created_at: std::time::SystemTime::now(),
             completed_at: None,
         };
-        state.add_workflow(workflow.clone());
+        state.add_workflow(workflow);
         assert_eq!(state.workflow_count(), 1);
         assert_eq!(state.selected_workflow().unwrap().id, "wf_001");
     }
 
     #[test]
     fn test_workflow_navigation() {
-        use crate::data::WorkflowStatus;
-
         let mut state = OperationsPaneState::new();
         let wf1 = Workflow {
             id: "wf_001".to_string(),
@@ -856,8 +260,6 @@ mod tests {
 
     #[test]
     fn test_workflow_max_20() {
-        use crate::data::WorkflowStatus;
-
         let mut state = OperationsPaneState::new();
         // Add 25 workflows
         for i in 0..25 {
@@ -879,8 +281,6 @@ mod tests {
 
     #[test]
     fn test_clear_workflows() {
-        use crate::data::WorkflowStatus;
-
         let mut state = OperationsPaneState::new();
         let workflow = Workflow {
             id: "wf_001".to_string(),
@@ -896,7 +296,7 @@ mod tests {
         assert_eq!(state.workflow_count(), 0);
     }
 
-    // Command execution tests (Phase 4)
+    // Command execution tests
 
     #[test]
     fn test_command_input_management() {
@@ -938,13 +338,13 @@ mod tests {
     #[test]
     fn test_command_validation_flag() {
         let mut state = OperationsPaneState::new();
-        assert!(!state.command_validated);
+        assert!(!state.command_validated());
 
         state.set_command_validated(true);
-        assert!(state.command_validated);
+        assert!(state.command_validated());
 
         state.set_command_input("new command".to_string());
-        assert!(!state.command_validated);
+        assert!(!state.command_validated());
     }
 
     #[test]

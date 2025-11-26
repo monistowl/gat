@@ -34,6 +34,26 @@ impl GatCoreCliAdapter {
             .spawn()
             .map_err(|e| QueryError::ConnectionFailed(format!("Failed to execute CLI: {}", e)))?;
 
+        let deadline = std::time::Instant::now() + Duration::from_secs(self.timeout_secs);
+
+        // Poll process with a simple loop to enforce timeout without extra deps
+        let output = loop {
+            if let Some(status) = child.try_wait().map_err(|e| {
+                QueryError::ConnectionFailed(format!("Failed to wait for CLI: {}", e))
+            })? {
+                break status;
+            }
+            if std::time::Instant::now() >= deadline {
+                // Kill the child and surface timeout
+                let _ = child.kill();
+                return Err(QueryError::ConnectionFailed(format!(
+                    "CLI command timed out after {}s",
+                    self.timeout_secs
+                )));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        };
+
         let mut stdout = Vec::new();
         let mut stderr = Vec::new();
 
@@ -44,10 +64,6 @@ impl GatCoreCliAdapter {
         if let Some(mut err) = child.stderr.take() {
             let _ = err.read_to_end(&mut stderr);
         }
-
-        let output = child
-            .wait()
-            .map_err(|e| QueryError::ConnectionFailed(format!("Failed to wait for CLI: {}", e)))?;
 
         if !output.success() {
             let stderr_str = String::from_utf8_lossy(&stderr).to_string();
@@ -66,19 +82,44 @@ impl GatCoreCliAdapter {
 
     /// Execute a command and return raw output with exit code
     pub fn execute_command_raw(&self, args: &[&str]) -> Result<CommandOutput, QueryError> {
-        let output = Command::new(&self.cli_path)
+        let mut child = Command::new(&self.cli_path)
             .args(args)
-            .output()
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .map_err(|e| QueryError::ConnectionFailed(format!("Failed to execute CLI: {}", e)))?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let deadline = std::time::Instant::now() + Duration::from_secs(self.timeout_secs);
+        let status = loop {
+            if let Some(status) = child.try_wait().map_err(|e| {
+                QueryError::ConnectionFailed(format!("Failed to wait for CLI: {}", e))
+            })? {
+                break status;
+            }
+            if std::time::Instant::now() >= deadline {
+                let _ = child.kill();
+                return Err(QueryError::ConnectionFailed(format!(
+                    "CLI command timed out after {}s",
+                    self.timeout_secs
+                )));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        };
+
+        let mut stdout = String::new();
+        if let Some(mut out) = child.stdout.take() {
+            let _ = out.read_to_string(&mut stdout);
+        }
+        let mut stderr = String::new();
+        if let Some(mut err) = child.stderr.take() {
+            let _ = err.read_to_string(&mut stderr);
+        }
 
         Ok(CommandOutput {
             stdout,
             stderr,
-            exit_code: output.status.code().unwrap_or(-1),
-            success: output.status.success(),
+            exit_code: status.code().unwrap_or(-1),
+            success: status.success(),
         })
     }
 }

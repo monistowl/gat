@@ -40,7 +40,7 @@ fn create_benchmark_network(
             qmin_mvar: -1000.0,
             qmax_mvar: 1000.0,
             is_synchronous_condenser: false,
-        cost_model: CostModel::NoCost,
+            cost_model: CostModel::NoCost,
         }));
     }
 
@@ -87,8 +87,16 @@ fn test_nerc_lole_benchmark_range() {
     let metrics = mc.compute_reliability(&network).unwrap();
 
     // Core assertions: LOLE should be a valid number
-    assert!(metrics.lole >= 0.0, "LOLE should be non-negative, got {}", metrics.lole);
-    assert!(metrics.lole.is_finite(), "LOLE should be finite, got {}", metrics.lole);
+    assert!(
+        metrics.lole >= 0.0,
+        "LOLE should be non-negative, got {}",
+        metrics.lole
+    );
+    assert!(
+        metrics.lole.is_finite(),
+        "LOLE should be finite, got {}",
+        metrics.lole
+    );
 
     // Sanity check: LOLE shouldn't exceed hours in a year
     assert!(
@@ -109,8 +117,16 @@ fn test_nerc_lole_benchmark_range() {
     );
 
     // EUE should also be valid and reasonable
-    assert!(metrics.eue >= 0.0, "EUE should be non-negative, got {}", metrics.eue);
-    assert!(metrics.eue.is_finite(), "EUE should be finite, got {}", metrics.eue);
+    assert!(
+        metrics.eue >= 0.0,
+        "EUE should be non-negative, got {}",
+        metrics.eue
+    );
+    assert!(
+        metrics.eue.is_finite(),
+        "EUE should be finite, got {}",
+        metrics.eue
+    );
 
     // Scenarios should have been analyzed
     assert_eq!(metrics.scenarios_analyzed, 1000);

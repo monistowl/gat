@@ -7,7 +7,7 @@
 /// - Quick action shortcuts
 /// - Resource usage metrics
 use crate::components::*;
-use crate::ui::{GridInfo, GridStatus};
+use crate::ui::GridInfo;
 
 /// Dashboard pane state
 #[derive(Clone, Debug)]

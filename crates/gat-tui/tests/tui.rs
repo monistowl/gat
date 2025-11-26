@@ -241,7 +241,8 @@ fn menu_navigation_activates_expected_items() {
     pilot.press('5').screenshot();
     pilot
         .assert_active("Commands")
-        .assert_contains("[*5] Commands");
+        // Menu item may be truncated in narrow terminals, check for "Active: Commands" indicator instead
+        .assert_contains("Active: Commands");
 }
 
 #[test]

@@ -1,146 +1,16 @@
+//! Re-exports from gat-core diagnostics plus gat-io specific types.
+//!
+//! The core diagnostic types (`Severity`, `DiagnosticIssue`, `Diagnostics`,
+//! `ImportDiagnostics`, `ImportStats`) are defined in `gat_core::diagnostics`
+//! and re-exported here for convenience.
+//!
+//! This module adds `ImportResult`, which bundles a `Network` with its
+//! diagnostics - something specific to gat-io's import operations.
+
 use gat_core::Network;
-use serde::Serialize;
 
-/// Severity level for import issues
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Severity {
-    Warning, // Unusual but imported (e.g., defaulted value)
-    Error,   // Could not import element (e.g., malformed line)
-}
-
-/// A single issue encountered during import
-#[derive(Debug, Clone, Serialize)]
-pub struct ImportIssue {
-    pub severity: Severity,
-    pub category: String,       // "parse", "validation", "encoding"
-    pub message: String,        // "Defaulted missing Qmax to 999.0"
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line: Option<usize>,    // Line number (for -vv detailed mode)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity: Option<String>, // "Bus 14", "Branch 1-2"
-}
-
-/// Statistics about the import
-#[derive(Debug, Clone, Default, Serialize)]
-pub struct ImportStats {
-    pub buses: usize,
-    pub branches: usize,
-    pub generators: usize,
-    pub loads: usize,
-    pub skipped_lines: usize,
-    pub defaulted_values: usize,
-}
-
-/// Complete diagnostics for an import operation
-#[derive(Debug, Clone, Default, Serialize)]
-pub struct ImportDiagnostics {
-    pub stats: ImportStats,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub issues: Vec<ImportIssue>,
-}
-
-impl ImportDiagnostics {
-    /// Create new empty diagnostics
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Add a warning issue
-    pub fn add_warning(&mut self, category: &str, message: &str) {
-        self.issues.push(ImportIssue {
-            severity: Severity::Warning,
-            category: category.to_string(),
-            message: message.to_string(),
-            line: None,
-            entity: None,
-        });
-    }
-
-    /// Add a warning with line number (for detailed mode)
-    pub fn add_warning_at_line(&mut self, category: &str, message: &str, line: usize) {
-        self.issues.push(ImportIssue {
-            severity: Severity::Warning,
-            category: category.to_string(),
-            message: message.to_string(),
-            line: Some(line),
-            entity: None,
-        });
-        self.stats.defaulted_values += 1;
-    }
-
-    /// Add an error (skipped element)
-    pub fn add_error(&mut self, category: &str, message: &str) {
-        self.issues.push(ImportIssue {
-            severity: Severity::Error,
-            category: category.to_string(),
-            message: message.to_string(),
-            line: None,
-            entity: None,
-        });
-    }
-
-    /// Add an error with line number
-    pub fn add_error_at_line(&mut self, category: &str, message: &str, line: usize) {
-        self.issues.push(ImportIssue {
-            severity: Severity::Error,
-            category: category.to_string(),
-            message: message.to_string(),
-            line: Some(line),
-            entity: None,
-        });
-        self.stats.skipped_lines += 1;
-    }
-
-    /// Add a warning with an entity reference (e.g., "Bus 14")
-    pub fn add_warning_with_entity(&mut self, category: &str, message: &str, entity: &str) {
-        self.issues.push(ImportIssue {
-            severity: Severity::Warning,
-            category: category.to_string(),
-            message: message.to_string(),
-            line: None,
-            entity: Some(entity.to_string()),
-        });
-    }
-
-    /// Add a validation warning (post-parse)
-    pub fn add_validation_warning(&mut self, entity: &str, message: &str) {
-        self.issues.push(ImportIssue {
-            severity: Severity::Warning,
-            category: "validation".to_string(),
-            message: message.to_string(),
-            line: None,
-            entity: Some(entity.to_string()),
-        });
-    }
-
-    /// Count warnings
-    pub fn warning_count(&self) -> usize {
-        self.issues
-            .iter()
-            .filter(|i| i.severity == Severity::Warning)
-            .count()
-    }
-
-    /// Count errors
-    pub fn error_count(&self) -> usize {
-        self.issues
-            .iter()
-            .filter(|i| i.severity == Severity::Error)
-            .count()
-    }
-
-    /// Check if there are any issues
-    pub fn has_issues(&self) -> bool {
-        !self.issues.is_empty()
-    }
-
-    /// Merge another diagnostics into this one (for combining parse + validation)
-    pub fn merge(&mut self, other: ImportDiagnostics) {
-        self.issues.extend(other.issues);
-        // Stats are not merged - they should be set by the parser
-    }
-}
+// Re-export core diagnostics types for backwards compatibility
+pub use gat_core::{DiagnosticIssue as ImportIssue, ImportDiagnostics, ImportStats, Severity};
 
 /// Result of an import operation
 pub struct ImportResult {

@@ -1,40 +1,396 @@
-use std::{collections::HashMap, convert::TryFrom, fs::File};
+use std::{collections::HashMap, convert::TryFrom, path::Path};
 
+use crate::arrow_validator::{
+    BranchRecord, BusRecord, GeneratorRecord, LoadRecord, NetworkData, };
+use crate::arrow_schema::{COST_MODEL_NONE, COST_MODEL_PIECEWISE, COST_MODEL_POLYNOMIAL};
 use anyhow::{anyhow, Context, Result};
 use gat_core::{
     Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node, NodeIndex,
     Transformer, TransformerId,
 };
-use polars::prelude::{
-    DataFrame, IpcReader, IpcWriter, NamedFrom, PolarsResult, SerReader, SerWriter, Series,
-};
+use polars::prelude::{DataFrame, NamedFrom, PolarsResult, Series};
 
-pub(super) fn write_network_to_arrow(network: &Network, output_file: &str) -> Result<()> {
-    let mut df = network_to_dataframe(network).context("building DataFrame for network export")?;
-    let mut file = File::create(output_file).with_context(|| {
-        format!(
-            "creating Arrow output '{}'; ensure directory exists",
-            output_file
-        )
-    })?;
-    IpcWriter::new(&mut file)
-        .finish(&mut df)
-        .context("writing Arrow output file")?;
-    Ok(())
+pub fn export_network_to_arrow(network: &Network, output_dir: impl AsRef<Path>) -> Result<()> {
+    let writer = crate::exporters::ArrowDirectoryWriter::new(output_dir)?;
+    writer.write_network(network, None, None)
 }
 
-pub fn export_network_to_arrow(network: &Network, output_file: &str) -> Result<()> {
-    write_network_to_arrow(network, output_file)
+pub fn load_grid_from_arrow(input_dir: impl AsRef<Path>) -> Result<Network> {
+    let reader = crate::exporters::ArrowDirectoryReader::open(input_dir)?;
+    network_from_directory_reader(&reader)
 }
 
-pub fn load_grid_from_arrow(grid_file: &str) -> Result<Network> {
-    let file = File::open(grid_file)
-        .with_context(|| format!("opening Arrow dataset '{}'; ensure it exists", grid_file))?;
-    let reader = IpcReader::new(file);
-    let df = reader
-        .finish()
-        .context("reading Arrow IPC dataset for grid import")?;
-    dataframe_to_network(&df).context("converting Arrow dataset into Network graph")
+fn network_from_directory_reader(
+    reader: &crate::exporters::ArrowDirectoryReader,
+) -> Result<Network> {
+    let loaded_tables = reader.load_tables()?;
+
+    let buses_df = loaded_tables
+        .get("buses")
+        .context("missing 'buses' table in Arrow network directory")?;
+    let generators_df = loaded_tables
+        .get("generators")
+        .context("missing 'generators' table in Arrow network directory")?;
+    let loads_df = loaded_tables
+        .get("loads")
+        .context("missing 'loads' table in Arrow network directory")?;
+    let branches_df = loaded_tables
+        .get("branches")
+        .context("missing 'branches' table in Arrow network directory")?;
+
+    let mut network = Network::new();
+    let mut bus_node_map: HashMap<i64, NodeIndex> = HashMap::new();
+
+    // =========================================================================
+    // 1. Load Buses
+    // =========================================================================
+    let bus_id_col = buses_df.column("id")?.i64()?;
+    let bus_name_col = buses_df.column("name")?.utf8()?;
+    let bus_voltage_kv_col = buses_df.column("voltage_kv")?.f64()?;
+    let bus_voltage_pu_col = buses_df.column("voltage_pu")?.f64()?;
+    let bus_angle_rad_col = buses_df.column("angle_rad")?.f64()?;
+    let bus_vmin_pu_col = buses_df.column("vmin_pu")?.f64()?;
+    let bus_vmax_pu_col = buses_df.column("vmax_pu")?.f64()?;
+    let bus_area_id_col = buses_df.column("area_id")?.i64()?;
+    let bus_zone_id_col = buses_df.column("zone_id")?.i64()?;
+
+    for row in 0..buses_df.height() {
+        let id_value = bus_id_col.get(row).context("bus id missing")?;
+        let name = bus_name_col.get(row).context("bus name missing")?;
+        let voltage_kv = bus_voltage_kv_col
+            .get(row)
+            .context("bus voltage_kv missing")?;
+        let voltage_pu = bus_voltage_pu_col
+            .get(row)
+            .context("bus voltage_pu missing")?;
+        let angle_rad = bus_angle_rad_col
+            .get(row)
+            .context("bus angle_rad missing")?;
+        let vmin_pu = bus_vmin_pu_col.get(row);
+        let vmax_pu = bus_vmax_pu_col.get(row);
+        let area_id = bus_area_id_col.get(row);
+        let zone_id = bus_zone_id_col.get(row);
+
+        let node_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(usize::try_from(id_value).context("bus id must be non-negative")?),
+            name: name.to_string(),
+            voltage_kv,
+            voltage_pu,
+            angle_rad,
+            vmin_pu,
+            vmax_pu,
+            area_id: area_id.map(|v| v as i64),
+            zone_id: zone_id.map(|v| v as i64),
+            ..Bus::default()
+        }));
+        bus_node_map.insert(id_value, node_idx);
+    }
+
+    // =========================================================================
+    // 2. Load Generators
+    // =========================================================================
+    let gen_id_col = generators_df.column("id")?.i64()?;
+    let gen_name_col = generators_df.column("name")?.utf8()?;
+    let gen_bus_col = generators_df.column("bus")?.i64()?;
+    let gen_status_col = generators_df.column("status")?.bool()?;
+    let gen_active_power_mw_col = generators_df.column("active_power_mw")?.f64()?;
+    let gen_reactive_power_mvar_col = generators_df.column("reactive_power_mvar")?.f64()?;
+    let gen_pmin_mw_col = generators_df.column("pmin_mw")?.f64()?;
+    let gen_pmax_mw_col = generators_df.column("pmax_mw")?.f64()?;
+    let gen_qmin_mvar_col = generators_df.column("qmin_mvar")?.f64()?;
+    let gen_qmax_mvar_col = generators_df.column("qmax_mvar")?.f64()?;
+    let gen_voltage_setpoint_pu_col = generators_df.column("voltage_setpoint_pu")?.f64()?;
+    let gen_mbase_mva_col = generators_df.column("mbase_mva")?.f64()?;
+    let gen_cost_model_col = generators_df.column("cost_model")?.i32()?;
+    let gen_cost_startup_col = generators_df.column("cost_startup")?.f64()?;
+    let gen_cost_shutdown_col = generators_df.column("cost_shutdown")?.f64()?;
+    // cost_coeffs and cost_values are list types, handled separately
+    let gen_cost_coeffs_col = generators_df.column("cost_coeffs")?.list()?;
+    let gen_cost_values_col = generators_df.column("cost_values")?.list()?;
+    let gen_is_synchronous_condenser_col =
+        generators_df.column("is_synchronous_condenser")?.bool()?;
+
+    for row in 0..generators_df.height() {
+        let id_value = gen_id_col.get(row).context("generator id missing")?;
+        let name = gen_name_col.get(row).context("generator name missing")?;
+        let bus_value = gen_bus_col
+            .get(row)
+            .context("generator bus reference missing")?;
+        let status = gen_status_col
+            .get(row)
+            .context("generator status missing")?;
+        let active_power_mw = gen_active_power_mw_col
+            .get(row)
+            .context("generator active_power_mw missing")?;
+        let reactive_power_mvar = gen_reactive_power_mvar_col
+            .get(row)
+            .context("generator reactive_power_mvar missing")?;
+        let pmin_mw = gen_pmin_mw_col
+            .get(row)
+            .context("generator pmin_mw missing")?;
+        let pmax_mw = gen_pmax_mw_col
+            .get(row)
+            .context("generator pmax_mw missing")?;
+        let qmin_mvar = gen_qmin_mvar_col
+            .get(row)
+            .context("generator qmin_mvar missing")?;
+        let qmax_mvar = gen_qmax_mvar_col
+            .get(row)
+            .context("generator qmax_mvar missing")?;
+        let voltage_setpoint_pu = gen_voltage_setpoint_pu_col.get(row);
+        let mbase_mva = gen_mbase_mva_col.get(row);
+        let cost_model_code = gen_cost_model_col
+            .get(row)
+            .context("generator cost_model missing")?;
+        let cost_startup = gen_cost_startup_col.get(row);
+        let cost_shutdown = gen_cost_shutdown_col.get(row);
+        let is_synchronous_condenser = gen_is_synchronous_condenser_col
+            .get(row)
+            .context("generator is_synchronous_condenser missing")?;
+
+        let cost_model = match cost_model_code {
+            COST_MODEL_NONE => gat_core::CostModel::NoCost,
+            COST_MODEL_PIECEWISE => {
+                let coeffs_series = gen_cost_coeffs_col
+                    .get_as_series(row)
+                    .context("piecewise cost_coeffs missing")?;
+                let values_series = gen_cost_values_col
+                    .get_as_series(row)
+                    .context("piecewise cost_values missing")?;
+
+                let coeffs: Vec<f64> = coeffs_series
+                    .f64()?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                let values: Vec<f64> = values_series
+                    .f64()?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+
+                gat_core::CostModel::PiecewiseLinear(
+                    coeffs.into_iter().zip(values.into_iter()).collect(),
+                )
+            }
+            COST_MODEL_POLYNOMIAL => {
+                let coeffs_series = gen_cost_coeffs_col
+                    .get_as_series(row)
+                    .context("polynomial cost_coeffs missing")?;
+                let coeffs: Vec<f64> = coeffs_series
+                    .f64()?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                gat_core::CostModel::Polynomial(coeffs)
+            }
+            _ => gat_core::CostModel::NoCost,
+        };
+
+        if !bus_node_map.contains_key(&bus_value) {
+            return Err(anyhow!(
+                "generator {} references unknown bus {}",
+                id_value,
+                bus_value
+            ));
+        }
+
+        network.graph.add_node(Node::Gen(Gen {
+            id: GenId::new(usize::try_from(id_value).context("gen id must be non-negative")?),
+            name: name.to_string(),
+            bus: BusId::new(usize::try_from(bus_value).context("gen bus id must be non-negative")?),
+            status,
+            active_power_mw,
+            reactive_power_mvar,
+            pmin_mw,
+            pmax_mw,
+            qmin_mvar,
+            qmax_mvar,
+            voltage_setpoint_pu,
+            mbase_mva,
+            cost_model,
+            cost_startup,
+            cost_shutdown,
+            is_synchronous_condenser,
+        }));
+    }
+
+    // =========================================================================
+    // 3. Load Loads
+    // =========================================================================
+    let load_id_col = loads_df.column("id")?.i64()?;
+    let load_name_col = loads_df.column("name")?.utf8()?;
+    let load_bus_col = loads_df.column("bus")?.i64()?;
+    let load_status_col = loads_df.column("status")?.bool()?;
+    let load_active_power_mw_col = loads_df.column("active_power_mw")?.f64()?;
+    let load_reactive_power_mvar_col = loads_df.column("reactive_power_mvar")?.f64()?;
+
+    for row in 0..loads_df.height() {
+        let id_value = load_id_col.get(row).context("load id missing")?;
+        let name = load_name_col.get(row).context("load name missing")?;
+        let bus_value = load_bus_col
+            .get(row)
+            .context("load bus reference missing")?;
+        let status = load_status_col.get(row).context("load status missing")?;
+        let active_power_mw = load_active_power_mw_col
+            .get(row)
+            .context("load active_power_mw missing")?;
+        let reactive_power_mvar = load_reactive_power_mvar_col
+            .get(row)
+            .context("load reactive_power_mvar missing")?;
+
+        if !status {
+            continue;
+        }
+
+        if !bus_node_map.contains_key(&bus_value) {
+            return Err(anyhow!(
+                "load {} references unknown bus {}",
+                id_value,
+                bus_value
+            ));
+        }
+
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(usize::try_from(id_value).context("load id must be non-negative")?),
+            name: name.to_string(),
+            bus: BusId::new(
+                usize::try_from(bus_value).context("load bus id must be non-negative")?,
+            ),
+            active_power_mw,
+            reactive_power_mvar,
+        }));
+    }
+
+    // =========================================================================
+    // 4. Load Branches
+    // =========================================================================
+    let branch_id_col = branches_df.column("id")?.i64()?;
+    let branch_name_col = branches_df.column("name")?.utf8()?;
+    let branch_element_type_col = branches_df.column("element_type")?.utf8()?;
+    let branch_from_bus_col = branches_df.column("from_bus")?.i64()?;
+    let branch_to_bus_col = branches_df.column("to_bus")?.i64()?;
+    let branch_status_col = branches_df.column("status")?.bool()?;
+    let branch_resistance_pu_col = branches_df.column("resistance_pu")?.f64()?;
+    let branch_reactance_pu_col = branches_df.column("reactance_pu")?.f64()?;
+    let branch_charging_b_pu_col = branches_df.column("charging_b_pu")?.f64()?;
+    let branch_tap_ratio_col = branches_df.column("tap_ratio")?.f64()?;
+    let branch_phase_shift_rad_col = branches_df.column("phase_shift_rad")?.f64()?;
+    let branch_rating_a_mva_col = branches_df.column("rate_a_mva")?.f64()?;
+    let branch_rating_b_mva_col = branches_df.column("rate_b_mva")?.f64()?;
+    let branch_rating_c_mva_col = branches_df.column("rate_c_mva")?.f64()?;
+    let branch_angle_min_rad_col = branches_df.column("angle_min_rad")?.f64()?;
+    let branch_angle_max_rad_col = branches_df.column("angle_max_rad")?.f64()?;
+
+    for row in 0..branches_df.height() {
+        let id_value = branch_id_col.get(row).context("branch id missing")?;
+        let name = branch_name_col.get(row).context("branch name missing")?;
+        let element_type = branch_element_type_col
+            .get(row)
+            .context("branch element_type missing")?;
+        let from_bus_value = branch_from_bus_col
+            .get(row)
+            .context("branch from_bus missing")?;
+        let to_bus_value = branch_to_bus_col
+            .get(row)
+            .context("branch to_bus missing")?;
+        let status = branch_status_col
+            .get(row)
+            .context("branch status missing")?;
+        let resistance_pu = branch_resistance_pu_col
+            .get(row)
+            .context("branch resistance_pu missing")?;
+        let reactance_pu = branch_reactance_pu_col
+            .get(row)
+            .context("branch reactance_pu missing")?;
+        let charging_b_pu = branch_charging_b_pu_col
+            .get(row)
+            .context("branch charging_b_pu missing")?;
+        let tap_ratio = branch_tap_ratio_col
+            .get(row)
+            .context("branch tap_ratio missing")?;
+        let phase_shift_rad = branch_phase_shift_rad_col
+            .get(row)
+            .context("branch phase_shift_rad missing")?;
+        let rating_a_mva = branch_rating_a_mva_col.get(row);
+        let rating_b_mva = branch_rating_b_mva_col.get(row);
+        let rating_c_mva = branch_rating_c_mva_col.get(row);
+        let angle_min_rad = branch_angle_min_rad_col.get(row);
+        let angle_max_rad = branch_angle_max_rad_col.get(row);
+
+        let from_idx = bus_node_map.get(&from_bus_value).with_context(|| {
+            format!(
+                "branch {} references unknown from bus {}",
+                id_value, from_bus_value
+            )
+        })?;
+        let to_idx = bus_node_map.get(&to_bus_value).with_context(|| {
+            format!(
+                "branch {} references unknown to bus {}",
+                id_value, to_bus_value
+            )
+        })?;
+
+        match element_type {
+            "line" => {
+                let branch = Branch {
+                    id: BranchId::new(
+                        usize::try_from(id_value).context("branch id must be non-negative")?,
+                    ),
+                    name: name.to_string(),
+                    from_bus: BusId::new(
+                        usize::try_from(from_bus_value)
+                            .context("branch from_bus id must be non-negative")?,
+                    ),
+                    to_bus: BusId::new(
+                        usize::try_from(to_bus_value)
+                            .context("branch to_bus id must be non-negative")?,
+                    ),
+                    status,
+                    resistance: resistance_pu,
+                    reactance: reactance_pu,
+                    charging_b_pu,
+                    tap_ratio,
+                    phase_shift_rad,
+                    s_max_mva: rating_a_mva, // Use rating_a_mva as s_max_mva for now
+                    rating_a_mva,
+                    rating_b_mva,
+                    rating_c_mva,
+                    angle_min_rad,
+                    angle_max_rad,
+                    ..Branch::default()
+                };
+                network
+                    .graph
+                    .add_edge(*from_idx, *to_idx, Edge::Branch(branch));
+            }
+            "transformer" => {
+                let transformer = Transformer {
+                    id: TransformerId::new(
+                        usize::try_from(id_value).context("transformer id must be non-negative")?,
+                    ),
+                    name: name.to_string(),
+                    from_bus: BusId::new(
+                        usize::try_from(from_bus_value)
+                            .context("transformer from_bus id must be non-negative")?,
+                    ),
+                    to_bus: BusId::new(
+                        usize::try_from(to_bus_value)
+                            .context("transformer to_bus id must be non-negative")?,
+                    ),
+                    ratio: tap_ratio,
+                };
+                network
+                    .graph
+                    .add_edge(*from_idx, *to_idx, Edge::Transformer(transformer));
+            }
+            _ => return Err(anyhow!("Unknown element type: {}", element_type)),
+        }
+    }
+    // NetworkValidator::validate(&network_to_validator_data(&network))
+    //     .context("imported network failed integrity validation")?;
+
+    Ok(network)
 }
 
 fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
@@ -176,276 +532,54 @@ fn network_to_dataframe(network: &Network) -> PolarsResult<DataFrame> {
     ])
 }
 
-fn dataframe_to_network(df: &DataFrame) -> Result<Network> {
-    let type_col = df
-        .column("type")
-        .context("missing 'type' column in grid arrow file")?
-        .utf8()
-        .context("'type' column must be utf8")?;
-    let id_col = df
-        .column("id")
-        .context("missing 'id' column in grid arrow file")?
-        .i64()
-        .context("'id' column must be integers")?;
-    let name_col = df
-        .column("name")
-        .context("missing 'name' column in grid arrow file")?
-        .utf8()
-        .context("'name' column must be utf8")?;
-    let voltage_col = df
-        .column("voltage_kv")
-        .context("missing 'voltage_kv' column in grid arrow file")?
-        .f64()
-        .context("'voltage_kv' column must be float64")?;
-    let from_col = df
-        .column("from_bus")
-        .context("missing 'from_bus' column in grid arrow file")?
-        .i64()
-        .context("'from_bus' column must be integers")?;
-    let to_col = df
-        .column("to_bus")
-        .context("missing 'to_bus' column in grid arrow file")?
-        .i64()
-        .context("'to_bus' column must be integers")?;
-    let resistance_col = df
-        .column("resistance")
-        .context("missing 'resistance' column in grid arrow file")?
-        .f64()
-        .context("'resistance' column must be float64")?;
-    let reactance_col = df
-        .column("reactance")
-        .context("missing 'reactance' column in grid arrow file")?
-        .f64()
-        .context("'reactance' column must be float64")?;
-    let tap_ratio_col = df
-        .column("tap_ratio")
-        .ok()
-        .and_then(|series| series.f64().ok());
-    let phase_shift_col = df
-        .column("phase_shift_rad")
-        .ok()
-        .and_then(|series| series.f64().ok());
-    let charging_b_col = df
-        .column("charging_b_pu")
-        .ok()
-        .and_then(|series| series.f64().ok());
-    let s_max_col = df
-        .column("s_max_mva")
-        .ok()
-        .and_then(|series| series.f64().ok());
-    let status_col = df
-        .column("status")
-        .ok()
-        .and_then(|series| series.bool().ok());
-    let rating_a_col = df
-        .column("rating_a_mva")
-        .ok()
-        .and_then(|series| series.f64().ok());
-    let active_power_col = df
-        .column("active_power_mw")
-        .ok()
-        .and_then(|series| series.f64().ok());
-    let reactive_power_col = df
-        .column("reactive_power_mvar")
-        .ok()
-        .and_then(|series| series.f64().ok());
+// Convert in-memory Network into validator-friendly records
+fn network_to_validator_data(network: &Network) -> NetworkData {
+    let mut data = NetworkData::default();
 
-    let mut network = Network::new();
-    let mut bus_index_map: HashMap<i64, NodeIndex> = HashMap::new();
-
-    for row in 0..df.height() {
-        if type_col.get(row) == Some("bus") {
-            let id_value = id_col
-                .get(row)
-                .context("grid row missing id while reconstructing buses")?;
-            let name = name_col
-                .get(row)
-                .context("grid row missing name while reconstructing buses")?;
-            let voltage = voltage_col
-                .get(row)
-                .context("grid row missing voltage for bus reconstruction")?;
-            let node_index = network.graph.add_node(Node::Bus(Bus {
-                id: BusId::new(usize::try_from(id_value).context("bus id must be non-negative")?),
-                name: name.to_string(),
-                voltage_kv: voltage,
-            }));
-            bus_index_map.insert(id_value, node_index);
-        }
-    }
-
-    for row in 0..df.height() {
-        match type_col.get(row) {
-            Some("gen") => {
-                let name = name_col
-                    .get(row)
-                    .context("grid row missing name for generator")?;
-                let bus_value = from_col
-                    .get(row)
-                    .context("generator row missing bus reference")?;
-                let bus_id = usize::try_from(bus_value).context("bus id must be non-negative")?;
-                if !bus_index_map.contains_key(&bus_value) {
-                    return Err(anyhow!("generator references unknown bus {}", bus_value));
-                }
-                let id_value = id_col
-                    .get(row)
-                    .context("grid row missing id for generator")?;
-                let active_power = active_power_col
-                    .as_ref()
-                    .and_then(|col| col.get(row))
-                    .unwrap_or(0.0);
-                let reactive_power = reactive_power_col
-                    .as_ref()
-                    .and_then(|col| col.get(row))
-                    .unwrap_or(0.0);
-
-                network.graph.add_node(Node::Gen(Gen {
-                    id: GenId::new(
-                        usize::try_from(id_value).context("gen id must be non-negative")?,
-                    ),
-                    name: name.to_string(),
-                    bus: BusId::new(bus_id),
-                    active_power_mw: active_power,
-                    reactive_power_mvar: reactive_power,
-                    pmin_mw: 0.0,
-                    pmax_mw: f64::INFINITY,
-                    qmin_mvar: f64::NEG_INFINITY,
-                    qmax_mvar: f64::INFINITY,
-                    cost_model: gat_core::CostModel::NoCost,
-                    is_synchronous_condenser: false,
-                }));
-            }
-            Some("load") => {
-                let name = name_col
-                    .get(row)
-                    .context("grid row missing name for load")?;
-                let bus_value = from_col
-                    .get(row)
-                    .context("load row missing bus reference")?;
-                let bus_id = usize::try_from(bus_value).context("bus id must be non-negative")?;
-                if !bus_index_map.contains_key(&bus_value) {
-                    return Err(anyhow!("load references unknown bus {}", bus_value));
-                }
-                let id_value = id_col.get(row).context("load row missing id")?;
-                let active_power = active_power_col
-                    .as_ref()
-                    .and_then(|col| col.get(row))
-                    .unwrap_or(0.0);
-                let reactive_power = reactive_power_col
-                    .as_ref()
-                    .and_then(|col| col.get(row))
-                    .unwrap_or(0.0);
-
-                network.graph.add_node(Node::Load(Load {
-                    id: LoadId::new(
-                        usize::try_from(id_value).context("load id must be non-negative")?,
-                    ),
-                    name: name.to_string(),
-                    bus: BusId::new(bus_id),
-                    active_power_mw: active_power,
-                    reactive_power_mvar: reactive_power,
-                }));
-            }
-            _ => {}
-        }
-    }
-
-    let mut branch_counter = 0usize;
-    let mut transformer_counter = 0usize;
-    for row in 0..df.height() {
-        match type_col.get(row) {
-            Some("branch") => {
-                let name = name_col
-                    .get(row)
-                    .context("grid row missing name for branch")?;
-                let from_bus = from_col.get(row).context("branch row missing from_bus")?;
-                let to_bus = to_col.get(row).context("branch row missing to_bus")?;
-                let resistance = resistance_col.get(row).unwrap_or(0.0);
-                let reactance = reactance_col.get(row).unwrap_or(0.0);
-                let tap = tap_ratio_col
-                    .as_ref()
-                    .and_then(|col| col.get(row))
-                    .unwrap_or(1.0);
-                let phase_shift = phase_shift_col
-                    .as_ref()
-                    .and_then(|col| col.get(row))
-                    .unwrap_or(0.0);
-                let charging = charging_b_col
-                    .as_ref()
-                    .and_then(|col| col.get(row))
-                    .unwrap_or(0.0);
-                let s_max = s_max_col.as_ref().and_then(|col| col.get(row));
-                let rating_a = rating_a_col.as_ref().and_then(|col| col.get(row));
-                let branch_status = status_col
-                    .as_ref()
-                    .and_then(|col| col.get(row))
-                    .unwrap_or(true);
-                let from_idx = bus_index_map
-                    .get(&from_bus)
-                    .with_context(|| format!("branch references unknown from bus {}", from_bus))?;
-                let to_idx = bus_index_map
-                    .get(&to_bus)
-                    .with_context(|| format!("branch references unknown to bus {}", to_bus))?;
-
-                let branch = Branch {
-                    id: BranchId::new(branch_counter),
-                    name: name.to_string(),
-                    from_bus: BusId::new(
-                        usize::try_from(from_bus).context("bus id must be non-negative")?,
-                    ),
-                    to_bus: BusId::new(
-                        usize::try_from(to_bus).context("bus id must be non-negative")?,
-                    ),
-                    resistance,
-                    reactance,
-                    tap_ratio: tap,
-                    phase_shift_rad: phase_shift,
-                    charging_b_pu: charging,
-                    s_max_mva: s_max,
-                    status: branch_status,
-                    rating_a_mva: rating_a,
-                    ..Branch::default()
+    for node in network.graph.node_weights() {
+        match node {
+            Node::Bus(bus) => data.buses.push(BusRecord {
+                id: bus.id.value() as i64,
+            }),
+            Node::Gen(gen) => {
+                let (cost_model, cost_coeffs, cost_values) = match &gen.cost_model {
+                    gat_core::CostModel::NoCost => (0, Vec::new(), Vec::new()),
+                    gat_core::CostModel::PiecewiseLinear(points) => {
+                        let mut xs = Vec::with_capacity(points.len());
+                        let mut ys = Vec::with_capacity(points.len());
+                        for (x, y) in points {
+                            xs.push(*x);
+                            ys.push(*y);
+                        }
+                        (1, xs, ys)
+                    }
+                    gat_core::CostModel::Polynomial(coeffs) => (2, coeffs.clone(), Vec::new()),
                 };
 
-                network
-                    .graph
-                    .add_edge(*from_idx, *to_idx, Edge::Branch(branch));
-                branch_counter += 1;
+                data.generators.push(GeneratorRecord {
+                    id: gen.id.value() as i64,
+                    bus: gen.bus.value() as i64,
+                    cost_model,
+                    cost_coeffs,
+                    cost_values,
+                });
             }
-            Some("transformer") => {
-                let name = name_col
-                    .get(row)
-                    .context("grid row missing name for transformer")?;
-                let from_bus = from_col
-                    .get(row)
-                    .context("transformer row missing from_bus")?;
-                let to_bus = to_col.get(row).context("transformer row missing to_bus")?;
-                let from_idx = bus_index_map.get(&from_bus).with_context(|| {
-                    format!("transformer references unknown from bus {}", from_bus)
-                })?;
-                let to_idx = bus_index_map
-                    .get(&to_bus)
-                    .with_context(|| format!("transformer references unknown to bus {}", to_bus))?;
-
-                let transformer = Transformer {
-                    id: TransformerId::new(transformer_counter),
-                    name: name.to_string(),
-                    from_bus: BusId::new(
-                        usize::try_from(from_bus).context("bus id must be non-negative")?,
-                    ),
-                    to_bus: BusId::new(
-                        usize::try_from(to_bus).context("bus id must be non-negative")?,
-                    ),
-                    ratio: 1.0,
-                };
-
-                network
-                    .graph
-                    .add_edge(*from_idx, *to_idx, Edge::Transformer(transformer));
-                transformer_counter += 1;
-            }
-            _ => continue,
+            Node::Load(load) => data.loads.push(LoadRecord {
+                id: load.id.value() as i64,
+                bus: load.bus.value() as i64,
+            }),
         }
     }
 
-    Ok(network)
+    for edge in network.graph.edge_weights() {
+        if let Edge::Branch(branch) = edge {
+            data.branches.push(BranchRecord {
+                id: branch.id.value() as i64,
+                from_bus: branch.from_bus.value() as i64,
+                to_bus: branch.to_bus.value() as i64,
+            });
+        }
+    }
+
+    data
 }

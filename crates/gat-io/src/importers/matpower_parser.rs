@@ -7,6 +7,8 @@ use anyhow::{anyhow, Context, Result};
 use std::fs;
 use std::path::Path;
 
+use crate::helpers::{safe_f64_to_i32, safe_f64_to_usize};
+
 /// Parsed MATPOWER case data
 #[derive(Debug, Default)]
 pub struct MatpowerCase {
@@ -86,64 +88,66 @@ pub fn parse_matpower_file(path: &Path) -> Result<MatpowerCase> {
     parse_matpower_string(&content)
 }
 
-/// Parse MATPOWER content from a string
+/// Parse MATPOWER content from a string (single-pass implementation)
 pub fn parse_matpower_string(content: &str) -> Result<MatpowerCase> {
     let mut case = MatpowerCase::default();
+    case.base_mva = 100.0; // Default
 
-    // Extract version
-    if let Some(version) = extract_string_value(content, "mpc.version") {
-        case.version = version;
+    let mut lines = content.lines().peekable();
+
+    while let Some(line) = lines.next() {
+        let trimmed = line.trim();
+
+        // Skip empty lines and comments
+        if trimmed.is_empty() || trimmed.starts_with('%') {
+            continue;
+        }
+
+        // Handle scalar/string assignments
+        if trimmed.starts_with("mpc.version") && trimmed.contains('=') {
+            case.version = extract_inline_string(trimmed);
+        } else if trimmed.starts_with("mpc.baseMVA") && trimmed.contains('=') {
+            if let Some(v) = extract_inline_scalar(trimmed) {
+                case.base_mva = v;
+            }
+        }
+        // Handle matrix sections - parse inline from iterator
+        // Note: mpc.gencost must be checked BEFORE mpc.gen (prefix collision)
+        else if trimmed.starts_with("mpc.bus") && trimmed.contains('[') {
+            case.bus = parse_bus_section(trimmed, &mut lines)?;
+        } else if trimmed.starts_with("mpc.gencost") && trimmed.contains('[') {
+            case.gencost = parse_gencost_section(trimmed, &mut lines)?;
+        } else if trimmed.starts_with("mpc.gen") && trimmed.contains('[') {
+            case.gen = parse_gen_section(trimmed, &mut lines)?;
+        } else if trimmed.starts_with("mpc.branch") && trimmed.contains('[') {
+            case.branch = parse_branch_section(trimmed, &mut lines)?;
+        }
     }
 
-    // Extract baseMVA
-    if let Some(base_mva) = extract_scalar_value(content, "mpc.baseMVA") {
-        case.base_mva = base_mva;
-    } else {
-        case.base_mva = 100.0; // Default
+    if case.bus.is_empty() {
+        return Err(anyhow!("mpc.bus matrix not found"));
     }
-
-    // Parse matrices
-    case.bus = parse_bus_matrix(content)?;
-    case.gen = parse_gen_matrix(content)?;
-    case.branch = parse_branch_matrix(content)?;
-    case.gencost = parse_gencost_matrix(content).unwrap_or_default();
 
     Ok(case)
 }
 
-fn extract_string_value(content: &str, key: &str) -> Option<String> {
-    for line in content.lines() {
-        let line = line.trim();
-        if line.starts_with(key) && line.contains('=') {
-            let value_part = line.split('=').nth(1)?;
-            let value = value_part
-                .trim()
-                .trim_matches(|c| c == '\'' || c == '"' || c == ';');
-            return Some(value.to_string());
-        }
-    }
-    None
+/// Extract string value from a single line (e.g., "mpc.version = '2';")
+fn extract_inline_string(line: &str) -> String {
+    line.split('=')
+        .nth(1)
+        .map(|v| {
+            v.trim()
+                .trim_matches(|c| c == '\'' || c == '"' || c == ';')
+                .to_string()
+        })
+        .unwrap_or_default()
 }
 
-fn extract_scalar_value(content: &str, key: &str) -> Option<f64> {
-    for line in content.lines() {
-        let line = line.trim();
-        if line.starts_with(key) && line.contains('=') {
-            let value_part = line.split('=').nth(1)?;
-            let value_str = value_part.trim().trim_end_matches(';');
-            return value_str.parse().ok();
-        }
-    }
-    None
-}
-
-/// Extract matrix content between '[' and '];'
-fn extract_matrix(content: &str, key: &str) -> Option<String> {
-    let pattern = format!("{} = [", key);
-    let start = content.find(&pattern)?;
-    let matrix_start = content[start..].find('[')? + start + 1;
-    let matrix_end = content[matrix_start..].find("];")? + matrix_start;
-    Some(content[matrix_start..matrix_end].to_string())
+/// Extract scalar value from a single line (e.g., "mpc.baseMVA = 100.0;")
+fn extract_inline_scalar(line: &str) -> Option<f64> {
+    line.split('=')
+        .nth(1)
+        .and_then(|v| v.trim().trim_end_matches(';').parse().ok())
 }
 
 /// Parse a row of numeric values from MATPOWER format
@@ -154,132 +158,244 @@ fn parse_row(line: &str) -> Vec<f64> {
         .collect()
 }
 
-fn parse_bus_matrix(content: &str) -> Result<Vec<MatpowerBus>> {
-    let matrix =
-        extract_matrix(content, "mpc.bus").ok_or_else(|| anyhow!("mpc.bus matrix not found"))?;
+/// Check if a line signals end of matrix section
+fn is_matrix_end(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed == "];" || trimmed.ends_with("];")
+}
 
+/// Parse bus section from iterator (single-pass)
+fn parse_bus_section<'a>(
+    header: &str,
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+) -> Result<Vec<MatpowerBus>> {
     let mut buses = Vec::new();
-    for line in matrix.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('%') {
+    let mut row_idx = 0;
+
+    // Check if data starts on the header line (after '[')
+    if let Some(after_bracket) = header.split('[').nth(1) {
+        let data_part = after_bracket.trim_end_matches("];").trim();
+        if !data_part.is_empty() && !data_part.starts_with('%') {
+            let values = parse_row(data_part);
+            if values.len() >= 13 {
+                buses.push(parse_bus_row(&values, row_idx)?);
+                row_idx += 1;
+            }
+        }
+        // If header line ends the matrix, we're done
+        if header.contains("];") {
+            return Ok(buses);
+        }
+    }
+
+    // Continue consuming lines until we hit '];'
+    while let Some(line) = lines.next() {
+        if is_matrix_end(line) {
+            break;
+        }
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('%') {
             continue;
         }
-        let values = parse_row(line);
+        let values = parse_row(trimmed);
         if values.len() >= 13 {
-            buses.push(MatpowerBus {
-                bus_i: values[0] as usize,
-                bus_type: values[1] as i32,
-                pd: values[2],
-                qd: values[3],
-                gs: values[4],
-                bs: values[5],
-                area: values[6] as i32,
-                vm: values[7],
-                va: values[8],
-                base_kv: values[9],
-                zone: values[10] as i32,
-                vmax: values[11],
-                vmin: values[12],
-            });
+            buses.push(parse_bus_row(&values, row_idx)?);
+            row_idx += 1;
         }
     }
     Ok(buses)
 }
 
-fn parse_gen_matrix(content: &str) -> Result<Vec<MatpowerGen>> {
-    let matrix = match extract_matrix(content, "mpc.gen") {
-        Some(m) => m,
-        None => return Ok(Vec::new()),
-    };
+fn parse_bus_row(values: &[f64], row_idx: usize) -> Result<MatpowerBus> {
+    Ok(MatpowerBus {
+        bus_i: safe_f64_to_usize(values[0])
+            .with_context(|| format!("invalid bus_i at row {}", row_idx))?,
+        bus_type: safe_f64_to_i32(values[1])
+            .with_context(|| format!("invalid bus_type at row {}", row_idx))?,
+        pd: values[2],
+        qd: values[3],
+        gs: values[4],
+        bs: values[5],
+        area: safe_f64_to_i32(values[6])
+            .with_context(|| format!("invalid area at row {}", row_idx))?,
+        vm: values[7],
+        va: values[8],
+        base_kv: values[9],
+        zone: safe_f64_to_i32(values[10])
+            .with_context(|| format!("invalid zone at row {}", row_idx))?,
+        vmax: values[11],
+        vmin: values[12],
+    })
+}
 
+/// Parse gen section from iterator (single-pass)
+fn parse_gen_section<'a>(
+    header: &str,
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+) -> Result<Vec<MatpowerGen>> {
     let mut gens = Vec::new();
-    for line in matrix.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('%') {
+    let mut row_idx = 0;
+
+    // Check if data starts on the header line
+    if let Some(after_bracket) = header.split('[').nth(1) {
+        let data_part = after_bracket.trim_end_matches("];").trim();
+        if !data_part.is_empty() && !data_part.starts_with('%') {
+            let values = parse_row(data_part);
+            if values.len() >= 10 {
+                gens.push(parse_gen_row(&values, row_idx)?);
+                row_idx += 1;
+            }
+        }
+        if header.contains("];") {
+            return Ok(gens);
+        }
+    }
+
+    while let Some(line) = lines.next() {
+        if is_matrix_end(line) {
+            break;
+        }
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('%') {
             continue;
         }
-        let values = parse_row(line);
+        let values = parse_row(trimmed);
         if values.len() >= 10 {
-            gens.push(MatpowerGen {
-                gen_bus: values[0] as usize,
-                pg: values[1],
-                qg: values[2],
-                qmax: values[3],
-                qmin: values[4],
-                vg: values[5],
-                mbase: values[6],
-                gen_status: values[7] as i32,
-                pmax: values[8],
-                pmin: values[9],
-            });
+            gens.push(parse_gen_row(&values, row_idx)?);
+            row_idx += 1;
         }
     }
     Ok(gens)
 }
 
-fn parse_branch_matrix(content: &str) -> Result<Vec<MatpowerBranch>> {
-    let matrix = match extract_matrix(content, "mpc.branch") {
-        Some(m) => m,
-        None => return Ok(Vec::new()),
-    };
+fn parse_gen_row(values: &[f64], row_idx: usize) -> Result<MatpowerGen> {
+    Ok(MatpowerGen {
+        gen_bus: safe_f64_to_usize(values[0])
+            .with_context(|| format!("invalid gen_bus at row {}", row_idx))?,
+        pg: values[1],
+        qg: values[2],
+        qmax: values[3],
+        qmin: values[4],
+        vg: values[5],
+        mbase: values[6],
+        gen_status: safe_f64_to_i32(values[7])
+            .with_context(|| format!("invalid gen_status at row {}", row_idx))?,
+        pmax: values[8],
+        pmin: values[9],
+    })
+}
 
+/// Parse branch section from iterator (single-pass)
+fn parse_branch_section<'a>(
+    header: &str,
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+) -> Result<Vec<MatpowerBranch>> {
     let mut branches = Vec::new();
-    for line in matrix.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('%') {
+    let mut row_idx = 0;
+
+    // Check if data starts on the header line
+    if let Some(after_bracket) = header.split('[').nth(1) {
+        let data_part = after_bracket.trim_end_matches("];").trim();
+        if !data_part.is_empty() && !data_part.starts_with('%') {
+            let values = parse_row(data_part);
+            if values.len() >= 13 {
+                branches.push(parse_branch_row(&values, row_idx)?);
+                row_idx += 1;
+            }
+        }
+        if header.contains("];") {
+            return Ok(branches);
+        }
+    }
+
+    while let Some(line) = lines.next() {
+        if is_matrix_end(line) {
+            break;
+        }
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('%') {
             continue;
         }
-        let values = parse_row(line);
+        let values = parse_row(trimmed);
         if values.len() >= 13 {
-            branches.push(MatpowerBranch {
-                f_bus: values[0] as usize,
-                t_bus: values[1] as usize,
-                br_r: values[2],
-                br_x: values[3],
-                br_b: values[4],
-                rate_a: values[5],
-                rate_b: values[6],
-                rate_c: values[7],
-                tap: values[8],
-                shift: values[9],
-                br_status: values[10] as i32,
-                angmin: values[11],
-                angmax: values[12],
-            });
+            branches.push(parse_branch_row(&values, row_idx)?);
+            row_idx += 1;
         }
     }
     Ok(branches)
 }
 
-fn parse_gencost_matrix(content: &str) -> Result<Vec<MatpowerGenCost>> {
-    let matrix = match extract_matrix(content, "mpc.gencost") {
-        Some(m) => m,
-        None => return Ok(Vec::new()),
-    };
+fn parse_branch_row(values: &[f64], row_idx: usize) -> Result<MatpowerBranch> {
+    Ok(MatpowerBranch {
+        f_bus: safe_f64_to_usize(values[0])
+            .with_context(|| format!("invalid f_bus at row {}", row_idx))?,
+        t_bus: safe_f64_to_usize(values[1])
+            .with_context(|| format!("invalid t_bus at row {}", row_idx))?,
+        br_r: values[2],
+        br_x: values[3],
+        br_b: values[4],
+        rate_a: values[5],
+        rate_b: values[6],
+        rate_c: values[7],
+        tap: values[8],
+        shift: values[9],
+        br_status: safe_f64_to_i32(values[10])
+            .with_context(|| format!("invalid br_status at row {}", row_idx))?,
+        angmin: values[11],
+        angmax: values[12],
+    })
+}
 
+/// Parse gencost section from iterator (single-pass)
+fn parse_gencost_section<'a>(
+    header: &str,
+    lines: &mut std::iter::Peekable<impl Iterator<Item = &'a str>>,
+) -> Result<Vec<MatpowerGenCost>> {
     let mut gencosts = Vec::new();
-    for line in matrix.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('%') {
+    let mut row_idx = 0;
+
+    // Check if data starts on the header line
+    if let Some(after_bracket) = header.split('[').nth(1) {
+        let data_part = after_bracket.trim_end_matches("];").trim();
+        if !data_part.is_empty() && !data_part.starts_with('%') {
+            let values = parse_row(data_part);
+            if values.len() >= 4 {
+                gencosts.push(parse_gencost_row(&values, row_idx)?);
+                row_idx += 1;
+            }
+        }
+        if header.contains("];") {
+            return Ok(gencosts);
+        }
+    }
+
+    while let Some(line) = lines.next() {
+        if is_matrix_end(line) {
+            break;
+        }
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('%') {
             continue;
         }
-        let values = parse_row(line);
+        let values = parse_row(trimmed);
         if values.len() >= 4 {
-            let model = values[0] as i32;
-            let startup = values[1];
-            let shutdown = values[2];
-            let ncost = values[3] as i32;
-            let cost: Vec<f64> = values[4..].to_vec();
-            gencosts.push(MatpowerGenCost {
-                model,
-                startup,
-                shutdown,
-                ncost,
-                cost,
-            });
+            gencosts.push(parse_gencost_row(&values, row_idx)?);
+            row_idx += 1;
         }
     }
     Ok(gencosts)
+}
+
+fn parse_gencost_row(values: &[f64], row_idx: usize) -> Result<MatpowerGenCost> {
+    Ok(MatpowerGenCost {
+        model: safe_f64_to_i32(values[0])
+            .with_context(|| format!("invalid cost model at row {}", row_idx))?,
+        startup: values[1],
+        shutdown: values[2],
+        ncost: safe_f64_to_i32(values[3])
+            .with_context(|| format!("invalid ncost at row {}", row_idx))?,
+        cost: values[4..].to_vec(),
+    })
 }
 
 #[cfg(test)]
@@ -324,7 +440,7 @@ mpc.gencost = [
 ];
 "#;
 
-        let case = parse_matpower_string(content).unwrap();
+        let case = parse_matpower_string(content).expect("parse matpower string");
 
         assert_eq!(case.version, "2");
         assert_eq!(case.base_mva, 100.0);
@@ -347,5 +463,53 @@ mpc.gencost = [
         assert_eq!(case.branch[0].f_bus, 1);
         assert_eq!(case.branch[0].t_bus, 2);
         assert_eq!(case.branch[0].br_r, 0.00281);
+    }
+
+    #[test]
+    fn test_reject_negative_bus_id() {
+        let content = r#"
+mpc.version = '2';
+mpc.baseMVA = 100.0;
+mpc.bus = [
+    -1   2   0.0     0.0     0.0   0.0   1   1.0   0.0   230.0   1   1.1   0.9;
+];
+"#;
+        let result = parse_matpower_string(content);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("invalid bus_i") || err.contains("negative"));
+    }
+
+    #[test]
+    fn test_reject_overflow_bus_id() {
+        let content = r#"
+mpc.version = '2';
+mpc.baseMVA = 100.0;
+mpc.bus = [
+    9999999999999999999999.0   2   0.0     0.0     0.0   0.0   1   1.0   0.0   230.0   1   1.1   0.9;
+];
+"#;
+        let result = parse_matpower_string(content);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("invalid bus_i") || err.contains("exceeds"));
+    }
+
+    #[test]
+    fn test_reject_negative_branch_bus() {
+        let content = r#"
+mpc.version = '2';
+mpc.baseMVA = 100.0;
+mpc.bus = [
+    1   2   0.0   0.0   0.0   0.0   1   1.0   0.0   230.0   1   1.1   0.9;
+];
+mpc.branch = [
+    1   -2   0.00281   0.0281   0.00712   400.0   400.0   400.0   0.0   0.0   1   -30.0   30.0;
+];
+"#;
+        let result = parse_matpower_string(content);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("invalid t_bus") || err.contains("negative"));
     }
 }

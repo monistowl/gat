@@ -5,7 +5,7 @@ use gat_core::{
     Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node, NodeIndex,
 };
 
-use super::arrow::write_network_to_arrow;
+use super::arrow::export_network_to_arrow;
 use crate::helpers::{ImportDiagnostics, ImportResult};
 
 /// Parse PSS/E RAW file and return network with diagnostics
@@ -22,7 +22,10 @@ pub fn parse_psse(raw_file: &str) -> Result<ImportResult> {
 
     let network = build_network_from_psse(buses, branches, loads, gens, &mut diag)?;
 
-    Ok(ImportResult { network, diagnostics: diag })
+    Ok(ImportResult {
+        network,
+        diagnostics: diag,
+    })
 }
 
 /// Legacy function for backwards compatibility - parses and writes Arrow
@@ -39,7 +42,7 @@ pub fn import_psse_raw(raw_file: &str, output_file: &str) -> Result<Network> {
         result.diagnostics.stats.generators
     );
 
-    write_network_to_arrow(&result.network, output_file)?;
+    export_network_to_arrow(&result.network, output_file)?;
     Ok(result.network)
 }
 
@@ -249,10 +252,8 @@ fn parse_psse_raw(path: &Path, diag: &mut ImportDiagnostics) -> Result<PsseRawTa
                     // Line 1 starts with bus numbers, line 4 starts with winding voltage
                     if transformer_lines.len() >= 4 {
                         // Check if line 1 has K=0 (2-winding) by parsing third field
-                        let first_cols: Vec<&str> = transformer_lines[0]
-                            .split(',')
-                            .map(|s| s.trim())
-                            .collect();
+                        let first_cols: Vec<&str> =
+                            transformer_lines[0].split(',').map(|s| s.trim()).collect();
                         let k = first_cols
                             .get(2)
                             .and_then(|s| s.parse::<i32>().ok())
@@ -263,12 +264,20 @@ fn parse_psse_raw(path: &Path, diag: &mut ImportDiagnostics) -> Result<PsseRawTa
                             if let Some(xfmr) = parse_psse_transformer_v33(&transformer_lines) {
                                 branches.push(xfmr);
                             } else {
-                                diag.add_error_at_line("parse", "Malformed 2-winding transformer record", transformer_start_line);
+                                diag.add_error_at_line(
+                                    "parse",
+                                    "Malformed 2-winding transformer record",
+                                    transformer_start_line,
+                                );
                             }
                             transformer_lines.clear();
                         } else if transformer_lines.len() >= 5 {
                             // 3-winding transformer: 5 lines (we skip these)
-                            diag.add_warning_at_line("parse", "Skipped 3-winding transformer (not supported)", transformer_start_line);
+                            diag.add_warning_at_line(
+                                "parse",
+                                "Skipped 3-winding transformer (not supported)",
+                                transformer_start_line,
+                            );
                             transformer_lines.clear();
                         }
                     }
@@ -498,14 +507,23 @@ fn parse_psse_load_line_v33(line: &str) -> Option<PsseLoad> {
 
     let bus = columns[0].parse::<usize>().ok()?;
     // col[2] is status (1=in service)
-    let status = columns.get(2).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
+    let status = columns
+        .get(2)
+        .and_then(|s| s.parse::<i32>().ok())
+        .unwrap_or(1);
     if status == 0 {
         return None; // Skip out-of-service loads
     }
     // col[5] = PL (constant power P)
     // col[6] = QL (constant power Q)
-    let pd = columns.get(5).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-    let qd = columns.get(6).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+    let pd = columns
+        .get(5)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let qd = columns
+        .get(6)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
 
     Some(PsseLoad { bus, pd, qd })
 }
@@ -519,10 +537,19 @@ fn parse_psse_gen_line_v33(line: &str) -> Option<PsseGen> {
 
     let bus = columns[0].parse::<usize>().ok()?;
     // col[2] = PG, col[3] = QG
-    let pg = columns.get(2).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-    let qg = columns.get(3).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+    let pg = columns
+        .get(2)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let qg = columns
+        .get(3)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
     // col[14] = STAT (machine status)
-    let status = columns.get(14).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
+    let status = columns
+        .get(14)
+        .and_then(|s| s.parse::<i32>().ok())
+        .unwrap_or(1);
 
     Some(PsseGen {
         bus,
@@ -542,16 +569,28 @@ fn parse_psse_branch_line_v33(line: &str) -> Option<PsseBranch> {
     let from = columns[0].parse::<usize>().ok()?;
     let to = columns[1].parse::<usize>().ok()?;
     // col[2] = circuit ID (string), col[3] = R, col[4] = X, col[5] = B
-    let resistance = columns.get(3).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-    let reactance = columns.get(4).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-    let charging_b = columns.get(5).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+    let resistance = columns
+        .get(3)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let reactance = columns
+        .get(4)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let charging_b = columns
+        .get(5)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
     // col[6] = RATEA, col[7] = RATEB, col[8] = RATEC
     let rate_a = columns
         .get(6)
         .and_then(|s| s.parse::<f64>().ok())
         .filter(|val| *val > 0.0);
     // col[13] = ST (branch status)
-    let status = columns.get(13).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
+    let status = columns
+        .get(13)
+        .and_then(|s| s.parse::<i32>().ok())
+        .unwrap_or(1);
 
     Some(PsseBranch {
         from,
@@ -611,7 +650,10 @@ fn parse_psse_transformer_v33(lines: &[String]) -> Option<PsseBranch> {
     let tap_ratio = line3_cols[0].parse::<f64>().unwrap_or(1.0);
     // col[1] = NOMV1 (nominal voltage, 0.0 means use bus base kV)
     // col[2] = ANG1 (phase shift angle in degrees)
-    let phase_shift_deg = line3_cols.get(2).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+    let phase_shift_deg = line3_cols
+        .get(2)
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
     // col[3] = RATA1 (MVA rating)
     let rate_a = line3_cols
         .get(3)
@@ -650,6 +692,7 @@ fn build_network_from_psse(
             id,
             name: bus.name,
             voltage_kv: bus.voltage_kv,
+            ..Bus::default()
         }));
         bus_index_map.insert(bus.id, node_idx);
     }
@@ -695,6 +738,7 @@ fn build_network_from_psse(
             qmax_mvar: f64::INFINITY,
             cost_model: gat_core::CostModel::NoCost,
             is_synchronous_condenser: false,
+            ..Gen::default()
         }));
         gen_id += 1;
     }
