@@ -20,6 +20,8 @@ pub struct ManifestEntry {
     pub params: Vec<Param>,
     #[serde(default)]
     pub telemetry: ManifestTelemetry,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostics: Option<serde_json::Value>,
     #[serde(default)]
     pub chunk_map: Vec<ChunkState>,
 }
@@ -64,6 +66,16 @@ pub fn record_manifest(
     params: &[(&str, &str)],
     telemetry: ManifestTelemetry,
 ) -> Result<()> {
+    record_manifest_with_diagnostics(output, command, params, telemetry, None)
+}
+
+pub fn record_manifest_with_diagnostics(
+    output: &Path,
+    command: &str,
+    params: &[(&str, &str)],
+    telemetry: ManifestTelemetry,
+    diagnostics: Option<serde_json::Value>,
+) -> Result<()> {
     let run_id = Uuid::new_v4().to_string();
     let dir = output
         .parent()
@@ -91,6 +103,7 @@ pub fn record_manifest(
         outputs: vec![output.display().to_string()],
         params: params_vec,
         telemetry,
+        diagnostics,
         chunk_map: Vec::new(),
     };
     let json = serde_json::to_string_pretty(&manifest)?;

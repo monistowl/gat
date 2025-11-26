@@ -34,7 +34,9 @@ fn main() {
     info!("Hello from gat-cli! Running with profile: {}", cli.profile);
 
     match &cli.command {
-        Some(Commands::Import { command }) => run_and_log("import", || import::handle(command)),
+        Some(Commands::Import { command, verbose, strict, validate }) => {
+            run_and_log("import", || import::handle(command, *verbose, *strict, *validate))
+        }
         Some(Commands::Validate { spec }) => run_and_log("validate", || validate::handle(spec)),
         Some(Commands::Graph { command }) => run_and_log("graph", || graph::handle(command)),
         Some(Commands::Scenarios { command }) => {

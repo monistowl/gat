@@ -1,9 +1,10 @@
 use std::fs;
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use gat_cli::cli::GraphCommands;
 use gat_core::graph_utils;
+use gat_io::helpers::{validate_network, ImportDiagnostics, Severity, ValidationConfig};
 use gat_io::importers;
 
 use crate::commands::telemetry::record_run_timed;
@@ -66,6 +67,93 @@ pub fn handle(command: &GraphCommands) -> Result<()> {
                 grid_file,
                 "graph islands",
                 &[("grid_file", grid_file), ("emit", &emit.to_string())],
+                start,
+                &result,
+            );
+            result
+        }
+        GraphCommands::Validate {
+            grid_file,
+            strict,
+            skip_topology,
+            verbose,
+        } => {
+            let start = Instant::now();
+            let result = (|| -> Result<()> {
+                let network = importers::load_grid_from_arrow(grid_file.as_str())?;
+                let stats = network.stats();
+
+                let config = ValidationConfig {
+                    strict: *strict,
+                    skip_topology: *skip_topology,
+                    ..Default::default()
+                };
+
+                // Run validation, collecting issues into diagnostics
+                let mut diag = ImportDiagnostics::new();
+                validate_network(&network, &mut diag, &config);
+
+                // Print summary
+                println!("Validation results for {grid_file}:");
+                println!(
+                    "  Network: {} buses, {} branches, {} generators, {} loads",
+                    stats.num_buses, stats.num_branches, stats.num_gens, stats.num_loads
+                );
+                println!();
+
+                // Print issues
+                let warning_count = diag.warning_count();
+                let error_count = diag.error_count();
+
+                if warning_count == 0 && error_count == 0 {
+                    println!("✓ No issues found");
+                } else {
+                    if *verbose > 0 {
+                        // Show all issues with details
+                        for issue in &diag.issues {
+                            let marker = if issue.severity == Severity::Error {
+                                "✗"
+                            } else {
+                                "⚠"
+                            };
+                            match &issue.entity {
+                                Some(entity) => {
+                                    println!("  {} {}: {}", marker, entity, issue.message);
+                                }
+                                None => {
+                                    println!("  {} {}: {}", marker, issue.category, issue.message);
+                                }
+                            }
+                        }
+                        println!();
+                    }
+
+                    println!(
+                        "Summary: {} warning(s), {} error(s){}",
+                        warning_count,
+                        error_count,
+                        if *verbose == 0 { " (use -v for details)" } else { "" }
+                    );
+
+                    if *strict && (warning_count > 0 || error_count > 0) {
+                        bail!(
+                            "Validation failed in strict mode ({} warning(s), {} error(s))",
+                            warning_count,
+                            error_count
+                        );
+                    }
+                }
+
+                Ok(())
+            })();
+            record_run_timed(
+                grid_file,
+                "graph validate",
+                &[
+                    ("grid_file", grid_file),
+                    ("strict", &strict.to_string()),
+                    ("skip_topology", &skip_topology.to_string()),
+                ],
                 start,
                 &result,
             );

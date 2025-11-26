@@ -1,4 +1,5 @@
-use gat_cli::manifest::{record_manifest, ManifestTelemetry, Param};
+use gat_cli::manifest::{record_manifest, record_manifest_with_diagnostics, ManifestTelemetry, Param};
+use gat_io::helpers::ImportDiagnostics;
 use std::{env, path::Path, time::Instant};
 
 const TELEMETRY_ENV_KEYS: &[&str] = &[
@@ -62,4 +63,28 @@ pub fn record_run_timed(
     let duration_ms = start.elapsed().as_millis();
     let status = if result.is_ok() { "success" } else { "failure" };
     record_run_with_status(out, command, params, status, Some(duration_ms));
+}
+
+/// Record a run with diagnostics from an import operation.
+/// The diagnostics are serialized to JSON and stored in the manifest.
+pub fn record_run_timed_with_diagnostics(
+    out: &str,
+    command: &str,
+    params: &[(&str, &str)],
+    start: Instant,
+    diagnostics: &ImportDiagnostics,
+) {
+    let duration_ms = start.elapsed().as_millis();
+    let telemetry = ManifestTelemetry {
+        status: "success".to_string(),
+        duration_ms: Some(duration_ms),
+        env: collect_telemetry_env(),
+        correlation_id: correlation_id(),
+    };
+    let diag_json = serde_json::to_value(diagnostics).ok();
+    if let Err(err) =
+        record_manifest_with_diagnostics(Path::new(out), command, params, telemetry, diag_json)
+    {
+        eprintln!("Failed to record run manifest: {err}");
+    }
 }

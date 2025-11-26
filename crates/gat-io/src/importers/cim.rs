@@ -12,6 +12,7 @@ use quick_xml::{
 use zip::ZipArchive;
 
 use super::arrow::write_network_to_arrow;
+use crate::helpers::{ImportDiagnostics, ImportResult};
 
 pub fn import_cim_rdf(rdf_path: &str, output_file: &str) -> Result<Network> {
     println!("Importing CIM from {} to {}", rdf_path, output_file);
@@ -31,6 +32,40 @@ pub fn import_cim_rdf(rdf_path: &str, output_file: &str) -> Result<Network> {
 
     write_network_to_arrow(&network, output_file)?;
     Ok(network)
+}
+
+/// Parse a CIM RDF file and return an ImportResult with diagnostics.
+/// This is the new diagnostics-aware entrypoint.
+pub fn parse_cim(rdf_path: &str) -> Result<ImportResult> {
+    let path = Path::new(rdf_path);
+    let mut diag = ImportDiagnostics::new();
+
+    let documents = collect_cim_documents(path)?;
+    let (buses, lines, loads, gens, limits, volt_limits, transformers) =
+        parse_cim_documents(&documents)?;
+
+    let network = build_network_from_cim_with_diagnostics(
+        buses,
+        lines,
+        loads,
+        gens,
+        limits,
+        volt_limits,
+        transformers,
+        &mut diag,
+    )?;
+
+    // Run CIM-specific validation and add warnings to diagnostics
+    let warnings = super::cim_validator::validate_cim_with_warnings(&network);
+    for w in warnings {
+        diag.add_warning_with_entity(
+            &format!("cim_{}", w.entity_type.to_lowercase()),
+            &w.issue,
+            &format!("{} {}", w.entity_type, w.entity_id),
+        );
+    }
+
+    Ok(ImportResult { network, diagnostics: diag })
 }
 
 pub(crate) struct CimBus {
@@ -591,6 +626,157 @@ fn build_network_from_cim(
 
     // Transformers are collected but not yet used
     // Future: Add transformer handling once Transformer node type is added
+    let _ = transformers;
+
+    Ok(network)
+}
+
+/// Build network from CIM elements with diagnostics tracking
+#[allow(clippy::too_many_arguments)]
+fn build_network_from_cim_with_diagnostics(
+    buses: Vec<CimBus>,
+    lines: Vec<CimLine>,
+    loads: Vec<CimLoad>,
+    gens: Vec<CimGen>,
+    limits: Vec<CimOperationalLimit>,
+    voltage_limits: Vec<CimVoltageLimit>,
+    transformers: Vec<CimTransformer>,
+    diag: &mut ImportDiagnostics,
+) -> Result<Network> {
+    let mut network = Network::new();
+    let mut node_map: HashMap<String, (BusId, NodeIndex)> = HashMap::new();
+
+    for (idx, bus) in buses.into_iter().enumerate() {
+        let bus_id = BusId::new(idx + 1);
+        let node_idx = network.graph.add_node(Node::Bus(Bus {
+            id: bus_id,
+            name: bus.name,
+            voltage_kv: 138.0,
+        }));
+        node_map.insert(bus.id, (bus_id, node_idx));
+        diag.stats.buses += 1;
+    }
+
+    let mut load_counter = 0usize;
+    for load in loads {
+        if let Some((bus_id, _)) = node_map.get(&load.bus_id) {
+            if load.active_power_mw == 0.0 && load.reactive_power_mvar == 0.0 {
+                diag.stats.skipped_lines += 1;
+                continue;
+            }
+            let name = if load.name.is_empty() {
+                format!("CIM load @ {}", load.bus_id)
+            } else {
+                load.name.clone()
+            };
+            network.graph.add_node(Node::Load(Load {
+                id: LoadId::new(load_counter),
+                name,
+                bus: *bus_id,
+                active_power_mw: load.active_power_mw,
+                reactive_power_mvar: load.reactive_power_mvar,
+            }));
+            load_counter += 1;
+            diag.stats.loads += 1;
+        } else {
+            diag.add_warning(
+                "orphan_load",
+                &format!("load '{}' references unknown bus '{}'", load.name, load.bus_id),
+            );
+        }
+    }
+
+    let mut gen_counter = 0usize;
+    for gen in gens {
+        if let Some((bus_id, _)) = node_map.get(&gen.bus_id) {
+            if gen.active_power_mw == 0.0 && gen.reactive_power_mvar == 0.0 {
+                diag.stats.skipped_lines += 1;
+                continue;
+            }
+            let name = if gen.name.is_empty() {
+                format!("CIM gen @ {}", gen.bus_id)
+            } else {
+                gen.name.clone()
+            };
+            network.graph.add_node(Node::Gen(Gen {
+                id: GenId::new(gen_counter),
+                name,
+                bus: *bus_id,
+                active_power_mw: gen.active_power_mw,
+                reactive_power_mvar: gen.reactive_power_mvar,
+                pmin_mw: 0.0,
+                pmax_mw: f64::INFINITY,
+                qmin_mvar: f64::NEG_INFINITY,
+                qmax_mvar: f64::INFINITY,
+                cost_model: gat_core::CostModel::NoCost,
+                is_synchronous_condenser: false,
+            }));
+            gen_counter += 1;
+            diag.stats.generators += 1;
+        } else {
+            diag.add_warning(
+                "orphan_generator",
+                &format!("generator '{}' references unknown bus '{}'", gen.name, gen.bus_id),
+            );
+        }
+    }
+
+    for (branch_id, line) in lines.into_iter().enumerate() {
+        let from_result = node_map.get(&line.from);
+        let to_result = node_map.get(&line.to);
+
+        let (from_bus_id, from_idx) = match from_result {
+            Some(v) => v,
+            None => {
+                diag.add_warning(
+                    "orphan_branch",
+                    &format!("line '{}' references unknown from bus '{}'", line.name, line.from),
+                );
+                continue;
+            }
+        };
+        let (to_bus_id, to_idx) = match to_result {
+            Some(v) => v,
+            None => {
+                diag.add_warning(
+                    "orphan_branch",
+                    &format!("line '{}' references unknown to bus '{}'", line.name, line.to),
+                );
+                continue;
+            }
+        };
+
+        let branch = Branch {
+            id: BranchId::new(branch_id),
+            name: if line.name.is_empty() {
+                format!("{}-{}", line.from, line.to)
+            } else {
+                line.name.clone()
+            },
+            from_bus: *from_bus_id,
+            to_bus: *to_bus_id,
+            resistance: line.resistance,
+            reactance: line.reactance,
+            ..Branch::default()
+        };
+
+        network
+            .graph
+            .add_edge(*from_idx, *to_idx, Edge::Branch(branch));
+        diag.stats.branches += 1;
+    }
+
+    // Apply voltage limits to buses (not yet implemented in Bus struct)
+    for _volt_limit in voltage_limits {
+        // Future: Apply to bus when fields are added
+    }
+
+    // Apply thermal limits to branches (not yet implemented)
+    for _limit in limits {
+        // Future: Apply to branch when fields are added
+    }
+
+    // Transformers are collected but not yet used
     let _ = transformers;
 
     Ok(network)

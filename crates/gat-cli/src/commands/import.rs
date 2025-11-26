@@ -1,62 +1,194 @@
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
     time::Instant,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use gat_cli::cli::ImportCommands;
-use gat_io::importers;
+use gat_io::helpers::{validate_network, ImportDiagnostics, Severity, ValidationConfig};
+use gat_io::importers::{self, Format};
 
-use crate::commands::telemetry::record_run_timed;
+use crate::commands::telemetry::record_run_timed_with_diagnostics;
 
-pub fn handle(command: &ImportCommands) -> Result<()> {
-    match command {
-        ImportCommands::Psse { raw, output } => {
-            let start = Instant::now();
-            let (raw_path, output_path) =
-                prepare_import(raw, output.as_deref(), &["raw"], "PSS/E RAW")?;
-            let res = importers::import_psse_raw(&raw_path, &output_path).map(|_| ());
-            record_run_timed(
-                &output_path,
-                "import psse",
-                &[("raw", &raw_path), ("output", &output_path)],
-                start,
-                &res,
-            );
-            res
+/// Verbosity level for import diagnostics
+#[derive(Clone, Copy)]
+pub enum Verbosity {
+    Normal,   // Just counts
+    Verbose,  // Grouped warnings
+    Debug,    // Line-level details
+}
+
+impl From<u8> for Verbosity {
+    fn from(v: u8) -> Self {
+        match v {
+            0 => Verbosity::Normal,
+            1 => Verbosity::Verbose,
+            _ => Verbosity::Debug,
         }
-        ImportCommands::Matpower { m, output } => {
-            let start = Instant::now();
-            let (case_path, output_path) = prepare_import(
-                m,
-                output.as_deref(),
-                &["m", "mat", "matpower", "case"],
-                "MATPOWER case",
-            )?;
-            let res = importers::import_matpower_case(&case_path, &output_path).map(|_| ());
-            record_run_timed(
-                &output_path,
-                "import matpower",
-                &[("case", &case_path), ("output", &output_path)],
-                start,
-                &res,
-            );
-            res
+    }
+}
+
+pub fn handle(command: &ImportCommands, verbose: u8, strict: bool, run_validation: bool) -> Result<()> {
+    let verbosity = Verbosity::from(verbose);
+
+    // Extract format and input path from command
+    let (format, input_path, output) = match command {
+        ImportCommands::Auto { input, output } => {
+            // Auto-detect format from file
+            let path = Path::new(input);
+            let (detected_format, confidence) = Format::detect(path)
+                .ok_or_else(|| anyhow::anyhow!(
+                    "Could not detect format for '{}'. Supported extensions: .m (MATPOWER), .raw (PSS/E), .rdf/.xml (CIM), .json (pandapower)",
+                    input
+                ))?;
+
+            let confidence_str = match confidence {
+                importers::Confidence::High => "high confidence",
+                importers::Confidence::Medium => "medium confidence",
+                importers::Confidence::Low => "low confidence",
+            };
+            eprintln!("Detected format: {} ({})", detected_format, confidence_str);
+
+            (detected_format, input.as_str(), output.as_deref())
         }
-        ImportCommands::Cim { rdf, output } => {
-            let start = Instant::now();
-            let (rdf_path, output_path) =
-                prepare_import(rdf, output.as_deref(), &["rdf", "xml"], "CIM RDF/XML")?;
-            let res = importers::import_cim_rdf(&rdf_path, &output_path).map(|_| ());
-            record_run_timed(
-                &output_path,
-                "import cim",
-                &[("rdf", &rdf_path), ("output", &output_path)],
-                start,
-                &res,
-            );
-            res
+        ImportCommands::Psse { raw, output } => (Format::Psse, raw.as_str(), output.as_deref()),
+        ImportCommands::Matpower { m, output } => (Format::Matpower, m.as_str(), output.as_deref()),
+        ImportCommands::Cim { rdf, output } => (Format::Cim, rdf.as_str(), output.as_deref()),
+        ImportCommands::Pandapower { json, output } => (Format::Pandapower, json.as_str(), output.as_deref()),
+    };
+
+    // Run the unified import workflow
+    run_import(format, input_path, output, verbosity, strict, run_validation)
+}
+
+/// Unified import workflow for all formats.
+fn run_import(
+    format: Format,
+    input: &str,
+    output: Option<&str>,
+    verbosity: Verbosity,
+    strict: bool,
+    run_validation: bool,
+) -> Result<()> {
+    let start = Instant::now();
+
+    // Prepare paths
+    let (input_path, output_path) = prepare_import(
+        input,
+        output,
+        format.extensions(),
+        format.friendly_name(),
+    )?;
+
+    // Parse using the format's parser
+    let mut result = format.parse(&input_path)?;
+
+    // Run post-import validation if requested
+    if run_validation {
+        let config = ValidationConfig::default();
+        validate_network(&result.network, &mut result.diagnostics, &config);
+    }
+
+    // Write the network to Arrow
+    importers::export_network_to_arrow(&result.network, &output_path)?;
+
+    // Print diagnostics based on verbosity
+    print_diagnostics(&result.diagnostics, verbosity, run_validation);
+
+    // Record run manifest with diagnostics
+    record_run_timed_with_diagnostics(
+        &output_path,
+        &format!("import {}", format.command_name()),
+        &[("input", &input_path), ("output", &output_path)],
+        start,
+        &result.diagnostics,
+    );
+
+    // In strict mode, fail if there are any warnings
+    if strict && result.diagnostics.has_issues() {
+        bail!(
+            "Import failed in strict mode ({} warning(s), {} error(s))",
+            result.diagnostics.warning_count(),
+            result.diagnostics.error_count()
+        );
+    }
+
+    Ok(())
+}
+
+fn print_diagnostics(diag: &ImportDiagnostics, verbosity: Verbosity, validated: bool) {
+    // Always print stats
+    let validation_marker = if validated { " [validated]" } else { "" };
+    println!(
+        "✓ Imported {} buses, {} branches, {} generators, {} loads{}",
+        diag.stats.buses, diag.stats.branches, diag.stats.generators, diag.stats.loads, validation_marker
+    );
+
+    let warning_count = diag.warning_count();
+    let error_count = diag.error_count();
+
+    if warning_count == 0 && error_count == 0 {
+        return;
+    }
+
+    match verbosity {
+        Verbosity::Normal => {
+            if warning_count > 0 || error_count > 0 {
+                println!(
+                    "⚠ {} warning(s), {} error(s) (use -v for details)",
+                    warning_count, error_count
+                );
+            }
+        }
+        Verbosity::Verbose => {
+            // Group warnings by category and message
+            let mut grouped: HashMap<(&str, &str), usize> = HashMap::new();
+            for issue in &diag.issues {
+                let key = (issue.category.as_str(), issue.message.as_str());
+                *grouped.entry(key).or_insert(0) += 1;
+            }
+
+            if !grouped.is_empty() {
+                println!("⚠ {} issue(s):", warning_count + error_count);
+                for ((category, message), count) in grouped {
+                    if count > 1 {
+                        println!("  - {}: {} ({} occurrences)", category, message, count);
+                    } else {
+                        println!("  - {}: {}", category, message);
+                    }
+                }
+            }
+        }
+        Verbosity::Debug => {
+            // Show every issue with line numbers
+            if !diag.issues.is_empty() {
+                println!("⚠ {} issue(s):", warning_count + error_count);
+                for issue in &diag.issues {
+                    let severity_marker = match issue.severity {
+                        Severity::Warning => "⚠",
+                        Severity::Error => "✗",
+                    };
+                    match (&issue.line, &issue.entity) {
+                        (Some(line), Some(entity)) => {
+                            println!(
+                                "  {} Line {}: {} ({})",
+                                severity_marker, line, issue.message, entity
+                            );
+                        }
+                        (Some(line), None) => {
+                            println!("  {} Line {}: {}", severity_marker, line, issue.message);
+                        }
+                        (None, Some(entity)) => {
+                            println!("  {} {}: {}", severity_marker, entity, issue.message);
+                        }
+                        (None, None) => {
+                            println!("  {} {}", severity_marker, issue.message);
+                        }
+                    }
+                }
+            }
         }
     }
 }

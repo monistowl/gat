@@ -1,0 +1,13 @@
+! IEEE 30 Bus Line Definitions (OpenDSS format)
+! Per unit values converted to ohms using 100 MVA base
+
+New line.L1   Bus1=B1   Bus2=B2   R1=1.92    X1=5.75   R0=3.84   X0=11.5   C1=5.28   C0=2.64   Length=1
+New line.L2   Bus1=B1   Bus2=B3   R1=4.52    X1=11.52  R0=9.04   X0=23.04  C1=4.94   C0=2.47   Length=1
+New line.L3   Bus1=B2   Bus2=B4   R1=5.70    X1=17.37  R0=11.40  X0=34.74  C1=3.68   C0=1.84   Length=1
+New line.L4   Bus1=B3   Bus2=B4   R1=1.32    X1=3.79   R0=2.64   X0=7.58   C1=0.84   C0=0.42   Length=1
+New line.L5   Bus1=B2   Bus2=B5   R1=4.72    X1=19.83  R0=9.44   X0=39.66  C1=4.09   C0=2.045  Length=1
+New line.L6   Bus1=B2   Bus2=B6   R1=5.81    X1=17.63  R0=11.62  X0=35.26  C1=3.74   C0=1.87   Length=1
+New line.L7   Bus1=B4   Bus2=B6   R1=1.19    X1=4.14   R0=2.38   X0=8.28   C1=0.90   C0=0.45   Length=1
+New line.L8   Bus1=B5   Bus2=B7   R1=4.60    X1=11.6   R0=9.20   X0=23.2   C1=2.04   C0=1.02   Length=1
+New line.L9   Bus1=B6   Bus2=B7   R1=2.67    X1=8.2    R0=5.34   X0=16.4   C1=1.70   C0=0.85   Length=1
+New line.L10  Bus1=B6   Bus2=B8   R1=1.2     X1=4.2    R0=2.4    X0=8.4    C1=0.90   C0=0.45   Length=1

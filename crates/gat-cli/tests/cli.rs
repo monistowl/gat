@@ -105,7 +105,7 @@ fn gat_import_and_pf_dc_runs() {
         ])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Importing MATPOWER"));
+        .stdout(predicate::str::contains("Imported"));
     assert!(arrow_path.exists());
 
     let mut pf = cargo_bin_cmd!("gat-cli");

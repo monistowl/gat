@@ -23,6 +23,15 @@ pub enum Commands {
     Import {
         #[command(subcommand)]
         command: ImportCommands,
+        /// Increase verbosity (-v for warnings summary, -vv for line details)
+        #[arg(short, long, action = clap::ArgAction::Count, global = true)]
+        verbose: u8,
+        /// Fail if any warnings are encountered
+        #[arg(long, global = true)]
+        strict: bool,
+        /// Run post-import validation (topology, references, physical sanity)
+        #[arg(long, global = true)]
+        validate: bool,
     },
     /// Validate a dataset against a schema
     Validate {
@@ -158,6 +167,14 @@ pub enum Commands {
 
 #[derive(Subcommand, Debug)]
 pub enum ImportCommands {
+    /// Auto-detect format and import (based on file extension and content)
+    Auto {
+        /// Path to the input file
+        input: String,
+        /// Output file path (Arrow format)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
     /// Import PSS/E RAW file
     Psse {
         /// Path to the RAW file
@@ -181,6 +198,15 @@ pub enum ImportCommands {
         /// Path to the CIM RDF file
         #[arg(long)]
         rdf: String,
+        /// Output file path (Arrow format)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+    /// Import pandapower JSON file
+    Pandapower {
+        /// Path to the pandapower JSON file
+        #[arg(long)]
+        json: String,
         /// Output file path (Arrow format)
         #[arg(short, long)]
         output: Option<String>,
@@ -411,6 +437,20 @@ pub enum GraphCommands {
         /// Emit island IDs
         #[arg(long)]
         emit: bool,
+    },
+    /// Validate network data for consistency and physical sanity
+    Validate {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Enable strict mode (fail on any warnings)
+        #[arg(long)]
+        strict: bool,
+        /// Skip topology checks (connectivity, islands)
+        #[arg(long)]
+        skip_topology: bool,
+        /// Increase verbosity (-v for details)
+        #[arg(short, long, action = clap::ArgAction::Count)]
+        verbose: u8,
     },
     /// Export graph to various formats
     Export {

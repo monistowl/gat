@@ -1,3 +1,4 @@
+pub mod helpers;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod importers;
 #[cfg(not(target_arch = "wasm32"))]
