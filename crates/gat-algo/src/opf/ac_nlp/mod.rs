@@ -177,9 +177,14 @@ mod problem;
 mod solver;
 mod sparse_ybus;
 mod ybus;
+mod branch_flow;
 
 pub use power_equations::PowerEquations;
-pub use problem::{AcOpfProblem, BusData, GenData};
+pub use problem::{AcOpfProblem, BranchData, BusData, GenData};
 pub use solver::solve as solve_ac_opf;
 pub use sparse_ybus::SparseYBus;
 pub use ybus::{YBus, YBusBuilder};
+pub use branch_flow::{
+    compute_branch_apparent_power, compute_branch_flows, compute_single_branch_flow,
+    compute_thermal_violations,
+};
