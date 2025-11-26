@@ -81,7 +81,13 @@ jobs:
               echo "flags=--no-default-features --features minimal-io,minimal" >> $GITHUB_OUTPUT
               ;;
             full)
-              echo "flags=--all-features" >> $GITHUB_OUTPUT
+              if [[ "${{ runner.os }}" == "macOS" ]]; then
+                # macOS: exclude solver-coin_cbc (not available on Homebrew ARM)
+                # List all features except solver-coin_cbc
+                echo "flags=--no-default-features --features default,docs,gui,tui,solver-clarabel,solver-highs,polars-lazy,polars-parquet,polars-ipc" >> $GITHUB_OUTPUT
+              else
+                echo "flags=--all-features" >> $GITHUB_OUTPUT
+              fi
               ;;
           esac
 
