@@ -7,6 +7,7 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Instant;
 
+use gat_algo::power_flow::AcPowerFlowSolver;
 use gat_algo::validation::{compute_pf_errors, PFReferenceSolution};
 use gat_algo::AcOpfSolver;
 use gat_io::sources::pfdelta::{list_pfdelta_cases, load_pfdelta_case, load_pfdelta_instance};
@@ -194,19 +195,37 @@ fn benchmark_case(
     // Branch on mode
     let (converged, iterations, gat_vm, gat_va) = match mode {
         "pf" => {
-            // For PF mode, we use the reference solution as validation
-            // The actual PF solve would go here, but for now we just compare
-            // For a real PF benchmark, we'd call an AC power flow solver
-            // TODO: Integrate actual AC power flow solver when available
-            //
-            // For now, return the reference solution as "solved" values
-            // This lets us test the infrastructure even without a PF solver
-            (
-                true,
-                0u32,
-                instance.solution.vm.clone(),
-                instance.solution.va.clone(),
-            )
+            // Use Newton-Raphson AC power flow solver
+            let pf_solver = AcPowerFlowSolver::new()
+                .with_tolerance(tol)
+                .with_max_iterations(max_iter as usize);
+
+            match pf_solver.solve(&instance.network) {
+                Ok(solution) => {
+                    // Convert BusId -> usize for comparison with reference
+                    let gat_vm: HashMap<usize, f64> = solution
+                        .bus_voltage_magnitude
+                        .iter()
+                        .map(|(bus_id, vm)| (bus_id.value(), *vm))
+                        .collect();
+                    let gat_va: HashMap<usize, f64> = solution
+                        .bus_voltage_angle
+                        .iter()
+                        .map(|(bus_id, va)| (bus_id.value(), va.to_degrees()))
+                        .collect();
+
+                    (
+                        solution.converged,
+                        solution.iterations as u32,
+                        gat_vm,
+                        gat_va,
+                    )
+                }
+                Err(_) => {
+                    // Solver failed - return empty results
+                    (false, 0u32, HashMap::new(), HashMap::new())
+                }
+            }
         }
         _ => {
             let solver = AcOpfSolver::new()
