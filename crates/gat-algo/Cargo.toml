@@ -19,6 +19,7 @@ serde_json = "1.0"
 clarabel = { version = "0.11", default-features = false }
 argmin = "0.10"
 argmin-math = { version = "0.4", features = ["vec"] }
+ipopt = { version = "0.6", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -31,13 +32,14 @@ default = [
     "polars-ipc",
 ]
 
-all-solvers = ["solver-clarabel", "solver-coin_cbc", "solver-highs"]
+all-solvers = ["solver-clarabel", "solver-coin_cbc", "solver-highs", "solver-ipopt"]
 all-polars = ["polars-lazy", "polars-parquet", "polars-ipc"]
 full = ["all-solvers", "all-polars"]
 
 solver-clarabel = ["good_lp/clarabel"]
 solver-coin_cbc = ["good_lp/coin_cbc"]
 solver-highs = ["good_lp/highs"]
+solver-ipopt = ["ipopt"]
 
 polars-lazy = ["polars/lazy"]
 polars-parquet = ["polars/parquet"]

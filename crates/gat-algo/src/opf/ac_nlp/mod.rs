@@ -179,6 +179,9 @@ mod sparse_ybus;
 mod ybus;
 mod branch_flow;
 
+#[cfg(feature = "solver-ipopt")]
+mod ipopt_solver;
+
 pub use power_equations::PowerEquations;
 pub use problem::{AcOpfProblem, BranchData, BusData, GenData};
 pub use solver::solve as solve_ac_opf;
@@ -188,3 +191,6 @@ pub use branch_flow::{
     compute_branch_apparent_power, compute_branch_flows, compute_single_branch_flow,
     compute_thermal_violations,
 };
+
+#[cfg(feature = "solver-ipopt")]
+pub use ipopt_solver::solve_with_ipopt;
