@@ -48,6 +48,7 @@ impl DatasetsPane {
                 .body([
                     "Available datasets (inline validation shows drift and pending checks):",
                     "Select a dataset to view details, validate, or preview rows",
+                    "Public data connectors and private uploads share the same validation flow",
                 ])
                 .with_table(dataset_table)
                 .with_child(

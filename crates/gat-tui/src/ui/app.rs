@@ -157,12 +157,17 @@ impl App {
         let width = std::env::var("COLUMNS")
             .ok()
             .and_then(|v| v.parse::<u16>().ok())
-            .unwrap_or_else(|| crossterm::terminal::size().map(|s| s.0).unwrap_or(80));
+            .or_else(|| crossterm::terminal::size().ok().map(|s| s.0))
+            .filter(|w| *w > 0)
+            .unwrap_or(80);
         let height = std::env::var("LINES")
             .ok()
             .and_then(|v| v.parse::<u16>().ok())
-            .unwrap_or_else(|| crossterm::terminal::size().map(|s| s.1).unwrap_or(24));
-        (width, height)
+            .or_else(|| crossterm::terminal::size().ok().map(|s| s.1))
+            .filter(|h| *h > 0)
+            .unwrap_or(24);
+
+        (width.max(60).min(96), height.max(20).min(40))
     }
 
     fn fit_to_viewport(output: String, width: usize, height: usize) -> String {
@@ -181,8 +186,10 @@ impl App {
             .collect();
 
         if lines.len() > height {
-            lines.truncate(height);
-            lines.push("…".to_string());
+            if height > 0 {
+                lines.truncate(height.saturating_sub(1));
+                lines.push("...".to_string());
+            }
         }
 
         lines.join("\n")

@@ -59,14 +59,21 @@ impl OperationsPane {
             .with_legend();
 
         let alloc_ops = Pane::new("Allocation Analysis")
-            .body(["Cost attribution and sensitivity analysis", ""])
+            .body([
+                "Cost attribution and sensitivity analysis",
+                "Congestion rents and KPI contribution views",
+            ])
             .with_barchart(rents_chart)
             .with_child(Pane::new("KPI Contribution").with_barchart(contribution_chart))
             .with_tabs(crate::ui::Tabs::new(["Rents", "Contribution"], 0));
 
         PaneLayout::new(
             Pane::new("Operations Hub")
-                .body(["DERMS + ADMS + Batch + Allocation"])
+                .body([
+                    "DERMS + ADMS + Batch + Allocation",
+                    "Allocation Analysis covers Congestion rents and KPI contribution",
+                    "Operator notes stay pinned on the right",
+                ])
                 .with_child(derms_adms)
                 .with_child(batch_ops)
                 .with_child(alloc_ops),
