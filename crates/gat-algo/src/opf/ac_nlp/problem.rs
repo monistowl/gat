@@ -95,8 +95,59 @@ use gat_core::{BusId, CostModel, Edge, Network, Node};
 use std::collections::HashMap;
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/// Interpolate Q limits at given P from capability curve.
+///
+/// Returns (q_min, q_max) in MVAr at the specified P operating point.
+/// If curve is empty, returns the default rectangular limits.
+pub fn interpolate_q_limits(curve: &[CapabilityCurvePoint], p_mw: f64, default_qmin: f64, default_qmax: f64) -> (f64, f64) {
+    if curve.is_empty() {
+        return (default_qmin, default_qmax);
+    }
+    if curve.len() == 1 {
+        return (curve[0].qmin_mvar, curve[0].qmax_mvar);
+    }
+
+    // Find bracketing points
+    for i in 0..curve.len() - 1 {
+        if p_mw >= curve[i].p_mw && p_mw <= curve[i + 1].p_mw {
+            // Linear interpolation
+            let t = (p_mw - curve[i].p_mw) / (curve[i + 1].p_mw - curve[i].p_mw);
+            let qmin = curve[i].qmin_mvar + t * (curve[i + 1].qmin_mvar - curve[i].qmin_mvar);
+            let qmax = curve[i].qmax_mvar + t * (curve[i + 1].qmax_mvar - curve[i].qmax_mvar);
+            return (qmin, qmax);
+        }
+    }
+
+    // Extrapolate from endpoints
+    if p_mw < curve[0].p_mw {
+        (curve[0].qmin_mvar, curve[0].qmax_mvar)
+    } else {
+        let last = curve.last().unwrap();
+        (last.qmin_mvar, last.qmax_mvar)
+    }
+}
+
+// ============================================================================
 // DATA STRUCTURES
 // ============================================================================
+
+/// Point on generator capability curve (P, Q_min, Q_max).
+///
+/// Capability curves define non-rectangular P-Q operating limits that
+/// more accurately model generator physical constraints like field current
+/// heating and armature heating limits.
+#[derive(Debug, Clone)]
+pub struct CapabilityCurvePoint {
+    /// Real power output (MW)
+    pub p_mw: f64,
+    /// Minimum reactive power at this P (MVAr)
+    pub qmin_mvar: f64,
+    /// Maximum reactive power at this P (MVAr)
+    pub qmax_mvar: f64,
+}
 
 /// Generator data extracted from network for OPF optimization.
 ///
@@ -130,6 +181,10 @@ pub struct GenData {
     /// Cost = c₀ + c₁·P + c₂·P² + ...
     /// Units: c₀ in $/hr, c₁ in $/MWh, c₂ in $/MW²h
     pub cost_coeffs: Vec<f64>,
+
+    /// Capability curve points (if empty, use rectangular limits).
+    /// Points should be sorted by p_mw in ascending order.
+    pub capability_curve: Vec<CapabilityCurvePoint>,
 }
 
 /// Branch data for thermal limit constraints.
@@ -391,6 +446,7 @@ impl AcOpfProblem {
                     qmin_mvar: gen.qmin_mvar,
                     qmax_mvar: gen.qmax_mvar,
                     cost_coeffs,
+                    capability_curve: Vec::new(), // Default: use rectangular limits
                 });
             }
         }

@@ -291,6 +291,44 @@ impl<'a> CostFunction for PenaltyProblem<'a> {
             }
         }
 
+        // ====================================================================
+        // GENERATOR CAPABILITY CURVE PENALTY
+        // ====================================================================
+        //
+        // For generators with capability curves defined:
+        //   Q_min(P) ≤ Q_g ≤ Q_max(P)
+        //
+        // where Q limits are interpolated from the capability curve at current P.
+        // This enforces non-rectangular P-Q operating limits.
+
+        for (i, gen) in self.problem.generators.iter().enumerate() {
+            if gen.capability_curve.is_empty() {
+                continue; // Use standard rectangular bounds
+            }
+
+            let pg_mw = x[self.problem.pg_offset + i] * self.problem.base_mva;
+            let qg_mvar = x[self.problem.qg_offset + i] * self.problem.base_mva;
+
+            let (qmin, qmax) = super::interpolate_q_limits(
+                &gen.capability_curve,
+                pg_mw,
+                gen.qmin_mvar,
+                gen.qmax_mvar
+            );
+
+            // Q > Qmax violation
+            if qg_mvar > qmax {
+                let violation = qg_mvar - qmax;
+                cost += self.penalty * violation * violation * 1e-4; // Scale for MVAr²
+            }
+
+            // Q < Qmin violation
+            if qg_mvar < qmin {
+                let violation = qmin - qg_mvar;
+                cost += self.penalty * violation * violation * 1e-4;
+            }
+        }
+
         Ok(cost)
     }
 }
@@ -692,6 +730,7 @@ mod tests {
             qmin_mvar: -50.0,
             qmax_mvar: 50.0,
             cost_coeffs: vec![0.0, 10.0, 0.0],
+            capability_curve: Vec::new(),
         }];
 
         // Create a branch with angle difference limit
