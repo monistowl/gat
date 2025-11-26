@@ -106,6 +106,7 @@
 //!   DOI: [10.1109/TPAS.1967.291823](https://doi.org/10.1109/TPAS.1967.291823)
 
 use super::YBus;
+use sprs::TriMat;
 
 /// Calculator for AC power flow equations P(V,θ) and Q(V,θ).
 ///
@@ -400,5 +401,265 @@ impl PowerEquations {
         }
 
         (dp_dtheta, dp_dv, dq_dtheta, dq_dv)
+    }
+
+    /// Compute sparse Jacobian of power flow equations.
+    ///
+    /// Returns four sparse matrices (J1, J2, J3, J4) in CSR format.
+    /// Much more efficient for large networks where Y-bus is sparse.
+    pub fn compute_sparse_jacobian(
+        ybus: &super::SparseYBus,
+        v: &[f64],
+        theta: &[f64],
+    ) -> (sprs::CsMat<f64>, sprs::CsMat<f64>, sprs::CsMat<f64>, sprs::CsMat<f64>) {
+        let n = ybus.n_bus();
+
+        let mut j1_tri = TriMat::new((n, n)); // ∂P/∂θ
+        let mut j2_tri = TriMat::new((n, n)); // ∂P/∂V
+        let mut j3_tri = TriMat::new((n, n)); // ∂Q/∂θ
+        let mut j4_tri = TriMat::new((n, n)); // ∂Q/∂V
+
+        for i in 0..n {
+            let vi = v[i];
+            let theta_i = theta[i];
+
+            // Diagonal elements require sums over all neighbors
+            let mut dp_dtheta_diag = 0.0;
+            let mut dq_dtheta_diag = 0.0;
+            let mut dp_dv_diag = 2.0 * vi * ybus.g(i, i);
+            let mut dq_dv_diag = -2.0 * vi * ybus.b(i, i);
+
+            for j in 0..n {
+                let g_ij = ybus.g(i, j);
+                let b_ij = ybus.b(i, j);
+
+                // Skip zero entries for sparsity
+                if g_ij.abs() < 1e-15 && b_ij.abs() < 1e-15 {
+                    continue;
+                }
+
+                let vj = v[j];
+                let theta_ij = theta_i - theta[j];
+                let cos_ij = theta_ij.cos();
+                let sin_ij = theta_ij.sin();
+
+                if i == j {
+                    // Diagonal handled separately
+                    continue;
+                }
+
+                // Accumulate diagonal sums
+                dp_dtheta_diag += vj * (-g_ij * sin_ij + b_ij * cos_ij);
+                dq_dtheta_diag += vj * (g_ij * cos_ij + b_ij * sin_ij);
+                dp_dv_diag += vj * (g_ij * cos_ij + b_ij * sin_ij);
+                dq_dv_diag += vj * (g_ij * sin_ij - b_ij * cos_ij);
+
+                // Off-diagonal entries
+                j1_tri.add_triplet(i, j, vi * vj * (g_ij * sin_ij - b_ij * cos_ij));
+                j2_tri.add_triplet(i, j, vi * (g_ij * cos_ij + b_ij * sin_ij));
+                j3_tri.add_triplet(i, j, -vi * vj * (g_ij * cos_ij + b_ij * sin_ij));
+                j4_tri.add_triplet(i, j, vi * (g_ij * sin_ij - b_ij * cos_ij));
+            }
+
+            // Add diagonal entries
+            j1_tri.add_triplet(i, i, vi * dp_dtheta_diag);
+            j2_tri.add_triplet(i, i, dp_dv_diag);
+            j3_tri.add_triplet(i, i, vi * dq_dtheta_diag);
+            j4_tri.add_triplet(i, i, dq_dv_diag);
+        }
+
+        (j1_tri.to_csr(), j2_tri.to_csr(), j3_tri.to_csr(), j4_tri.to_csr())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gat_core::{Branch, BranchId, Bus, BusId, Edge, Network, Node};
+
+    /// Create a simple 3-bus test network for testing
+    fn create_test_network() -> Network {
+        let mut network = Network::new();
+
+        // Add 3 buses
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus1".to_string(),
+            voltage_kv: 138.0,
+            voltage_pu: 1.0,
+            angle_rad: 0.0,
+            vmin_pu: Some(0.95),
+            vmax_pu: Some(1.05),
+            area_id: None,
+            zone_id: None,
+        }));
+
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Bus2".to_string(),
+            voltage_kv: 138.0,
+            voltage_pu: 1.0,
+            angle_rad: 0.0,
+            vmin_pu: Some(0.95),
+            vmax_pu: Some(1.05),
+            area_id: None,
+            zone_id: None,
+        }));
+
+        let bus3_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(3),
+            name: "Bus3".to_string(),
+            voltage_kv: 138.0,
+            voltage_pu: 1.0,
+            angle_rad: 0.0,
+            vmin_pu: Some(0.95),
+            vmax_pu: Some(1.05),
+            area_id: None,
+            zone_id: None,
+        }));
+
+        // Add branches (triangle topology)
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                name: "Branch1-2".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                charging_b_pu: 0.02,
+                s_max_mva: Some(100.0),
+                rating_a_mva: Some(100.0),
+                tap_ratio: 1.0,
+                phase_shift_rad: 0.0,
+                status: true,
+                ..Default::default()
+            }),
+        );
+
+        network.graph.add_edge(
+            bus2_idx,
+            bus3_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(2),
+                name: "Branch2-3".to_string(),
+                from_bus: BusId::new(2),
+                to_bus: BusId::new(3),
+                resistance: 0.01,
+                reactance: 0.1,
+                charging_b_pu: 0.02,
+                s_max_mva: Some(100.0),
+                rating_a_mva: Some(100.0),
+                tap_ratio: 1.0,
+                phase_shift_rad: 0.0,
+                status: true,
+                ..Default::default()
+            }),
+        );
+
+        network.graph.add_edge(
+            bus1_idx,
+            bus3_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(3),
+                name: "Branch1-3".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(3),
+                resistance: 0.01,
+                reactance: 0.1,
+                charging_b_pu: 0.02,
+                s_max_mva: Some(100.0),
+                rating_a_mva: Some(100.0),
+                tap_ratio: 1.0,
+                phase_shift_rad: 0.0,
+                status: true,
+                ..Default::default()
+            }),
+        );
+
+        network
+    }
+
+    #[test]
+    fn test_sparse_vs_dense_jacobian() {
+        // Create test network
+        let network = create_test_network();
+
+        // Build both dense and sparse Y-bus
+        let dense_ybus = super::super::YBusBuilder::from_network(&network).unwrap();
+        let sparse_ybus = super::super::SparseYBus::from_network(&network).unwrap();
+
+        // Test voltages and angles
+        let v = vec![1.0, 0.98, 1.02];
+        let theta = vec![0.0, -0.05, 0.03];
+
+        // Compute dense Jacobian
+        let (j1_dense, j2_dense, j3_dense, j4_dense) =
+            PowerEquations::compute_jacobian(&dense_ybus, &v, &theta);
+
+        // Compute sparse Jacobian
+        let (j1_sparse, j2_sparse, j3_sparse, j4_sparse) =
+            PowerEquations::compute_sparse_jacobian(&sparse_ybus, &v, &theta);
+
+        let n = sparse_ybus.n_bus();
+        let tol = 1e-10;
+
+        // Compare J1 (∂P/∂θ)
+        for i in 0..n {
+            for j in 0..n {
+                let dense_val = j1_dense[i * n + j];
+                let sparse_val = j1_sparse.get(i, j).copied().unwrap_or(0.0);
+                let diff = (dense_val - sparse_val).abs();
+                assert!(
+                    diff < tol,
+                    "J1[{},{}]: dense={}, sparse={}, diff={}",
+                    i, j, dense_val, sparse_val, diff
+                );
+            }
+        }
+
+        // Compare J2 (∂P/∂V)
+        for i in 0..n {
+            for j in 0..n {
+                let dense_val = j2_dense[i * n + j];
+                let sparse_val = j2_sparse.get(i, j).copied().unwrap_or(0.0);
+                let diff = (dense_val - sparse_val).abs();
+                assert!(
+                    diff < tol,
+                    "J2[{},{}]: dense={}, sparse={}, diff={}",
+                    i, j, dense_val, sparse_val, diff
+                );
+            }
+        }
+
+        // Compare J3 (∂Q/∂θ)
+        for i in 0..n {
+            for j in 0..n {
+                let dense_val = j3_dense[i * n + j];
+                let sparse_val = j3_sparse.get(i, j).copied().unwrap_or(0.0);
+                let diff = (dense_val - sparse_val).abs();
+                assert!(
+                    diff < tol,
+                    "J3[{},{}]: dense={}, sparse={}, diff={}",
+                    i, j, dense_val, sparse_val, diff
+                );
+            }
+        }
+
+        // Compare J4 (∂Q/∂V)
+        for i in 0..n {
+            for j in 0..n {
+                let dense_val = j4_dense[i * n + j];
+                let sparse_val = j4_sparse.get(i, j).copied().unwrap_or(0.0);
+                let diff = (dense_val - sparse_val).abs();
+                assert!(
+                    diff < tol,
+                    "J4[{},{}]: dense={}, sparse={}, diff={}",
+                    i, j, dense_val, sparse_val, diff
+                );
+            }
+        }
     }
 }
