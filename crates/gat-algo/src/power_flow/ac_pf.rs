@@ -754,6 +754,69 @@ impl AcPowerFlowSolver {
         jacobian
     }
 
+    /// Build sparse Jacobian matrix for Newton-Raphson
+    ///
+    /// Uses CSR (Compressed Sparse Row) format for efficient storage and
+    /// matrix-vector multiplication. For power systems, Jacobian sparsity
+    /// follows the network topology - only connected buses have non-zero entries.
+    fn build_jacobian_sparse(
+        &self,
+        y_bus: &[Vec<(f64, f64)>],
+        v_mag: &[f64],
+        v_ang: &[f64],
+        p_buses: &[usize],
+        q_buses: &[usize],
+    ) -> CsMat<f64> {
+        let n_p = p_buses.len();
+        let n_q = q_buses.len();
+        let n_vars = n_p + n_q;
+
+        // Use triplet format for construction, then convert to CSR
+        let mut triplets = TriMat::new((n_vars, n_vars));
+
+        // J11: dP/dtheta (for non-slack buses)
+        for (row, &i) in p_buses.iter().enumerate() {
+            for (col, &j) in p_buses.iter().enumerate() {
+                let val = self.dp_dtheta(y_bus, v_mag, v_ang, i, j);
+                if val.abs() > 1e-14 {
+                    triplets.add_triplet(row, col, val);
+                }
+            }
+        }
+
+        // J12: dP/dV (for PQ buses)
+        for (row, &i) in p_buses.iter().enumerate() {
+            for (col, &j) in q_buses.iter().enumerate() {
+                let val = self.dp_dv(y_bus, v_mag, v_ang, i, j);
+                if val.abs() > 1e-14 {
+                    triplets.add_triplet(row, n_p + col, val);
+                }
+            }
+        }
+
+        // J21: dQ/dtheta (for PQ buses)
+        for (row, &i) in q_buses.iter().enumerate() {
+            for (col, &j) in p_buses.iter().enumerate() {
+                let val = self.dq_dtheta(y_bus, v_mag, v_ang, i, j);
+                if val.abs() > 1e-14 {
+                    triplets.add_triplet(n_p + row, col, val);
+                }
+            }
+        }
+
+        // J22: dQ/dV (for PQ buses)
+        for (row, &i) in q_buses.iter().enumerate() {
+            for (col, &j) in q_buses.iter().enumerate() {
+                let val = self.dq_dv(y_bus, v_mag, v_ang, i, j);
+                if val.abs() > 1e-14 {
+                    triplets.add_triplet(n_p + row, n_p + col, val);
+                }
+            }
+        }
+
+        triplets.to_csr()
+    }
+
     /// ∂P_i/∂θ_j
     fn dp_dtheta(
         &self,
