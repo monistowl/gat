@@ -109,9 +109,19 @@ pub fn launch(options: NotebookOptions) -> Result<NotebookLaunch> {
                 path: "notebooks/demos/scenario-batch.md",
             },
             Demo {
+                title: "Data validation and cleanup",
+                description: "Validate topology, catch islands, and prepare a clean grid artifact for studies.",
+                path: "notebooks/demos/validation.md",
+            },
+            Demo {
                 title: "RAG + context building",
                 description: "Curate context assets and summarize decisions for downstream assistants.",
                 path: "notebooks/demos/rag-context.md",
+            },
+            Demo {
+                title: "Experiment tracking + reproducibility",
+                description: "Capture runs, decisions, and quick metadata for iterative research.",
+                path: "notebooks/demos/research-tracking.md",
             },
             Demo {
                 title: "Time-series and forecasting",
@@ -127,6 +137,26 @@ pub fn launch(options: NotebookOptions) -> Result<NotebookLaunch> {
                 title: "Reliability, deliverability, and hosting",
                 description: "Screen contingencies, capacity value, and DER hosting capacity in one loop.",
                 path: "notebooks/demos/reliability-hosting.md",
+            },
+            Demo {
+                title: "Contingency analysis + grid hardening",
+                description: "Run N-1 screening, triage violations, and capture remediation ideas.",
+                path: "notebooks/demos/contingency-resilience.md",
+            },
+            Demo {
+                title: "Sensitivity sweeps + post-processing",
+                description: "Vary load and limits, run sweeps, and summarize violatons by scenario.",
+                path: "notebooks/demos/sensitivity-sweeps.md",
+            },
+            Demo {
+                title: "Solver benchmarking + regression",
+                description: "Compare OPF solvers, capture runtimes, and persist benchmarks for CI.",
+                path: "notebooks/demos/solver-benchmarks.md",
+            },
+            Demo {
+                title: "Data ingestion + format conversion",
+                description: "Convert RAW/CIM inputs to Arrow, lint metadata, and prep shareable assets.",
+                path: "notebooks/demos/data-ingestion.md",
             },
         ],
     };
@@ -185,9 +215,15 @@ fn seed_workspace(path: &Path) -> Result<()> {
 
     let scenario_batch = path.join("notebooks/demos/scenario-batch.md");
     write_if_absent(&scenario_batch, render_scenario_batch_demo())?;
-
+    
     let rag_context = path.join("notebooks/demos/rag-context.md");
     write_if_absent(&rag_context, render_rag_context_demo())?;
+
+    let research_tracking = path.join("notebooks/demos/research-tracking.md");
+    write_if_absent(&research_tracking, render_research_tracking_demo())?;
+
+    let validation = path.join("notebooks/demos/validation.md");
+    write_if_absent(&validation, render_validation_demo())?;
 
     let time_series = path.join("notebooks/demos/time-series.md");
     write_if_absent(&time_series, render_time_series_demo())?;
@@ -197,6 +233,21 @@ fn seed_workspace(path: &Path) -> Result<()> {
 
     let reliability_hosting = path.join("notebooks/demos/reliability-hosting.md");
     write_if_absent(&reliability_hosting, render_reliability_hosting_demo())?;
+
+    let contingency_resilience = path.join("notebooks/demos/contingency-resilience.md");
+    write_if_absent(
+        &contingency_resilience,
+        render_contingency_resilience_demo(),
+    )?;
+
+    let sensitivity_sweeps = path.join("notebooks/demos/sensitivity-sweeps.md");
+    write_if_absent(&sensitivity_sweeps, render_sensitivity_sweeps_demo())?;
+
+    let solver_benchmarks = path.join("notebooks/demos/solver-benchmarks.md");
+    write_if_absent(&solver_benchmarks, render_solver_benchmarks_demo())?;
+
+    let data_ingestion = path.join("notebooks/demos/data-ingestion.md");
+    write_if_absent(&data_ingestion, render_data_ingestion_demo())?;
 
     Ok(())
 }
@@ -414,6 +465,79 @@ Use this section to keep bullet-point decisions, timestamps, and next questions.
     content.to_string()
 }
 
+fn render_validation_demo() -> String {
+    let content = r#"# Data validation and cleanup
+
+Keep the grid artifact healthy before running larger studies.
+
+## 1) Validate schema + topology
+```bash
+gat validate --file datasets/ieee14.arrow --schema grid
+gat graph stats datasets/ieee14.arrow
+gat graph islands datasets/ieee14.arrow
+gat graph connectivity datasets/ieee14.arrow
+```
+
+## 2) Catch limits + slack issues
+```bash
+gat validate --file datasets/ieee14.arrow --schema branch_limits
+gat validate --file datasets/ieee14.arrow --schema bus_voltage
+```
+
+## 3) Regenerate a clean artifact
+```bash
+gat import psse --file data/ieee14.raw --out datasets/ieee14_clean.arrow
+gat validate --file datasets/ieee14_clean.arrow --schema grid
+```
+
+## Notes
+- [ ] Track fixes in `context/validation_log.md`
+- [ ] Re-run after editing external CSV inputs
+"#;
+
+    content.to_string()
+}
+
+fn render_research_tracking_demo() -> String {
+    let content = r#"# Experiment tracking + reproducibility
+
+Keep quick notes, metadata, and run artifacts together while iterating.
+
+## 1) Stamp a run folder
+```bash
+RUN=$(date +%Y%m%d-%H%M%S)
+mkdir -p notebooks/runs/$RUN
+```
+
+## 2) Capture the command + outputs
+```bash
+gat pf dc datasets/ieee14.arrow --out notebooks/runs/$RUN/pf.parquet --limits datasets/limits.csv
+md5sum datasets/ieee14.arrow > notebooks/runs/$RUN/input_checksums.txt
+```
+
+## 3) Log decisions + prompts
+```bash
+cat >> context/experiment_log.md << 'EOF'
+## $RUN
+- why: testing updated limits CSV
+- command: gat pf dc datasets/ieee14.arrow --out notebooks/runs/$RUN/pf.parquet --limits datasets/limits.csv
+- notes: rerun after refreshing DER interconnect data
+EOF
+```
+
+## 4) Summarize quickly
+```bash
+duckdb "SELECT COUNT(*) AS branches, SUM(overload) AS total_violation FROM read_parquet('notebooks/runs/$RUN/pf.parquet')"
+```
+
+## Follow-ups
+- [ ] Commit `context/experiment_log.md` as a checkpoint
+- [ ] Copy timings into `context/run_metadata.csv`
+"#;
+
+    content.to_string()
+}
+
 fn render_time_series_demo() -> String {
     let content = r#"# Time-series and forecasting
 
@@ -439,6 +563,49 @@ gat ts stats --timeseries notebooks/ts_results.parquet --window 24h --out notebo
 ## Follow-ups
 - [ ] Compare solver choices on a subset of hours
 - [ ] Export key findings to `context/ts_notes.md`
+"#;
+
+    content.to_string()
+}
+
+fn render_sensitivity_sweeps_demo() -> String {
+    let content = r#"# Sensitivity sweeps + post-processing
+
+Vary inputs, sweep scenarios, and summarize violations per case.
+
+## 1) Generate scenario variations
+```bash
+cat > datasets/sweeps.yaml << 'EOF'
+grid: datasets/ieee14.arrow
+scenarios:
+  - name: load_up_5
+    load_multiplier: 1.05
+  - name: load_down_5
+    load_multiplier: 0.95
+  - name: limit_tight
+    branch_limit_multiplier: 0.9
+EOF
+gat scenarios materialize --spec datasets/sweeps.yaml --out-dir datasets/sweeps
+```
+
+## 2) Run batch flows
+```bash
+gat batch pf --manifest datasets/sweeps/manifest.json --max-jobs 8 --threads 4 --out notebooks/sweeps
+```
+
+## 3) Post-process
+```bash
+duckdb "SELECT scenario, SUM(overload) AS overload_mw FROM read_parquet('notebooks/sweeps/*.parquet') GROUP BY 1 ORDER BY overload_mw DESC"
+```
+
+## 4) Track diffs
+```bash
+ls notebooks/sweeps > context/sweep_runs.txt
+```
+
+## Next ideas
+- [ ] Add reactive power sensitivity by adjusting generator Q limits
+- [ ] Plot overload distribution per scenario
 "#;
 
     content.to_string()
@@ -501,6 +668,103 @@ gat derms hosting-capacity --grid datasets/ieee14.arrow --der-type solar --volta
     content.to_string()
 }
 
+fn render_contingency_resilience_demo() -> String {
+    let content = r#"# Contingency analysis + grid hardening
+
+Quickly scan N-1 cases, catch overloads, and note corrective options.
+
+## 1) Define contingencies
+Create `datasets/contingencies.yaml` with branch and generator outages.
+
+## 2) Screen in bulk
+```bash
+gat nminus1 dc datasets/ieee14.arrow --spec datasets/contingencies.yaml --out notebooks/nminus1.parquet
+duckdb "SELECT contingency_id, COUNT(*) AS n_violations FROM 'notebooks/nminus1.parquet' GROUP BY 1 ORDER BY 2 DESC"
+```
+
+## 3) Re-run with OPF and limits
+```bash
+gat opf dc datasets/ieee14.arrow --limits datasets/limits.csv --out notebooks/base_opf.parquet
+gat nminus1 dc datasets/ieee14.arrow --spec datasets/contingencies.yaml --limits datasets/limits.csv --out notebooks/nminus1_limited.parquet
+```
+
+## 4) Capture fixes
+- [ ] Note candidate re-dispatch strategies in `context/hardening.md`
+- [ ] Keep violation pivots under `context/nminus1_summary.csv`
+- [ ] Tag follow-up "storm hardening" scenarios for batch reruns
+"#;
+
+    content.to_string()
+}
+
+fn render_data_ingestion_demo() -> String {
+    let content = r#"# Data ingestion + format conversion
+
+Convert common formats to Arrow, lint metadata, and stage assets for collaboration.
+
+## 1) Convert RAW/PSS/E/CIM to Arrow
+```bash
+gat import matpower --file data/ieee14.raw --out datasets/ieee14.arrow
+gat import psse --file data/ieee14.raw --out datasets/ieee14_psse.arrow
+gat import cim --file data/network.rdf --out datasets/cim.arrow
+```
+
+## 2) Validate inputs and metadata
+```bash
+gat validate --file datasets/ieee14.arrow --schema grid
+gat validate --file datasets/ieee14.arrow --schema branch_limits
+gat graph stats datasets/ieee14.arrow
+```
+
+## 3) Produce shareable parquet summaries
+```bash
+gat graph stats datasets/ieee14.arrow --out datasets/grid_stats.parquet
+duckdb "COPY (SELECT * FROM read_parquet('datasets/grid_stats.parquet')) TO 'context/grid_stats.csv' (FORMAT CSV)"
+```
+
+## 4) Track provenance
+- [ ] Record source filenames and hashes in `context/ingestion_log.md`
+- [ ] Keep validated Arrow copies under `datasets/validated/`
+"#;
+
+    content.to_string()
+}
+
+fn render_solver_benchmarks_demo() -> String {
+    let content = r#"# Solver benchmarking + regression
+
+Compare solver choices for OPF runs and keep timing snapshots for later CI checks.
+
+## 1) Prepare inputs
+```bash
+gat import matpower --file data/ieee14.raw --out datasets/ieee14.arrow
+gat opf dc datasets/ieee14.arrow --solver highs --cost datasets/costs.csv --out notebooks/opf_highs.parquet
+```
+
+## 2) Benchmark alternatives
+```bash
+gat opf dc datasets/ieee14.arrow --solver clarabel --cost datasets/costs.csv --out notebooks/opf_clarabel.parquet
+gat opf dc datasets/ieee14.arrow --solver ipopt --cost datasets/costs.csv --out notebooks/opf_ipopt.parquet
+```
+
+## 3) Capture timings
+```bash
+/usr/bin/time -v gat opf dc datasets/ieee14.arrow --solver highs --cost datasets/costs.csv --out notebooks/bench_highs.parquet
+```
+
+## 4) Summarize results
+```bash
+duckdb "SELECT solver, COUNT(*) AS n_records FROM read_parquet('notebooks/opf_*.parquet') GROUP BY 1"
+```
+
+## Follow-ups
+- [ ] Store timing tables in `context/solver_benchmarks.csv`
+- [ ] Re-run benchmarks after upgrading dependencies
+"#;
+
+    content.to_string()
+}
+
 fn attempt_open_browser(url: &str) -> bool {
     #[cfg(target_os = "windows")]
     {
@@ -557,8 +821,14 @@ mod tests {
         assert!(manifest.contains("gat-notebook"));
         assert!(manifest.contains("twinsong"));
         assert!(manifest.contains("Power flow walkthrough"));
+        assert!(manifest.contains("Data validation and cleanup"));
+        assert!(manifest.contains("Experiment tracking + reproducibility"));
         assert!(manifest.contains("Time-series and forecasting"));
         assert!(manifest.contains("Reliability, deliverability, and hosting"));
+        assert!(manifest.contains("Contingency analysis + grid hardening"));
+        assert!(manifest.contains("Sensitivity sweeps + post-processing"));
+        assert!(manifest.contains("Solver benchmarking + regression"));
+        assert!(manifest.contains("Data ingestion + format conversion"));
     }
 
     #[test]
@@ -632,6 +902,18 @@ mod tests {
         assert!(rag_context.contains("gat nminus1 dc"));
         assert!(rag_context.contains("gat analytics deliverability"));
 
+        let research_tracking = fs::read_to_string(
+            workspace.join("notebooks/demos/research-tracking.md"),
+        )
+        .unwrap();
+        assert!(research_tracking.contains("experiment_log"));
+        assert!(research_tracking.contains("md5sum"));
+
+        let validation = fs::read_to_string(workspace.join("notebooks/demos/validation.md"))
+            .unwrap();
+        assert!(validation.contains("gat graph islands"));
+        assert!(validation.contains("gat validate"));
+
         let time_series = fs::read_to_string(workspace.join("notebooks/demos/time-series.md")).unwrap();
         assert!(time_series.contains("gat ts solve"));
         assert!(time_series.contains("gat ts stats"));
@@ -644,5 +926,31 @@ mod tests {
             fs::read_to_string(workspace.join("notebooks/demos/reliability-hosting.md")).unwrap();
         assert!(reliability.contains("gat derms hosting-capacity"));
         assert!(reliability.contains("gat analytics elcc"));
+
+        let contingency = fs::read_to_string(
+            workspace.join("notebooks/demos/contingency-resilience.md"),
+        )
+        .unwrap();
+        assert!(contingency.contains("gat nminus1 dc"));
+        assert!(contingency.contains("gat opf dc"));
+
+        let sensitivity_sweeps = fs::read_to_string(
+            workspace.join("notebooks/demos/sensitivity-sweeps.md"),
+        )
+        .unwrap();
+        assert!(sensitivity_sweeps.contains("scenarios materialize"));
+        assert!(sensitivity_sweeps.contains("batch pf"));
+
+        let solver_benchmarks = fs::read_to_string(
+            workspace.join("notebooks/demos/solver-benchmarks.md"),
+        )
+        .unwrap();
+        assert!(solver_benchmarks.contains("gat opf dc"));
+        assert!(solver_benchmarks.contains("/usr/bin/time"));
+
+        let data_ingestion =
+            fs::read_to_string(workspace.join("notebooks/demos/data-ingestion.md")).unwrap();
+        assert!(data_ingestion.contains("gat import"));
+        assert!(data_ingestion.contains("gat validate"));
     }
 }
