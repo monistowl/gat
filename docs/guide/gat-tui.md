@@ -1,4 +1,8 @@
-# `gat-tui` architecture and panel registry
+# `gat-tui` Architecture
+
+> **Quick Start & User Guide:** See [`crates/gat-tui/README.md`](../../crates/gat-tui/README.md) for installation, pane descriptions, and keyboard shortcuts.
+
+This document covers internals: how panes are registered, how layouts compose, and how to add new panels.
 
 The terminal UI is intentionally small but composable so panes can be rearranged without touching the rendering glue. Everything hangs off a shared `PaneContext` that carries default tooltips and the command modal, and is passed into every pane when the navigation menu is built.
 

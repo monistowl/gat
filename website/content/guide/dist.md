@@ -11,7 +11,7 @@ DIST tools analyze and optimize distribution networks: power flows, optimal disp
 ## Key Concepts
 
 **Distribution Network Modeling**
-- Imported from MATPOWER (.raw, .m files)
+- Imported from MATPOWER (.m, .case files)
 - AC power flow with transformer impedances, load models, capacitor banks
 - Voltage regulators and switching devices
 - Integration points to transmission (substation).
@@ -33,7 +33,7 @@ DIST tools analyze and optimize distribution networks: power flows, optimal disp
 ### Import a distribution system from MATPOWER
 
 ```bash
-gat import matpower ieee13_feeder.raw --out dist_network.arrow
+gat import matpower --m ieee13_feeder.m -o dist_network.arrow
 ```
 
 Output: `dist_network.arrow` (Arrow format with bus, branch, generator data).

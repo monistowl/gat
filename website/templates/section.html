@@ -5,10 +5,10 @@
   {% include "partials/header.html" %}
 
   <div class="max-w-screen-2xl mx-auto px-6 py-8 grid lg:grid-cols-12 gap-6 xl:gap-8">
-    {% set doc_home = get_section(path=section.path) %}
-    {% set doc_home_label = doc_home.title | default(value="Docs") %}
+    {% set doc_home = section %}
+    {% set doc_home_label = section.title | default(value="Docs") %}
     {% set current_path = current_path %}
-    {% set doc_home_url = doc_home.permalink %}
+    {% set doc_home_url = section.permalink %}
     {% include "partials/sidebar.html" %}
 
     <main class="lg:col-span-9 xl:col-span-9">

@@ -31,7 +31,7 @@ pub fn handle(command: &ImportCommands) -> Result<()> {
             let (case_path, output_path) = prepare_import(
                 m,
                 output.as_deref(),
-                &["m", "mat", "matpower"],
+                &["m", "mat", "matpower", "case"],
                 "MATPOWER case",
             )?;
             let res = importers::import_matpower_case(&case_path, &output_path).map(|_| ());

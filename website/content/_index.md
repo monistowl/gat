@@ -11,15 +11,13 @@ transparent = true
 ## Quick Start
 
 ```bash
-# Download single binary (no dependencies)
-curl -L https://github.com/monistowl/gat/releases/latest/download/gat-linux-x86_64 -o gat
-chmod +x gat
+# Install using the modular installer
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.3.4/install-modular.sh | bash
+export PATH="$HOME/.gat/bin:$PATH"
 
-# Run power flow on a standard test case
-./gat pf case14.m
-
-# Run optimal power flow
-./gat opf case14.m
+# Import a MATPOWER case and run power flow
+gat import matpower --m grid.m -o grid.arrow
+gat pf dc grid.arrow --out flows.parquet
 ```
 
 ## Why GAT?

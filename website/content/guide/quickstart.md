@@ -82,45 +82,48 @@ GAT includes example datasets. Clone the repository to access them:
 
 ```bash
 git clone https://github.com/monistowl/gat.git
-cd gat/examples
-ls -la *.m
+cd gat
 ```
 
-You'll see MATPOWER case files like:
-- `case9.m` — 9-bus test case
-- `case30.m` — 30-bus test case
-- `case118.m` — 118-bus test case
+The `test_data/matpower/` directory contains:
+- `ieee14.case` — IEEE 14-bus test case
+- `ieee14.arrow` — Pre-converted Arrow format (ready to use)
 
-For this quickstart, we'll use `case9.m` (the smallest and fastest).
+For this quickstart, we'll use the IEEE 14-bus system.
 
 ## 4. Run Your First Power Flow (1 minute)
 
-### DC Power Flow (Fastest)
+### Option A: Use Pre-converted Arrow File (Fastest)
 
-DC power flow solves in milliseconds using linearized equations:
+If you have pre-converted Arrow files:
 
 ```bash
-gat pf dc examples/case9.m --out flows_dc.parquet
+gat pf dc test_data/matpower/ieee14.arrow --out flows_dc.parquet
+```
+
+### Option B: Import and Analyze (From MATPOWER)
+
+To convert from MATPOWER format and run analysis:
+
+```bash
+# Step 1: Import MATPOWER case to Arrow format
+gat import matpower --m test_data/matpower/ieee14.case -o grid.arrow
+
+# Step 2: Run DC power flow
+gat pf dc grid.arrow --out flows_dc.parquet
 ```
 
 **What this does:**
-- `gat pf dc` — Run DC power flow
-- `examples/case9.m` — Load the 9-bus grid
-- `--out flows_dc.parquet` — Save results to `flows_dc.parquet`
-
-**Output:**
-```
-✓ Loaded case9.m (9 buses, 9 lines)
-✓ DC Power Flow solved in 12.3ms
-✓ Results saved to flows_dc.parquet
-```
+- `gat import matpower` — Convert MATPOWER .m/.case file to Arrow
+- `gat pf dc` — Run DC power flow on the converted grid
+- `--out flows_dc.parquet` — Save results to Parquet
 
 ### AC Power Flow (More Accurate)
 
 AC power flow solves the full nonlinear equations:
 
 ```bash
-gat pf ac examples/case9.m --out flows_ac.parquet
+gat pf ac grid.arrow --out flows_ac.parquet
 ```
 
 This takes slightly longer (still under 100ms for small cases) but gives more accurate voltages and reactive power.
@@ -200,24 +203,22 @@ Now that you've run your first analysis, explore these topics:
 
 ### Run Analysis on Your Own Grid
 
-If you have a MATPOWER file:
+If you have a MATPOWER file, import it first:
 
 ```bash
-gat pf dc your_grid.m --out results.parquet
-```
+# Import to Arrow format
+gat import matpower --m your_grid.m -o your_grid.arrow
 
-Or from CSV:
-
-```bash
-gat pf dc your_grid.csv --out results.parquet
+# Run power flow
+gat pf dc your_grid.arrow --out results.parquet
 ```
 
 ### Compare DC vs AC Results
 
 ```bash
-# Run both analyses
-gat pf dc your_grid.m --out dc.parquet
-gat pf ac your_grid.m --out ac.parquet
+# Run both analyses on your Arrow grid
+gat pf dc your_grid.arrow --out dc.parquet
+gat pf ac your_grid.arrow --out ac.parquet
 
 # Compare in Python
 import polars as pl
@@ -249,11 +250,13 @@ You need to add GAT to your PATH. Run:
 export PATH="$HOME/.gat/bin:$PATH"
 ```
 
-### "case9.m: No such file or directory"
+### "File not found" errors
 Clone the GAT repository to get example files:
 ```bash
 git clone https://github.com/monistowl/gat.git
 cd gat
+# Use the pre-converted Arrow file
+gat pf dc test_data/matpower/ieee14.arrow --out flows.parquet
 ```
 
 ### Power flow doesn't converge

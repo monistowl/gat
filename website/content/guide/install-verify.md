@@ -54,11 +54,15 @@ This should show:
 
 ### 4. Test Basic Power Flow
 
-The quickest test is a DC power flow on the built-in sample data:
+The quickest test is a DC power flow on the test data included in the repository:
 
 ```bash
-# Create a simple test grid
-gat sample > test_grid.arrow
+# Clone the repository for test data
+git clone https://github.com/monistowl/gat.git
+cd gat
+
+# Import a MATPOWER case to Arrow format
+gat import matpower --m test_data/matpower/case9.m -o test_grid.arrow
 
 # Run DC power flow
 gat pf dc test_grid.arrow --out flows.parquet
@@ -99,9 +103,10 @@ Or verify the binary exists:
 
 ### "error: Could not open file 'grid.arrow'"
 
-**Solution:** Make sure you're in the right directory or use absolute paths:
+**Solution:** Make sure you're in the GAT repository or use absolute paths:
 ```bash
-gat sample > /tmp/test_grid.arrow
+cd /path/to/gat  # wherever you cloned the repository
+gat import matpower --m test_data/matpower/case9.m -o /tmp/test_grid.arrow
 gat pf dc /tmp/test_grid.arrow --out /tmp/flows.parquet
 ```
 
@@ -128,7 +133,7 @@ curl -I https://github.com
 If still stuck, download and run the installer directly:
 ```bash
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.3.2/install-modular.sh \
+  https://github.com/monistowl/gat/releases/download/v0.3.4/install-modular.sh \
   -o install.sh
 bash install.sh
 ```

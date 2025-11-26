@@ -1,6 +1,13 @@
-# GAT Auto-Docs
+# GAT Documentation
 
-The `docs/` tree combines auto-generated content (`docs/cli`, `docs/schemas`, `docs/arrow`, `site/book`) with hand-authored guides under `docs/guide`.
+The `docs/` tree combines auto-generated content with hand-authored guides.
+
+## Contents
+
+- **CLI reference** – `docs/cli/gat.md` (with `docs/man/gat.1` for Unix installs)
+- **Schemas** – `docs/schemas/manifest.schema.json`, `docs/schemas/flows.schema.json`
+- **Arrow layouts** – `docs/arrow/README.md` plus exported `schema.json` files
+- **Guides** – `docs/guide/` (see highlights below)
 
 ## Helpful commands
 
@@ -19,9 +26,8 @@ Use `gat-mcp-docs --docs docs --addr 127.0.0.1:4321` to preview the generated tr
 - `docs/guide/doc-workflow.md`: outlines the beads (`bd`) issue workflow plus the doc-regeneration steps you should follow.
 - `docs/guide/datasets.md`, `docs/guide/opf.md`, `docs/guide/se.md`, `docs/guide/ts.md`, `docs/guide/gui.md`, `docs/guide/viz.md`, and `docs/guide/packaging.md` document the curated workflows you can script from the CLI.
 - `docs/guide/demos/README.md` shows how to add training-focused demos (the first one lives in `test_data/demos/reliability_pricing.py`).
-- `docs/guide/demos/README.md` shows how to add training-focused demos (the first one lives in `test_data/demos/reliability_pricing.py`).
 - `docs/guide/gat-tui.md` introduces the Ratatui-powered `gat-tui` monitor for workflow visibility.
 - `docs/guide/scaling.md`: describes the multi-horizon scaling roadmap along with concrete code/CLI targets.
 - `docs/ROADMAP.md`: the canonical plan for the workspace with phases, milestones, and deliverables.
 
-Running `cargo xtask doc all` keeps `docs/index.md`, `docs/README.md`, and the guide content aligned so the MCP server has a single authoritative view.
+Running `cargo xtask doc all` keeps this README and the guide content aligned so the MCP server has a single authoritative view.

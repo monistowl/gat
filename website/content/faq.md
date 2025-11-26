@@ -207,8 +207,8 @@ Use GAT's **manifest system** for batch automation:
 ```toml
 # manifest.toml
 [runs]
-base_case = { network = "grid.m", name = "Base Case" }
-contingency_n1 = { network = "grid.m", contingencies = true }
+base_case = { network = "grid.arrow", name = "Base Case" }
+contingency_n1 = { network = "grid.arrow", contingencies = true }
 
 [analysis]
 analysis_type = "power_flow"
@@ -217,8 +217,12 @@ method = "ac"
 
 Then run:
 ```bash
+# First import your grid to Arrow format
+gat import matpower --m grid.m -o grid.arrow
+
+# Describe and run the manifest
 gat runs describe manifest.toml
-gat runs execute manifest.toml
+gat runs resume manifest.toml
 ```
 
 See [Manifests](/internals/cli-architecture/#manifest-driven-workflows) for more.
@@ -228,9 +232,10 @@ See [Manifests](/internals/cli-architecture/#manifest-driven-workflows) for more
 Not out-of-the-box, but it's easy to script:
 
 ```bash
-# Run contingencies in parallel across cores
+# Import grid first, then run contingencies in parallel
+gat import matpower --m grid.m -o grid.arrow
 for i in {1..100}; do
-  gat pf ac grid.m --contingency $i --out contingency_$i.parquet &
+  gat pf ac grid.arrow --contingency $i --out contingency_$i.parquet &
 done
 wait
 ```
