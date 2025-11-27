@@ -15,6 +15,7 @@ pub mod graph;
 #[cfg(feature = "gui")]
 pub mod gui;
 pub mod import;
+pub mod inspect;
 pub mod nminus1;
 pub mod opf;
 pub mod pf;

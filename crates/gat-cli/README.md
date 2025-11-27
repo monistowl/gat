@@ -57,9 +57,10 @@ gat dataset public fetch opsd-time-series-2020 --out data/
 
 ### Grid Analysis
 ```bash
-gat graph stats grid.arrow                    # Network topology
-gat pf dc grid.arrow --out flows.parquet      # DC power flow
-gat opf ac grid.arrow --out dispatch.parquet  # AC optimal dispatch
+gat graph stats grid.arrow                       # Network topology
+gat pf dc grid.arrow --out flows.parquet         # DC power flow
+gat opf ac-nlp grid.arrow --out dispatch.json    # Full nonlinear AC-OPF
+gat opf ac grid.arrow --out flows.parquet        # Fast-decoupled approximation
 gat nminus1 dc grid.arrow --out nminus1.parquet  # Contingency screening
 ```
 

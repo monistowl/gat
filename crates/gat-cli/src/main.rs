@@ -18,7 +18,7 @@ use crate::commands::tui;
 use crate::commands::viz;
 use crate::commands::{
     adms, alloc, analytics, completions, convert, datasets, derms, dist, doctor, featurize, geo,
-    graph, import, nminus1, opf, pf, se, ts, validate, version,
+    graph, import, inspect, nminus1, opf, pf, se, ts, validate, version,
 };
 use gat_cli::cli::{Cli, Commands};
 
@@ -72,6 +72,7 @@ fn main() {
         Some(Commands::Opf { command }) => run_and_log("opf", || opf::handle(command)),
         Some(Commands::Se { command }) => run_and_log("se", || se::handle(command)),
         Some(Commands::Convert { command }) => run_and_log("convert", || convert::handle(command)),
+        Some(Commands::Inspect { command }) => run_and_log("inspect", || inspect::handle(command)),
         Some(Commands::Runs { command }) => run_and_log("runs", || command_runs::handle(command)),
         #[cfg(feature = "gui")]
         Some(Commands::Gui { command }) => run_and_log("gui", || gui::handle(command)),
