@@ -62,6 +62,7 @@ fn validate_structure(network: &Network, diag: &mut ImportDiagnostics) {
     let mut bus_count = 0;
     let mut gen_count = 0;
     let mut load_count = 0;
+    let mut _shunt_count = 0;
     let mut branch_count = 0;
 
     for node in network.graph.node_weights() {
@@ -69,6 +70,7 @@ fn validate_structure(network: &Network, diag: &mut ImportDiagnostics) {
             Node::Bus(_) => bus_count += 1,
             Node::Gen(_) => gen_count += 1,
             Node::Load(_) => load_count += 1,
+            Node::Shunt(_) => _shunt_count += 1,
         }
     }
 

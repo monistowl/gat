@@ -456,6 +456,9 @@ fn extract_network_data(
                 entry.0 += load.active_power_mw;
                 entry.1 += load.reactive_power_mvar;
             }
+            Node::Shunt(_) => {
+                // Shunts add to bus admittance but are not yet modeled in SOCP
+            }
         }
     }
 

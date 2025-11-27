@@ -152,6 +152,9 @@ impl AcOpfSolver {
                 Node::Load(_load) => {
                     // Loads are optional, basic validation only
                 }
+                Node::Shunt(_) => {
+                    // Shunts don't require special validation
+                }
             }
         }
 
@@ -231,6 +234,7 @@ impl AcOpfSolver {
                     total_load += load.active_power_mw;
                 }
                 Node::Bus(_) => {}
+                Node::Shunt(_) => {}
             }
         }
 

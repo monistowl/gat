@@ -253,6 +253,7 @@ impl AcPowerFlowSolver {
         let generators = self.collect_generators(network);
         let loads = self.collect_loads(network);
         let branches = self.collect_branches(network);
+        let shunts = self.collect_shunts(network);
 
         if buses.is_empty() {
             return Err(anyhow!("Network has no buses"));
@@ -261,20 +262,33 @@ impl AcPowerFlowSolver {
         // Initialize bus types
         let mut bus_types = self.classify_buses(&buses, &generators);
 
+        // Build map of bus_id -> voltage setpoint from generators
+        // Each generator can specify its own voltage setpoint
+        let mut pv_setpoints: HashMap<BusId, f64> = HashMap::new();
+        for gen in &generators {
+            if gen.status {
+                // Use generator's voltage setpoint if specified, otherwise use solver default
+                let v_set = gen.voltage_setpoint_pu.unwrap_or(self.pv_voltage_setpoint);
+                pv_setpoints.insert(gen.bus, v_set);
+            }
+        }
+
         // Initialize voltage state
         let n = buses.len();
         let mut v_mag = vec![1.0; n]; // Voltage magnitudes (p.u.)
         let mut v_ang = vec![0.0; n]; // Voltage angles (radians)
 
-        // Set PV bus voltages to setpoint
+        // Set PV and Slack bus voltages to their specific setpoints
+        // Both have generators with voltage setpoints that should be used
         for (i, bus_id) in buses.iter().enumerate() {
-            if bus_types.get(bus_id) == Some(&BusType::PV) {
-                v_mag[i] = self.pv_voltage_setpoint;
+            let bus_type = bus_types.get(bus_id);
+            if bus_type == Some(&BusType::PV) || bus_type == Some(&BusType::Slack) {
+                v_mag[i] = *pv_setpoints.get(bus_id).unwrap_or(&self.pv_voltage_setpoint);
             }
         }
 
         // Build admittance matrix
-        let y_bus = self.build_y_bus(&buses, &bus_idx_map, &branches);
+        let y_bus = self.build_y_bus(&buses, &bus_idx_map, &branches, &shunts);
 
         // Compute net injections (P, Q specified)
         let (p_spec, q_spec) =
@@ -409,6 +423,8 @@ impl AcPowerFlowSolver {
                     q_mvar: gen.reactive_power_mvar,
                     qmin_mvar: gen.qmin_mvar,
                     qmax_mvar: gen.qmax_mvar,
+                    status: gen.status,
+                    voltage_setpoint_pu: gen.voltage_setpoint_pu,
                 });
             }
         }
@@ -451,6 +467,23 @@ impl AcPowerFlowSolver {
         branches
     }
 
+    /// Collect shunt data from network
+    fn collect_shunts(&self, network: &Network) -> Vec<ShuntData> {
+        let mut shunts = Vec::new();
+        for node in network.graph.node_weights() {
+            if let Node::Shunt(shunt) = node {
+                if shunt.status {
+                    shunts.push(ShuntData {
+                        bus: shunt.bus,
+                        gs_pu: shunt.gs_pu,
+                        bs_pu: shunt.bs_pu,
+                    });
+                }
+            }
+        }
+        shunts
+    }
+
     /// Classify buses into Slack, PV, or PQ
     fn classify_buses(
         &self,
@@ -487,6 +520,7 @@ impl AcPowerFlowSolver {
         buses: &[BusId],
         bus_idx_map: &HashMap<BusId, usize>,
         branches: &[BranchData],
+        shunts: &[ShuntData],
     ) -> Vec<Vec<(f64, f64)>> {
         let n = buses.len();
         // Y_bus[i][j] = (G_ij, B_ij) - conductance and susceptance
@@ -532,6 +566,15 @@ impl AcPowerFlowSolver {
             y_bus[i][i].1 += y_ii.im;
             y_bus[j][j].0 += y_jj.re;
             y_bus[j][j].1 += y_jj.im;
+        }
+
+        // Add shunt elements to diagonal
+        // Shunts contribute Y_ii += gs + j*bs (in per-unit)
+        for shunt in shunts {
+            if let Some(&i) = bus_idx_map.get(&shunt.bus) {
+                y_bus[i][i].0 += shunt.gs_pu; // Conductance (G)
+                y_bus[i][i].1 += shunt.bs_pu; // Susceptance (B)
+            }
         }
 
         y_bus
@@ -1204,6 +1247,8 @@ struct GeneratorData {
     // P limits intentionally omitted: AC PF solves feasibility without redispatch.
     qmin_mvar: f64,
     qmax_mvar: f64,
+    status: bool,
+    voltage_setpoint_pu: Option<f64>,
 }
 
 /// Internal load data structure
@@ -1224,6 +1269,14 @@ struct BranchData {
     b_pu: f64,
     tap: f64,
     shift: f64,
+}
+
+/// Internal shunt data structure
+#[derive(Debug, Clone)]
+struct ShuntData {
+    bus: BusId,
+    gs_pu: f64, // Shunt conductance (p.u.)
+    bs_pu: f64, // Shunt susceptance (p.u.)
 }
 
 #[cfg(test)]
@@ -1364,5 +1417,163 @@ mod sparse_tests {
         let solution = solver.solve(&network).expect("should converge");
         assert!(solution.converged);
         assert!(solution.iterations <= 10);
+    }
+
+    /// Test that shunts are correctly added to Y-bus diagonal
+    #[test]
+    fn test_ybus_with_shunts() {
+        let solver = AcPowerFlowSolver::new();
+        let buses = vec![BusId::new(0), BusId::new(1)];
+        let mut bus_idx_map = std::collections::HashMap::new();
+        bus_idx_map.insert(BusId::new(0), 0);
+        bus_idx_map.insert(BusId::new(1), 1);
+
+        // Simple branch between buses
+        let branches = vec![BranchData {
+            from_bus: BusId::new(0),
+            to_bus: BusId::new(1),
+            r_pu: 0.01,
+            x_pu: 0.1,
+            b_pu: 0.02, // Line charging
+            tap: 1.0,
+            shift: 0.0,
+        }];
+
+        // Shunt on bus 1: gs=0.01 (conductance), bs=0.19 (susceptance)
+        let shunts = vec![ShuntData {
+            bus: BusId::new(1),
+            gs_pu: 0.01,
+            bs_pu: 0.19,
+        }];
+
+        // Build Y-bus without shunts
+        let y_bus_no_shunt = solver.build_y_bus(&buses, &bus_idx_map, &branches, &[]);
+
+        // Build Y-bus with shunts
+        let y_bus_with_shunt = solver.build_y_bus(&buses, &bus_idx_map, &branches, &shunts);
+
+        // Bus 0 diagonal should be unchanged (no shunt there)
+        assert!(
+            (y_bus_no_shunt[0][0].0 - y_bus_with_shunt[0][0].0).abs() < 1e-10,
+            "Bus 0 G should be unchanged"
+        );
+        assert!(
+            (y_bus_no_shunt[0][0].1 - y_bus_with_shunt[0][0].1).abs() < 1e-10,
+            "Bus 0 B should be unchanged"
+        );
+
+        // Bus 1 diagonal should have shunt added
+        let expected_g_diff = 0.01; // gs_pu
+        let expected_b_diff = 0.19; // bs_pu
+        let actual_g_diff = y_bus_with_shunt[1][1].0 - y_bus_no_shunt[1][1].0;
+        let actual_b_diff = y_bus_with_shunt[1][1].1 - y_bus_no_shunt[1][1].1;
+
+        assert!(
+            (actual_g_diff - expected_g_diff).abs() < 1e-10,
+            "Shunt G not added correctly: expected {}, got {}",
+            expected_g_diff,
+            actual_g_diff
+        );
+        assert!(
+            (actual_b_diff - expected_b_diff).abs() < 1e-10,
+            "Shunt B not added correctly: expected {}, got {}",
+            expected_b_diff,
+            actual_b_diff
+        );
+    }
+
+    /// Test power flow convergence with shunt capacitor
+    #[test]
+    fn test_power_flow_with_shunt() {
+        use gat_core::{Branch, BranchId, Bus, Gen, Load, LoadId, Shunt, ShuntId};
+
+        let mut network = Network::new();
+
+        // Two-bus system
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(0),
+            name: "bus1".to_string(),
+            voltage_kv: 100.0,
+            ..Bus::default()
+        }));
+
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "bus2".to_string(),
+            voltage_kv: 100.0,
+            ..Bus::default()
+        }));
+
+        // Branch with high reactance (will cause voltage drop)
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                name: "line".to_string(),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.2, // High reactance
+                ..Branch::default()
+            }),
+        );
+
+        // Generator at bus 1 (slack)
+        network.graph.add_node(Node::Gen(Gen::new(
+            GenId::new(0),
+            "gen1".to_string(),
+            BusId::new(0),
+        )));
+
+        // Load at bus 2
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(0),
+            name: "load".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: 50.0,
+            reactive_power_mvar: 30.0, // Inductive load
+        }));
+
+        // Solve without shunt
+        let solver = AcPowerFlowSolver::new()
+            .with_tolerance(1e-6)
+            .with_max_iterations(20);
+
+        let sol_no_shunt = solver.solve(&network).expect("should converge");
+        let v2_no_shunt = *sol_no_shunt
+            .bus_voltage_magnitude
+            .get(&BusId::new(1))
+            .expect("bus 1 voltage");
+
+        // Add shunt capacitor at bus 2 (reactive power support)
+        // bs > 0 means capacitive (supplies reactive power)
+        network.graph.add_node(Node::Shunt(Shunt {
+            id: ShuntId::new(0),
+            name: "cap1".to_string(),
+            bus: BusId::new(1),
+            gs_pu: 0.0,
+            bs_pu: 0.2, // Capacitor
+            status: true,
+        }));
+
+        // Solve with shunt
+        let sol_with_shunt = solver.solve(&network).expect("should converge");
+        let v2_with_shunt = *sol_with_shunt
+            .bus_voltage_magnitude
+            .get(&BusId::new(1))
+            .expect("bus 1 voltage");
+
+        // Shunt capacitor should improve voltage at bus 2
+        assert!(
+            v2_with_shunt > v2_no_shunt,
+            "Shunt capacitor should raise voltage: without={:.4}, with={:.4}",
+            v2_no_shunt,
+            v2_with_shunt
+        );
+
+        // Both should converge
+        assert!(sol_no_shunt.converged);
+        assert!(sol_with_shunt.converged);
     }
 }

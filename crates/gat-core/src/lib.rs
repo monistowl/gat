@@ -126,6 +126,8 @@ pub struct GenId(usize);
 pub struct LoadId(usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TransformerId(usize);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ShuntId(usize);
 
 impl BusId {
     pub fn new(value: usize) -> Self {
@@ -166,6 +168,15 @@ impl LoadId {
 impl TransformerId {
     pub fn new(value: usize) -> Self {
         TransformerId(value)
+    }
+    pub fn value(&self) -> usize {
+        self.0
+    }
+}
+
+impl ShuntId {
+    pub fn new(value: usize) -> Self {
+        ShuntId(value)
     }
     pub fn value(&self) -> usize {
         self.0
@@ -503,12 +514,45 @@ pub struct Transformer {
     pub ratio: f64,
 }
 
+/// Shunt element (capacitor or reactor) connected to a bus
+///
+/// Shunts inject reactive power (capacitors: +Q, reactors: -Q) to control
+/// voltage and provide reactive power support. The Y-bus includes shunt
+/// admittance as diagonal elements: Y_ii += gs + j*bs
+#[derive(Debug, Clone)]
+pub struct Shunt {
+    pub id: ShuntId,
+    pub name: String,
+    /// Bus this shunt is connected to
+    pub bus: BusId,
+    /// Shunt conductance in per-unit (typically 0 for capacitors/reactors)
+    pub gs_pu: f64,
+    /// Shunt susceptance in per-unit (positive = capacitor, negative = reactor)
+    pub bs_pu: f64,
+    /// In-service status
+    pub status: bool,
+}
+
+impl Default for Shunt {
+    fn default() -> Self {
+        Self {
+            id: ShuntId(0),
+            name: String::new(),
+            bus: BusId(0),
+            gs_pu: 0.0,
+            bs_pu: 0.0,
+            status: true,
+        }
+    }
+}
+
 // Enum to represent different types of nodes in the graph
 #[derive(Debug, Clone)]
 pub enum Node {
     Bus(Bus),
     Gen(Gen),
     Load(Load),
+    Shunt(Shunt),
 }
 
 // Enum to represent different types of edges in the graph
@@ -553,6 +597,7 @@ impl Network {
                     stats.total_load_mw += l.active_power_mw;
                     stats.total_load_mvar += l.reactive_power_mvar;
                 }
+                Node::Shunt(_) => stats.num_shunts += 1,
             }
         }
 
@@ -633,6 +678,7 @@ pub struct NetworkStats {
     pub num_buses: usize,
     pub num_gens: usize,
     pub num_loads: usize,
+    pub num_shunts: usize,
     pub num_branches: usize,
     pub total_load_mw: f64,
     pub total_load_mvar: f64,
@@ -679,12 +725,13 @@ impl std::fmt::Display for NetworkValidationIssue {
 }
 
 impl Node {
-    /// Returns a human-readable label for the node (bus/gen/load name).
+    /// Returns a human-readable label for the node (bus/gen/load/shunt name).
     pub fn label(&self) -> &str {
         match self {
             Node::Bus(bus) => &bus.name,
             Node::Gen(gen) => &gen.name,
             Node::Load(load) => &load.name,
+            Node::Shunt(shunt) => &shunt.name,
         }
     }
 }

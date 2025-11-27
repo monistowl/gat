@@ -208,6 +208,7 @@ fn benchmark_opfdata_sample(
             gat_core::Node::Bus(_) => num_buses += 1,
             gat_core::Node::Gen(_) => num_gens += 1,
             gat_core::Node::Load(_) => {}
+            gat_core::Node::Shunt(_) => {}
         }
     }
     let num_branches = instance.network.graph.edge_count();

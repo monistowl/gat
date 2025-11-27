@@ -7,7 +7,7 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Instant;
 
-use gat_algo::power_flow::AcPowerFlowSolver;
+use gat_algo::power_flow::ac_pf::AcPowerFlowSolver;
 use gat_algo::validation::{compute_pf_errors, PFReferenceSolution};
 use gat_algo::AcOpfSolver;
 use gat_io::sources::pfdelta::{list_pfdelta_cases, load_pfdelta_case, load_pfdelta_instance};
@@ -208,10 +208,11 @@ fn benchmark_case(
                         .iter()
                         .map(|(bus_id, vm)| (bus_id.value(), *vm))
                         .collect();
+                    // Keep angles in radians for comparison with reference solution
                     let gat_va: HashMap<usize, f64> = solution
                         .bus_voltage_angle
                         .iter()
-                        .map(|(bus_id, va)| (bus_id.value(), va.to_degrees()))
+                        .map(|(bus_id, va)| (bus_id.value(), *va))
                         .collect();
 
                     (
@@ -265,11 +266,12 @@ fn benchmark_case(
 
     // Compute error metrics against reference
     let ref_solution = PFReferenceSolution {
-        vm: instance.solution.vm,
-        va: instance.solution.va,
-        pgen: instance.solution.pgen,
-        qgen: instance.solution.qgen,
+        vm: instance.solution.vm.clone(),
+        va: instance.solution.va.clone(),
+        pgen: instance.solution.pgen.clone(),
+        qgen: instance.solution.qgen.clone(),
     };
+
     let errors = compute_pf_errors(&instance.network, &gat_vm, &gat_va, &ref_solution);
 
     Ok(BenchmarkResult {

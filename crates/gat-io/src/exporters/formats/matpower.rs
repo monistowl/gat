@@ -78,6 +78,9 @@ fn network_to_matpower_case(network: &Network) -> Result<MatpowerCase> {
             Node::Gen(_) => {
                 // Generators are processed separately
             }
+            Node::Shunt(_) => {
+                // Shunts are handled separately (added to bus gs/bs)
+            }
         }
     }
 

@@ -202,6 +202,9 @@ fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
             Node::Load(load) => {
                 *loads.entry(load.bus).or_insert(0.0) += load.active_power_mw;
             }
+            Node::Shunt(_) => {
+                // Shunts are not used in DC-OPF (no reactive power)
+            }
         }
     }
 

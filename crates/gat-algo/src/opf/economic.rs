@@ -31,6 +31,7 @@ pub fn solve(
                 total_load += load.active_power_mw;
             }
             Node::Bus(_) => {}
+            Node::Shunt(_) => {}
         }
     }
 
