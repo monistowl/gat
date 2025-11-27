@@ -12,12 +12,14 @@ fn create_simple_network(name: &str, gen_capacity: f64, load_capacity: f64) -> N
         id: BusId::new(0),
         name: format!("{}_bus1", name),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: format!("{}_bus2", name),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     network.graph.add_node(Node::Gen(Gen {
@@ -32,6 +34,7 @@ fn create_simple_network(name: &str, gen_capacity: f64, load_capacity: f64) -> N
         qmax_mvar: 1000.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
+        ..Gen::default()
     }));
 
     network.graph.add_node(Node::Load(Load {

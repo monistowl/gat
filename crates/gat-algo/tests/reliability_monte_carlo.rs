@@ -14,12 +14,14 @@ fn create_simple_network() -> Network {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     // Add generator at bus 1 (100 MW)
@@ -35,6 +37,7 @@ fn create_simple_network() -> Network {
         qmax_mvar: 1000.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
+        ..Gen::default()
     }));
 
     // Add load at bus 2 (80 MW)
@@ -124,12 +127,14 @@ fn test_monte_carlo_perfect_reliability() {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     // 200 MW generation for 50 MW load = very reliable
@@ -145,6 +150,7 @@ fn test_monte_carlo_perfect_reliability() {
         qmax_mvar: 1000.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
+        ..Gen::default()
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -189,12 +195,14 @@ fn test_monte_carlo_tight_reliability() {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     network.graph.add_node(Node::Gen(Gen {
@@ -209,6 +217,7 @@ fn test_monte_carlo_tight_reliability() {
         qmax_mvar: 1000.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
+        ..Gen::default()
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -273,12 +282,14 @@ fn test_monte_carlo_multiple_networks() {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus2_idx = network2.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     // Increase capacity in network2 (200 MW)
@@ -294,6 +305,7 @@ fn test_monte_carlo_multiple_networks() {
         qmax_mvar: 1000.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
+        ..Gen::default()
     }));
 
     network2.graph.add_node(Node::Load(Load {

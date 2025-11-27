@@ -19,11 +19,13 @@ fn two_bus_network() -> Network {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
 
     network.graph.add_edge(
@@ -43,6 +45,7 @@ fn two_bus_network() -> Network {
             status: true,
             rating_a_mva: None,
             is_phase_shifter: false,
+            ..Branch::default()
         }),
     );
 
@@ -58,6 +61,7 @@ fn two_bus_network() -> Network {
         qmax_mvar: 50.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0), // $10/MWh
+        ..Gen::default()
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -177,16 +181,19 @@ fn three_bus_network() -> Network {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus3".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
 
     // Line 1-2
@@ -207,6 +214,7 @@ fn three_bus_network() -> Network {
             status: true,
             rating_a_mva: None,
             is_phase_shifter: false,
+            ..Branch::default()
         }),
     );
 
@@ -228,6 +236,7 @@ fn three_bus_network() -> Network {
             status: true,
             rating_a_mva: None,
             is_phase_shifter: false,
+            ..Branch::default()
         }),
     );
 
@@ -249,6 +258,7 @@ fn three_bus_network() -> Network {
             status: true,
             rating_a_mva: None,
             is_phase_shifter: false,
+            ..Branch::default()
         }),
     );
 
@@ -265,6 +275,7 @@ fn three_bus_network() -> Network {
         qmax_mvar: 100.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0), // $10/MWh
+        ..Gen::default()
     }));
 
     // Generator at bus 2 (expensive)
@@ -280,6 +291,7 @@ fn three_bus_network() -> Network {
         qmax_mvar: 50.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 20.0), // $20/MWh (expensive)
+        ..Gen::default()
     }));
 
     // Load at bus 3
@@ -346,11 +358,13 @@ fn ac_opf_polynomial_cost() {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
 
     network.graph.add_edge(
@@ -370,6 +384,7 @@ fn ac_opf_polynomial_cost() {
             status: true,
             rating_a_mva: None,
             is_phase_shifter: false,
+            ..Branch::default()
         }),
     );
 
@@ -386,6 +401,7 @@ fn ac_opf_polynomial_cost() {
         qmax_mvar: 50.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::Polynomial(vec![100.0, 10.0, 0.1]), // c0 + c1*P + c2*P^2
+        ..Gen::default()
     }));
 
     network.graph.add_node(Node::Load(Load {

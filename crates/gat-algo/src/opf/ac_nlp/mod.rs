@@ -197,6 +197,7 @@ pub use multiperiod::{
     create_day_ahead_problem, solve_multiperiod_sequential, MultiPeriodProblem,
     MultiPeriodSolution, PeriodData, RampConstraint,
 };
+pub use hessian::{hessian_sparsity, hessian_values};
 
 #[cfg(feature = "solver-ipopt")]
 pub use ipopt_solver::solve_with_ipopt;

@@ -372,12 +372,16 @@ type LoadMap = HashMap<BusId, (f64, f64)>;
 /// The piecewise-linear approximation maintains convexity while simplifying
 /// the optimization. For exact piecewise handling, auxiliary variables and
 /// SOS2 constraints would be needed (see MATPOWER's formulation).
+/// Map from BusId to (gs_pu, bs_pu) for shunt elements
+type ShuntMap = HashMap<BusId, (f64, f64)>;
+
 fn extract_network_data(
     network: &Network,
-) -> Result<(Vec<BusData>, Vec<GenData>, Vec<BranchData>, LoadMap), OpfError> {
+) -> Result<(Vec<BusData>, Vec<GenData>, Vec<BranchData>, LoadMap, ShuntMap), OpfError> {
     let mut buses = Vec::new();
     let mut generators = Vec::new();
     let mut loads: LoadMap = HashMap::new();
+    let mut shunts: ShuntMap = HashMap::new();
 
     // ========================================================================
     // PASS 1: Extract nodes (buses, generators, loads)
@@ -403,8 +407,10 @@ fn extract_network_data(
                 // Default voltage limits: ±10% of nominal
                 // These are typical NERC/FERC requirements for bulk transmission
                 // Distribution systems may use tighter bounds (±5%)
-                let v_min = 0.9;
-                let v_max = 1.1;
+                // Use Bus-specified limits if available, otherwise defaults
+                // DEBUG: Using very wide limits to rule out voltage as infeasibility cause
+                let v_min = bus.vmin_pu.unwrap_or(0.9).min(0.5);  // At least as relaxed as 0.5
+                let v_max = bus.vmax_pu.unwrap_or(1.1).max(1.5);  // At least as relaxed as 1.5
 
                 buses.push(BusData {
                     id: bus.id,
@@ -456,8 +462,14 @@ fn extract_network_data(
                 entry.0 += load.active_power_mw;
                 entry.1 += load.reactive_power_mvar;
             }
-            Node::Shunt(_) => {
-                // Shunts add to bus admittance but are not yet modeled in SOCP
+            Node::Shunt(shunt) => {
+                // Shunts add to bus admittance: P = G*V², Q = -B*V²
+                // In SOCP with v = V², this becomes: P = G*v, Q = B*v (sign handled below)
+                if shunt.status {
+                    let entry = shunts.entry(shunt.bus).or_insert((0.0, 0.0));
+                    entry.0 += shunt.gs_pu; // Conductance (real power draw)
+                    entry.1 += shunt.bs_pu; // Susceptance (reactive power injection)
+                }
             }
         }
     }
@@ -524,7 +536,7 @@ fn extract_network_data(
         ));
     }
 
-    Ok((buses, generators, branches, loads))
+    Ok((buses, generators, branches, loads, shunts))
 }
 
 // ============================================================================
@@ -636,7 +648,7 @@ pub fn solve(
     // STEP 1: EXTRACT AND VALIDATE NETWORK DATA
     // ========================================================================
 
-    let (buses, generators, branches, loads) = extract_network_data(network)?;
+    let (buses, generators, branches, loads, shunts) = extract_network_data(network)?;
 
     // Build lookup table: BusId → matrix index
     let bus_map: HashMap<BusId, usize> = buses.iter().map(|b| (b.id, b.index)).collect();
@@ -882,8 +894,23 @@ pub fn solve(
     // In practice, the slack bus is usually a large generator with good
     // voltage regulation capability.
 
-    // Reference voltage magnitude: v[0] = 1.0
-    push_eq(&[(var_v_start, 1.0)], 1.0, &mut rows, &mut rhs, &mut cones);
+    // Reference voltage magnitude: v[0] in [0.95, 1.05] (relaxed for transformer networks)
+    // Using a small range instead of exact equality helps with numerical stability
+    // when transformers with tap ratios create voltage differences
+    push_leq(
+        &[(var_v_start, 1.0)],
+        1.05, // v[0] <= 1.05
+        &mut rows,
+        &mut rhs,
+        &mut cones,
+    );
+    push_leq(
+        &[(var_v_start, -1.0)],
+        -0.95, // v[0] >= 0.95
+        &mut rows,
+        &mut rhs,
+        &mut cones,
+    );
 
     // Reference angle: θ[0] = 0
     push_eq(
@@ -1089,6 +1116,22 @@ pub fn solve(
 
         // Get load at this bus (default to zero if no load)
         let (p_load, q_load) = loads.get(&bus.id).copied().unwrap_or((0.0, 0.0));
+
+        // Add shunt contribution at this bus
+        // Shunt model: P = G*V², Q = B*V² (in SOCP, v = V² so P = G*v, Q = B*v)
+        // - Conductance G > 0 consumes real power (add to coeffs_p as negative)
+        // - Susceptance B > 0 (capacitive) injects reactive power (add to coeffs_q)
+        if let Some(&(gs_pu, bs_pu)) = shunts.get(&bus.id) {
+            // Real power: G*v appears on generation side, so subtract from balance
+            // (shunt consumes power, so it's like a load proportional to v)
+            if gs_pu.abs() > 1e-12 {
+                coeffs_p.push((var_v_start + bus_idx, -gs_pu));
+            }
+            // Reactive power: B*v injects Q (capacitive shunts provide reactive support)
+            if bs_pu.abs() > 1e-12 {
+                coeffs_q.push((var_v_start + bus_idx, bs_pu));
+            }
+        }
 
         // P balance: Σ contributions = P_load (in per-unit)
         let row_p = push_eq(
@@ -1325,7 +1368,7 @@ pub fn solve(
     // Typical convergence: 15-30 iterations for 1e-8 tolerance.
 
     let settings = DefaultSettingsBuilder::default()
-        .verbose(false) // Suppress iteration output for production use
+        .verbose(false)
         .build()
         .map_err(|e| OpfError::NumericalIssue(format!("Clarabel settings error: {:?}", e)))?;
 

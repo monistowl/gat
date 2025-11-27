@@ -12,11 +12,13 @@ fn two_bus_network() -> Network {
         id: BusId::new(0),
         name: "bus1".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
         voltage_kv: 138.0,
+        ..Bus::default()
     }));
 
     // Line with R=0.01, X=0.1 (per unit)
@@ -37,6 +39,7 @@ fn two_bus_network() -> Network {
             status: true,
             rating_a_mva: None,
             is_phase_shifter: false,
+            ..Branch::default()
         }),
     );
 

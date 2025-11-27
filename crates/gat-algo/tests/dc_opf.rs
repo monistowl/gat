@@ -52,6 +52,7 @@ fn create_2bus_network() -> Network {
         qmax_mvar: 50.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
+        ..Gen::default()
     }));
 
     network.graph.add_node(Node::Load(Load {
@@ -233,6 +234,7 @@ fn create_3bus_network() -> Network {
         qmax_mvar: 50.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
+        ..Gen::default()
     }));
 
     // Expensive generator at bus 2
@@ -248,6 +250,7 @@ fn create_3bus_network() -> Network {
         qmax_mvar: 50.0,
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 30.0),
+        ..Gen::default()
     }));
 
     // Load at bus 3
