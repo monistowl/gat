@@ -13,7 +13,7 @@
 
 #![cfg(feature = "solver-ipopt")]
 
-use super::AcOpfProblem;
+use super::{hessian, AcOpfProblem};
 use crate::opf::{OpfMethod, OpfSolution};
 use crate::OpfError;
 use ipopt::{BasicProblem, ConstrainedProblem, Ipopt, Number, Index, SolveStatus};
@@ -185,24 +185,31 @@ impl<'a> ConstrainedProblem for IpoptAcOpf<'a> {
     }
 
     fn num_hessian_non_zeros(&self) -> usize {
-        // We're not providing a Hessian, so IPOPT will use BFGS approximation
-        0
+        // Use analytical Hessian for second-order convergence
+        let (rows, _) = hessian::hessian_sparsity(self.problem);
+        rows.len()
     }
 
-    fn hessian_indices(&self, _irow: &mut [Index], _jcol: &mut [Index]) -> bool {
-        // No Hessian provided
+    fn hessian_indices(&self, irow: &mut [Index], jcol: &mut [Index]) -> bool {
+        let (rows, cols) = hessian::hessian_sparsity(self.problem);
+        for (i, (&r, &c)) in rows.iter().zip(cols.iter()).enumerate() {
+            irow[i] = r as Index;
+            jcol[i] = c as Index;
+        }
         true
     }
 
     fn hessian_values(
         &self,
-        _x: &[Number],
+        x: &[Number],
         _new_x: bool,
-        _obj_factor: Number,
-        _lambda: &[Number],
-        _vals: &mut [Number],
+        obj_factor: Number,
+        lambda: &[Number],
+        vals: &mut [Number],
     ) -> bool {
-        // No Hessian provided - IPOPT will use BFGS approximation
+        // Compute analytical Hessian of the Lagrangian
+        let hess_vals = hessian::hessian_values(self.problem, x, obj_factor, lambda);
+        vals[..hess_vals.len()].copy_from_slice(&hess_vals);
         true
     }
 }
@@ -234,8 +241,9 @@ pub fn solve_with_ipopt(
     solver.set_option("print_level", 0); // Quiet mode
     solver.set_option("sb", "yes"); // Suppress banner
 
-    // Use BFGS Hessian approximation since we don't provide analytical Hessian
-    solver.set_option("hessian_approximation", "limited-memory");
+    // Use exact Hessian for second-order (Newton) convergence
+    // This is faster than limited-memory BFGS for most power system sizes
+    solver.set_option("hessian_approximation", "exact");
 
     // Solve
     let result = solver.solve();

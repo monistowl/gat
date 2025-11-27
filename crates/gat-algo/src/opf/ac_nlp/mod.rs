@@ -179,6 +179,7 @@ mod sparse_ybus;
 mod ybus;
 mod branch_flow;
 mod multiperiod;
+mod hessian;
 
 #[cfg(feature = "solver-ipopt")]
 mod ipopt_solver;

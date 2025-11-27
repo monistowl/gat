@@ -181,6 +181,24 @@ impl YBus {
         self.data[row * self.n_bus + col]
     }
 
+    /// Get conductance G_ij = Re(Y_ij) at position (row, col).
+    ///
+    /// Convenience method for accessing the real part of the admittance matrix.
+    /// Used in power flow equations: P_i = Σⱼ V_i·V_j·[G_ij·cos(θ_ij) + B_ij·sin(θ_ij)]
+    #[inline]
+    pub fn g(&self, row: usize, col: usize) -> f64 {
+        self.data[row * self.n_bus + col].re
+    }
+
+    /// Get susceptance B_ij = Im(Y_ij) at position (row, col).
+    ///
+    /// Convenience method for accessing the imaginary part of the admittance matrix.
+    /// Used in power flow equations: Q_i = Σⱼ V_i·V_j·[G_ij·sin(θ_ij) - B_ij·cos(θ_ij)]
+    #[inline]
+    pub fn b(&self, row: usize, col: usize) -> f64 {
+        self.data[row * self.n_bus + col].im
+    }
+
     /// Get mutable reference to element at (row, col).
     /// Used during matrix construction.
     #[inline]

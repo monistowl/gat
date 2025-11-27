@@ -58,6 +58,7 @@ pub mod ac_opf;
 pub mod alloc_kpi;
 pub mod alloc_rents;
 pub mod analytics_ds;
+pub mod contingency;
 pub mod analytics_reliability;
 pub mod canos_multiarea;
 pub mod elcc;
