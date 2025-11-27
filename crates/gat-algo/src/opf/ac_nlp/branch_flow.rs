@@ -37,36 +37,43 @@ pub fn compute_branch_flows(
 ) -> Vec<(f64, f64, f64, f64)> {
     let base_mva = problem.base_mva;
 
-    problem.branches.iter().map(|br| {
-        let vi = v[br.from_idx];
-        let vj = v[br.to_idx];
-        let theta_ij = theta[br.from_idx] - theta[br.to_idx];
+    problem
+        .branches
+        .iter()
+        .map(|br| {
+            let vi = v[br.from_idx];
+            let vj = v[br.to_idx];
+            let theta_ij = theta[br.from_idx] - theta[br.to_idx];
 
-        // Series admittance: y = 1/z = 1/(r + jx) = (r - jx)/(r² + x²)
-        let z_sq = br.r * br.r + br.x * br.x;
-        let g = br.r / z_sq;  // Series conductance
-        let b = -br.x / z_sq; // Series susceptance (negative!)
+            // Series admittance: y = 1/z = 1/(r + jx) = (r - jx)/(r² + x²)
+            let z_sq = br.r * br.r + br.x * br.x;
+            let g = br.r / z_sq; // Series conductance
+            let b = -br.x / z_sq; // Series susceptance (negative!)
 
-        let tap = br.tap;
-        let shift = br.shift;
-        let cos_ij = (theta_ij - shift).cos();
-        let sin_ij = (theta_ij - shift).sin();
+            let tap = br.tap;
+            let shift = br.shift;
+            let cos_ij = (theta_ij - shift).cos();
+            let sin_ij = (theta_ij - shift).sin();
 
-        // From-bus power injection (p.u.)
-        let p_from = (vi * vi * g / (tap * tap))
-                   - (vi * vj / tap) * (g * cos_ij + b * sin_ij);
-        let q_from = -(vi * vi * (b + br.b_charging / 2.0) / (tap * tap))
-                   - (vi * vj / tap) * (g * sin_ij - b * cos_ij);
+            // From-bus power injection (p.u.)
+            let p_from = (vi * vi * g / (tap * tap)) - (vi * vj / tap) * (g * cos_ij + b * sin_ij);
+            let q_from = -(vi * vi * (b + br.b_charging / 2.0) / (tap * tap))
+                - (vi * vj / tap) * (g * sin_ij - b * cos_ij);
 
-        // To-bus power injection (p.u.)
-        let p_to = (vj * vj * g)
-                 - (vi * vj / tap) * (g * cos_ij - b * sin_ij);
-        let q_to = -(vj * vj * (b + br.b_charging / 2.0))
-                 + (vi * vj / tap) * (g * sin_ij + b * cos_ij);
+            // To-bus power injection (p.u.)
+            let p_to = (vj * vj * g) - (vi * vj / tap) * (g * cos_ij - b * sin_ij);
+            let q_to = -(vj * vj * (b + br.b_charging / 2.0))
+                + (vi * vj / tap) * (g * sin_ij + b * cos_ij);
 
-        // Convert to MW/MVAr
-        (p_from * base_mva, q_from * base_mva, p_to * base_mva, q_to * base_mva)
-    }).collect()
+            // Convert to MW/MVAr
+            (
+                p_from * base_mva,
+                q_from * base_mva,
+                p_to * base_mva,
+                q_to * base_mva,
+            )
+        })
+        .collect()
 }
 
 /// Compute branch apparent power magnitudes |S| = sqrt(P² + Q²).
@@ -97,7 +104,10 @@ pub fn compute_thermal_violations(
 ) -> Vec<(String, f64, f64)> {
     let apparent = compute_branch_apparent_power(problem, v, theta);
 
-    problem.branches.iter().zip(apparent.iter())
+    problem
+        .branches
+        .iter()
+        .zip(apparent.iter())
         .filter_map(|(br, (s_from, s_to))| {
             if br.rate_mva <= 0.0 {
                 return None; // No limit
@@ -131,17 +141,19 @@ pub fn compute_single_branch_flow(
     let cos_ij = (theta_ij - shift).cos();
     let sin_ij = (theta_ij - shift).sin();
 
-    let p_from = (vi * vi * g / (tap * tap))
-               - (vi * vj / tap) * (g * cos_ij + b * sin_ij);
+    let p_from = (vi * vi * g / (tap * tap)) - (vi * vj / tap) * (g * cos_ij + b * sin_ij);
     let q_from = -(vi * vi * (b + br.b_charging / 2.0) / (tap * tap))
-               - (vi * vj / tap) * (g * sin_ij - b * cos_ij);
+        - (vi * vj / tap) * (g * sin_ij - b * cos_ij);
 
-    let p_to = (vj * vj * g)
-             - (vi * vj / tap) * (g * cos_ij - b * sin_ij);
-    let q_to = -(vj * vj * (b + br.b_charging / 2.0))
-             + (vi * vj / tap) * (g * sin_ij + b * cos_ij);
+    let p_to = (vj * vj * g) - (vi * vj / tap) * (g * cos_ij - b * sin_ij);
+    let q_to = -(vj * vj * (b + br.b_charging / 2.0)) + (vi * vj / tap) * (g * sin_ij + b * cos_ij);
 
-    (p_from * base_mva, q_from * base_mva, p_to * base_mva, q_to * base_mva)
+    (
+        p_from * base_mva,
+        q_from * base_mva,
+        p_to * base_mva,
+        q_to * base_mva,
+    )
 }
 
 #[cfg(test)]
@@ -226,6 +238,9 @@ mod tests {
         let losses = pf + pt;
         // Losses should be positive and small (< 5% of flow typically)
         // With these parameters, we expect some losses
-        assert!(losses.abs() < pf.abs() * 0.1, "Losses should be < 10% of flow");
+        assert!(
+            losses.abs() < pf.abs() * 0.1,
+            "Losses should be < 10% of flow"
+        );
     }
 }

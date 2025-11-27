@@ -172,32 +172,34 @@
 //! }
 //! ```
 
+mod branch_flow;
+mod hessian;
+mod multiperiod;
 mod power_equations;
 mod problem;
 mod solver;
 mod sparse_ybus;
 mod ybus;
-mod branch_flow;
-mod multiperiod;
-mod hessian;
 
 #[cfg(feature = "solver-ipopt")]
 mod ipopt_solver;
 
-pub use power_equations::PowerEquations;
-pub use problem::{AcOpfProblem, BranchData, BusData, CapabilityCurvePoint, GenData, interpolate_q_limits};
-pub use solver::{solve as solve_ac_opf, solve_with_start as solve_ac_opf_warm_start};
-pub use sparse_ybus::SparseYBus;
-pub use ybus::{YBus, YBusBuilder};
 pub use branch_flow::{
     compute_branch_apparent_power, compute_branch_flows, compute_single_branch_flow,
     compute_thermal_violations,
 };
+pub use hessian::{hessian_sparsity, hessian_values};
 pub use multiperiod::{
     create_day_ahead_problem, solve_multiperiod_sequential, MultiPeriodProblem,
     MultiPeriodSolution, PeriodData, RampConstraint,
 };
-pub use hessian::{hessian_sparsity, hessian_values};
+pub use power_equations::PowerEquations;
+pub use problem::{
+    interpolate_q_limits, AcOpfProblem, BranchData, BusData, CapabilityCurvePoint, GenData,
+};
+pub use solver::{solve as solve_ac_opf, solve_with_start as solve_ac_opf_warm_start};
+pub use sparse_ybus::SparseYBus;
+pub use ybus::{YBus, YBusBuilder};
 
 #[cfg(feature = "solver-ipopt")]
 pub use ipopt_solver::solve_with_ipopt;

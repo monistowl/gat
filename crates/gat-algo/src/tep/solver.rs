@@ -24,7 +24,7 @@ impl Default for TepSolverConfig {
     fn default() -> Self {
         Self {
             max_time_seconds: 300.0, // 5 minutes
-            mip_gap: 0.01, // 1% gap
+            mip_gap: 0.01,           // 1% gap
             verbose: false,
         }
     }
@@ -134,7 +134,11 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
 
     for gen in &generators {
         let pmin = gen.pmin_mw.max(0.0);
-        let pmax = if gen.pmax_mw.is_finite() { gen.pmax_mw } else { 1e6 };
+        let pmax = if gen.pmax_mw.is_finite() {
+            gen.pmax_mw
+        } else {
+            1e6
+        };
         let p_var = vars.add(variable().min(pmin).max(pmax));
         gen_vars.push((gen.name.clone(), gen.bus_id, p_var));
 
@@ -149,7 +153,11 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
     for bus in &buses {
         if bus.index != ref_bus_idx {
             // Reasonable angle bounds for DC power flow
-            let theta = vars.add(variable().min(-std::f64::consts::PI).max(std::f64::consts::PI));
+            let theta = vars.add(
+                variable()
+                    .min(-std::f64::consts::PI)
+                    .max(std::f64::consts::PI),
+            );
             theta_vars.insert(bus.index, theta);
         }
     }
@@ -222,7 +230,7 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
             (Some(ti), Some(tj)) => branch.susceptance * (ti - tj),
             (Some(ti), None) => branch.susceptance * ti, // j is reference
             (None, Some(tj)) => branch.susceptance * (-tj), // i is reference
-            (None, None) => Expression::from(0.0), // Both reference (shouldn't happen)
+            (None, None) => Expression::from(0.0),       // Both reference (shouldn't happen)
         };
 
         // Add flow to net at each bus
@@ -257,7 +265,10 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
             .cloned()
             .unwrap_or_else(|| Expression::from(0.0));
         let load_at_bus = loads.get(&bus.id).copied().unwrap_or(0.0);
-        let net_flow = bus_net_flow.get(&bus.index).cloned().unwrap_or_else(|| Expression::from(0.0));
+        let net_flow = bus_net_flow
+            .get(&bus.index)
+            .cloned()
+            .unwrap_or_else(|| Expression::from(0.0));
 
         // Generation - Load = Net outflow
         model = model.with(constraint!(gen_at_bus - load_at_bus == net_flow));
@@ -296,7 +307,9 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
         // f - b*Δθ ≤ M*(1-x)  →  f - b*Δθ - M + M*x ≤ 0
         // f - b*Δθ ≥ -M*(1-x) →  f - b*Δθ + M - M*x ≥ 0
         let flow_minus_physics = *f_var - physics_flow.clone();
-        model = model.with(constraint!(flow_minus_physics.clone() <= big_m - big_m * (*x_var)));
+        model = model.with(constraint!(
+            flow_minus_physics.clone() <= big_m - big_m * (*x_var)
+        ));
         model = model.with(constraint!(flow_minus_physics >= -big_m + big_m * (*x_var)));
 
         // Capacity constraints linked to build decision
@@ -340,9 +353,15 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
     result.investment_cost = result
         .build_decisions
         .iter()
-        .map(|d| problem.annualized_investment_cost(
-            problem.candidates.iter().find(|c| c.id == d.candidate_id).unwrap()
-        ) * d.circuits_to_build as f64)
+        .map(|d| {
+            problem.annualized_investment_cost(
+                problem
+                    .candidates
+                    .iter()
+                    .find(|c| c.id == d.candidate_id)
+                    .unwrap(),
+            ) * d.circuits_to_build as f64
+        })
         .sum();
 
     // Generator dispatch and operating cost
@@ -363,7 +382,10 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
         let angle = if bus.index == ref_bus_idx {
             0.0
         } else {
-            theta_vars.get(&bus.index).map(|v| solution.value(*v)).unwrap_or(0.0)
+            theta_vars
+                .get(&bus.index)
+                .map(|v| solution.value(*v))
+                .unwrap_or(0.0)
         };
         result.bus_angles.insert(bus.name.clone(), angle);
     }
@@ -380,7 +402,15 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
 /// Extract network data for solver
 fn extract_network_data(
     network: &Network,
-) -> Result<(Vec<BusData>, Vec<GenData>, Vec<BranchData>, HashMap<BusId, f64>), TepError> {
+) -> Result<
+    (
+        Vec<BusData>,
+        Vec<GenData>,
+        Vec<BranchData>,
+        HashMap<BusId, f64>,
+    ),
+    TepError,
+> {
     let mut buses = Vec::new();
     let mut generators = Vec::new();
     let mut loads: HashMap<BusId, f64> = HashMap::new();
@@ -418,7 +448,9 @@ fn extract_network_data(
     }
 
     if generators.is_empty() {
-        return Err(TepError::NetworkValidation("No generators in network".into()));
+        return Err(TepError::NetworkValidation(
+            "No generators in network".into(),
+        ));
     }
 
     // Extract branches
@@ -448,7 +480,7 @@ fn extract_network_data(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gat_core::{Bus, Gen, GenId, Load, LoadId, CostModel};
+    use gat_core::{Bus, CostModel, Gen, GenId, Load, LoadId};
 
     /// Create the Garver 6-bus test system (simplified)
     fn create_garver_6bus() -> Network {
@@ -504,13 +536,7 @@ mod tests {
         }));
 
         // Loads (total: 760 MW)
-        let loads = [
-            (1, 80.0),
-            (2, 240.0),
-            (3, 40.0),
-            (4, 160.0),
-            (5, 240.0),
-        ];
+        let loads = [(1, 80.0), (2, 240.0), (3, 40.0), (4, 160.0), (5, 240.0)];
         for (i, (bus, mw)) in loads.iter().enumerate() {
             network.graph.add_node(Node::Load(Load {
                 id: LoadId::new(i + 1),
@@ -534,14 +560,70 @@ mod tests {
             .big_m(10000.0)
             .planning_params(8760.0, 0.10, 10)
             // Candidate lines covering all corridors (Garver-style)
-            .candidate("Line 1-2", BusId::new(1), BusId::new(2), 0.10, 200.0, 40_000_000.0)
-            .candidate("Line 1-4", BusId::new(1), BusId::new(4), 0.15, 150.0, 60_000_000.0)
-            .candidate("Line 2-3", BusId::new(2), BusId::new(3), 0.10, 200.0, 40_000_000.0)
-            .candidate("Line 2-4", BusId::new(2), BusId::new(4), 0.10, 200.0, 40_000_000.0)
-            .candidate("Line 3-5", BusId::new(3), BusId::new(5), 0.05, 300.0, 20_000_000.0)
-            .candidate("Line 3-6", BusId::new(3), BusId::new(6), 0.05, 300.0, 30_000_000.0)
-            .candidate("Line 4-5", BusId::new(4), BusId::new(5), 0.08, 200.0, 25_000_000.0)
-            .candidate("Line 4-6", BusId::new(4), BusId::new(6), 0.10, 250.0, 35_000_000.0)
+            .candidate(
+                "Line 1-2",
+                BusId::new(1),
+                BusId::new(2),
+                0.10,
+                200.0,
+                40_000_000.0,
+            )
+            .candidate(
+                "Line 1-4",
+                BusId::new(1),
+                BusId::new(4),
+                0.15,
+                150.0,
+                60_000_000.0,
+            )
+            .candidate(
+                "Line 2-3",
+                BusId::new(2),
+                BusId::new(3),
+                0.10,
+                200.0,
+                40_000_000.0,
+            )
+            .candidate(
+                "Line 2-4",
+                BusId::new(2),
+                BusId::new(4),
+                0.10,
+                200.0,
+                40_000_000.0,
+            )
+            .candidate(
+                "Line 3-5",
+                BusId::new(3),
+                BusId::new(5),
+                0.05,
+                300.0,
+                20_000_000.0,
+            )
+            .candidate(
+                "Line 3-6",
+                BusId::new(3),
+                BusId::new(6),
+                0.05,
+                300.0,
+                30_000_000.0,
+            )
+            .candidate(
+                "Line 4-5",
+                BusId::new(4),
+                BusId::new(5),
+                0.08,
+                200.0,
+                25_000_000.0,
+            )
+            .candidate(
+                "Line 4-6",
+                BusId::new(4),
+                BusId::new(6),
+                0.10,
+                250.0,
+                35_000_000.0,
+            )
             .build();
 
         let config = TepSolverConfig::default();

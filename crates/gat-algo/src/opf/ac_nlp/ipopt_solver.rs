@@ -16,7 +16,7 @@
 use super::{hessian, AcOpfProblem};
 use crate::opf::{OpfMethod, OpfSolution};
 use crate::OpfError;
-use ipopt::{BasicProblem, ConstrainedProblem, Ipopt, Number, Index, SolveStatus};
+use ipopt::{BasicProblem, ConstrainedProblem, Index, Ipopt, Number, SolveStatus};
 
 /// IPOPT problem wrapper for AC-OPF.
 ///
@@ -258,7 +258,7 @@ pub fn solve_with_ipopt(
             let mut solution = OpfSolution {
                 converged: true,
                 method_used: OpfMethod::AcOpf,
-                iterations: 0, // TODO: Track via intermediate callback
+                iterations: 0,    // TODO: Track via intermediate callback
                 solve_time_ms: 0, // IPOPT doesn't expose timing easily
                 objective_value: problem.objective(x),
                 ..Default::default()

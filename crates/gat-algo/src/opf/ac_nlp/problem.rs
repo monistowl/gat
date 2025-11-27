@@ -102,7 +102,12 @@ use std::collections::HashMap;
 ///
 /// Returns (q_min, q_max) in MVAr at the specified P operating point.
 /// If curve is empty, returns the default rectangular limits.
-pub fn interpolate_q_limits(curve: &[CapabilityCurvePoint], p_mw: f64, default_qmin: f64, default_qmax: f64) -> (f64, f64) {
+pub fn interpolate_q_limits(
+    curve: &[CapabilityCurvePoint],
+    p_mw: f64,
+    default_qmin: f64,
+    default_qmax: f64,
+) -> (f64, f64) {
     if curve.is_empty() {
         return (default_qmin, default_qmax);
     }
@@ -1000,12 +1005,22 @@ mod tests {
         };
 
         // For linear PWL, both should give the same cost at any P
-        assert!((pwl_gen.cost_model.evaluate(0.0) - poly_gen.cost_model.evaluate(0.0)).abs() < 1e-9);
-        assert!((pwl_gen.cost_model.evaluate(50.0) - poly_gen.cost_model.evaluate(50.0)).abs() < 1e-9);
-        assert!((pwl_gen.cost_model.evaluate(100.0) - poly_gen.cost_model.evaluate(100.0)).abs() < 1e-9);
+        assert!(
+            (pwl_gen.cost_model.evaluate(0.0) - poly_gen.cost_model.evaluate(0.0)).abs() < 1e-9
+        );
+        assert!(
+            (pwl_gen.cost_model.evaluate(50.0) - poly_gen.cost_model.evaluate(50.0)).abs() < 1e-9
+        );
+        assert!(
+            (pwl_gen.cost_model.evaluate(100.0) - poly_gen.cost_model.evaluate(100.0)).abs() < 1e-9
+        );
 
         // Marginal costs should also match
-        assert!((pwl_gen.cost_model.marginal_cost(50.0) - poly_gen.cost_model.marginal_cost(50.0)).abs() < 1e-9);
+        assert!(
+            (pwl_gen.cost_model.marginal_cost(50.0) - poly_gen.cost_model.marginal_cost(50.0))
+                .abs()
+                < 1e-9
+        );
     }
 
     #[test]

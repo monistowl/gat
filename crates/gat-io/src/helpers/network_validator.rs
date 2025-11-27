@@ -588,9 +588,9 @@ fn validate_distribution_anomalies(network: &Network, diag: &mut ImportDiagnosti
     let branches_with_bus_0 = network
         .graph
         .edge_weights()
-        .filter(|e| {
-            matches!(e, Edge::Branch(br) if br.from_bus.value() == 0 || br.to_bus.value() == 0)
-        })
+        .filter(
+            |e| matches!(e, Edge::Branch(br) if br.from_bus.value() == 0 || br.to_bus.value() == 0),
+        )
         .count();
     if branches_with_bus_0 > 0 {
         diag.add_validation_warning(
@@ -988,8 +988,7 @@ mod tests {
 
         // Generator at bus 0 - invalid, likely mapping failure
         network.graph.add_node(Node::Gen(
-            Gen::new(GenId::new(1), "Bad Gen".to_string(), BusId::new(0))
-                .with_p_limits(0.0, 100.0),
+            Gen::new(GenId::new(1), "Bad Gen".to_string(), BusId::new(0)).with_p_limits(0.0, 100.0),
         ));
 
         let mut diag = ImportDiagnostics::new();
@@ -1375,7 +1374,9 @@ mod tests {
         // Should have error from power balance validation
         assert!(
             diag.issues.iter().any(|i| {
-                i.message.contains("Pmin") && i.message.contains("Pmax") && i.category == "PowerBalance"
+                i.message.contains("Pmin")
+                    && i.message.contains("Pmax")
+                    && i.category == "PowerBalance"
             }),
             "Should error on Pmin > Pmax in power balance: {:?}",
             diag.issues

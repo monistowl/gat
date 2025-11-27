@@ -58,10 +58,7 @@ impl AngleSanityResult {
 ///   If most values are < 1.0, they might be radians
 ///
 /// Returns a sanity check result with diagnostics.
-pub fn check_angle_units(
-    angles: &HashMap<usize, f64>,
-    expected: AngleUnit,
-) -> AngleSanityResult {
+pub fn check_angle_units(angles: &HashMap<usize, f64>, expected: AngleUnit) -> AngleSanityResult {
     if angles.is_empty() {
         return AngleSanityResult {
             likely_correct: true,
@@ -256,7 +253,11 @@ pub fn compute_pf_errors(
 ) -> PFErrorMetrics {
     // Sanity check: both angle sets should be in radians
     warn_if_wrong_angle_unit(gat_va, AngleUnit::Radians, "GAT solution angles");
-    warn_if_wrong_angle_unit(&reference.va, AngleUnit::Radians, "Reference solution angles");
+    warn_if_wrong_angle_unit(
+        &reference.va,
+        AngleUnit::Radians,
+        "Reference solution angles",
+    );
 
     let mut max_vm_error = 0.0_f64;
     let mut max_va_error_rad = 0.0_f64;
@@ -347,15 +348,10 @@ mod tests {
     #[test]
     fn test_angle_sanity_check_radians() {
         // Typical power flow angles in radians (small values)
-        let radians: HashMap<usize, f64> = [
-            (1, 0.0),
-            (2, -0.17),
-            (3, -0.30),
-            (4, -0.33),
-            (5, -0.32),
-        ]
-        .into_iter()
-        .collect();
+        let radians: HashMap<usize, f64> =
+            [(1, 0.0), (2, -0.17), (3, -0.30), (4, -0.33), (5, -0.32)]
+                .into_iter()
+                .collect();
 
         let result = check_angle_units(&radians, AngleUnit::Radians);
         assert!(result.likely_correct, "Should detect radians correctly");
@@ -367,10 +363,10 @@ mod tests {
         // Angles in degrees (larger values) but we expect radians
         let degrees: HashMap<usize, f64> = [
             (1, 0.0),
-            (2, -9.7),   // ~-0.17 rad
-            (3, -17.2),  // ~-0.30 rad
-            (4, -19.2),  // ~-0.33 rad
-            (5, -18.4),  // ~-0.32 rad
+            (2, -9.7),  // ~-0.17 rad
+            (3, -17.2), // ~-0.30 rad
+            (4, -19.2), // ~-0.33 rad
+            (5, -18.4), // ~-0.32 rad
         ]
         .into_iter()
         .collect();
@@ -393,15 +389,9 @@ mod tests {
     #[test]
     fn test_angle_sanity_check_mixed() {
         // Edge case: some large angles that could be valid radians (approaching π)
-        let mixed: HashMap<usize, f64> = [
-            (1, 0.0),
-            (2, -0.5),
-            (3, -1.0),
-            (4, -1.2),
-            (5, 0.8),
-        ]
-        .into_iter()
-        .collect();
+        let mixed: HashMap<usize, f64> = [(1, 0.0), (2, -0.5), (3, -1.0), (4, -1.2), (5, 0.8)]
+            .into_iter()
+            .collect();
 
         let result = check_angle_units(&mixed, AngleUnit::Radians);
         // These are still plausible radians (max ~69°)

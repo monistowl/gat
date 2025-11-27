@@ -1,7 +1,7 @@
 use anyhow::Result;
-use gat_core::{Network, Node, Bus, Load, Gen, Edge, Branch};
-use std::path::Path;
+use gat_core::{Branch, Bus, Edge, Gen, Load, Network, Node};
 use std::fs;
+use std::path::Path;
 
 /// Export network to PSS/E RAW format string (v33)
 pub fn export_to_psse_string(network: &Network, case_name: &str) -> Result<String> {
@@ -34,7 +34,9 @@ pub fn export_to_psse_string(network: &Network, case_name: &str) -> Result<Strin
 /// Write bus data section in PSS/E v33 format
 fn write_bus_section(network: &Network, output: &mut String) {
     // Collect buses
-    let mut buses: Vec<&Bus> = network.graph.node_weights()
+    let mut buses: Vec<&Bus> = network
+        .graph
+        .node_weights()
         .filter_map(|n| if let Node::Bus(b) = n { Some(b) } else { None })
         .collect();
     buses.sort_by_key(|b| b.id.value());
@@ -70,7 +72,9 @@ fn write_bus_section(network: &Network, output: &mut String) {
 /// Write load data section in PSS/E v33 format
 fn write_load_section(network: &Network, output: &mut String) {
     // Collect loads
-    let mut loads: Vec<&Load> = network.graph.node_weights()
+    let mut loads: Vec<&Load> = network
+        .graph
+        .node_weights()
         .filter_map(|n| if let Node::Load(l) = n { Some(l) } else { None })
         .collect();
     loads.sort_by_key(|l| (l.bus.value(), l.id.value()));
@@ -104,7 +108,9 @@ fn write_load_section(network: &Network, output: &mut String) {
 /// Write generator data section in PSS/E v33 format
 fn write_generator_section(network: &Network, output: &mut String) {
     // Collect generators
-    let mut generators: Vec<&Gen> = network.graph.node_weights()
+    let mut generators: Vec<&Gen> = network
+        .graph
+        .node_weights()
         .filter_map(|n| if let Node::Gen(g) = n { Some(g) } else { None })
         .collect();
     generators.sort_by_key(|g| (g.bus.value(), g.id.value()));
@@ -160,8 +166,16 @@ fn write_fixed_shunt_section(_network: &Network, output: &mut String) {
 /// Write branch data section in PSS/E v33 format
 fn write_branch_section(network: &Network, output: &mut String) {
     // Collect branches from edges
-    let mut branches: Vec<&Branch> = network.graph.edge_weights()
-        .filter_map(|e| if let Edge::Branch(b) = e { Some(b) } else { None })
+    let mut branches: Vec<&Branch> = network
+        .graph
+        .edge_weights()
+        .filter_map(|e| {
+            if let Edge::Branch(b) = e {
+                Some(b)
+            } else {
+                None
+            }
+        })
         .collect();
 
     // Sort by (from_bus, to_bus) for deterministic output
@@ -213,7 +227,7 @@ pub fn export_to_psse(network: &Network, path: &Path, case_name: &str) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gat_core::{Network, Node, Bus, BusId};
+    use gat_core::{Bus, BusId, Network, Node};
 
     #[test]
     fn export_psse_creates_valid_header() {
@@ -226,7 +240,7 @@ mod tests {
         }));
 
         let output = export_to_psse_string(&network, "test_case").unwrap();
-        assert!(output.contains("0,   100.00, 33"));  // PSS/E v33 header
+        assert!(output.contains("0,   100.00, 33")); // PSS/E v33 header
         assert!(output.contains("test_case"));
     }
 
@@ -281,7 +295,7 @@ mod tests {
         let output = export_to_psse_string(&network, "test").unwrap();
         assert!(output.contains("0 / END OF LOAD DATA"));
         assert!(output.contains("100.0")); // PL
-        assert!(output.contains("50.0"));  // QL
+        assert!(output.contains("50.0")); // QL
     }
 
     #[test]
@@ -362,7 +376,7 @@ mod tests {
 
         // Check for branch impedance values
         assert!(output.contains("0.01")); // R
-        assert!(output.contains("0.1"));  // X
+        assert!(output.contains("0.1")); // X
         assert!(output.contains("0.05")); // B
         assert!(output.contains("100.0")); // RATEA
     }

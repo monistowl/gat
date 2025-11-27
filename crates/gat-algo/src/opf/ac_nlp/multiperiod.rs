@@ -344,16 +344,18 @@ impl MultiPeriodSolution {
         self.period_solutions
             .iter()
             .enumerate()
-            .filter_map(|(i, sol)| {
-                sol.generator_p.get(gen_name).map(|&p| (i, p))
-            })
+            .filter_map(|(i, sol)| sol.generator_p.get(gen_name).map(|&p| (i, p)))
             .collect()
     }
 
     /// Check if any ramp violations occurred.
     ///
     /// Returns generator name and (period, violation_mw) pairs.
-    pub fn ramp_violations(&self, ramps: &HashMap<String, RampConstraint>, periods: &[PeriodData]) -> Vec<(String, usize, f64)> {
+    pub fn ramp_violations(
+        &self,
+        ramps: &HashMap<String, RampConstraint>,
+        periods: &[PeriodData],
+    ) -> Vec<(String, usize, f64)> {
         let mut violations = Vec::new();
 
         for i in 1..self.period_solutions.len() {
@@ -476,12 +478,8 @@ pub fn solve_multiperiod_sequential(
                     .unwrap_or((gen.pmin_mw + gen.pmax_mw) / 2.0);
 
                 // Compute ramping-constrained bounds
-                let (p_min_eff, p_max_eff) = ramp.effective_bounds(
-                    prev_p,
-                    period.duration_hr,
-                    gen.pmin_mw,
-                    gen.pmax_mw,
-                );
+                let (p_min_eff, p_max_eff) =
+                    ramp.effective_bounds(prev_p, period.duration_hr, gen.pmin_mw, gen.pmax_mw);
 
                 // Update generator limits
                 gen.pmin_mw = p_min_eff;
@@ -526,12 +524,8 @@ pub fn solve_multiperiod_sequential(
         // STEP 4: SOLVE AC-OPF FOR THIS PERIOD
         // ====================================================================
 
-        let solution = super::solver::solve_with_start(
-            &period_problem,
-            x0,
-            max_iterations,
-            tolerance,
-        );
+        let solution =
+            super::solver::solve_with_start(&period_problem, x0, max_iterations, tolerance);
 
         match solution {
             Ok(sol) => {
@@ -684,7 +678,7 @@ mod tests {
 
     #[test]
     fn test_multiperiod_problem_creation() {
-        use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Network, Node, CostModel};
+        use gat_core::{Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Network, Node};
 
         // Create minimal network
         let mut network = Network::new();

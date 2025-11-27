@@ -163,7 +163,10 @@ fn build_network_from_opfdata(
             None => {
                 diagnostics.add_warning(
                     "parse",
-                    &format!("Bus {} missing base_kv, defaulting to 138.0 kV", bus_idx + 1),
+                    &format!(
+                        "Bus {} missing base_kv, defaulting to 138.0 kV",
+                        bus_idx + 1
+                    ),
                 );
                 138.0
             }
@@ -194,7 +197,10 @@ fn build_network_from_opfdata(
     // OPFData column [3] contains pmax (larger capacity), column [4] contains pmin (smaller minimum)
     // Generator-to-bus mapping is in edges.generator_link (like load_link, shunt_link)
     let gen_link = edges.get("generator_link").and_then(|v| v.as_object());
-    let gen_bus_map: Vec<usize> = match gen_link.and_then(|l| l.get("receivers")).and_then(|v| v.as_array()) {
+    let gen_bus_map: Vec<usize> = match gen_link
+        .and_then(|l| l.get("receivers"))
+        .and_then(|v| v.as_array())
+    {
         Some(arr) => arr
             .iter()
             .filter_map(|v| v.as_u64().map(|u| u as usize))

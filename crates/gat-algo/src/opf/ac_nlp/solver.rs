@@ -134,8 +134,8 @@
 //!   ACM Trans. Mathematical Software, 20(3), 286-307
 //!   DOI: [10.1145/192115.192132](https://doi.org/10.1145/192115.192132)
 
-use super::AcOpfProblem;
 use super::compute_single_branch_flow;
+use super::AcOpfProblem;
 use crate::opf::{OpfError, OpfMethod, OpfSolution};
 use argmin::core::{CostFunction, Executor, Gradient, State};
 use argmin::solver::linesearch::MoreThuenteLineSearch;
@@ -248,7 +248,8 @@ impl<'a> CostFunction for PenaltyProblem<'a> {
             let theta_ij = theta[br.from_idx] - theta[br.to_idx];
 
             // Compute power flows at both ends of branch
-            let (pf, qf, pt, qt) = compute_single_branch_flow(br, vi, vj, theta_ij, self.problem.base_mva);
+            let (pf, qf, pt, qt) =
+                compute_single_branch_flow(br, vi, vj, theta_ij, self.problem.base_mva);
 
             // Squared apparent power at each end
             let s_from_sq = pf * pf + qf * qf;
@@ -313,7 +314,7 @@ impl<'a> CostFunction for PenaltyProblem<'a> {
                 &gen.capability_curve,
                 pg_mw,
                 gen.qmin_mvar,
-                gen.qmax_mvar
+                gen.qmax_mvar,
             );
 
             // Q > Qmax violation
@@ -781,7 +782,7 @@ mod tests {
             b_charging: 0.0,
             tap: 1.0,
             shift: 0.0,
-            rate_mva: 0.0, // No thermal limit
+            rate_mva: 0.0,       // No thermal limit
             angle_diff_max: 0.5, // ~28.6 degrees
         }];
 

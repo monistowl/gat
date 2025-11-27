@@ -131,7 +131,10 @@ fn handle_summary(input: &str) -> Result<()> {
     if gen_count > 1 && unique_gen_buses == 1 {
         let bus_id = gen_bus_counts.keys().next().unwrap();
         println!();
-        println!("WARNING: All {} generators at bus {} - likely mapping bug!", gen_count, bus_id);
+        println!(
+            "WARNING: All {} generators at bus {} - likely mapping bug!",
+            gen_count, bus_id
+        );
     }
 
     Ok(())
@@ -325,8 +328,14 @@ fn handle_power_balance(input: &str) -> Result<()> {
     println!("======================");
     println!();
     println!("Generation Capacity ({} units):", gen_count);
-    println!("  P range: [{:.2}, {:.2}] MW", total_gen_pmin, total_gen_pmax);
-    println!("  Q range: [{:.2}, {:.2}] MVAr", total_gen_qmin, total_gen_qmax);
+    println!(
+        "  P range: [{:.2}, {:.2}] MW",
+        total_gen_pmin, total_gen_pmax
+    );
+    println!(
+        "  Q range: [{:.2}, {:.2}] MVAr",
+        total_gen_qmin, total_gen_qmax
+    );
     println!();
     println!("Load ({} units):", load_count);
     println!("  P total: {:.2} MW", total_load_p);

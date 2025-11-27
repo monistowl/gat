@@ -132,7 +132,10 @@ impl Default for OutageProbabilityConfig {
 impl OutageProbabilityConfig {
     /// Get FOR for a specific branch.
     pub fn get_for(&self, branch_id: usize) -> f64 {
-        self.for_rates.get(&branch_id).copied().unwrap_or(self.default_for)
+        self.for_rates
+            .get(&branch_id)
+            .copied()
+            .unwrap_or(self.default_for)
     }
 
     /// Compute probability for a contingency (assuming independence).
@@ -638,7 +641,10 @@ impl<'a> NkEvaluator<'a> {
             .map(|r| self.evaluate(&r.contingency))
             .collect();
 
-        let num_violated = evaluations.iter().filter(|e| !e.violations.is_empty()).count();
+        let num_violated = evaluations
+            .iter()
+            .filter(|e| !e.violations.is_empty())
+            .count();
         let num_non_convergent = evaluations.iter().filter(|e| !e.converged).count();
 
         let (worst_loading, worst_contingency) = evaluations
@@ -669,12 +675,13 @@ impl<'a> NkEvaluator<'a> {
 
     /// Evaluate a list of contingencies directly (parallel).
     pub fn evaluate_all(&self, contingencies: &[Contingency]) -> NkEvaluationResults {
-        let evaluations: Vec<ContingencyEvaluation> = contingencies
-            .par_iter()
-            .map(|c| self.evaluate(c))
-            .collect();
+        let evaluations: Vec<ContingencyEvaluation> =
+            contingencies.par_iter().map(|c| self.evaluate(c)).collect();
 
-        let num_violated = evaluations.iter().filter(|e| !e.violations.is_empty()).count();
+        let num_violated = evaluations
+            .iter()
+            .filter(|e| !e.violations.is_empty())
+            .count();
         let num_non_convergent = evaluations.iter().filter(|e| !e.converged).count();
 
         let (worst_loading, worst_contingency) = evaluations
@@ -1056,17 +1063,27 @@ mod tests {
 
         // Now evaluate flagged cases
         let injections = HashMap::from([(1, 0.8), (3, -0.8)]); // Matching base flows roughly
-        let evaluator = NkEvaluator::new(&network, injections, HashMap::from([(1, 100.0), (2, 100.0), (3, 100.0)]));
+        let evaluator = NkEvaluator::new(
+            &network,
+            injections,
+            HashMap::from([(1, 100.0), (2, 100.0), (3, 100.0)]),
+        );
 
         let eval_results = evaluator.evaluate_flagged(&screening);
 
         println!("{}", eval_results.summary());
-        println!("Evaluated {} flagged contingencies", eval_results.evaluations.len());
+        println!(
+            "Evaluated {} flagged contingencies",
+            eval_results.evaluations.len()
+        );
 
         // N-1 evaluations should all converge (triangle network stays connected)
         for eval in &eval_results.evaluations {
-            assert!(eval.converged, "N-1 contingency {:?} should converge",
-                    eval.contingency.outaged_branches);
+            assert!(
+                eval.converged,
+                "N-1 contingency {:?} should converge",
+                eval.contingency.outaged_branches
+            );
         }
     }
 

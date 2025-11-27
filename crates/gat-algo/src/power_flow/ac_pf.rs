@@ -283,7 +283,9 @@ impl AcPowerFlowSolver {
         for (i, bus_id) in buses.iter().enumerate() {
             let bus_type = bus_types.get(bus_id);
             if bus_type == Some(&BusType::PV) || bus_type == Some(&BusType::Slack) {
-                v_mag[i] = *pv_setpoints.get(bus_id).unwrap_or(&self.pv_voltage_setpoint);
+                v_mag[i] = *pv_setpoints
+                    .get(bus_id)
+                    .unwrap_or(&self.pv_voltage_setpoint);
             }
         }
 

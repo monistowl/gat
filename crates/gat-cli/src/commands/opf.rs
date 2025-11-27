@@ -130,15 +130,14 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
                     .context("building AC-OPF problem from network")?;
 
                 // Solve using penalty method + L-BFGS
-                let solution = solve_ac_opf(&problem, *max_iter as usize, *tol)
-                    .context("solving AC-OPF")?;
+                let solution =
+                    solve_ac_opf(&problem, *max_iter as usize, *tol).context("solving AC-OPF")?;
 
                 // Output results
                 if solution.converged {
                     println!(
                         "AC-OPF converged in {} iterations (objective: ${:.2}/hr)",
-                        solution.iterations,
-                        solution.objective_value
+                        solution.iterations, solution.objective_value
                     );
 
                     // Print generator dispatch summary
@@ -149,10 +148,16 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
                     }
 
                     // Print voltage summary
-                    let v_min = solution.bus_voltage_mag.values().copied()
+                    let v_min = solution
+                        .bus_voltage_mag
+                        .values()
+                        .copied()
                         .min_by(|a, b| a.partial_cmp(b).unwrap())
                         .unwrap_or(0.0);
-                    let v_max = solution.bus_voltage_mag.values().copied()
+                    let v_max = solution
+                        .bus_voltage_mag
+                        .values()
+                        .copied()
                         .max_by(|a, b| a.partial_cmp(b).unwrap())
                         .unwrap_or(0.0);
                     println!("\nVoltage range: {:.4} - {:.4} p.u.", v_min, v_max);
@@ -160,8 +165,7 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
                     // Write JSON output
                     let json = serde_json::to_string_pretty(&solution)
                         .context("serializing solution to JSON")?;
-                    let mut file = File::create(out)
-                        .context("creating output file")?;
+                    let mut file = File::create(out).context("creating output file")?;
                     file.write_all(json.as_bytes())
                         .context("writing JSON output")?;
 
@@ -179,7 +183,10 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
                         ],
                     );
                 } else {
-                    println!("AC-OPF did not converge after {} iterations", solution.iterations);
+                    println!(
+                        "AC-OPF did not converge after {} iterations",
+                        solution.iterations
+                    );
                 }
 
                 Ok(())

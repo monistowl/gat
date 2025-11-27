@@ -16,8 +16,8 @@ mod tests {
         export_network_to_powermodels, export_network_to_powermodels_string,
         export_network_to_psse,
     };
-    use crate::importers::parse_powermodels_string;
     use crate::exporters::{ArrowDirectoryWriter, ExportMetadata};
+    use crate::importers::parse_powermodels_string;
     use crate::importers::{load_grid_from_arrow, parse_matpower};
     use anyhow::Result;
     use chrono::{TimeZone, Utc};
@@ -500,7 +500,10 @@ mod tests {
         assert!(parsed.get("bus").is_some(), "Should have bus dictionary");
         assert!(parsed.get("gen").is_some(), "Should have gen dictionary");
         assert!(parsed.get("load").is_some(), "Should have load dictionary");
-        assert!(parsed.get("branch").is_some(), "Should have branch dictionary");
+        assert!(
+            parsed.get("branch").is_some(),
+            "Should have branch dictionary"
+        );
 
         // Verify dictionary structure (keys are string indices)
         let bus = parsed.get("bus").unwrap().as_object().unwrap();
@@ -530,7 +533,10 @@ mod tests {
 
         let meta = meta.unwrap();
         let source = meta.get("source").and_then(Value::as_object).unwrap();
-        assert_eq!(source.get("file").and_then(Value::as_str), Some("case14.raw"));
+        assert_eq!(
+            source.get("file").and_then(Value::as_str),
+            Some("case14.raw")
+        );
         assert_eq!(source.get("format").and_then(Value::as_str), Some("psse"));
         assert_eq!(source.get("hash").and_then(Value::as_str), Some("deadbeef"));
 
@@ -543,7 +549,10 @@ mod tests {
         let json_str = export_network_to_powermodels_string(&network, None)?;
         let parsed: Value = serde_json::from_str(&json_str)?;
 
-        assert!(parsed.get("_meta").is_none(), "Should not have _meta section");
+        assert!(
+            parsed.get("_meta").is_none(),
+            "Should not have _meta section"
+        );
         Ok(())
     }
 
@@ -665,12 +674,20 @@ mod tests {
         // Find gen by id and compare cost model
         for orig_gen in &orig_gens {
             let imp_gen = imp_gens.iter().find(|g| g.id == orig_gen.id);
-            assert!(imp_gen.is_some(), "Gen {} not found after roundtrip", orig_gen.id.value());
+            assert!(
+                imp_gen.is_some(),
+                "Gen {} not found after roundtrip",
+                orig_gen.id.value()
+            );
 
             let imp_gen = imp_gen.unwrap();
             match (&orig_gen.cost_model, &imp_gen.cost_model) {
                 (CostModel::Polynomial(orig), CostModel::Polynomial(imp)) => {
-                    assert_eq!(orig.len(), imp.len(), "Polynomial coefficient count mismatch");
+                    assert_eq!(
+                        orig.len(),
+                        imp.len(),
+                        "Polynomial coefficient count mismatch"
+                    );
                     for (i, (o, im)) in orig.iter().zip(imp.iter()).enumerate() {
                         assert!(
                             (o - im).abs() < 1e-6,
@@ -778,7 +795,11 @@ mod tests {
 
         // Verify power preserved through chain
         let load_diff = (stats1.total_load_mw - stats3.total_load_mw).abs();
-        assert!(load_diff < 0.1, "Load should be preserved: {} MW diff", load_diff);
+        assert!(
+            load_diff < 0.1,
+            "Load should be preserved: {} MW diff",
+            load_diff
+        );
 
         Ok(())
     }

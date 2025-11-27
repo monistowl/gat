@@ -153,15 +153,15 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
 
     let outputs: Vec<BenchmarkSampleOutput> = sample_refs
         .par_iter()
-        .filter_map(
-            |sample_ref| match benchmark_opfdata_sample(sample_ref, method, tol, max_iter) {
+        .filter_map(|sample_ref| {
+            match benchmark_opfdata_sample(sample_ref, method, tol, max_iter) {
                 Ok(output) => Some(output),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", sample_ref.sample_id, e);
                     None
                 }
-            },
-        )
+            }
+        })
         .collect();
 
     // Separate results and diagnostics
@@ -171,14 +171,17 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
 
     // Write JSONL diagnostics if path specified
     if let Some(diag_path) = &config.diagnostics_log {
-        let diag_file =
-            File::create(diag_path).context(format!("Failed to create diagnostics log: {}", diag_path))?;
+        let diag_file = File::create(diag_path)
+            .context(format!("Failed to create diagnostics log: {}", diag_path))?;
         let mut diag_writer = BufWriter::new(diag_file);
         for entry in &diagnostics_entries {
-            let line = serde_json::to_string(entry).context("Failed to serialize diagnostics entry")?;
+            let line =
+                serde_json::to_string(entry).context("Failed to serialize diagnostics entry")?;
             writeln!(diag_writer, "{}", line).context("Failed to write diagnostics line")?;
         }
-        diag_writer.flush().context("Failed to flush diagnostics log")?;
+        diag_writer
+            .flush()
+            .context("Failed to flush diagnostics log")?;
         eprintln!("Diagnostics log written to: {}", diag_path);
     }
 
@@ -270,11 +273,16 @@ fn benchmark_opfdata_sample(
     max_iter: u32,
 ) -> Result<BenchmarkSampleOutput> {
     let load_start = Instant::now();
-    let (instance, diagnostics) = load_opfdata_instance(&sample_ref.file_path, &sample_ref.sample_id)?;
+    let (instance, diagnostics) =
+        load_opfdata_instance(&sample_ref.file_path, &sample_ref.sample_id)?;
     let load_time_ms = load_start.elapsed().as_secs_f64() * 1000.0;
 
     // Collect warnings for diagnostics log
-    let warnings: Vec<String> = diagnostics.issues.iter().map(|i| i.message.clone()).collect();
+    let warnings: Vec<String> = diagnostics
+        .issues
+        .iter()
+        .map(|i| i.message.clone())
+        .collect();
 
     // Log any import warnings to stderr (silent defaults that were applied)
     if diagnostics.warning_count() > 0 {
@@ -308,7 +316,8 @@ fn benchmark_opfdata_sample(
         .with_tolerance(tol);
 
     let solve_start = Instant::now();
-    let solution = solver.solve(&instance.network)
+    let solution = solver
+        .solve(&instance.network)
         .map_err(|e| anyhow::anyhow!("OPF ({}) failed: {}", method, e))?;
     let solve_time_ms = solve_start.elapsed().as_secs_f64() * 1000.0;
 

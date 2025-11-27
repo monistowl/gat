@@ -30,7 +30,15 @@ pub fn handle(command: &ConvertCommands) -> Result<()> {
             force,
             verbose,
             strict,
-        } => convert_format(input, *from, *to, output.as_deref(), *force, *verbose, *strict),
+        } => convert_format(
+            input,
+            *from,
+            *to,
+            output.as_deref(),
+            *force,
+            *verbose,
+            *strict,
+        ),
     }
 }
 
@@ -72,7 +80,11 @@ fn convert_format(
             let diag = &result.diagnostics;
             if diag.has_issues() {
                 eprintln!("\n📋 Import Diagnostics:");
-                eprintln!("   Warnings: {}, Errors: {}", diag.warning_count(), diag.error_count());
+                eprintln!(
+                    "   Warnings: {}, Errors: {}",
+                    diag.warning_count(),
+                    diag.error_count()
+                );
                 for issue in &diag.issues {
                     let icon = if issue.severity == gat_io::helpers::Severity::Error {
                         "❌"

@@ -433,7 +433,14 @@ fn d2q_dtheta_i_dv_j(ybus: &YBus, v: &[f64], theta: &[f64], k: usize, i: usize, 
 }
 
 /// ∂²P_k/∂θ_i∂θ_j
-fn d2p_dtheta_i_dtheta_j(ybus: &YBus, v: &[f64], theta: &[f64], k: usize, i: usize, j: usize) -> f64 {
+fn d2p_dtheta_i_dtheta_j(
+    ybus: &YBus,
+    v: &[f64],
+    theta: &[f64],
+    k: usize,
+    i: usize,
+    j: usize,
+) -> f64 {
     // ∂P_k/∂θ_k = V_k Σₘ≠k V_m [-G_km sin(θ_k-θ_m) + B_km cos(θ_k-θ_m)]
     // ∂P_k/∂θ_i (i≠k) = V_k V_i [G_ki sin(θ_k-θ_i) - B_ki cos(θ_k-θ_i)]
 
@@ -474,7 +481,14 @@ fn d2p_dtheta_i_dtheta_j(ybus: &YBus, v: &[f64], theta: &[f64], k: usize, i: usi
 }
 
 /// ∂²Q_k/∂θ_i∂θ_j
-fn d2q_dtheta_i_dtheta_j(ybus: &YBus, v: &[f64], theta: &[f64], k: usize, i: usize, j: usize) -> f64 {
+fn d2q_dtheta_i_dtheta_j(
+    ybus: &YBus,
+    v: &[f64],
+    theta: &[f64],
+    k: usize,
+    i: usize,
+    j: usize,
+) -> f64 {
     // Similar structure to P with appropriate sign changes
 
     let v_k = v[k];
@@ -532,7 +546,7 @@ mod tests {
 
     #[test]
     fn test_hessian_sparsity_pattern_dimensions() {
-        use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Network, Node, CostModel};
+        use gat_core::{Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Network, Node};
 
         // Create minimal 2-bus, 1-gen network
         let mut network = Network::new();
@@ -590,7 +604,7 @@ mod tests {
 
     #[test]
     fn test_objective_hessian_diagonal() {
-        use gat_core::{Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Network, Node, CostModel};
+        use gat_core::{Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Network, Node};
 
         // Create network with quadratic cost
         let mut network = Network::new();

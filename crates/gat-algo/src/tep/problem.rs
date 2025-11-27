@@ -117,9 +117,9 @@ impl TepProblem {
             base_mva: 100.0,
             load_scaling: HashMap::new(),
             gen_scaling: HashMap::new(),
-            big_m: 1e4, // Default Big-M (10,000 MW)
+            big_m: 1e4,              // Default Big-M (10,000 MW)
             operating_hours: 8760.0, // Full year
-            discount_rate: 0.10, // 10% discount rate
+            discount_rate: 0.10,     // 10% discount rate
             planning_years: 10,
         }
     }
@@ -353,8 +353,8 @@ mod tests {
             "New Line 1-2",
             BusId::new(1),
             BusId::new(2),
-            0.1, // 0.1 p.u. reactance
-            100.0, // 100 MW capacity
+            0.1,         // 0.1 p.u. reactance
+            100.0,       // 100 MW capacity
             1_000_000.0, // $1M investment
         );
 
@@ -399,8 +399,7 @@ mod tests {
     #[test]
     fn test_capital_recovery_factor() {
         let network = Network::new();
-        let problem = TepProblem::new(network)
-            .with_planning_params(8760.0, 0.10, 10);
+        let problem = TepProblem::new(network).with_planning_params(8760.0, 0.10, 10);
 
         // CRF for 10% over 10 years ≈ 0.1627
         let crf = problem.capital_recovery_factor();
@@ -410,8 +409,7 @@ mod tests {
     #[test]
     fn test_annualized_cost() {
         let network = Network::new();
-        let problem = TepProblem::new(network)
-            .with_planning_params(8760.0, 0.10, 10);
+        let problem = TepProblem::new(network).with_planning_params(8760.0, 0.10, 10);
 
         let candidate = CandidateLine::new(
             1,

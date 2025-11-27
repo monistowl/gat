@@ -155,15 +155,15 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     let outputs: Vec<BenchmarkCaseOutput> = all_cases
         .par_iter()
         .enumerate()
-        .filter_map(|(idx, test_case)| {
-            match benchmark_case(test_case, idx, &mode, tol, max_iter) {
+        .filter_map(
+            |(idx, test_case)| match benchmark_case(test_case, idx, &mode, tol, max_iter) {
                 Ok(output) => Some(output),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", test_case.case_name, e);
                     None
                 }
-            }
-        })
+            },
+        )
         .collect();
 
     // Separate results and diagnostics

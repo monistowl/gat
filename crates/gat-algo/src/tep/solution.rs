@@ -79,10 +79,7 @@ impl TepSolution {
 
     /// Get number of lines built
     pub fn lines_built(&self) -> usize {
-        self.build_decisions
-            .iter()
-            .filter(|d| d.is_built())
-            .count()
+        self.build_decisions.iter().filter(|d| d.is_built()).count()
     }
 
     /// Get total circuits built (accounting for parallel circuits)
@@ -110,22 +107,27 @@ impl TepSolution {
     /// Format a human-readable summary
     pub fn summary(&self) -> String {
         let mut s = String::new();
-        s.push_str(&format!(
-            "TEP Solution Summary\n{}\n",
-            "=".repeat(40)
-        ));
+        s.push_str(&format!("TEP Solution Summary\n{}\n", "=".repeat(40)));
         s.push_str(&format!(
             "Status: {}\n",
-            if self.optimal { "Optimal" } else { "Suboptimal/Infeasible" }
+            if self.optimal {
+                "Optimal"
+            } else {
+                "Suboptimal/Infeasible"
+            }
         ));
         s.push_str(&format!("Total Cost: ${:.2}\n", self.total_cost));
         s.push_str(&format!("  Investment: ${:.2}\n", self.investment_cost));
         s.push_str(&format!("  Operating: ${:.2}\n", self.operating_cost));
-        s.push_str(&format!("Lines Built: {} ({} circuits)\n",
+        s.push_str(&format!(
+            "Lines Built: {} ({} circuits)\n",
             self.lines_built(),
             self.total_circuits_built()
         ));
-        s.push_str(&format!("Total Generation: {:.2} MW\n", self.total_generation_mw()));
+        s.push_str(&format!(
+            "Total Generation: {:.2} MW\n",
+            self.total_generation_mw()
+        ));
         s.push_str(&format!("Solve Time: {:.2?}\n", self.solve_time));
         if let Some(gap) = self.mip_gap {
             s.push_str(&format!("MIP Gap: {:.4}%\n", gap * 100.0));
@@ -137,9 +139,7 @@ impl TepSolution {
                 if decision.is_built() {
                     s.push_str(&format!(
                         "  [BUILD] {} (x{}) - ${:.2}\n",
-                        decision.name,
-                        decision.circuits_to_build,
-                        decision.investment_cost
+                        decision.name, decision.circuits_to_build, decision.investment_cost
                     ));
                 } else {
                     s.push_str(&format!("  [SKIP]  {}\n", decision.name));

@@ -930,9 +930,9 @@ fn socp_zero_resistance_transformer() {
             name: "xfmr1_2".to_string(),
             from_bus: BusId::new(0),
             to_bus: BusId::new(1),
-            resistance: 0.0,           // Zero resistance
-            reactance: 0.0375,         // Typical OPFData value
-            tap_ratio: 0.935,          // Step-up transformer
+            resistance: 0.0,   // Zero resistance
+            reactance: 0.0375, // Typical OPFData value
+            tap_ratio: 0.935,  // Step-up transformer
             phase_shift_rad: 0.0,
             charging_b_pu: 0.0,
             s_max_mva: None,
@@ -965,20 +965,23 @@ fn socp_zero_resistance_transformer() {
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
     let result = solver.solve(&network);
-    
-    println!("Zero-resistance transformer test result: {:?}", result.as_ref().map(|s| s.converged));
-    
+
+    println!(
+        "Zero-resistance transformer test result: {:?}",
+        result.as_ref().map(|s| s.converged)
+    );
+
     // This should converge - if not, we found the issue
     assert!(result.is_ok(), "Zero-resistance transformer should solve");
     let solution = result.unwrap();
     assert!(solution.converged, "Should converge");
-    
+
     let v1 = solution.bus_voltage_mag.get("bus1").copied().unwrap();
     let v2 = solution.bus_voltage_mag.get("bus2").copied().unwrap();
     println!("  v1 = {:.4}, v2 = {:.4}", v1, v2);
 }
 
-#[test] 
+#[test]
 fn socp_transformer_voltage_bounds_strict() {
     // Test that SOCP respects voltage bounds with step-up transformer
     let mut network = Network::new();
@@ -988,7 +991,7 @@ fn socp_transformer_voltage_bounds_strict() {
         name: "bus1".to_string(),
         voltage_kv: 138.0,
         vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06),  // Must be respected
+        vmax_pu: Some(1.06), // Must be respected
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
@@ -996,7 +999,7 @@ fn socp_transformer_voltage_bounds_strict() {
         name: "bus2".to_string(),
         voltage_kv: 138.0,
         vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06),  // Must be respected - but tap=0.935 wants to push this higher
+        vmax_pu: Some(1.06), // Must be respected - but tap=0.935 wants to push this higher
         ..Bus::default()
     }));
 
@@ -1039,20 +1042,20 @@ fn socp_transformer_voltage_bounds_strict() {
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
     let result = solver.solve(&network);
-    
+
     // Check if voltages are within bounds
     if let Ok(solution) = &result {
         let v1 = *solution.bus_voltage_mag.get("bus1").unwrap();
         let v2 = *solution.bus_voltage_mag.get("bus2").unwrap();
         println!("Strict bounds test: v1={:.4}, v2={:.4}", v1, v2);
         println!("  v2 in [0.94, 1.06]? {}", v2 >= 0.94 && v2 <= 1.06);
-        
+
         // The real question: is this physically infeasible?
         // If τ=0.935 and both buses must be in [0.94, 1.06]:
         //   v2 ≈ v1/τ => if v1=0.94, v2≈1.005 (OK)
         //              => if v1=1.06, v2≈1.134 (violates!)
         // So there IS a feasible region: v1 around 0.94-0.99
-        
+
         // With strict enforcement, the solver should find this
         if v2 > 1.06 {
             println!("  WARNING: v2={:.4} > vmax=1.06 - bounds not enforced!", v2);
@@ -1122,7 +1125,7 @@ fn socp_meshed_zero_resistance_transformers() {
             name: "xfmr0_1".to_string(),
             from_bus: BusId::new(0),
             to_bus: BusId::new(1),
-            resistance: 0.0,  // Zero resistance!
+            resistance: 0.0, // Zero resistance!
             reactance: 0.027,
             tap_ratio: 0.985,
             ..Branch::default()
@@ -1154,7 +1157,7 @@ fn socp_meshed_zero_resistance_transformers() {
             name: "xfmr2_3".to_string(),
             from_bus: BusId::new(2),
             to_bus: BusId::new(3),
-            resistance: 0.0,  // Zero resistance!
+            resistance: 0.0, // Zero resistance!
             reactance: 0.038,
             tap_ratio: 0.96,
             ..Branch::default()

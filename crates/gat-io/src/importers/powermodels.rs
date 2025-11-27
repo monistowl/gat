@@ -308,10 +308,7 @@ pub fn parse_powermodels_string(content: &str) -> Result<ImportResult> {
                 let node_idx = network.graph.add_node(Node::Bus(bus.clone()));
                 bus_idx_map.insert(bus_data.index, node_idx);
             }
-            Err(e) => diagnostics.add_warning(
-                "import",
-                &format!("Bus {}: {}", bus_data.index, e),
-            ),
+            Err(e) => diagnostics.add_warning("import", &format!("Bus {}: {}", bus_data.index, e)),
         }
     }
 
@@ -321,10 +318,7 @@ pub fn parse_powermodels_string(content: &str) -> Result<ImportResult> {
             Ok(gen) => {
                 network.graph.add_node(Node::Gen(gen));
             }
-            Err(e) => diagnostics.add_warning(
-                "import",
-                &format!("Gen {}: {}", gen_data.index, e),
-            ),
+            Err(e) => diagnostics.add_warning("import", &format!("Gen {}: {}", gen_data.index, e)),
         }
     }
 
@@ -334,10 +328,9 @@ pub fn parse_powermodels_string(content: &str) -> Result<ImportResult> {
             Ok(load) => {
                 network.graph.add_node(Node::Load(load));
             }
-            Err(e) => diagnostics.add_warning(
-                "import",
-                &format!("Load {}: {}", load_data.index, e),
-            ),
+            Err(e) => {
+                diagnostics.add_warning("import", &format!("Load {}: {}", load_data.index, e))
+            }
         }
     }
 
@@ -349,10 +342,9 @@ pub fn parse_powermodels_string(content: &str) -> Result<ImportResult> {
                     .graph
                     .add_edge(from_idx, to_idx, Edge::Branch(branch));
             }
-            Err(e) => diagnostics.add_warning(
-                "import",
-                &format!("Branch {}: {}", branch_data.index, e),
-            ),
+            Err(e) => {
+                diagnostics.add_warning("import", &format!("Branch {}: {}", branch_data.index, e))
+            }
         }
     }
 

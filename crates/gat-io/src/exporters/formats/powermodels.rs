@@ -306,7 +306,10 @@ pub fn export_network_to_powermodels_string(
             meta_obj.insert("created_at".to_string(), Value::String(ts));
         }
         if let Some(version) = meta.gat_version() {
-            meta_obj.insert("gat_version".to_string(), Value::String(version.to_string()));
+            meta_obj.insert(
+                "gat_version".to_string(),
+                Value::String(version.to_string()),
+            );
         }
         if !meta_obj.is_empty() {
             if let Some(obj) = root.as_object_mut() {
@@ -350,7 +353,10 @@ fn export_cost_model(cost_model: &CostModel) -> (i32, i32, Vec<f64>) {
         CostModel::PiecewiseLinear(points) => {
             // Points are (mw, cost) pairs
             // PowerModels expects flattened [mw1, cost1, mw2, cost2, ...]
-            let flattened: Vec<f64> = points.iter().flat_map(|(mw, cost)| vec![*mw, *cost]).collect();
+            let flattened: Vec<f64> = points
+                .iter()
+                .flat_map(|(mw, cost)| vec![*mw, *cost])
+                .collect();
             let ncost = points.len() as i32;
             (1, ncost, flattened) // model=1 for piecewise linear
         }
@@ -497,7 +503,8 @@ mod tests {
         let original = create_test_network();
 
         // Export
-        let json_str = export_network_to_powermodels_string(&original, None).expect("export failed");
+        let json_str =
+            export_network_to_powermodels_string(&original, None).expect("export failed");
 
         // Import back
         let result = parse_powermodels_string(&json_str).expect("import failed");

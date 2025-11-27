@@ -411,7 +411,12 @@ impl PowerEquations {
         ybus: &super::SparseYBus,
         v: &[f64],
         theta: &[f64],
-    ) -> (sprs::CsMat<f64>, sprs::CsMat<f64>, sprs::CsMat<f64>, sprs::CsMat<f64>) {
+    ) -> (
+        sprs::CsMat<f64>,
+        sprs::CsMat<f64>,
+        sprs::CsMat<f64>,
+        sprs::CsMat<f64>,
+    ) {
         let n = ybus.n_bus();
 
         let mut j1_tri = TriMat::new((n, n)); // ∂P/∂θ
@@ -468,7 +473,12 @@ impl PowerEquations {
             j4_tri.add_triplet(i, i, dq_dv_diag);
         }
 
-        (j1_tri.to_csr(), j2_tri.to_csr(), j3_tri.to_csr(), j4_tri.to_csr())
+        (
+            j1_tri.to_csr(),
+            j2_tri.to_csr(),
+            j3_tri.to_csr(),
+            j4_tri.to_csr(),
+        )
     }
 }
 
@@ -615,7 +625,11 @@ mod tests {
                 assert!(
                     diff < tol,
                     "J1[{},{}]: dense={}, sparse={}, diff={}",
-                    i, j, dense_val, sparse_val, diff
+                    i,
+                    j,
+                    dense_val,
+                    sparse_val,
+                    diff
                 );
             }
         }
@@ -629,7 +643,11 @@ mod tests {
                 assert!(
                     diff < tol,
                     "J2[{},{}]: dense={}, sparse={}, diff={}",
-                    i, j, dense_val, sparse_val, diff
+                    i,
+                    j,
+                    dense_val,
+                    sparse_val,
+                    diff
                 );
             }
         }
@@ -643,7 +661,11 @@ mod tests {
                 assert!(
                     diff < tol,
                     "J3[{},{}]: dense={}, sparse={}, diff={}",
-                    i, j, dense_val, sparse_val, diff
+                    i,
+                    j,
+                    dense_val,
+                    sparse_val,
+                    diff
                 );
             }
         }
@@ -657,7 +679,11 @@ mod tests {
                 assert!(
                     diff < tol,
                     "J4[{},{}]: dense={}, sparse={}, diff={}",
-                    i, j, dense_val, sparse_val, diff
+                    i,
+                    j,
+                    dense_val,
+                    sparse_val,
+                    diff
                 );
             }
         }

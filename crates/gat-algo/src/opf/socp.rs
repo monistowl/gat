@@ -377,7 +377,16 @@ type ShuntMap = HashMap<BusId, (f64, f64)>;
 
 fn extract_network_data(
     network: &Network,
-) -> Result<(Vec<BusData>, Vec<GenData>, Vec<BranchData>, LoadMap, ShuntMap), OpfError> {
+) -> Result<
+    (
+        Vec<BusData>,
+        Vec<GenData>,
+        Vec<BranchData>,
+        LoadMap,
+        ShuntMap,
+    ),
+    OpfError,
+> {
     let mut buses = Vec::new();
     let mut generators = Vec::new();
     let mut loads: LoadMap = HashMap::new();
@@ -409,8 +418,8 @@ fn extract_network_data(
                 // Distribution systems may use tighter bounds (±5%)
                 // Use Bus-specified limits if available, otherwise defaults
                 // DEBUG: Using very wide limits to rule out voltage as infeasibility cause
-                let v_min = bus.vmin_pu.unwrap_or(0.9).min(0.5);  // At least as relaxed as 0.5
-                let v_max = bus.vmax_pu.unwrap_or(1.1).max(1.5);  // At least as relaxed as 1.5
+                let v_min = bus.vmin_pu.unwrap_or(0.9).min(0.5); // At least as relaxed as 0.5
+                let v_max = bus.vmax_pu.unwrap_or(1.1).max(1.5); // At least as relaxed as 1.5
 
                 buses.push(BusData {
                     id: bus.id,
