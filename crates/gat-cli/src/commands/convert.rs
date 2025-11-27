@@ -11,7 +11,7 @@ use gat_io::{
     exporters::{
         formats::{
             export_network_to_cim, export_network_to_matpower, export_network_to_pandapower,
-            export_network_to_psse,
+            export_network_to_powermodels, export_network_to_psse,
         },
         write_network_to_arrow_directory, ExportMetadata,
     },
@@ -88,6 +88,10 @@ fn convert_format(
             let final_path = resolve_output_path(output, &input_path, ConvertFormat::Pandapower)?;
             export_from_arrow(&arrow_source, &final_path, to, force)
         }
+        ConvertFormat::Powermodels => {
+            let final_path = resolve_output_path(output, &input_path, ConvertFormat::Powermodels)?;
+            export_from_arrow(&arrow_source, &final_path, to, force)
+        }
     }
 }
 
@@ -136,7 +140,8 @@ fn resolve_output_path(
         ConvertFormat::Matpower => format!("{stem}.m"),
         ConvertFormat::Psse => format!("{stem}.raw"),
         ConvertFormat::Cim => format!("{stem}.rdf"),
-        ConvertFormat::Pandapower => format!("{stem}.json"),
+        ConvertFormat::Pandapower => format!("{stem}_pp.json"),
+        ConvertFormat::Powermodels => format!("{stem}_pm.json"),
     };
 
     Ok(PathBuf::from(default))
@@ -185,6 +190,10 @@ fn export_from_arrow(
         ConvertFormat::Pandapower => {
             export_network_to_pandapower(&network, output_path, Some(&metadata))
                 .with_context(|| format!("exporting to pandapower: {}", output_path.display()))?;
+        }
+        ConvertFormat::Powermodels => {
+            export_network_to_powermodels(&network, output_path, Some(&metadata))
+                .with_context(|| format!("exporting to PowerModels: {}", output_path.display()))?;
         }
     }
 
@@ -257,5 +266,6 @@ fn other_string(format: ConvertFormat) -> &'static str {
         ConvertFormat::Psse => "PSS/E",
         ConvertFormat::Cim => "CIM",
         ConvertFormat::Pandapower => "pandapower",
+        ConvertFormat::Powermodels => "PowerModels.jl",
     }
 }

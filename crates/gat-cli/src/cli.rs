@@ -252,6 +252,8 @@ pub enum ConvertFormat {
     Cim,
     /// pandapower JSON file
     Pandapower,
+    /// PowerModels.jl JSON file
+    Powermodels,
 }
 
 impl ConvertFormat {
@@ -262,6 +264,7 @@ impl ConvertFormat {
             ConvertFormat::Psse => Some(Format::Psse),
             ConvertFormat::Cim => Some(Format::Cim),
             ConvertFormat::Pandapower => Some(Format::Pandapower),
+            ConvertFormat::Powermodels => Some(Format::PowerModels),
         }
     }
 }
