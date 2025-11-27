@@ -52,7 +52,7 @@ impl Default for NkScreeningConfig {
 pub struct Contingency {
     /// Branch IDs that are out in this contingency
     pub outaged_branches: Vec<usize>,
-    /// Optional probability of this contingency occurring
+    /// Probability of this contingency occurring (per year or per exposure time)
     pub probability: Option<f64>,
     /// Human-readable label
     pub label: Option<String>,
@@ -77,9 +77,70 @@ impl Contingency {
         }
     }
 
+    /// Create a contingency with probability assigned.
+    pub fn with_probability(mut self, prob: f64) -> Self {
+        self.probability = Some(prob);
+        self
+    }
+
+    /// Create a contingency with a label.
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
     /// Order of this contingency (k in N-k).
     pub fn order(&self) -> usize {
         self.outaged_branches.len()
+    }
+
+    /// Compute probability from Forced Outage Rates (FOR) assuming independence.
+    ///
+    /// For N-k contingencies, probability = FOR₁ × FOR₂ × ... × FORₖ
+    /// where FOR is typically in the range 0.001-0.05 per year.
+    pub fn compute_probability(&mut self, for_rates: &HashMap<usize, f64>) {
+        let prob = self
+            .outaged_branches
+            .iter()
+            .map(|id| for_rates.get(id).copied().unwrap_or(0.01)) // Default 1% FOR
+            .product();
+        self.probability = Some(prob);
+    }
+}
+
+/// Configuration for outage probability computation.
+#[derive(Debug, Clone)]
+pub struct OutageProbabilityConfig {
+    /// Forced Outage Rate per branch (branch_id → FOR per year)
+    pub for_rates: HashMap<usize, f64>,
+    /// Default FOR if not specified (typical: 0.01 = 1% per year)
+    pub default_for: f64,
+    /// Exposure time in hours (default: 8760 = 1 year)
+    pub exposure_hours: f64,
+}
+
+impl Default for OutageProbabilityConfig {
+    fn default() -> Self {
+        Self {
+            for_rates: HashMap::new(),
+            default_for: 0.01, // 1% FOR typical for transmission lines
+            exposure_hours: 8760.0,
+        }
+    }
+}
+
+impl OutageProbabilityConfig {
+    /// Get FOR for a specific branch.
+    pub fn get_for(&self, branch_id: usize) -> f64 {
+        self.for_rates.get(&branch_id).copied().unwrap_or(self.default_for)
+    }
+
+    /// Compute probability for a contingency (assuming independence).
+    pub fn compute_contingency_probability(&self, outaged_branches: &[usize]) -> f64 {
+        outaged_branches
+            .iter()
+            .map(|&id| self.get_for(id))
+            .product()
     }
 }
 
@@ -298,6 +359,27 @@ pub struct ContingencyEvaluation {
     pub violations: Vec<BranchViolation>,
     /// Load shed required (MW), if any
     pub load_shed_mw: f64,
+    /// Expected Unserved Energy contribution (MWh) = probability × load_shed × exposure_hours
+    pub eue_contribution_mwh: f64,
+    /// Severity index combining probability and impact (for ranking)
+    pub severity_index: f64,
+}
+
+impl ContingencyEvaluation {
+    /// Compute EUE contribution given exposure time.
+    ///
+    /// EUE = probability × load_shed_mw × exposure_hours
+    pub fn compute_eue(&mut self, exposure_hours: f64) {
+        if let Some(prob) = self.contingency.probability {
+            self.eue_contribution_mwh = prob * self.load_shed_mw * exposure_hours;
+            // Severity index = probability × (max_loading - 1.0) for violations
+            self.severity_index = if self.max_loading > 1.0 {
+                prob * (self.max_loading - 1.0) * 100.0
+            } else {
+                0.0
+            };
+        }
+    }
 }
 
 /// A thermal limit violation on a specific branch.
@@ -322,21 +404,26 @@ pub struct NkEvaluationResults {
     pub worst_loading: f64,
     /// Contingency with worst loading
     pub worst_contingency: Option<Contingency>,
+    /// Total Expected Unserved Energy (MWh)
+    pub total_eue_mwh: f64,
+    /// Total load shed across all contingencies (MW)
+    pub total_load_shed_mw: f64,
 }
 
 impl NkEvaluationResults {
     /// Get summary string.
     pub fn summary(&self) -> String {
         format!(
-            "N-k evaluation: {}/{} violated, {} non-convergent, worst loading {:.1}%",
+            "N-k evaluation: {}/{} violated, {} non-convergent, worst loading {:.1}%, EUE={:.2} MWh",
             self.num_violated,
             self.evaluations.len(),
             self.num_non_convergent,
-            self.worst_loading * 100.0
+            self.worst_loading * 100.0,
+            self.total_eue_mwh
         )
     }
 
-    /// Get violations sorted by severity.
+    /// Get violations sorted by severity (max loading).
     pub fn violations_by_severity(&self) -> Vec<&ContingencyEvaluation> {
         let mut with_violations: Vec<_> = self
             .evaluations
@@ -350,6 +437,60 @@ impl NkEvaluationResults {
         });
         with_violations
     }
+
+    /// Get contingencies ranked by EUE contribution (highest first).
+    pub fn ranked_by_eue(&self) -> Vec<&ContingencyEvaluation> {
+        let mut ranked: Vec<_> = self.evaluations.iter().collect();
+        ranked.sort_by(|a, b| {
+            b.eue_contribution_mwh
+                .partial_cmp(&a.eue_contribution_mwh)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        ranked
+    }
+
+    /// Get contingencies ranked by severity index (probability × impact).
+    pub fn ranked_by_severity(&self) -> Vec<&ContingencyEvaluation> {
+        let mut ranked: Vec<_> = self.evaluations.iter().collect();
+        ranked.sort_by(|a, b| {
+            b.severity_index
+                .partial_cmp(&a.severity_index)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        ranked
+    }
+
+    /// Get top N contingencies by EUE contribution.
+    pub fn top_n_by_eue(&self, n: usize) -> Vec<&ContingencyEvaluation> {
+        self.ranked_by_eue().into_iter().take(n).collect()
+    }
+
+    /// Compute cumulative EUE contribution.
+    /// Returns (contingencies_included, cumulative_eue) pairs.
+    pub fn cumulative_eue(&self) -> Vec<(usize, f64)> {
+        let ranked = self.ranked_by_eue();
+        let mut cumulative = Vec::new();
+        let mut total = 0.0;
+        for (i, eval) in ranked.iter().enumerate() {
+            total += eval.eue_contribution_mwh;
+            cumulative.push((i + 1, total));
+        }
+        cumulative
+    }
+
+    /// Get percentage of total EUE from top N contingencies.
+    pub fn eue_concentration(&self, top_n: usize) -> f64 {
+        if self.total_eue_mwh == 0.0 {
+            return 0.0;
+        }
+        let top_eue: f64 = self
+            .ranked_by_eue()
+            .iter()
+            .take(top_n)
+            .map(|e| e.eue_contribution_mwh)
+            .sum();
+        top_eue / self.total_eue_mwh * 100.0
+    }
 }
 
 /// Full N-k evaluator that runs DC power flow for flagged contingencies.
@@ -357,6 +498,7 @@ pub struct NkEvaluator<'a> {
     network: &'a Network,
     injections: HashMap<usize, f64>,
     branch_limits: HashMap<usize, f64>,
+    prob_config: OutageProbabilityConfig,
 }
 
 impl<'a> NkEvaluator<'a> {
@@ -370,18 +512,46 @@ impl<'a> NkEvaluator<'a> {
             network,
             injections,
             branch_limits,
+            prob_config: OutageProbabilityConfig::default(),
         }
+    }
+
+    /// Configure outage probabilities for EUE computation.
+    pub fn with_probability_config(mut self, config: OutageProbabilityConfig) -> Self {
+        self.prob_config = config;
+        self
+    }
+
+    /// Set FOR (Forced Outage Rate) for all branches.
+    pub fn with_default_for(mut self, default_for: f64) -> Self {
+        self.prob_config.default_for = default_for;
+        self
+    }
+
+    /// Set exposure time in hours (default: 8760 = 1 year).
+    pub fn with_exposure_hours(mut self, hours: f64) -> Self {
+        self.prob_config.exposure_hours = hours;
+        self
     }
 
     /// Evaluate a single contingency using DC power flow.
     ///
     /// This creates a modified network with outaged branches removed,
     /// then solves DC power flow to get actual post-contingency flows.
+    /// Probability and EUE are computed if probability config is set.
     pub fn evaluate(&self, contingency: &Contingency) -> ContingencyEvaluation {
         // For simplicity, we'll use the existing DC power flow infrastructure
         // by computing angles with outaged branches, then calculating flows.
         let outaged_set: std::collections::HashSet<usize> =
             contingency.outaged_branches.iter().cloned().collect();
+
+        // Assign probability if not already set
+        let prob = contingency.probability.unwrap_or_else(|| {
+            self.prob_config
+                .compute_contingency_probability(&contingency.outaged_branches)
+        });
+        let mut contingency_with_prob = contingency.clone();
+        contingency_with_prob.probability = Some(prob);
 
         // Compute DC angles with outaged branches removed
         match self.compute_dc_flows_with_outages(&outaged_set) {
@@ -416,24 +586,45 @@ impl<'a> NkEvaluator<'a> {
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
+                // Compute load shed estimate based on overload
+                // Simple approximation: excess flow above limit represents load that can't be served
+                let load_shed_mw: f64 = violations
+                    .iter()
+                    .map(|v| (v.flow_mw - v.limit_mw).max(0.0))
+                    .sum();
+
+                // Compute EUE contribution
+                let eue_contribution_mwh = prob * load_shed_mw * self.prob_config.exposure_hours;
+
+                // Compute severity index (probability × overload severity)
+                let severity_index = if max_loading > 1.0 {
+                    prob * (max_loading - 1.0) * 100.0
+                } else {
+                    0.0
+                };
+
                 ContingencyEvaluation {
-                    contingency: contingency.clone(),
+                    contingency: contingency_with_prob,
                     converged: true,
                     branch_flows: flows,
                     max_loading,
                     critical_branch,
                     violations,
-                    load_shed_mw: 0.0, // TODO: compute if needed
+                    load_shed_mw,
+                    eue_contribution_mwh,
+                    severity_index,
                 }
             }
             Err(_) => ContingencyEvaluation {
-                contingency: contingency.clone(),
+                contingency: contingency_with_prob,
                 converged: false,
                 branch_flows: HashMap::new(),
                 max_loading: f64::INFINITY,
                 critical_branch: None,
                 violations: vec![],
                 load_shed_mw: 0.0,
+                eue_contribution_mwh: 0.0,
+                severity_index: 0.0,
             },
         }
     }
@@ -461,12 +652,53 @@ impl<'a> NkEvaluator<'a> {
             .map(|e| (e.max_loading, Some(e.contingency.clone())))
             .unwrap_or((0.0, None));
 
+        // Compute EUE totals
+        let total_eue_mwh: f64 = evaluations.iter().map(|e| e.eue_contribution_mwh).sum();
+        let total_load_shed_mw: f64 = evaluations.iter().map(|e| e.load_shed_mw).sum();
+
         NkEvaluationResults {
             evaluations,
             num_violated,
             num_non_convergent,
             worst_loading,
             worst_contingency,
+            total_eue_mwh,
+            total_load_shed_mw,
+        }
+    }
+
+    /// Evaluate a list of contingencies directly (parallel).
+    pub fn evaluate_all(&self, contingencies: &[Contingency]) -> NkEvaluationResults {
+        let evaluations: Vec<ContingencyEvaluation> = contingencies
+            .par_iter()
+            .map(|c| self.evaluate(c))
+            .collect();
+
+        let num_violated = evaluations.iter().filter(|e| !e.violations.is_empty()).count();
+        let num_non_convergent = evaluations.iter().filter(|e| !e.converged).count();
+
+        let (worst_loading, worst_contingency) = evaluations
+            .iter()
+            .filter(|e| e.converged)
+            .max_by(|a, b| {
+                a.max_loading
+                    .partial_cmp(&b.max_loading)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|e| (e.max_loading, Some(e.contingency.clone())))
+            .unwrap_or((0.0, None));
+
+        let total_eue_mwh: f64 = evaluations.iter().map(|e| e.eue_contribution_mwh).sum();
+        let total_load_shed_mw: f64 = evaluations.iter().map(|e| e.load_shed_mw).sum();
+
+        NkEvaluationResults {
+            evaluations,
+            num_violated,
+            num_non_convergent,
+            worst_loading,
+            worst_contingency,
+            total_eue_mwh,
+            total_load_shed_mw,
         }
     }
 
@@ -835,6 +1067,152 @@ mod tests {
         for eval in &eval_results.evaluations {
             assert!(eval.converged, "N-1 contingency {:?} should converge",
                     eval.contingency.outaged_branches);
+        }
+    }
+
+    #[test]
+    fn test_contingency_probability() {
+        // Test probability computation from FOR rates
+        let for_rates = HashMap::from([(1, 0.02), (2, 0.03), (3, 0.01)]);
+
+        // N-1: probability = FOR
+        let mut c1 = Contingency::single(1);
+        c1.compute_probability(&for_rates);
+        assert!((c1.probability.unwrap() - 0.02).abs() < 1e-10);
+
+        // N-2: probability = FOR₁ × FOR₂
+        let mut c2 = Contingency::double(1, 2);
+        c2.compute_probability(&for_rates);
+        assert!((c2.probability.unwrap() - 0.02 * 0.03).abs() < 1e-10);
+
+        // Test builder pattern
+        let c3 = Contingency::single(3)
+            .with_probability(0.05)
+            .with_label("Test contingency");
+        assert_eq!(c3.probability, Some(0.05));
+        assert_eq!(c3.label, Some("Test contingency".to_string()));
+    }
+
+    #[test]
+    fn test_outage_probability_config() {
+        let mut config = OutageProbabilityConfig::default();
+        config.for_rates.insert(1, 0.02);
+        config.for_rates.insert(2, 0.03);
+        config.default_for = 0.01;
+
+        // Known branch
+        assert!((config.get_for(1) - 0.02).abs() < 1e-10);
+
+        // Unknown branch uses default
+        assert!((config.get_for(99) - 0.01).abs() < 1e-10);
+
+        // N-1 probability
+        let prob1 = config.compute_contingency_probability(&[1]);
+        assert!((prob1 - 0.02).abs() < 1e-10);
+
+        // N-2 probability
+        let prob2 = config.compute_contingency_probability(&[1, 2]);
+        assert!((prob2 - 0.0006).abs() < 1e-10); // 0.02 × 0.03
+    }
+
+    #[test]
+    fn test_eue_computation() {
+        let network = create_test_network();
+
+        // Setup with known probability configuration
+        let injections = HashMap::from([(1, 1.5), (3, -1.5)]); // Higher flow to cause violations
+        let branch_limits = HashMap::from([(1, 50.0), (2, 50.0), (3, 50.0)]); // Lower limits
+
+        let mut prob_config = OutageProbabilityConfig::default();
+        prob_config.default_for = 0.01; // 1% FOR
+        prob_config.exposure_hours = 8760.0; // 1 year
+
+        let evaluator = NkEvaluator::new(&network, injections, branch_limits)
+            .with_probability_config(prob_config);
+
+        // Evaluate a contingency
+        let contingency = Contingency::single(3);
+        let result = evaluator.evaluate(&contingency);
+
+        println!("EUE test evaluation:");
+        println!("  Probability: {:?}", result.contingency.probability);
+        println!("  Max loading: {:.2}", result.max_loading);
+        println!("  Load shed: {:.2} MW", result.load_shed_mw);
+        println!("  EUE contribution: {:.2} MWh", result.eue_contribution_mwh);
+        println!("  Severity index: {:.4}", result.severity_index);
+
+        // Verify probability was assigned
+        assert!(result.contingency.probability.is_some());
+        assert!((result.contingency.probability.unwrap() - 0.01).abs() < 1e-10);
+
+        // If there's a violation, EUE should be computed
+        if result.load_shed_mw > 0.0 {
+            assert!(result.eue_contribution_mwh > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_eue_ranking() {
+        let network = create_test_network();
+
+        let injections = HashMap::from([(1, 1.2), (3, -1.2)]); // Moderate flow
+        let branch_limits = HashMap::from([(1, 60.0), (2, 60.0), (3, 60.0)]);
+
+        let mut prob_config = OutageProbabilityConfig::default();
+        prob_config.for_rates = HashMap::from([
+            (1, 0.05), // 5% FOR - high failure rate
+            (2, 0.01), // 1% FOR
+            (3, 0.02), // 2% FOR
+        ]);
+        prob_config.exposure_hours = 8760.0;
+
+        let evaluator = NkEvaluator::new(&network, injections, branch_limits)
+            .with_probability_config(prob_config);
+
+        // Evaluate all N-1 contingencies
+        let contingencies: Vec<Contingency> = vec![
+            Contingency::single(1),
+            Contingency::single(2),
+            Contingency::single(3),
+        ];
+        let results = evaluator.evaluate_all(&contingencies);
+
+        println!("EUE ranking test:");
+        println!("{}", results.summary());
+        println!("Total EUE: {:.2} MWh", results.total_eue_mwh);
+
+        // Test ranking methods
+        let by_eue = results.ranked_by_eue();
+        println!("\nRanked by EUE:");
+        for eval in &by_eue {
+            println!(
+                "  Branch {:?}: EUE={:.2} MWh, prob={:.4}",
+                eval.contingency.outaged_branches,
+                eval.eue_contribution_mwh,
+                eval.contingency.probability.unwrap_or(0.0)
+            );
+        }
+
+        let by_severity = results.ranked_by_severity();
+        println!("\nRanked by severity:");
+        for eval in &by_severity {
+            println!(
+                "  Branch {:?}: severity={:.4}",
+                eval.contingency.outaged_branches, eval.severity_index
+            );
+        }
+
+        // Test EUE concentration
+        let top1_concentration = results.eue_concentration(1);
+        println!("\nTop 1 EUE concentration: {:.1}%", top1_concentration);
+
+        // Verify cumulative EUE sums to total
+        let cumulative = results.cumulative_eue();
+        if let Some((_, final_total)) = cumulative.last() {
+            assert!(
+                (final_total - results.total_eue_mwh).abs() < 1e-6,
+                "Cumulative EUE should sum to total"
+            );
         }
     }
 }

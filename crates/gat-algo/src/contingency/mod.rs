@@ -33,5 +33,6 @@ pub mod n_k;
 pub use lodf::{compute_lodf_matrix, compute_ptdf_matrix, LodfMatrix, PtdfMatrix};
 pub use n_k::{
     screen_nk_contingencies, BranchViolation, Contingency, ContingencyEvaluation, NkEvaluator,
-    NkEvaluationResults, NkScreener, NkScreeningConfig, NkScreeningResults, ScreeningResult,
+    NkEvaluationResults, NkScreener, NkScreeningConfig, NkScreeningResults, OutageProbabilityConfig,
+    ScreeningResult,
 };
