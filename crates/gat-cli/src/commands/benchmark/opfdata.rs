@@ -2,18 +2,20 @@
 //!
 //! Runs AC-OPF on OPFData test samples and compares against reference objectives.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use csv::Writer;
 use rayon::prelude::*;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::time::Instant;
 
 use gat_algo::validation::ObjectiveGap;
-use gat_algo::AcOpfSolver;
+use gat_algo::{OpfMethod, OpfSolver};
 use gat_io::sources::opfdata::{list_sample_refs, load_opfdata_instance, OpfDataSampleRef};
+use std::str::FromStr;
 
 /// Benchmark result for a single OPFData sample
 #[derive(Debug, Clone, Serialize)]
@@ -35,6 +37,17 @@ struct OpfDataBenchmarkResult {
     objective_gap_rel: f64,
 }
 
+/// JSONL diagnostics entry for batch analysis
+#[derive(Debug, Clone, Serialize)]
+struct DiagnosticsEntry {
+    case: String,
+    status: String,
+    warnings: Vec<String>,
+    objective: f64,
+    baseline_objective: f64,
+    converged: bool,
+}
+
 /// Configuration for OPFData benchmark runs
 #[derive(Debug)]
 struct BenchmarkConfig {
@@ -43,8 +56,11 @@ struct BenchmarkConfig {
     max_cases: usize,
     out: String,
     threads: String,
+    method: OpfMethod,
     tol: f64,
     max_iter: u32,
+    diagnostics_log: Option<String>,
+    strict: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -54,19 +70,30 @@ pub fn handle(
     max_cases: usize,
     out: &str,
     threads: &str,
+    method: &str,
     tol: f64,
     max_iter: u32,
+    diagnostics_log: Option<&str>,
+    strict: bool,
 ) -> Result<()> {
+    // Parse OPF method
+    let opf_method = OpfMethod::from_str(method)
+        .map_err(|e| anyhow::anyhow!("Invalid OPF method '{}': {}", method, e))?;
+
     let config = BenchmarkConfig {
         opfdata_dir: opfdata_dir.to_string(),
         case_filter: case_filter.map(|s| s.to_string()),
         max_cases,
         out: out.to_string(),
         threads: threads.to_string(),
+        method: opf_method,
         tol,
         max_iter,
+        diagnostics_log: diagnostics_log.map(|s| s.to_string()),
+        strict,
     };
 
+    eprintln!("Using OPF method: {}", config.method);
     run_benchmark(&config)
 }
 
@@ -122,12 +149,13 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     // Run benchmarks in parallel
     let tol = config.tol;
     let max_iter = config.max_iter;
+    let method = config.method;
 
-    let results: Vec<OpfDataBenchmarkResult> = sample_refs
+    let outputs: Vec<BenchmarkSampleOutput> = sample_refs
         .par_iter()
         .filter_map(
-            |sample_ref| match benchmark_opfdata_sample(sample_ref, tol, max_iter) {
-                Ok(result) => Some(result),
+            |sample_ref| match benchmark_opfdata_sample(sample_ref, method, tol, max_iter) {
+                Ok(output) => Some(output),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", sample_ref.sample_id, e);
                     None
@@ -135,6 +163,44 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
             },
         )
         .collect();
+
+    // Separate results and diagnostics
+    let results: Vec<OpfDataBenchmarkResult> = outputs.iter().map(|o| o.result.clone()).collect();
+    let diagnostics_entries: Vec<&DiagnosticsEntry> =
+        outputs.iter().map(|o| &o.diagnostics_entry).collect();
+
+    // Write JSONL diagnostics if path specified
+    if let Some(diag_path) = &config.diagnostics_log {
+        let diag_file =
+            File::create(diag_path).context(format!("Failed to create diagnostics log: {}", diag_path))?;
+        let mut diag_writer = BufWriter::new(diag_file);
+        for entry in &diagnostics_entries {
+            let line = serde_json::to_string(entry).context("Failed to serialize diagnostics entry")?;
+            writeln!(diag_writer, "{}", line).context("Failed to write diagnostics line")?;
+        }
+        diag_writer.flush().context("Failed to flush diagnostics log")?;
+        eprintln!("Diagnostics log written to: {}", diag_path);
+    }
+
+    // Strict mode: fail if any sample had warnings
+    if config.strict {
+        let samples_with_warnings: Vec<&DiagnosticsEntry> = diagnostics_entries
+            .iter()
+            .filter(|e| !e.warnings.is_empty())
+            .copied()
+            .collect();
+        if !samples_with_warnings.is_empty() {
+            let summary: Vec<String> = samples_with_warnings
+                .iter()
+                .map(|e| format!("{}: {}", e.case, e.warnings.join("; ")))
+                .collect();
+            bail!(
+                "Strict mode: {} sample(s) had import warnings:\n  - {}",
+                samples_with_warnings.len(),
+                summary.join("\n  - ")
+            );
+        }
+    }
 
     // Write results to CSV
     let out_path = Path::new(&config.out);
@@ -191,14 +257,36 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     Ok(())
 }
 
+/// Result of benchmarking a single sample, including diagnostics for JSONL output
+struct BenchmarkSampleOutput {
+    result: OpfDataBenchmarkResult,
+    diagnostics_entry: DiagnosticsEntry,
+}
+
 fn benchmark_opfdata_sample(
     sample_ref: &OpfDataSampleRef,
+    method: OpfMethod,
     tol: f64,
     max_iter: u32,
-) -> Result<OpfDataBenchmarkResult> {
+) -> Result<BenchmarkSampleOutput> {
     let load_start = Instant::now();
-    let instance = load_opfdata_instance(&sample_ref.file_path, &sample_ref.sample_id)?;
+    let (instance, diagnostics) = load_opfdata_instance(&sample_ref.file_path, &sample_ref.sample_id)?;
     let load_time_ms = load_start.elapsed().as_secs_f64() * 1000.0;
+
+    // Collect warnings for diagnostics log
+    let warnings: Vec<String> = diagnostics.issues.iter().map(|i| i.message.clone()).collect();
+
+    // Log any import warnings to stderr (silent defaults that were applied)
+    if diagnostics.warning_count() > 0 {
+        eprintln!(
+            "  [WARN] {}: {} import warnings",
+            sample_ref.sample_id,
+            diagnostics.warning_count()
+        );
+        for issue in &diagnostics.issues {
+            eprintln!("    - {}", issue.message);
+        }
+    }
 
     // Count network elements
     let mut num_buses = 0;
@@ -213,13 +301,15 @@ fn benchmark_opfdata_sample(
     }
     let num_branches = instance.network.graph.edge_count();
 
-    // Solve AC-OPF
-    let solver = AcOpfSolver::new()
+    // Solve OPF using selected method
+    let solver = OpfSolver::new()
+        .with_method(method)
         .with_max_iterations(max_iter as usize)
         .with_tolerance(tol);
 
     let solve_start = Instant::now();
-    let solution = solver.solve(&instance.network)?;
+    let solution = solver.solve(&instance.network)
+        .map_err(|e| anyhow::anyhow!("OPF ({}) failed: {}", method, e))?;
     let solve_time_ms = solve_start.elapsed().as_secs_f64() * 1000.0;
 
     // Reference objective from the dataset
@@ -238,7 +328,7 @@ fn benchmark_opfdata_sample(
         .unwrap_or("unknown")
         .to_string();
 
-    Ok(OpfDataBenchmarkResult {
+    let result = OpfDataBenchmarkResult {
         sample_id: sample_ref.sample_id.clone(),
         file_name,
         load_time_ms,
@@ -253,5 +343,27 @@ fn benchmark_opfdata_sample(
         baseline_objective,
         objective_gap_abs: gap.gap_abs,
         objective_gap_rel: gap.gap_rel,
+    };
+
+    let status = if !solution.converged {
+        "failed"
+    } else if !warnings.is_empty() {
+        "warnings"
+    } else {
+        "ok"
+    };
+
+    let diagnostics_entry = DiagnosticsEntry {
+        case: sample_ref.sample_id.clone(),
+        status: status.to_string(),
+        warnings,
+        objective: solution.objective_value,
+        baseline_objective,
+        converged: solution.converged,
+    };
+
+    Ok(BenchmarkSampleOutput {
+        result,
+        diagnostics_entry,
     })
 }

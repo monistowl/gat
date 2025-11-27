@@ -28,7 +28,9 @@ pub fn handle(command: &ConvertCommands) -> Result<()> {
             to,
             output,
             force,
-        } => convert_format(input, *from, *to, output.as_deref(), *force),
+            verbose,
+            strict,
+        } => convert_format(input, *from, *to, output.as_deref(), *force, *verbose, *strict),
     }
 }
 
@@ -38,6 +40,8 @@ fn convert_format(
     to: ConvertFormat,
     output: Option<&str>,
     force: bool,
+    verbose: bool,
+    strict: bool,
 ) -> Result<()> {
     let input_path = PathBuf::from(input);
     if !input_path.exists() {
@@ -62,6 +66,39 @@ fn convert_format(
         fs::create_dir_all(&arrow_path)
             .with_context(|| format!("creating temp arrow directory {}", arrow_path.display()))?;
         let result = format.parse(input)?;
+
+        // Show import diagnostics in verbose mode
+        if verbose {
+            let diag = &result.diagnostics;
+            if diag.has_issues() {
+                eprintln!("\n📋 Import Diagnostics:");
+                eprintln!("   Warnings: {}, Errors: {}", diag.warning_count(), diag.error_count());
+                for issue in &diag.issues {
+                    let icon = if issue.severity == gat_io::helpers::Severity::Error {
+                        "❌"
+                    } else {
+                        "⚠️"
+                    };
+                    eprintln!("   {} [{}] {}", icon, issue.category, issue.message);
+                }
+                eprintln!();
+            } else {
+                eprintln!("📋 Import completed with no warnings or errors");
+            }
+        }
+
+        // Strict mode: fail if any warnings or errors occurred
+        if strict && result.diagnostics.has_issues() {
+            let diag = &result.diagnostics;
+            let messages: Vec<String> = diag.issues.iter().map(|i| i.message.clone()).collect();
+            bail!(
+                "Strict mode: import produced {} warning(s), {} error(s):\n  - {}",
+                diag.warning_count(),
+                diag.error_count(),
+                messages.join("\n  - ")
+            );
+        }
+
         write_network_to_arrow_directory(&result.network, &arrow_path)?;
         _temp_guard = arrow_temp; // Keep temp dir alive
         arrow_path

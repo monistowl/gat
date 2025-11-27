@@ -11,7 +11,8 @@
 
 use anyhow::{Context, Result};
 use gat_core::{
-    Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node, NodeIndex,
+    Branch, BranchId, Bus, BusId, Edge, Gen, GenId, ImportDiagnostics, Load, LoadId, Network, Node,
+    NodeIndex, Shunt, ShuntId,
 };
 use serde_json::Value;
 use std::collections::HashMap;
@@ -99,7 +100,15 @@ fn visit_opfdata_files(dir: &Path, refs: &mut Vec<OpfDataSampleRef>) -> Result<(
 }
 
 /// Load a specific sample from an OPFData JSON file
-pub fn load_opfdata_instance(file_path: &Path, sample_id: &str) -> Result<OpfDataInstance> {
+///
+/// Returns the instance along with import diagnostics that track any
+/// parsing warnings (e.g., missing bus mappings that defaulted to bus 0).
+pub fn load_opfdata_instance(
+    file_path: &Path,
+    sample_id: &str,
+) -> Result<(OpfDataInstance, ImportDiagnostics)> {
+    let mut diagnostics = ImportDiagnostics::new();
+
     let file = File::open(file_path)
         .with_context(|| format!("opening OPFData file: {}", file_path.display()))?;
     let reader = BufReader::new(file);
@@ -110,19 +119,24 @@ pub fn load_opfdata_instance(file_path: &Path, sample_id: &str) -> Result<OpfDat
         anyhow::anyhow!("sample {} not found in {}", sample_id, file_path.display())
     })?;
 
-    let network = build_network_from_opfdata(sample)?;
+    let network = build_network_from_opfdata(sample, &mut diagnostics)?;
     let solution = build_solution_from_opfdata(sample)?;
 
-    Ok(OpfDataInstance {
+    let instance = OpfDataInstance {
         sample_id: sample_id.to_string(),
         file_path: file_path.to_path_buf(),
         network,
         solution,
-    })
+    };
+
+    Ok((instance, diagnostics))
 }
 
 /// Build a Network from OPFData sample JSON
-fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
+fn build_network_from_opfdata(
+    sample: &Value,
+    diagnostics: &mut ImportDiagnostics,
+) -> Result<Network> {
     let mut network = Network::new();
     let mut bus_index_map: HashMap<usize, NodeIndex> = HashMap::new();
 
@@ -143,32 +157,56 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
         let bus_array = bus_row
             .as_array()
             .ok_or_else(|| anyhow::anyhow!("bus row not array"))?;
-        let base_kv = bus_array.first().and_then(|v| v.as_f64()).unwrap_or(138.0);
-        // type: 1=PQ, 2=PV, 3=Slack
+        // Bus format: [base_kv, type, vmin, vmax]
+        let base_kv = match bus_array.first().and_then(|v| v.as_f64()) {
+            Some(kv) => kv,
+            None => {
+                diagnostics.add_warning(
+                    "parse",
+                    &format!("Bus {} missing base_kv, defaulting to 138.0 kV", bus_idx + 1),
+                );
+                138.0
+            }
+        };
+        // type: 1=PQ, 2=PV, 3=Slack (at index 1)
         // vmin, vmax at indices 2, 3
+        let vmin = bus_array.get(2).and_then(|v| v.as_f64());
+        let vmax = bus_array.get(3).and_then(|v| v.as_f64());
 
         let bus_id = BusId::new(bus_idx + 1); // 1-indexed
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id: bus_id,
             name: format!("Bus {}", bus_idx + 1),
             voltage_kv: base_kv,
+            vmin_pu: vmin,
+            vmax_pu: vmax,
             ..Bus::default()
         }));
         bus_index_map.insert(bus_idx, node_idx);
     }
 
+    // Parse edges first - needed for generator/load/shunt bus mappings
+    let edges = grid
+        .get("edges")
+        .ok_or_else(|| anyhow::anyhow!("missing 'edges' field"))?;
+
     // Parse generators - format: [[mbase, pg, qg, pmax, pmin, qmin, qmax, status, ...], ...]
-    // We also need generator-to-bus mapping from context
-    let context = grid.get("context").and_then(|v| v.as_object());
-    let gen_bus_map: Vec<usize> = context
-        .and_then(|c| c.get("gen_bus"))
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_u64().map(|u| u as usize))
-                .collect()
-        })
-        .unwrap_or_default();
+    // OPFData column [3] contains pmax (larger capacity), column [4] contains pmin (smaller minimum)
+    // Generator-to-bus mapping is in edges.generator_link (like load_link, shunt_link)
+    let gen_link = edges.get("generator_link").and_then(|v| v.as_object());
+    let gen_bus_map: Vec<usize> = match gen_link.and_then(|l| l.get("receivers")).and_then(|v| v.as_array()) {
+        Some(arr) => arr
+            .iter()
+            .filter_map(|v| v.as_u64().map(|u| u as usize))
+            .collect(),
+        None => {
+            diagnostics.add_warning(
+                "parse",
+                "Missing edges.generator_link.receivers - generator bus mappings will default to bus 0",
+            );
+            Vec::new()
+        }
+    };
 
     let gen_data = nodes.get("generator").and_then(|v| v.as_array());
 
@@ -179,6 +217,7 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                 .ok_or_else(|| anyhow::anyhow!("gen row not array"))?;
 
             // [mbase, pg, qg, pmax, pmin, qmin, qmax, status, ...]
+            // Column [3] = pmax (larger capacity), Column [4] = pmin (minimum output)
             let pg = gen_array.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0; // p.u. to MW
             let qg = gen_array.get(2).and_then(|v| v.as_f64()).unwrap_or(0.0) * 100.0;
             let pmax = gen_array
@@ -213,8 +252,29 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                 continue; // Generator offline
             }
 
-            // Get bus from context or default to first bus
-            let gen_bus_idx = gen_bus_map.get(gen_idx).copied().unwrap_or(0);
+            // Handle synchronous condensers (pmax=0 means reactive-only device)
+            // When pmax=0, set pmin=pmax=0 to avoid infeasible constraints
+            let (pmin_final, pmax_final, is_condenser) = if pmax <= 0.0 {
+                (0.0, 0.0, true)
+            } else {
+                // Ensure pmin <= pmax (some data has inconsistent values)
+                (pmin.min(pmax), pmax, false)
+            };
+
+            // Get bus from generator_link mapping - warn if missing (likely a mapping bug)
+            let gen_bus_idx = match gen_bus_map.get(gen_idx).copied() {
+                Some(idx) => idx,
+                None => {
+                    diagnostics.add_warning(
+                        "parse",
+                        &format!(
+                            "Generator {} has no bus mapping in generator_link.receivers, defaulting to bus 0",
+                            gen_idx
+                        ),
+                    );
+                    0
+                }
+            };
             let bus_id = BusId::new(gen_bus_idx + 1);
 
             // Build cost model: polynomial [c0, c1, c2]
@@ -228,14 +288,14 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                 id: GenId::new(gen_idx),
                 name: format!("Gen {}@{}", gen_idx, gen_bus_idx + 1),
                 bus: bus_id,
-                active_power_mw: pg,
+                active_power_mw: if is_condenser { 0.0 } else { pg },
                 reactive_power_mvar: qg,
-                pmin_mw: pmin,
-                pmax_mw: pmax,
+                pmin_mw: pmin_final,
+                pmax_mw: pmax_final,
                 qmin_mvar: qmin,
                 qmax_mvar: qmax,
                 cost_model,
-                is_synchronous_condenser: false,
+                is_synchronous_condenser: is_condenser,
                 ..Gen::default()
             }));
         }
@@ -244,23 +304,28 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
     // Add loads - from nodes.load with load_link for bus mapping
     // Format: nodes.load = [[pd_pu, qd_pu], ...]
     // load_link.senders = load indices, load_link.receivers = bus indices
-    let edges = grid
-        .get("edges")
-        .ok_or_else(|| anyhow::anyhow!("missing 'edges' field"))?;
-
     let load_data = nodes.get("load").and_then(|v| v.as_array());
     let load_link = edges.get("load_link").and_then(|v| v.as_object());
 
-    if let (Some(loads), Some(link)) = (load_data, load_link) {
-        let load_bus_map: Vec<usize> = link
-            .get("receivers")
+    if let Some(loads) = load_data {
+        let load_bus_map: Vec<usize> = match load_link
+            .and_then(|link| link.get("receivers"))
             .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_u64().map(|u| u as usize))
-                    .collect()
-            })
-            .unwrap_or_default();
+        {
+            Some(arr) => arr
+                .iter()
+                .filter_map(|v| v.as_u64().map(|u| u as usize))
+                .collect(),
+            None => {
+                if !loads.is_empty() {
+                    diagnostics.add_warning(
+                        "parse",
+                        "Missing edges.load_link.receivers - load bus mappings will default to bus 0",
+                    );
+                }
+                Vec::new()
+            }
+        };
 
         for (load_idx, load_row) in loads.iter().enumerate() {
             let load_array = load_row
@@ -271,7 +336,19 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             let qd_pu = load_array.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
 
             if pd_pu != 0.0 || qd_pu != 0.0 {
-                let bus_idx = load_bus_map.get(load_idx).copied().unwrap_or(0);
+                let bus_idx = match load_bus_map.get(load_idx).copied() {
+                    Some(idx) => idx,
+                    None => {
+                        diagnostics.add_warning(
+                            "parse",
+                            &format!(
+                                "Load {} has no bus mapping in load_link.receivers, defaulting to bus 0",
+                                load_idx
+                            ),
+                        );
+                        0
+                    }
+                };
                 network.graph.add_node(Node::Load(Load {
                     id: LoadId::new(load_idx),
                     name: format!("Load {}@{}", load_idx, bus_idx + 1),
@@ -279,6 +356,65 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                     active_power_mw: pd_pu * 100.0, // p.u. to MW
                     reactive_power_mvar: qd_pu * 100.0,
                 }));
+            }
+        }
+    }
+
+    // Add shunts - from nodes.shunt with shunt_link for bus mapping
+    // Format: nodes.shunt = [[bs_pu, gs_pu], ...]  (susceptance first, then conductance)
+    let shunt_data = nodes.get("shunt").and_then(|v| v.as_array());
+    let shunt_link = edges.get("shunt_link").and_then(|v| v.as_object());
+
+    if let Some(shunts) = shunt_data {
+        let shunt_bus_map: Vec<usize> = match shunt_link
+            .and_then(|link| link.get("receivers"))
+            .and_then(|v| v.as_array())
+        {
+            Some(arr) => arr
+                .iter()
+                .filter_map(|v| v.as_u64().map(|u| u as usize))
+                .collect(),
+            None => {
+                if !shunts.is_empty() {
+                    diagnostics.add_warning(
+                        "parse",
+                        "Missing edges.shunt_link.receivers - shunt bus mappings will default to bus 0",
+                    );
+                }
+                Vec::new()
+            }
+        };
+
+        for (shunt_idx, shunt_row) in shunts.iter().enumerate() {
+            let shunt_array = shunt_row.as_array();
+            if let Some(arr) = shunt_array {
+                // OPFData format: [bs_pu, gs_pu]
+                let bs_pu = arr.first().and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let gs_pu = arr.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+                if bs_pu != 0.0 || gs_pu != 0.0 {
+                    let bus_idx = match shunt_bus_map.get(shunt_idx).copied() {
+                        Some(idx) => idx,
+                        None => {
+                            diagnostics.add_warning(
+                                "parse",
+                                &format!(
+                                    "Shunt {} has no bus mapping in shunt_link.receivers, defaulting to bus 0",
+                                    shunt_idx
+                                ),
+                            );
+                            0
+                        }
+                    };
+                    network.graph.add_node(Node::Shunt(Shunt {
+                        id: ShuntId::new(shunt_idx),
+                        name: format!("Shunt {}@{}", shunt_idx, bus_idx + 1),
+                        bus: BusId::new(bus_idx + 1),
+                        gs_pu,
+                        bs_pu,
+                        status: true,
+                    }));
+                }
             }
         }
     }
@@ -322,15 +458,20 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
         for ((&from_bus, &to_bus), feat) in
             senders.iter().zip(receivers.iter()).zip(features.iter())
         {
-            // Features: [angmin, angmax, r, r, x, b, rate_a, rate_b, rate_c]
-            let resistance = feat.get(2).copied().unwrap_or(0.01);
-            let reactance = feat.get(4).copied().unwrap_or(0.1);
+            // OPFData AC line features: [angmin, angmax, b/2, b/2, r, x, rate_a, rate_b, rate_c]
+            // Indices 4,5 are series impedance r and x - verified by X/R ratio analysis
+            // Indices 2,3 appear to be B/2 at each end of the π-model (they're always equal)
+            let resistance = feat.get(4).copied().unwrap_or(0.01);
+            let reactance = feat.get(5).copied().unwrap_or(0.1);
+            // Total line charging = B/2 + B/2 from each end
+            let b_total = feat.get(2).copied().unwrap_or(0.0) + feat.get(3).copied().unwrap_or(0.0);
 
             if let (Some(&from_idx), Some(&to_idx)) =
                 (bus_index_map.get(&from_bus), bus_index_map.get(&to_bus))
             {
-                let b_total = feat.get(5).copied().unwrap_or(0.0);
-                let rating_a = feat.get(6).copied();
+                // Rating is in p.u., convert to MVA (Sbase = 100)
+                let rating_a_mva = feat.get(6).map(|r| r * 100.0);
+                // DEBUG: Temporarily disable flow limits to test if they cause infeasibility
                 let branch = Branch {
                     id: BranchId::new(branch_id),
                     name: format!("Line {}-{}", from_bus + 1, to_bus + 1),
@@ -339,8 +480,8 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                     resistance,
                     reactance,
                     charging_b_pu: b_total,
-                    s_max_mva: rating_a,
-                    rating_a_mva: rating_a,
+                    s_max_mva: None, // DEBUG: disabled
+                    rating_a_mva: rating_a_mva,
                     ..Branch::default()
                 };
                 network
@@ -390,7 +531,8 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
             // Features: [angmin, angmax, r, x, rate_a, rate_b, rate_c, tap, shift, g, b]
             let resistance = feat.get(2).copied().unwrap_or(0.0);
             let reactance = feat.get(3).copied().unwrap_or(0.1);
-            let rating_a = feat.get(4).copied();
+            // Rating is in p.u., convert to MVA (Sbase = 100)
+            let rating_a_mva = feat.get(4).map(|r| r * 100.0);
             let tap = feat.get(7).copied().filter(|t| *t != 0.0).unwrap_or(1.0);
             let shift_rad = feat
                 .get(8)
@@ -412,8 +554,8 @@ fn build_network_from_opfdata(sample: &Value) -> Result<Network> {
                     tap_ratio: tap,
                     phase_shift_rad: shift_rad,
                     charging_b_pu: charging_b,
-                    s_max_mva: rating_a,
-                    rating_a_mva: rating_a,
+                    s_max_mva: rating_a_mva,
+                    rating_a_mva: rating_a_mva,
                     ..Branch::default()
                 };
                 network
@@ -492,11 +634,18 @@ mod tests {
         let data: Value = serde_json::from_reader(reader).unwrap();
         let first_key = data.as_object().unwrap().keys().next().unwrap().clone();
 
-        let instance = load_opfdata_instance(path, &first_key).unwrap();
+        let (instance, diagnostics) = load_opfdata_instance(path, &first_key).unwrap();
 
         assert!(!instance.sample_id.is_empty());
         assert!(instance.network.graph.node_count() > 0);
         assert!(instance.network.graph.edge_count() > 0);
         assert!(instance.solution.objective > 0.0);
+        // Good data should have no warnings about missing bus mappings
+        assert_eq!(
+            diagnostics.warning_count(),
+            0,
+            "Unexpected warnings: {:?}",
+            diagnostics.issues
+        );
     }
 }

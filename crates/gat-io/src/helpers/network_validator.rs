@@ -55,6 +55,12 @@ pub fn validate_network(
 
     // Phase 4: Physical sanity checks
     validate_physical_sanity(network, diag, config);
+
+    // Phase 5: Distribution anomaly detection (catches mapping bugs)
+    validate_distribution_anomalies(network, diag);
+
+    // Phase 6: Power balance sanity checks
+    validate_power_balance(network, diag);
 }
 
 /// Check basic network structure requirements
@@ -461,6 +467,265 @@ fn validate_physical_sanity(
     }
 }
 
+/// Detect distribution anomalies that indicate mapping bugs
+///
+/// These checks catch common parser bugs where all components of one type
+/// end up at the same bus due to missing or incorrect bus mappings.
+fn validate_distribution_anomalies(network: &Network, diag: &mut ImportDiagnostics) {
+    // Collect generator bus distribution
+    let mut gen_buses: HashSet<usize> = HashSet::new();
+    let mut gen_count = 0;
+    for node in network.graph.node_weights() {
+        if let Node::Gen(gen) = node {
+            gen_buses.insert(gen.bus.value());
+            gen_count += 1;
+        }
+    }
+
+    // All generators at same bus is highly suspicious (unless single gen)
+    if gen_count > 1 && gen_buses.len() == 1 {
+        let bus_id = gen_buses.iter().next().unwrap();
+        diag.add_validation_warning(
+            "Network",
+            &format!(
+                "All {} generators are at bus {} - likely a bus mapping bug",
+                gen_count, bus_id
+            ),
+        );
+    }
+
+    // Collect load bus distribution
+    let mut load_buses: HashSet<usize> = HashSet::new();
+    let mut load_count = 0;
+    for node in network.graph.node_weights() {
+        if let Node::Load(load) = node {
+            load_buses.insert(load.bus.value());
+            load_count += 1;
+        }
+    }
+
+    // All loads at same bus is suspicious (unless single load)
+    if load_count > 1 && load_buses.len() == 1 {
+        let bus_id = load_buses.iter().next().unwrap();
+        diag.add_validation_warning(
+            "Network",
+            &format!(
+                "All {} loads are at bus {} - likely a bus mapping bug",
+                load_count, bus_id
+            ),
+        );
+    }
+
+    // Check for generators/loads at bus 0 (often indicates failed mapping)
+    // Bus 0 is typically invalid in most formats (1-indexed)
+    let gens_at_bus_0 = network
+        .graph
+        .node_weights()
+        .filter(|n| matches!(n, Node::Gen(g) if g.bus.value() == 0))
+        .count();
+    if gens_at_bus_0 > 0 {
+        diag.add_validation_warning(
+            "Network",
+            &format!(
+                "{} generator(s) at bus 0 - likely a bus mapping failure (buses are typically 1-indexed)",
+                gens_at_bus_0
+            ),
+        );
+    }
+
+    let loads_at_bus_0 = network
+        .graph
+        .node_weights()
+        .filter(|n| matches!(n, Node::Load(l) if l.bus.value() == 0))
+        .count();
+    if loads_at_bus_0 > 0 {
+        diag.add_validation_warning(
+            "Network",
+            &format!(
+                "{} load(s) at bus 0 - likely a bus mapping failure (buses are typically 1-indexed)",
+                loads_at_bus_0
+            ),
+        );
+    }
+
+    // Collect branch endpoint distribution
+    let mut branch_from_buses: HashMap<usize, usize> = HashMap::new();
+    let mut branch_to_buses: HashMap<usize, usize> = HashMap::new();
+    let mut branch_count = 0;
+    for edge in network.graph.edge_weights() {
+        if let Edge::Branch(br) = edge {
+            *branch_from_buses.entry(br.from_bus.value()).or_insert(0) += 1;
+            *branch_to_buses.entry(br.to_bus.value()).or_insert(0) += 1;
+            branch_count += 1;
+        }
+    }
+
+    // All branches from same bus is suspicious (star topology with single source)
+    if branch_count > 2 && branch_from_buses.len() == 1 {
+        let bus_id = branch_from_buses.keys().next().unwrap();
+        diag.add_validation_warning(
+            "Network",
+            &format!(
+                "All {} branches have from_bus {} - likely a bus mapping bug",
+                branch_count, bus_id
+            ),
+        );
+    }
+
+    // All branches to same bus is equally suspicious
+    if branch_count > 2 && branch_to_buses.len() == 1 {
+        let bus_id = branch_to_buses.keys().next().unwrap();
+        diag.add_validation_warning(
+            "Network",
+            &format!(
+                "All {} branches have to_bus {} - likely a bus mapping bug",
+                branch_count, bus_id
+            ),
+        );
+    }
+
+    // Check for branches with from_bus or to_bus at bus 0
+    let branches_with_bus_0 = network
+        .graph
+        .edge_weights()
+        .filter(|e| {
+            matches!(e, Edge::Branch(br) if br.from_bus.value() == 0 || br.to_bus.value() == 0)
+        })
+        .count();
+    if branches_with_bus_0 > 0 {
+        diag.add_validation_warning(
+            "Network",
+            &format!(
+                "{} branch(es) connected to bus 0 - likely a bus mapping failure",
+                branches_with_bus_0
+            ),
+        );
+    }
+}
+
+/// Phase 6: Power balance sanity checks
+///
+/// Detects infeasible or suspicious power balance conditions that indicate
+/// either data issues or physically impossible operating points.
+fn validate_power_balance(network: &Network, diag: &mut ImportDiagnostics) {
+    let mut total_pmax = 0.0;
+    let mut total_pmin = 0.0;
+    let mut _total_qmax = 0.0;
+    let mut _total_qmin = 0.0;
+    let mut total_load_p = 0.0;
+    let mut _total_load_q = 0.0;
+    let mut gen_count = 0;
+    let mut load_count = 0;
+
+    for node in network.graph.node_weights() {
+        match node {
+            Node::Gen(gen) => {
+                total_pmax += gen.pmax_mw;
+                total_pmin += gen.pmin_mw;
+                _total_qmax += gen.qmax_mvar;
+                _total_qmin += gen.qmin_mvar;
+                gen_count += 1;
+
+                // Check for negative Pmax (suspicious)
+                if gen.pmax_mw < 0.0 {
+                    diag.add_validation_warning(
+                        "PowerBalance",
+                        &format!(
+                            "Generator {} has negative Pmax ({:.2} MW) - likely a data error",
+                            gen.id.value(),
+                            gen.pmax_mw
+                        ),
+                    );
+                }
+
+                // Check for Pmin > Pmax (invalid)
+                if gen.pmin_mw > gen.pmax_mw {
+                    diag.add_error(
+                        "PowerBalance",
+                        &format!(
+                            "Generator {} has Pmin ({:.2}) > Pmax ({:.2}) - invalid limits",
+                            gen.id.value(),
+                            gen.pmin_mw,
+                            gen.pmax_mw
+                        ),
+                    );
+                }
+            }
+            Node::Load(load) => {
+                total_load_p += load.active_power_mw;
+                _total_load_q += load.reactive_power_mvar;
+                load_count += 1;
+
+                // Check for negative load (could be valid for distributed gen, but warn)
+                if load.active_power_mw < 0.0 {
+                    diag.add_validation_warning(
+                        "PowerBalance",
+                        &format!(
+                            "Load {} has negative P ({:.2} MW) - verify if intentional (e.g., DER)",
+                            load.id.value(),
+                            load.active_power_mw
+                        ),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Skip balance checks if no loads or generators
+    if gen_count == 0 || load_count == 0 {
+        return;
+    }
+
+    // Check for insufficient generation capacity
+    if total_pmax < total_load_p {
+        diag.add_error(
+            "PowerBalance",
+            &format!(
+                "Total Pmax ({:.2} MW) < Total Load ({:.2} MW) - network is infeasible",
+                total_pmax, total_load_p
+            ),
+        );
+    }
+
+    // Check for over-generation at minimum output
+    if total_pmin > total_load_p {
+        diag.add_validation_warning(
+            "PowerBalance",
+            &format!(
+                "Total Pmin ({:.2} MW) > Total Load ({:.2} MW) - curtailment required",
+                total_pmin, total_load_p
+            ),
+        );
+    }
+
+    // Check for extremely high reserve margin (may indicate data issues)
+    if total_load_p > 0.0 {
+        let reserve_margin = (total_pmax - total_load_p) / total_load_p;
+        if reserve_margin > 5.0 {
+            // More than 500% reserve is suspicious
+            diag.add_validation_warning(
+                "PowerBalance",
+                &format!(
+                    "Very high reserve margin ({:.0}%) - verify generation capacity data",
+                    reserve_margin * 100.0
+                ),
+            );
+        }
+    }
+
+    // Check for zero total load (suspicious unless islanding study)
+    if total_load_p.abs() < 1e-6 && load_count > 0 {
+        diag.add_validation_warning(
+            "PowerBalance",
+            &format!(
+                "Total active load is zero across {} loads - verify load data",
+                load_count
+            ),
+        );
+    }
+}
+
 /// Convenience function: validate network and return issues count
 pub fn validate_network_quick(network: &Network) -> (usize, usize) {
     let mut diag = ImportDiagnostics::new();
@@ -674,5 +939,446 @@ mod tests {
         let (_warnings, errors) = validate_network_quick(&network);
 
         assert_eq!(errors, 0, "Valid network should have no errors")
+    }
+
+    #[test]
+    fn test_all_generators_same_bus_warning() {
+        let mut network = Network::new();
+
+        // Single bus
+        network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Multiple generators all at the same bus - suspicious!
+        for i in 0..5 {
+            network.graph.add_node(Node::Gen(
+                Gen::new(GenId::new(i), format!("Gen {}", i), BusId::new(1))
+                    .with_p_limits(0.0, 100.0),
+            ));
+        }
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        // Should warn about all generators at same bus
+        assert!(
+            diag.issues
+                .iter()
+                .any(|i| i.message.contains("All 5 generators are at bus 1")),
+            "Should warn about all generators at same bus: {:?}",
+            diag.issues
+        );
+    }
+
+    #[test]
+    fn test_generators_at_bus_0_warning() {
+        let mut network = Network::new();
+
+        // Valid bus
+        network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Generator at bus 0 - invalid, likely mapping failure
+        network.graph.add_node(Node::Gen(
+            Gen::new(GenId::new(1), "Bad Gen".to_string(), BusId::new(0))
+                .with_p_limits(0.0, 100.0),
+        ));
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        // Should warn about generator at bus 0
+        assert!(
+            diag.issues
+                .iter()
+                .any(|i| i.message.contains("generator(s) at bus 0")),
+            "Should warn about generators at bus 0: {:?}",
+            diag.issues
+        );
+    }
+
+    // ==================== Branch Clustering Tests ====================
+
+    #[test]
+    fn test_all_branches_from_same_bus_warning() {
+        let mut network = Network::new();
+
+        // Create 3 buses
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Bus 2".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+        let bus3_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(3),
+            name: "Bus 3".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // All branches from bus 1 - suspicious star topology
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                name: "Branch 1-2".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+        network.graph.add_edge(
+            bus1_idx,
+            bus3_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(2),
+                name: "Branch 1-3".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(3),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(3),
+                name: "Branch 1-2b".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        assert!(
+            diag.issues
+                .iter()
+                .any(|i| i.message.contains("branches have from_bus 1")),
+            "Should warn about all branches from same bus: {:?}",
+            diag.issues
+        );
+    }
+
+    #[test]
+    fn test_branches_at_bus_0_warning() {
+        let mut network = Network::new();
+
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Bus 2".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Branch connected to bus 0 - mapping failure
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                name: "Bad Branch".to_string(),
+                from_bus: BusId::new(0), // Invalid!
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        assert!(
+            diag.issues
+                .iter()
+                .any(|i| i.message.contains("branch(es) connected to bus 0")),
+            "Should warn about branches at bus 0: {:?}",
+            diag.issues
+        );
+    }
+
+    // ==================== Power Balance Tests ====================
+
+    #[test]
+    fn test_insufficient_generation_capacity_error() {
+        let mut network = Network::new();
+
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Bus 2".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Generator with only 50 MW capacity
+        network.graph.add_node(Node::Gen(
+            Gen::new(GenId::new(1), "Small Gen".to_string(), BusId::new(1))
+                .with_p_limits(0.0, 50.0),
+        ));
+
+        // Load requiring 100 MW - infeasible!
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "Big Load".to_string(),
+            bus: BusId::new(2),
+            active_power_mw: 100.0,
+            reactive_power_mvar: 10.0,
+        }));
+
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        assert!(
+            diag.issues
+                .iter()
+                .any(|i| i.message.contains("Pmax") && i.message.contains("infeasible")),
+            "Should error on insufficient generation: {:?}",
+            diag.issues
+        );
+    }
+
+    #[test]
+    fn test_over_generation_at_pmin_warning() {
+        let mut network = Network::new();
+
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Bus 2".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Generator with Pmin of 100 MW (can't go lower)
+        network.graph.add_node(Node::Gen(
+            Gen::new(GenId::new(1), "Must-run Gen".to_string(), BusId::new(1))
+                .with_p_limits(100.0, 200.0),
+        ));
+
+        // Load only needs 50 MW - curtailment needed!
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "Small Load".to_string(),
+            bus: BusId::new(2),
+            active_power_mw: 50.0,
+            reactive_power_mvar: 10.0,
+        }));
+
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        assert!(
+            diag.issues
+                .iter()
+                .any(|i| i.message.contains("Pmin") && i.message.contains("curtailment")),
+            "Should warn on over-generation: {:?}",
+            diag.issues
+        );
+    }
+
+    #[test]
+    fn test_negative_pmax_warning() {
+        let mut network = Network::new();
+
+        network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Generator with negative Pmax - data error
+        network.graph.add_node(Node::Gen(Gen {
+            id: GenId::new(1),
+            name: "Bad Gen".to_string(),
+            bus: BusId::new(1),
+            pmin_mw: 0.0,
+            pmax_mw: -100.0, // Invalid!
+            ..Gen::default()
+        }));
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        assert!(
+            diag.issues
+                .iter()
+                .any(|i| i.message.contains("negative Pmax")),
+            "Should warn on negative Pmax: {:?}",
+            diag.issues
+        );
+    }
+
+    #[test]
+    fn test_negative_load_warning() {
+        let mut network = Network::new();
+
+        network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Load with negative power - could be DER
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "DER Load".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: -50.0, // Negative!
+            reactive_power_mvar: 0.0,
+        }));
+
+        // Need a gen to avoid "no generators" warning
+        network.graph.add_node(Node::Gen(
+            Gen::new(GenId::new(1), "Gen".to_string(), BusId::new(1)).with_p_limits(0.0, 100.0),
+        ));
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        assert!(
+            diag.issues.iter().any(|i| i.message.contains("negative P")),
+            "Should warn on negative load: {:?}",
+            diag.issues
+        );
+    }
+
+    #[test]
+    fn test_zero_total_load_warning() {
+        let mut network = Network::new();
+
+        network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        network.graph.add_node(Node::Gen(
+            Gen::new(GenId::new(1), "Gen".to_string(), BusId::new(1)).with_p_limits(0.0, 100.0),
+        ));
+
+        // Load with zero power
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "Zero Load".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: 0.0,
+            reactive_power_mvar: 0.0,
+        }));
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        assert!(
+            diag.issues
+                .iter()
+                .any(|i| i.message.contains("Total active load is zero")),
+            "Should warn on zero total load: {:?}",
+            diag.issues
+        );
+    }
+
+    #[test]
+    fn test_pmin_greater_than_pmax_error() {
+        let mut network = Network::new();
+
+        network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Bus 1".to_string(),
+            voltage_kv: 138.0,
+            ..Bus::default()
+        }));
+
+        // Generator with Pmin > Pmax (caught by power balance validator)
+        network.graph.add_node(Node::Gen(Gen {
+            id: GenId::new(1),
+            name: "Invalid Gen".to_string(),
+            bus: BusId::new(1),
+            pmin_mw: 100.0,
+            pmax_mw: 50.0, // Less than Pmin!
+            ..Gen::default()
+        }));
+
+        let mut diag = ImportDiagnostics::new();
+        validate_network(&network, &mut diag, &ValidationConfig::default());
+
+        // Should have error from power balance validation
+        assert!(
+            diag.issues.iter().any(|i| {
+                i.message.contains("Pmin") && i.message.contains("Pmax") && i.category == "PowerBalance"
+            }),
+            "Should error on Pmin > Pmax in power balance: {:?}",
+            diag.issues
+        );
     }
 }

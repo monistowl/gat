@@ -43,6 +43,8 @@ All outputs are **Parquet** (columnar format, widely compatible with Python/R/SQ
 | **Import PSS/E** | `gat import psse --raw CASE.raw -o grid.arrow` | Load PSS/E RAW format |
 | **Import CIM** | `gat import cim --rdf network.rdf -o grid.arrow` | Load IEC 61970 CIM-RDF files |
 | **Validate Dataset** | `gat validate grid.arrow` | Check grid topology for errors |
+| **Convert with Diagnostics** | `gat convert format --from matpower --to arrow input.m -v` | Show import warnings (silent defaults, validation issues) |
+| **Strict Mode** | `gat convert format --from matpower --to arrow input.m --strict` | Fail on any import warnings (CI pipelines) |
 
 ### Network Analysis
 
@@ -65,7 +67,8 @@ All outputs are **Parquet** (columnar format, widely compatible with Python/R/SQ
 | Function | Command | Purpose |
 |----------|---------|---------|
 | **DC Optimal Dispatch** | `gat opf dc grid.arrow --cost costs.csv -o dispatch.parquet` | Minimize generation cost (linear) |
-| **AC Optimal Dispatch** | `gat opf ac grid.arrow --cost costs.csv -o dispatch.parquet` | Minimize cost with AC constraints |
+| **AC Optimal Dispatch** | `gat opf ac-nlp grid.arrow -o dispatch.json` | Full nonlinear OPF (penalty L-BFGS) |
+| **Fast AC Approximation** | `gat opf ac grid.arrow -o flows.parquet` | Fast-decoupled linear approximation |
 | **With Solver Selection** | `gat opf dc grid.arrow --solver highs --cost costs.csv -o dispatch.parquet` | Use HiGHS/Clarabel/IPOPT backends |
 | **Unit Commitment** | `gat opf dc grid.arrow --cost costs.csv --ramping ramp_limits.csv -o dispatch.parquet` | Multi-period commitment problem |
 

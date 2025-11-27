@@ -163,6 +163,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: ConvertCommands,
     },
+    /// Deep-dive network inspection and analysis
+    Inspect {
+        #[command(subcommand)]
+        command: InspectCommands,
+    },
     /// Helpers for the terminal dashboard
     #[cfg(feature = "tui")]
     Tui {
@@ -237,6 +242,12 @@ pub enum ConvertCommands {
         /// Overwrite existing output without prompting
         #[arg(long)]
         force: bool,
+        /// Show import diagnostics (warnings about defaults, validation issues)
+        #[arg(short, long)]
+        verbose: bool,
+        /// Fail if any import warnings or errors occur (for CI pipelines)
+        #[arg(long)]
+        strict: bool,
     },
 }
 
@@ -267,6 +278,50 @@ impl ConvertFormat {
             ConvertFormat::Powermodels => Some(Format::PowerModels),
         }
     }
+}
+
+#[derive(Subcommand, Debug)]
+pub enum InspectCommands {
+    /// Show network summary statistics (buses, branches, generators, loads)
+    Summary {
+        /// Path to Arrow directory or importable file
+        input: String,
+    },
+    /// List all generators with their bus assignments and limits
+    Generators {
+        /// Path to Arrow directory or importable file
+        input: String,
+        /// Filter by bus ID
+        #[arg(long)]
+        bus: Option<usize>,
+        /// Output format (table or json)
+        #[arg(long, default_value = "table")]
+        format: String,
+    },
+    /// List all branches with their endpoints and parameters
+    Branches {
+        /// Path to Arrow directory or importable file
+        input: String,
+        /// Filter by rating less than threshold (MVA)
+        #[arg(long)]
+        rating_lt: Option<f64>,
+        /// Output format (table or json)
+        #[arg(long, default_value = "table")]
+        format: String,
+    },
+    /// Show power balance analysis (total generation capacity vs load)
+    PowerBalance {
+        /// Path to Arrow directory or importable file
+        input: String,
+    },
+    /// Dump network data as JSON (for scripting)
+    Json {
+        /// Path to Arrow directory or importable file
+        input: String,
+        /// Pretty-print the JSON output
+        #[arg(long)]
+        pretty: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -425,6 +480,12 @@ pub enum BenchmarkCommands {
         /// Maximum AC solver iterations
         #[arg(long, default_value_t = 20)]
         max_iter: u32,
+        /// Path for JSONL diagnostics output (import warnings, validation issues)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        diagnostics_log: Option<String>,
+        /// Fail if any case has import warnings (for CI quality gates)
+        #[arg(long)]
+        strict: bool,
     },
     /// Run PGLib-OPF benchmark suite (MATPOWER format)
     Pglib {
@@ -473,12 +534,21 @@ pub enum BenchmarkCommands {
         /// Number of parallel solver threads (auto = CPU count)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// OPF method: ac, socp, dc, economic (default: socp)
+        #[arg(long, default_value = "socp")]
+        method: String,
         /// Convergence tolerance
         #[arg(long, default_value = "1e-6")]
         tol: f64,
         /// Maximum AC solver iterations
-        #[arg(long, default_value_t = 20)]
+        #[arg(long, default_value_t = 200)]
         max_iter: u32,
+        /// Path for JSONL diagnostics output (import warnings, validation issues)
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        diagnostics_log: Option<String>,
+        /// Fail if any sample has import warnings (for CI quality gates)
+        #[arg(long)]
+        strict: bool,
     },
 }
 

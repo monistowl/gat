@@ -19,6 +19,8 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             mode,
             tol,
             max_iter,
+            diagnostics_log,
+            strict,
         } => pfdelta::handle(
             pfdelta_root,
             case.as_deref(),
@@ -29,6 +31,8 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             mode,
             *tol,
             *max_iter,
+            diagnostics_log.as_deref(),
+            *strict,
         ),
         BenchmarkCommands::Pglib {
             pglib_dir,
@@ -57,16 +61,22 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             max_cases,
             out,
             threads,
+            method,
             tol,
             max_iter,
+            diagnostics_log,
+            strict,
         } => opfdata::handle(
             opfdata_dir,
             case_filter.as_deref(),
             *max_cases,
             out,
             threads,
+            method,
             *tol,
             *max_iter,
+            diagnostics_log.as_deref(),
+            *strict,
         ),
     }
 }

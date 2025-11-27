@@ -1,9 +1,10 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use csv::Writer;
 use rayon::prelude::*;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -33,6 +34,22 @@ struct BenchmarkResult {
     mean_va_error_deg: f64,
 }
 
+/// JSONL diagnostics entry for batch analysis
+#[derive(Debug, Clone, Serialize)]
+struct DiagnosticsEntry {
+    case: String,
+    contingency_type: String,
+    status: String,
+    warnings: Vec<String>,
+    converged: bool,
+}
+
+/// Result of benchmarking a single case, including diagnostics for JSONL output
+struct BenchmarkCaseOutput {
+    result: BenchmarkResult,
+    diagnostics_entry: DiagnosticsEntry,
+}
+
 /// Configuration for PFDelta benchmark runs
 #[derive(Debug)]
 struct BenchmarkConfig {
@@ -45,6 +62,8 @@ struct BenchmarkConfig {
     mode: String,
     tol: f64,
     max_iter: u32,
+    diagnostics_log: Option<String>,
+    strict: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -58,6 +77,8 @@ pub fn handle(
     mode: &str,
     tol: f64,
     max_iter: u32,
+    diagnostics_log: Option<&str>,
+    strict: bool,
 ) -> Result<()> {
     let config = BenchmarkConfig {
         pfdelta_root: pfdelta_root.to_string(),
@@ -69,6 +90,8 @@ pub fn handle(
         mode: mode.to_string(),
         tol,
         max_iter,
+        diagnostics_log: diagnostics_log.map(|s| s.to_string()),
+        strict,
     };
 
     run_benchmark(&config)
@@ -129,11 +152,60 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     let tol = config.tol;
     let max_iter = config.max_iter;
 
-    let results: Vec<BenchmarkResult> = all_cases
+    let outputs: Vec<BenchmarkCaseOutput> = all_cases
         .par_iter()
         .enumerate()
-        .filter_map(|(idx, test_case)| benchmark_case(test_case, idx, &mode, tol, max_iter).ok())
+        .filter_map(|(idx, test_case)| {
+            match benchmark_case(test_case, idx, &mode, tol, max_iter) {
+                Ok(output) => Some(output),
+                Err(e) => {
+                    eprintln!("Error benchmarking {}: {}", test_case.case_name, e);
+                    None
+                }
+            }
+        })
         .collect();
+
+    // Separate results and diagnostics
+    let results: Vec<BenchmarkResult> = outputs.iter().map(|o| o.result.clone()).collect();
+    let diagnostics_entries: Vec<&DiagnosticsEntry> =
+        outputs.iter().map(|o| &o.diagnostics_entry).collect();
+
+    // Write JSONL diagnostics if path specified
+    if let Some(diag_path) = &config.diagnostics_log {
+        let diag_file = File::create(diag_path)
+            .context(format!("Failed to create diagnostics log: {}", diag_path))?;
+        let mut diag_writer = BufWriter::new(diag_file);
+        for entry in &diagnostics_entries {
+            let line =
+                serde_json::to_string(entry).context("Failed to serialize diagnostics entry")?;
+            writeln!(diag_writer, "{}", line).context("Failed to write diagnostics line")?;
+        }
+        diag_writer
+            .flush()
+            .context("Failed to flush diagnostics log")?;
+        eprintln!("Diagnostics log written to: {}", diag_path);
+    }
+
+    // Strict mode: fail if any case had warnings
+    if config.strict {
+        let cases_with_warnings: Vec<&DiagnosticsEntry> = diagnostics_entries
+            .iter()
+            .filter(|e| !e.warnings.is_empty())
+            .copied()
+            .collect();
+        if !cases_with_warnings.is_empty() {
+            let summary: Vec<String> = cases_with_warnings
+                .iter()
+                .map(|e| format!("{}: {}", e.case, e.warnings.join("; ")))
+                .collect();
+            bail!(
+                "Strict mode: {} case(s) had import warnings:\n  - {}",
+                cases_with_warnings.len(),
+                summary.join("\n  - ")
+            );
+        }
+    }
 
     // Write results to CSV
     let out_path = Path::new(&config.out);
@@ -180,12 +252,32 @@ fn benchmark_case(
     mode: &str,
     tol: f64,
     max_iter: u32,
-) -> Result<BenchmarkResult> {
+) -> Result<BenchmarkCaseOutput> {
     let load_start = Instant::now();
 
-    // Load instance with reference solution
+    // Load instance with reference solution (includes diagnostics)
     let instance = load_pfdelta_instance(Path::new(&test_case.file_path), test_case)?;
     let load_time_ms = load_start.elapsed().as_secs_f64() * 1000.0;
+
+    // Collect warnings for diagnostics log
+    let warnings: Vec<String> = instance
+        .diagnostics
+        .issues
+        .iter()
+        .map(|i| i.message.clone())
+        .collect();
+
+    // Log any import warnings to stderr
+    if instance.diagnostics.warning_count() > 0 {
+        eprintln!(
+            "  [WARN] {}: {} import warnings",
+            test_case.case_name,
+            instance.diagnostics.warning_count()
+        );
+        for issue in &instance.diagnostics.issues {
+            eprintln!("    - {}", issue.message);
+        }
+    }
 
     let num_buses = instance.network.graph.node_indices().count();
     let num_branches = instance.network.graph.edge_indices().count();
@@ -274,7 +366,7 @@ fn benchmark_case(
 
     let errors = compute_pf_errors(&instance.network, &gat_vm, &gat_va, &ref_solution);
 
-    Ok(BenchmarkResult {
+    let result = BenchmarkResult {
         case_name: test_case.case_name.clone(),
         contingency_type: test_case.contingency_type.clone(),
         case_index: idx,
@@ -290,5 +382,26 @@ fn benchmark_case(
         max_va_error_deg: errors.max_va_error_deg,
         mean_vm_error: errors.mean_vm_error,
         mean_va_error_deg: errors.mean_va_error_deg,
+    };
+
+    let status = if !converged {
+        "failed"
+    } else if !warnings.is_empty() {
+        "warnings"
+    } else {
+        "ok"
+    };
+
+    let diagnostics_entry = DiagnosticsEntry {
+        case: test_case.case_name.clone(),
+        contingency_type: test_case.contingency_type.clone(),
+        status: status.to_string(),
+        warnings,
+        converged,
+    };
+
+    Ok(BenchmarkCaseOutput {
+        result,
+        diagnostics_entry,
     })
 }
