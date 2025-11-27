@@ -51,3 +51,7 @@ test_data/**/tmp/
 # Git worktrees (isolated development workspaces)
 .worktrees/
 .env
+
+# Tool artifacts
+.playwright-mcp/
+vendor/
