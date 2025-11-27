@@ -275,6 +275,7 @@ pub struct BusData {
 /// let cost = problem.objective(&x0);
 /// let violations = problem.equality_constraints(&x0);
 /// ```
+#[derive(Clone)]
 pub struct AcOpfProblem {
     /// Y-bus admittance matrix encoding network topology and impedances.
     /// Used to compute power flow equations.

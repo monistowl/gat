@@ -178,6 +178,7 @@ mod solver;
 mod sparse_ybus;
 mod ybus;
 mod branch_flow;
+mod multiperiod;
 
 #[cfg(feature = "solver-ipopt")]
 mod ipopt_solver;
@@ -190,6 +191,10 @@ pub use ybus::{YBus, YBusBuilder};
 pub use branch_flow::{
     compute_branch_apparent_power, compute_branch_flows, compute_single_branch_flow,
     compute_thermal_violations,
+};
+pub use multiperiod::{
+    create_day_ahead_problem, solve_multiperiod_sequential, MultiPeriodProblem,
+    MultiPeriodSolution, PeriodData, RampConstraint,
 };
 
 #[cfg(feature = "solver-ipopt")]
