@@ -9,6 +9,15 @@ sort_by = "weight"
 
 Technical reference for power systems students, researchers, and practitioners.
 
+## Quick Reference
+
+- **[Glossary](glossary/)** — A-Z of power systems terminology
+- **[Units & Conventions](units-conventions/)** — Per-unit system, sign conventions, base values
+- **[Power Flow Theory](power-flow/)** — Mathematical foundations of AC/DC power flow
+- **[OPF Formulations](opf-formulations/)** — DC-OPF, SOCP, and AC-OPF mathematics
+- **[State Estimation Theory](state-estimation/)** — WLS estimation, bad data detection, observability
+- **[Reliability Theory](reliability-theory/)** — LOLE, EUE, Monte Carlo methods
+
 ## Algorithms
 
 GAT implements established power systems algorithms:
@@ -20,7 +29,8 @@ GAT implements established power systems algorithms:
 
 ### Optimal Power Flow
 - **DC-OPF** — Linear economic dispatch
-- **AC-OPF** — Full nonlinear OPF (in development)
+- **SOCP Relaxation** — Convex branch-flow model (Farivar-Low)
+- **AC-OPF** — Full nonlinear OPF (penalty L-BFGS + IPOPT backends)
 
 ### State Estimation
 - **Weighted Least Squares** — Classical SE formulation

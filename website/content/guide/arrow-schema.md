@@ -30,8 +30,8 @@ GAT stores every imported grid in a **folder-based Arrow dataset** (`system.arro
 
 ## Learn more
 
-- Dive deeper in [docs/guide/arrow_schema.md](https://github.com/monistowl/gat/docs/guide/arrow_schema.md).  
-- Need to interconvert formats? See [gat convert format](https://on.docs/convert) (TODO link this doc to actual route) which uses this Arrow schema as the intermediary.
+- Need to interconvert formats? See [gat convert format](@/guide/convert.md), which uses this Arrow schema as the intermediary.
+- For detailed schema specifications, see `docs/guide/arrow_schema.md` in your local GAT repository.
 
 ## References
 

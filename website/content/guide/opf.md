@@ -8,7 +8,7 @@ weight = 11
 
 This reference describes the OPF solver architecture, solution methods, and CLI commands.
 
-## Architecture Overview (v0.3.4)
+## Architecture Overview (v0.4.0)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods with varying accuracy/speed tradeoffs:
 
@@ -19,14 +19,18 @@ GAT provides a unified `OpfSolver` supporting multiple solution methods with var
 | `SocpRelaxation` | ~1-3% gap | Moderate | ✅ Implemented | Research benchmarking |
 | `AcOpf` | <1% gap | Slowest | ✅ Implemented (L-BFGS penalty) | High-fidelity analysis |
 
-### What's new in 0.3.4
+### What's new in 0.4.0
 
-- **Full nonlinear AC-OPF path is now routed to the new `ac_nlp` module** instead of returning `NotImplemented`.
-- Robust **Y-bus construction** with transformer taps, phase shifters, and π-model line charging.
-- Explicit **power injection equations and Jacobians** in polar form with voltage magnitude/angle variables.
-- **Penalty-method solver** using argmin's L-BFGS optimizer with automatic penalty ramping and flat-start initialization.
-- **LMP approximation** from marginal generator costs after the penalty solve completes.
-- Expanded **test coverage** (2-bus, 3-bus, SOCP bound comparisons, merit order, and convergence safeguards).
+- **Full nonlinear AC-OPF** passes 65/68 PGLib benchmark cases with median 2.9% objective gap.
+- **Multi-period dispatch** with generator ramp constraints for day-ahead scheduling.
+- **IPOPT solver backend** with analytical Hessians for faster convergence on large networks.
+- **Warm-start options** from DC or SOCP solutions for improved convergence.
+- **Native piecewise-linear cost support** for bid curves.
+- **Generator capability curves** (Q limits as function of P).
+- **Angle difference constraints** for stability enforcement.
+- **Sparse Y-bus** with O(nnz) storage for efficient large-network handling.
+- Robust **Y-bus construction** with transformer taps, phase shifters, shunts, and π-model line charging.
+- **Shunt support** for exact power flow agreement with external tools.
 
 ## Rust API
 
@@ -99,7 +103,7 @@ pub struct OpfSolution {
 
 **Note:** Not all fields are populated by all methods. Economic dispatch provides generator outputs, objective, and estimated losses. SOCP and AC-OPF provide full voltage, angle, and LMP data; AC-OPF now backfills LMPs using marginal generator costs after the penalty loop finishes.
 
-## SOCP Relaxation (v0.3.4)
+## SOCP Relaxation (v0.4.0)
 
 The SOCP solver implements the Baran-Wu / Farivar-Low branch-flow model:
 
@@ -139,7 +143,7 @@ P_ij² + Q_ij² ≤ w_i · ℓ_ij  (SOC constraint)
 - Farivar & Low (2013): DOI:10.1109/TPWRS.2013.2255317
 - Gan, Li, Topcu & Low (2015): DOI:10.1109/TAC.2014.2332712
 
-## Full AC-OPF (v0.3.4)
+## Full AC-OPF (v0.4.0)
 
 The AC-OPF solver uses polar coordinates with a penalty-method L-BFGS optimizer and now ships with a complete `ac_nlp` pipeline:
 
@@ -155,14 +159,18 @@ The AC-OPF solver uses polar coordinates with a penalty-method L-BFGS optimizer 
 | Generator limits | ✅ |
 | Jacobian computation | ✅ |
 | L-BFGS penalty optimizer | ✅ |
-| Thermal limits | 🔄 Planned |
-| IPOPT backend | 🔄 Planned |
+| Thermal limits (branch flow) | ✅ |
+| IPOPT backend | ✅ (`solver-ipopt` feature) |
 
 Key components in `gat_algo::opf::ac_nlp`:
 
 - `ybus.rs`: builds the complex admittance matrix with tap ratios, phase shifters, and shunt line charging.
+- `sparse_ybus.rs`: O(nnz) sparse Y-bus storage for large networks.
 - `power_equations.rs`: evaluates P/Q injections and full Jacobians (∂P/∂θ, ∂P/∂V, ∂Q/∂θ, ∂Q/∂V) in polar form.
+- `branch_flow.rs`: computes branch apparent power flows for thermal limit enforcement.
+- `hessian.rs`: second-derivative computation for interior-point methods (IPOPT).
 - `solver.rs`: wraps argmin's L-BFGS optimizer with a penalty ramp until equality constraints reach feasibility.
+- `ipopt_solver.rs`: full-featured interior-point solver via IPOPT (requires `solver-ipopt` feature).
 
 ### Mathematical Formulation
 
@@ -237,6 +245,14 @@ impl CostModel {
 
 ## CLI Commands
 
+GAT provides three OPF commands with different accuracy/speed tradeoffs:
+
+| Command | Description | Accuracy | Speed |
+|---------|-------------|----------|-------|
+| `opf dc` | DC optimal power flow (LP) | ~3-5% gap | Fastest |
+| `opf ac` | Fast-decoupled linear approximation | ~5-10% gap | Fast |
+| `opf ac-nlp` | Full nonlinear AC-OPF (penalty L-BFGS) | <1% gap | Slowest |
+
 ### DC OPF (`gat opf dc`)
 
 Solves a linear dispatch problem with generator costs, limits, and demand.
@@ -261,19 +277,35 @@ gat opf dc grid.arrow \
 
 * `--out` writes a Parquet table with `branch_id`, `from_bus`, `to_bus`, and `flow_mw`.
 
-### AC OPF (`gat opf ac`)
+### AC Power Flow (`gat opf ac`)
 
-Runs a penalty-method nonlinear solve over the full AC equations (polar form) using argmin's L-BFGS optimizer.
+Runs a fast-decoupled linear approximation for quick AC power flow solutions. This is **not** full nonlinear OPF — it's a linearized approximation useful for screening and quick estimates.
 
 ```bash
 gat opf ac grid.arrow \
-  --out results/ac-opf.parquet \
+  --out results/ac-pf.parquet \
   [--tol 1e-6] \
   [--max-iter 20]
 ```
 
 * `--tol`: convergence tolerance (default `1e-6`).
-* `--max-iter`: maximum Newton iterations (default `20`).
+* `--max-iter`: maximum iterations (default `20`).
+
+### Full AC-OPF (`gat opf ac-nlp`)
+
+Runs the full nonlinear AC optimal power flow using penalty method + L-BFGS optimizer. This minimizes total generation cost subject to power balance equations, voltage bounds, generator limits, and thermal limits.
+
+```bash
+gat opf ac-nlp grid.arrow \
+  --out results/ac-opf.json \
+  [--tol 1e-4] \
+  [--max-iter 200] \
+  [--warm-start flat]
+```
+
+* `--tol`: convergence tolerance (default `1e-4`).
+* `--max-iter`: maximum iterations (default `200`).
+* `--warm-start`: initialization strategy — `flat` (1.0 p.u. voltages), `dc` (DC solution), or `socp` (SOCP relaxation). Default is `flat`.
 
 ## Test Fixtures
 

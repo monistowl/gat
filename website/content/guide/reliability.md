@@ -87,6 +87,52 @@ score = 100 × [1 - w_lole * (LOLE/LOLE_max)
 - `voltage_weight`: Relative importance (default 0.4)
 - `thermal_weight`: Relative importance (default 0.6)
 
+## N-k Contingency Analysis with LODF/PTDF (v0.4.0)
+
+For N-k analysis with k ≥ 2, the combinatorial explosion makes exhaustive power flow infeasible. GAT uses **Line Outage Distribution Factors (LODFs)** and **Power Transfer Distribution Factors (PTDFs)** for efficient pre-screening.
+
+### Key Concepts
+
+- **PTDF (Power Transfer Distribution Factor):** Sensitivity of branch flow to bus injection.
+  `PTDF[ℓ,n]` = ∂f_ℓ/∂P_n (change in flow on branch ℓ per MW injected at bus n)
+
+- **LODF (Line Outage Distribution Factor):** Redistribution of flow when a branch trips.
+  `LODF[ℓ,m]` = flow increase on branch ℓ when branch m is outaged, as a fraction of the pre-outage flow on branch m.
+
+### Screening Algorithm
+
+```
+For N-k analysis:
+  1. Pre-compute PTDF and LODF matrices (one-time O(n³) cost)
+  2. For each contingency combination, estimate post-contingency flows using LODFs
+  3. Flag combinations where estimated flows exceed 90% of limits
+  4. Run full DC power flow only on flagged cases (~1-5% of total)
+  5. Rank flagged contingencies by Expected Unserved Energy (EUE)
+```
+
+### Probabilistic Ranking with EUE
+
+Contingencies are ranked by Expected Unserved Energy (EUE) which combines:
+- **Outage probability**: Product of individual component failure rates
+- **Load not served**: MW curtailed during the contingency
+- **Duration**: Expected time to restore (MTTR)
+
+```
+EUE = P(outage) × Load_curtailed × MTTR
+```
+
+This prioritizes contingencies that are both likely and impactful.
+
+### Performance
+
+- **PTDF/LODF computation**: O(n³) where n = number of buses (one-time)
+- **Screening**: O(C(m,k)) where m = branches, k = contingency order
+- **Full evaluation**: Only ~1-5% of screened cases require full power flow
+
+For IEEE 118-bus network with 186 branches:
+- N-1: 186 contingencies → all evaluated
+- N-2: 17,205 combinations → ~500-800 flagged for full evaluation
+
 ## Usage Examples
 
 ### Basic Reliability Calculation
