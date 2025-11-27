@@ -20,6 +20,8 @@ pub enum Format {
     Cim,
     /// pandapower JSON files
     Pandapower,
+    /// PowerModels.jl JSON files
+    PowerModels,
 }
 
 /// Confidence level for format detection.
@@ -40,6 +42,7 @@ impl Format {
         Format::Psse,
         Format::Cim,
         Format::Pandapower,
+        Format::PowerModels,
     ];
 
     /// Expected file extensions for this format.
@@ -49,6 +52,7 @@ impl Format {
             Format::Psse => &["raw"],
             Format::Cim => &["rdf", "xml"],
             Format::Pandapower => &["json"],
+            Format::PowerModels => &["json"],
         }
     }
 
@@ -59,6 +63,7 @@ impl Format {
             Format::Psse => "PSS/E RAW",
             Format::Cim => "CIM RDF/XML",
             Format::Pandapower => "pandapower JSON",
+            Format::PowerModels => "PowerModels.jl JSON",
         }
     }
 
@@ -69,6 +74,7 @@ impl Format {
             Format::Psse => "psse",
             Format::Cim => "cim",
             Format::Pandapower => "pandapower",
+            Format::PowerModels => "powermodels",
         }
     }
 
@@ -88,7 +94,7 @@ impl Format {
             {
                 // For ambiguous extensions, try content sniffing
                 let confidence = match format {
-                    Format::Cim | Format::Pandapower => {
+                    Format::Cim | Format::Pandapower | Format::PowerModels => {
                         // XML and JSON are ambiguous - need content check
                         if let Ok(confidence) = format.sniff_content(path) {
                             confidence
@@ -154,6 +160,21 @@ impl Format {
                     Ok(Confidence::Low)
                 }
             }
+            Format::PowerModels => {
+                // Look for PowerModels markers: baseMVA at root level with bus/gen/branch
+                if content.contains("\"baseMVA\"") && content.contains("\"bus\"") {
+                    // Check it's not pandapower (which has nested structure)
+                    if !content.contains("pandapowerNet") && !content.contains("\"_module\"") {
+                        Ok(Confidence::High)
+                    } else {
+                        Ok(Confidence::Low)
+                    }
+                } else if content.starts_with('{') && content.contains("\"bus\"") {
+                    Ok(Confidence::Medium)
+                } else {
+                    Ok(Confidence::Low)
+                }
+            }
         }
     }
 
@@ -164,6 +185,7 @@ impl Format {
             Format::Psse => super::parse_psse(path),
             Format::Cim => super::parse_cim(path),
             Format::Pandapower => super::parse_pandapower(path),
+            Format::PowerModels => super::parse_powermodels(path),
         }
     }
 }
@@ -183,8 +205,9 @@ impl std::str::FromStr for Format {
             "psse" | "raw" => Ok(Format::Psse),
             "cim" | "rdf" | "cgmes" => Ok(Format::Cim),
             "pandapower" | "pp" => Ok(Format::Pandapower),
+            "powermodels" | "pm" | "julia" => Ok(Format::PowerModels),
             _ => anyhow::bail!(
-                "Unknown format: {}. Supported: matpower, psse, cim, pandapower",
+                "Unknown format: {}. Supported: matpower, psse, cim, pandapower, powermodels",
                 s
             ),
         }

@@ -5,6 +5,7 @@
 //! - **PSS/E RAW** (.raw files) - Siemens PSS/E proprietary format
 //! - **CIM RDF/XML** - IEC 61970 CIM standard format
 //! - **pandapower JSON** - Python pandapower format
+//! - **PowerModels.jl JSON** - Julia PowerModels format
 //!
 //! All importers return a [`gat_core::Network`] graph along with [`ImportDiagnostics`]
 //! containing any warnings or errors encountered during parsing.
@@ -140,6 +141,7 @@ mod format;
 pub mod matpower;
 pub mod matpower_parser;
 pub mod pandapower;
+pub mod powermodels;
 pub mod psse;
 
 pub use crate::exporters::{ArrowDirectoryReader, ArrowDirectoryWriter};
@@ -154,6 +156,7 @@ pub use format::{Confidence, Format};
 pub use cim::{import_cim_rdf, parse_cim};
 pub use matpower::{import_matpower_case, load_matpower_network, parse_matpower};
 pub use pandapower::{load_pandapower_network, parse_pandapower};
+pub use powermodels::{load_powermodels_network, parse_powermodels, parse_powermodels_string};
 pub use psse::{import_psse_raw, parse_psse};
 
 #[cfg(all(test, feature = "ipc"))]

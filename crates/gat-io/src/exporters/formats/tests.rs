@@ -13,8 +13,10 @@ mod tests {
     use crate::arrow_manifest::SourceInfo;
     use crate::exporters::formats::{
         export_network_to_cim, export_network_to_matpower, export_network_to_pandapower,
+        export_network_to_powermodels, export_network_to_powermodels_string,
         export_network_to_psse,
     };
+    use crate::importers::parse_powermodels_string;
     use crate::exporters::{ArrowDirectoryWriter, ExportMetadata};
     use crate::importers::{load_grid_from_arrow, parse_matpower};
     use anyhow::Result;
@@ -480,5 +482,383 @@ mod tests {
 
         assert!(parsed.get("_meta").is_none());
         Ok(())
+    }
+
+    // =========================================================================
+    // PowerModels Export Tests
+    // =========================================================================
+
+    #[test]
+    fn test_powermodels_export_structure() -> Result<()> {
+        let network = build_sample_network();
+        let json_str = export_network_to_powermodels_string(&network, None)?;
+        let parsed: Value = serde_json::from_str(&json_str)?;
+
+        // Verify required top-level fields
+        assert!(parsed.get("baseMVA").is_some(), "Should have baseMVA");
+        assert!(parsed.get("per_unit").is_some(), "Should have per_unit");
+        assert!(parsed.get("bus").is_some(), "Should have bus dictionary");
+        assert!(parsed.get("gen").is_some(), "Should have gen dictionary");
+        assert!(parsed.get("load").is_some(), "Should have load dictionary");
+        assert!(parsed.get("branch").is_some(), "Should have branch dictionary");
+
+        // Verify dictionary structure (keys are string indices)
+        let bus = parsed.get("bus").unwrap().as_object().unwrap();
+        assert!(!bus.is_empty(), "Bus dictionary should not be empty");
+
+        // Verify bus structure
+        for (_, bus_data) in bus.iter() {
+            assert!(bus_data.get("index").is_some());
+            assert!(bus_data.get("bus_type").is_some());
+            assert!(bus_data.get("vm").is_some());
+            assert!(bus_data.get("va").is_some());
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_powermodels_export_with_metadata() -> Result<()> {
+        let network = build_sample_network();
+        let metadata = sample_metadata();
+        let json_str = export_network_to_powermodels_string(&network, Some(&metadata))?;
+        let parsed: Value = serde_json::from_str(&json_str)?;
+
+        // Verify metadata is included
+        let meta = parsed.get("_meta").and_then(Value::as_object);
+        assert!(meta.is_some(), "Should have _meta section");
+
+        let meta = meta.unwrap();
+        let source = meta.get("source").and_then(Value::as_object).unwrap();
+        assert_eq!(source.get("file").and_then(Value::as_str), Some("case14.raw"));
+        assert_eq!(source.get("format").and_then(Value::as_str), Some("psse"));
+        assert_eq!(source.get("hash").and_then(Value::as_str), Some("deadbeef"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_powermodels_export_without_metadata() -> Result<()> {
+        let network = build_sample_network();
+        let json_str = export_network_to_powermodels_string(&network, None)?;
+        let parsed: Value = serde_json::from_str(&json_str)?;
+
+        assert!(parsed.get("_meta").is_none(), "Should not have _meta section");
+        Ok(())
+    }
+
+    #[test]
+    fn test_powermodels_export_file() -> Result<()> {
+        let network = build_sample_network();
+        let temp_dir = TempDir::new()?;
+        let output_file = temp_dir.path().join("network.json");
+
+        export_network_to_powermodels(&network, &output_file, None)?;
+
+        assert!(output_file.exists(), "Output file should exist");
+        let content = fs::read_to_string(&output_file)?;
+        let parsed: Value = serde_json::from_str(&content)?;
+        assert!(parsed.get("baseMVA").is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_powermodels_roundtrip_counts() -> Result<()> {
+        // Build a more complete network
+        let original = build_network_with_cost();
+        let orig_stats = original.stats();
+
+        // Export to PowerModels JSON
+        let json_str = export_network_to_powermodels_string(&original, None)?;
+
+        // Import back
+        let result = parse_powermodels_string(&json_str)?;
+        let imported = result.network;
+        let imp_stats = imported.stats();
+
+        // Verify counts match
+        assert_eq!(
+            orig_stats.num_buses, imp_stats.num_buses,
+            "Bus count mismatch"
+        );
+        assert_eq!(
+            orig_stats.num_gens, imp_stats.num_gens,
+            "Generator count mismatch"
+        );
+        assert_eq!(
+            orig_stats.num_loads, imp_stats.num_loads,
+            "Load count mismatch"
+        );
+        assert_eq!(
+            orig_stats.num_branches, imp_stats.num_branches,
+            "Branch count mismatch"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_powermodels_roundtrip_values() -> Result<()> {
+        let original = build_network_with_cost();
+
+        // Export to PowerModels JSON
+        let json_str = export_network_to_powermodels_string(&original, None)?;
+
+        // Import back
+        let result = parse_powermodels_string(&json_str)?;
+        let imported = result.network;
+
+        // Verify total load is preserved
+        let orig_stats = original.stats();
+        let imp_stats = imported.stats();
+        let load_diff = (orig_stats.total_load_mw - imp_stats.total_load_mw).abs();
+        assert!(
+            load_diff < 0.01,
+            "Load should be preserved (diff: {} MW)",
+            load_diff
+        );
+
+        // Verify total generation capacity
+        let gen_diff = (orig_stats.total_gen_capacity_mw - imp_stats.total_gen_capacity_mw).abs();
+        assert!(
+            gen_diff < 0.01,
+            "Generation capacity should be preserved (diff: {} MW)",
+            gen_diff
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_powermodels_roundtrip_cost_models() -> Result<()> {
+        let original = build_network_with_cost();
+
+        // Export to PowerModels JSON
+        let json_str = export_network_to_powermodels_string(&original, None)?;
+
+        // Import back
+        let result = parse_powermodels_string(&json_str)?;
+        let imported = result.network;
+
+        // Find generators and verify cost models
+        let orig_gens: Vec<_> = original
+            .graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Gen(g) => Some(g),
+                _ => None,
+            })
+            .collect();
+
+        let imp_gens: Vec<_> = imported
+            .graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Gen(g) => Some(g),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(orig_gens.len(), imp_gens.len());
+
+        // Find gen by id and compare cost model
+        for orig_gen in &orig_gens {
+            let imp_gen = imp_gens.iter().find(|g| g.id == orig_gen.id);
+            assert!(imp_gen.is_some(), "Gen {} not found after roundtrip", orig_gen.id.value());
+
+            let imp_gen = imp_gen.unwrap();
+            match (&orig_gen.cost_model, &imp_gen.cost_model) {
+                (CostModel::Polynomial(orig), CostModel::Polynomial(imp)) => {
+                    assert_eq!(orig.len(), imp.len(), "Polynomial coefficient count mismatch");
+                    for (i, (o, im)) in orig.iter().zip(imp.iter()).enumerate() {
+                        assert!(
+                            (o - im).abs() < 1e-6,
+                            "Coefficient {} mismatch: {} vs {}",
+                            i,
+                            o,
+                            im
+                        );
+                    }
+                }
+                (CostModel::NoCost, CostModel::NoCost) => {}
+                (CostModel::NoCost, CostModel::Polynomial(coeffs)) if coeffs.is_empty() => {}
+                (o, i) => panic!("Cost model type mismatch: {:?} vs {:?}", o, i),
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_powermodels_pglib_case14_roundtrip() -> Result<()> {
+        // Load PGLib case14 from MATPOWER
+        let pglib_path = Path::new("../../test_data/matpower/pglib/pglib_opf_case14_ieee.m");
+        if !pglib_path.exists() {
+            eprintln!("Skipping: {} not found", pglib_path.display());
+            return Ok(());
+        }
+
+        // Import MATPOWER
+        let mat_result = parse_matpower(pglib_path.to_str().unwrap())?;
+        let original = mat_result.network;
+        let orig_stats = original.stats();
+
+        // Export to PowerModels
+        let json_str = export_network_to_powermodels_string(&original, None)?;
+
+        // Import back from PowerModels
+        let pm_result = parse_powermodels_string(&json_str)?;
+        let imported = pm_result.network;
+        let imp_stats = imported.stats();
+
+        // Verify structure preserved
+        assert_eq!(orig_stats.num_buses, imp_stats.num_buses);
+        assert_eq!(orig_stats.num_gens, imp_stats.num_gens);
+        assert_eq!(orig_stats.num_loads, imp_stats.num_loads);
+        assert_eq!(orig_stats.num_branches, imp_stats.num_branches);
+
+        // Verify power values preserved
+        let load_diff = (orig_stats.total_load_mw - imp_stats.total_load_mw).abs();
+        assert!(load_diff < 0.1, "Load mismatch: {} MW", load_diff);
+
+        let gen_diff = (orig_stats.total_gen_capacity_mw - imp_stats.total_gen_capacity_mw).abs();
+        assert!(gen_diff < 0.1, "Gen capacity mismatch: {} MW", gen_diff);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_powermodels_matpower_to_powermodels_to_matpower() -> Result<()> {
+        // Full roundtrip: MATPOWER → PowerModels → MATPOWER
+        let pglib_path = Path::new("../../test_data/matpower/pglib/pglib_opf_case14_ieee.m");
+        if !pglib_path.exists() {
+            eprintln!("Skipping: {} not found", pglib_path.display());
+            return Ok(());
+        }
+
+        let temp_dir = TempDir::new()?;
+
+        // Step 1: Import MATPOWER
+        let mat_result = parse_matpower(pglib_path.to_str().unwrap())?;
+        let network1 = mat_result.network;
+        let stats1 = network1.stats();
+
+        // Step 2: Export to PowerModels
+        let pm_file = temp_dir.path().join("case14.json");
+        export_network_to_powermodels(&network1, &pm_file, None)?;
+
+        // Step 3: Import PowerModels
+        let pm_content = fs::read_to_string(&pm_file)?;
+        let pm_result = parse_powermodels_string(&pm_content)?;
+        let network2 = pm_result.network;
+        let stats2 = network2.stats();
+
+        // Step 4: Export back to MATPOWER
+        let mat_file = temp_dir.path().join("case14_roundtrip.m");
+        export_network_to_matpower(&network2, &mat_file, None)?;
+
+        // Step 5: Import MATPOWER again
+        let mat_result3 = parse_matpower(mat_file.to_str().unwrap())?;
+        let network3 = mat_result3.network;
+        let stats3 = network3.stats();
+
+        // Verify counts preserved through entire chain
+        assert_eq!(stats1.num_buses, stats2.num_buses);
+        assert_eq!(stats2.num_buses, stats3.num_buses);
+
+        assert_eq!(stats1.num_gens, stats2.num_gens);
+        assert_eq!(stats2.num_gens, stats3.num_gens);
+
+        assert_eq!(stats1.num_loads, stats2.num_loads);
+        assert_eq!(stats2.num_loads, stats3.num_loads);
+
+        assert_eq!(stats1.num_branches, stats2.num_branches);
+        assert_eq!(stats2.num_branches, stats3.num_branches);
+
+        // Verify power preserved through chain
+        let load_diff = (stats1.total_load_mw - stats3.total_load_mw).abs();
+        assert!(load_diff < 0.1, "Load should be preserved: {} MW diff", load_diff);
+
+        Ok(())
+    }
+
+    /// Build a network with cost models for testing
+    fn build_network_with_cost() -> Network {
+        let mut network = Network::new();
+
+        let bus1_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "Slack Bus".to_string(),
+            voltage_kv: 138.0,
+            voltage_pu: 1.0,
+            angle_rad: 0.0,
+            vmin_pu: Some(0.95),
+            vmax_pu: Some(1.05),
+            area_id: Some(1),
+            zone_id: Some(1),
+        }));
+
+        let bus2_idx = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(2),
+            name: "Load Bus".to_string(),
+            voltage_kv: 138.0,
+            voltage_pu: 1.0,
+            angle_rad: 0.0,
+            vmin_pu: Some(0.95),
+            vmax_pu: Some(1.05),
+            area_id: Some(1),
+            zone_id: Some(1),
+        }));
+
+        // Generator with polynomial cost
+        network.graph.add_node(Node::Gen(Gen {
+            id: GenId::new(1),
+            name: "Gen 1".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: 100.0,
+            reactive_power_mvar: 50.0,
+            pmin_mw: 10.0,
+            pmax_mw: 200.0,
+            qmin_mvar: -100.0,
+            qmax_mvar: 100.0,
+            status: true,
+            voltage_setpoint_pu: Some(1.0),
+            mbase_mva: Some(100.0),
+            cost_model: CostModel::Polynomial(vec![100.0, 20.0, 0.05]), // c0 + c1*P + c2*P^2
+            ..Gen::default()
+        }));
+
+        // Load
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "Load 1".to_string(),
+            bus: BusId::new(2),
+            active_power_mw: 90.0,
+            reactive_power_mvar: 40.0,
+        }));
+
+        // Branch
+        network.graph.add_edge(
+            bus1_idx,
+            bus2_idx,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                name: "Line 1-2".to_string(),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.01,
+                reactance: 0.1,
+                charging_b_pu: 0.02,
+                tap_ratio: 1.0,
+                phase_shift_rad: 0.0,
+                status: true,
+                rating_a_mva: Some(100.0),
+                element_type: "line".to_string(),
+                ..Branch::default()
+            }),
+        );
+
+        network
     }
 }
