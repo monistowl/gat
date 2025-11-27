@@ -37,6 +37,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             max_cases,
             out,
             threads,
+            method,
             tol,
             max_iter,
         } => pglib::handle(
@@ -46,6 +47,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             *max_cases,
             out,
             threads,
+            method,
             *tol,
             *max_iter,
         ),

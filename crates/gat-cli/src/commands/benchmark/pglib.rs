@@ -8,8 +8,9 @@ use std::path::Path;
 use std::time::Instant;
 
 use gat_algo::validation::ObjectiveGap;
-use gat_algo::AcOpfSolver;
+use gat_algo::{OpfMethod, OpfSolver};
 use gat_io::importers::load_matpower_network;
+use std::str::FromStr;
 
 use super::baseline::{load_baseline_objectives, normalize_case_name};
 
@@ -41,6 +42,7 @@ struct BenchmarkConfig {
     max_cases: usize,
     out: String,
     threads: String,
+    method: OpfMethod,
     tol: f64,
     max_iter: u32,
 }
@@ -53,9 +55,14 @@ pub fn handle(
     max_cases: usize,
     out: &str,
     threads: &str,
+    method: &str,
     tol: f64,
     max_iter: u32,
 ) -> Result<()> {
+    // Parse OPF method
+    let opf_method = OpfMethod::from_str(method)
+        .map_err(|e| anyhow!("Invalid OPF method '{}': {}", method, e))?;
+
     let config = BenchmarkConfig {
         pglib_dir: pglib_dir.to_string(),
         baseline: baseline.map(|s| s.to_string()),
@@ -63,10 +70,12 @@ pub fn handle(
         max_cases,
         out: out.to_string(),
         threads: threads.to_string(),
+        method: opf_method,
         tol,
         max_iter,
     };
 
+    eprintln!("Using OPF method: {}", config.method);
     run_benchmark(&config)
 }
 
@@ -119,11 +128,12 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     // Run benchmarks in parallel
     let tol = config.tol;
     let max_iter = config.max_iter;
+    let method = config.method;
 
     let results: Vec<PglibBenchmarkResult> = matpower_files
         .par_iter()
         .filter_map(|(case_name, path)| {
-            match benchmark_pglib_case(case_name, path, &baseline_map, tol, max_iter) {
+            match benchmark_pglib_case(case_name, path, &baseline_map, method, tol, max_iter) {
                 Ok(result) => Some(result),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", case_name, e);
@@ -233,6 +243,7 @@ fn benchmark_pglib_case(
     case_name: &str,
     path: &Path,
     baseline_map: &HashMap<String, f64>,
+    method: OpfMethod,
     tol: f64,
     max_iter: u32,
 ) -> Result<PglibBenchmarkResult> {
@@ -252,13 +263,16 @@ fn benchmark_pglib_case(
     }
     let num_branches = network.graph.edge_count();
 
-    // Solve
-    let solver = AcOpfSolver::new()
+    // Solve OPF using selected method
+    let solver = OpfSolver::new()
+        .with_method(method)
         .with_max_iterations(max_iter as usize)
         .with_tolerance(tol);
 
     let solve_start = Instant::now();
-    let solution = solver.solve(&network)?;
+    let solution = solver
+        .solve(&network)
+        .map_err(|e| anyhow!("OPF ({}) failed: {}", method, e))?;
     let solve_time_ms = solve_start.elapsed().as_secs_f64() * 1000.0;
 
     // Look up baseline

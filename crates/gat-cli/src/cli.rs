@@ -446,11 +446,14 @@ pub enum BenchmarkCommands {
         /// Number of parallel solver threads (auto = CPU count)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// OPF method: ac, socp, dc, economic (default: socp)
+        #[arg(long, default_value = "socp")]
+        method: String,
         /// Convergence tolerance
         #[arg(long, default_value = "1e-6")]
         tol: f64,
         /// Maximum AC solver iterations
-        #[arg(long, default_value_t = 20)]
+        #[arg(long, default_value_t = 200)]
         max_iter: u32,
     },
     /// Run OPFData benchmark suite (GNN-format JSON)
