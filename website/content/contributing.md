@@ -13,7 +13,7 @@ We welcome contributions from the community! Whether you're fixing bugs, adding 
 
 ### 🐛 Report Bugs
 
-Found a bug? [Open an issue]({{ config.extra.repo_url }}/issues/new) with:
+Found a bug? [Open an issue](https://github.com/monistowl/gat/issues/new) with:
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs. actual behavior
@@ -22,7 +22,7 @@ Found a bug? [Open an issue]({{ config.extra.repo_url }}/issues/new) with:
 
 ### ✨ Request Features
 
-Have an idea? [Start a discussion]({{ config.extra.repo_url }}/discussions) or [open an issue]({{ config.extra.repo_url }}/issues/new):
+Have an idea? [Start a discussion](https://github.com/monistowl/gat/discussions) or [open an issue](https://github.com/monistowl/gat/issues/new):
 - Describe the feature and use case
 - Explain why it would be valuable
 - Provide examples of how it would work
@@ -75,9 +75,9 @@ cargo test
 
 ### 2. Find Something to Work On
 
-- Check [good first issues]({{ config.extra.repo_url }}/labels/good%20first%20issue)
-- Look at [help wanted]({{ config.extra.repo_url }}/labels/help%20wanted) issues
-- Review the [roadmap]({{ config.extra.repo_url }}/blob/main/docs/ROADMAP.md)
+- Check [good first issues](https://github.com/monistowl/gat/labels/good%20first%20issue)
+- Look at [help wanted](https://github.com/monistowl/gat/labels/help%20wanted) issues
+- Review the [roadmap](https://github.com/monistowl/gat/blob/main/docs/ROADMAP.md)
 - Propose your own feature or improvement
 
 ### 3. Create a Branch
@@ -208,7 +208,7 @@ Releases follow a **staging → main → tag** workflow:
 5. **Tag release** - Manual git tag on main
 6. **Deploy** - GitHub Pages, package distribution
 
-See [RELEASE_PROCESS.md]({{ config.extra.repo_url }}/blob/main/RELEASE_PROCESS.md) for details.
+See [RELEASE_PROCESS.md](https://github.com/monistowl/gat/blob/main/RELEASE_PROCESS.md) for details.
 
 ## Community Guidelines
 
@@ -249,10 +249,10 @@ See [License & Terms](/license/) for details.
 
 Stuck? Need guidance?
 
-- **Discussions:** [Ask questions]({{ config.extra.repo_url }}/discussions)
-- **Issues:** [Report problems]({{ config.extra.repo_url }}/issues)
+- **Discussions:** [Ask questions](https://github.com/monistowl/gat/discussions)
+- **Issues:** [Report problems](https://github.com/monistowl/gat/issues)
 - **Documentation:** [Read the docs](/docs/)
-- **Examples:** [Check examples]({{ config.extra.repo_url }}/tree/main/examples)
+- **Examples:** [Check examples](https://github.com/monistowl/gat/tree/main/examples)
 
 ## Recognition
 

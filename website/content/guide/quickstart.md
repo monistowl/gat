@@ -6,7 +6,7 @@ weight = 2
 [extra]
 next_steps = [
   { title = "Power Flow Analysis", description = "Learn about DC and AC power flow analysis", link = "/guide/pf/" },
-  { title = "Command Builder", description = "Visually build commands without memorizing syntax", link = "/tools/" },
+  { title = "Command Builder", description = "Visually build commands without memorizing syntax", link = "/command-builder/" },
   { title = "Explore Examples", description = "See real-world examples and use cases", link = "https://github.com/monistowl/gat/tree/main/examples" }
 ]
 +++
@@ -21,7 +21,7 @@ Install GAT using the modular installer:
 
 ```bash
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.3.4/install-modular.sh \
+  https://github.com/monistowl/gat/releases/download/v0.4.0/install-modular.sh \
   | bash
 ```
 
@@ -44,7 +44,7 @@ Or make it permanent by adding the line above to your `~/.bashrc` or `~/.zshrc`.
 gat --version
 ```
 
-You should see: `gat-cli 0.3.4`
+You should see: `gat-cli 0.4.0`
 
 > **Troubleshooting?** See [Installation Troubleshooting](/guide/install-verify/#troubleshooting) for common issues.
 

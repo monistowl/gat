@@ -226,11 +226,99 @@ Planned for subsequent releases:
 - [ ] Integration with dsgrid/RTS-GMLC time-series data
 - [ ] Distributed benchmark runner (fan-out across compute cluster)
 
+## PGLib-OPF Benchmarking
+
+GAT also supports benchmarking against **PGLib-OPF**, the IEEE PES benchmark library for optimal power flow. Unlike PFDelta (power flow), PGLib provides pre-formulated OPF test cases in MATPOWER format.
+
+### Dataset Overview
+
+PGLib-OPF (https://github.com/power-grid-lib/pglib-opf) provides:
+- **Standardized OPF test cases** from IEEE and industry
+- **MATPOWER format** (.m files) directly importable
+- **Published optimal values** for validation
+- **Multiple difficulty levels**: from 5-bus to 10,000+ bus networks
+
+### Basic PGLib Benchmark
+
+```bash
+gat benchmark pglib \
+  --pglib-dir /path/to/pglib-opf \
+  --out results_pglib.csv \
+  --method socp \
+  --max-cases 50
+```
+
+### OPF Method Selection
+
+The `--method` option selects which OPF solver to benchmark:
+
+| Method | Description | Default |
+|--------|-------------|---------|
+| `socp` | SOCP relaxation (convex, reliable) | ✅ Default |
+| `ac` | Fast-decoupled linear approximation | |
+| `dc` | DC optimal power flow (LP) | |
+| `economic` | Economic dispatch (no network) | |
+
+**Why SOCP is the default:** SOCP converges reliably on most test cases and provides a good balance of accuracy and speed. Full AC-NLP can be run separately using `gat opf ac-nlp` for individual cases where higher fidelity is needed.
+
+### Full PGLib Example
+
+```bash
+# Benchmark all PGLib cases with SOCP
+gat benchmark pglib \
+  --pglib-dir ~/data/pglib-opf \
+  --out pglib_socp_results.csv \
+  --method socp \
+  --threads auto \
+  --tol 1e-6 \
+  --max-iter 200
+
+# Compare with DC-OPF
+gat benchmark pglib \
+  --pglib-dir ~/data/pglib-opf \
+  --out pglib_dc_results.csv \
+  --method dc
+
+# Filter to specific cases
+gat benchmark pglib \
+  --pglib-dir ~/data/pglib-opf \
+  --case-filter "case118" \
+  --out pglib_case118.csv
+```
+
+### Comparing Against Baseline
+
+If you have a CSV with published optimal values:
+
+```bash
+gat benchmark pglib \
+  --pglib-dir ~/data/pglib-opf \
+  --baseline published_optima.csv \
+  --out comparison.csv
+```
+
+The output will include objective gap percentages against the baseline.
+
+### CLI Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--pglib-dir` | Path to PGLib-OPF directory | Required |
+| `--out` | Output CSV path | Required |
+| `--method` | OPF method (socp, ac, dc, economic) | `socp` |
+| `--case-filter` | Filter cases by name pattern | All |
+| `--max-cases` | Limit number of cases (0=all) | `0` |
+| `--threads` | Parallel threads (auto=CPU count) | `auto` |
+| `--tol` | Convergence tolerance | `1e-6` |
+| `--max-iter` | Maximum solver iterations | `200` |
+| `--baseline` | Optional baseline CSV for comparison | None |
+
 ## References
 
 - **PFDelta Project**: https://github.com/MOSSLab-MIT/pfdelta
 - **PFDelta Dataset**: https://huggingface.co/datasets/pfdelta/pfdelta
-- **Paper**: https://arxiv.org/abs/2510.22048 (MOSSLab preprint)
+- **PFDelta Paper**: https://arxiv.org/abs/2510.22048 (MOSSLab preprint)
+- **PGLib-OPF**: https://github.com/power-grid-lib/pglib-opf
 - **Crate**: `crates/gat-io/src/sources/pfdelta.rs`
-- **CLI**: `gat benchmark pfdelta --help`
+- **CLI**: `gat benchmark pfdelta --help`, `gat benchmark pglib --help`
 - **Tests**: `crates/gat-cli/tests/benchmark_pfdelta.rs`

@@ -27,7 +27,60 @@ You need commercial licensing if you:
 - Use GAT in a **competitive product** (e.g., selling energy optimization software)
 - Want commercial support and indemnification
 
-**To inquire:** [Open a discussion]({{ config.extra.repo_url }}/discussions) or email through GitHub.
+**To inquire:** [Open a discussion](https://github.com/monistowl/gat/discussions) or email through GitHub.
+
+---
+
+## Power Systems Fundamentals
+
+### Why use the per-unit system instead of actual values?
+
+The per-unit (p.u.) system normalizes all quantities to dimensionless ratios around 1.0:
+
+1. **Numerical stability**: Avoids floating-point issues when mixing voltages (120 V to 765 kV) and powers (kW to GW)
+2. **Simplified calculations**: Transformer turns ratios disappear; ideal transformers become 1:1
+3. **Quick sanity checks**: Normal voltages are ~1.0 p.u., abnormal values stand out immediately
+
+See [Units & Conventions](/reference/units-conventions/) for the full derivation.
+
+### What's the difference between real power (P) and reactive power (Q)?
+
+| Property | Real Power (P) | Reactive Power (Q) |
+|----------|---------------|-------------------|
+| Units | Watts (W), MW | VAR, MVAR |
+| Physical meaning | Actual energy transfer | Energy oscillation (no net transfer) |
+| What it powers | Motors, lights, heat | Magnetic fields in motors/transformers |
+
+**Why Q matters**: Reactive power affects voltage levels. Too little Q → voltage drops. Too much Q → voltage rises.
+
+### What is a slack bus (reference bus)?
+
+The **slack bus** serves two purposes:
+
+1. **Angle reference**: All other bus angles are measured relative to the slack (θ = 0°)
+2. **Power balance**: Absorbs the mismatch between total generation and total load + losses
+
+**Choosing a slack bus**: Pick a large generator with sufficient capacity headroom. In GAT, identified by `bus_type = 3`.
+
+### What are Locational Marginal Prices (LMPs)?
+
+**LMP** = The cost to serve one more MW of load at a specific bus.
+
+```
+LMP = Energy + Congestion + Losses
+```
+
+When transmission is congested, cheap generators can't reach all loads. Buses behind congestion have higher LMPs.
+
+### What does "LOLE = 2.4 hours/year" actually mean?
+
+**LOLE** (Loss of Load Expectation): On average, there will be 2.4 hours per year when available capacity is less than demand.
+
+**Important**: This is a probabilistic expectation, not a guarantee of actual blackouts. Operators take emergency actions before load is actually shed.
+
+**Planning standard**: LOLE ≤ 0.1 days/year (2.4 hours/year) is common in North America.
+
+---
 
 ### Can I use GAT in my startup?
 
@@ -37,11 +90,11 @@ You need commercial licensing if you:
 - Sells energy optimization as a service — ❌ **Needs commercial license**
 - Resells GAT functionality directly — ❌ **Needs commercial license**
 
-Unclear? [Start a discussion]({{ config.extra.repo_url }}/discussions) — we're friendly about this.
+Unclear? [Start a discussion](https://github.com/monistowl/gat/discussions) — we're friendly about this.
 
 ### Is the source code available?
 
-**Yes.** The full source is on [GitHub]({{ config.extra.repo_url }}) under PolyForm Shield. You can:
+**Yes.** The full source is on [GitHub](https://github.com/monistowl/gat) under PolyForm Shield. You can:
 - Review the code
 - Audit algorithms and implementations
 - Build modified versions for internal use
@@ -157,7 +210,7 @@ Supported output formats:
 - ✅ **JSON** (for debugging)
 - ✅ **CSV** (not recommended — large files)
 
-**Can't find your format?** [Open an issue]({{ config.extra.repo_url }}/issues) with a sample file.
+**Can't find your format?** [Open an issue](https://github.com/monistowl/gat/issues) with a sample file.
 
 ### How do I integrate GAT with my tool/language?
 
@@ -199,6 +252,33 @@ See [Integration Guide](/guide/overview/#data-architecture) for details.
 - Speed: ~50-100ms for medium grids
 
 **Rule of thumb:** Use DC for screening, AC for verification.
+
+### Why doesn't my power flow converge?
+
+Common causes and fixes:
+
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| Diverges immediately | Bad initial guess | Use flat start (V=1.0, θ=0) |
+| Oscillates forever | Ill-conditioned network | Check for very high/low impedances |
+| "No solution" | Infeasible operating point | Reduce load or add generation |
+
+**Debugging checklist**:
+1. ✓ Is total generation ≥ total load?
+2. ✓ Are all buses connected (no islands)?
+3. ✓ Are impedances reasonable (not 0 or extremely high)?
+4. ✓ Is there a slack bus defined?
+
+### Which OPF method should I use?
+
+| Method | Command | When to Use |
+|--------|---------|-------------|
+| DC-OPF | `gat opf dc` | Planning, screening, fast LMP estimation |
+| Fast AC | `gat opf ac` | Quick linear approximation |
+| AC-NLP | `gat opf ac-nlp` | Full nonlinear, highest accuracy |
+| SOCP | benchmark `--method socp` | Research, convex relaxation |
+
+**Decision tree**: Need speed? → DC-OPF. Need accuracy? → AC-NLP. Need global optimum guarantee? → SOCP.
 
 ### How do I run batch analysis?
 
@@ -255,7 +335,7 @@ We don't publish to crates.io yet. Use the modular installer instead:
 
 ```bash
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.3.4/install-modular.sh \
+  https://github.com/monistowl/gat/releases/download/v0.4.0/install-modular.sh \
   | bash
 ```
 
@@ -345,13 +425,13 @@ See [OPF Guide](/guide/opf/#locational-marginal-prices) for examples.
 
 ### Where should I ask questions?
 
-- **Discussions:** [Ask anything]({{ config.extra.repo_url }}/discussions) — best for questions
-- **Issues:** [Report bugs]({{ config.extra.repo_url }}/issues) — for bugs and feature requests
+- **Discussions:** [Ask anything](https://github.com/monistowl/gat/discussions) — best for questions
+- **Issues:** [Report bugs](https://github.com/monistowl/gat/issues) — for bugs and feature requests
 - **Documentation:** [Full docs](/docs/) — for detailed guides
 
 ### How do I report a bug?
 
-[Open an issue]({{ config.extra.repo_url }}/issues) with:
+[Open an issue](https://github.com/monistowl/gat/issues) with:
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs actual behavior
@@ -391,9 +471,9 @@ Good question! To debug:
 2. **Check convergence** — Did the solver converge? (GAT reports this)
 3. **Verify inputs** — Is your grid data correct?
 4. **Relax tolerance** — Try `--tolerance 1e-3` to see if it's a precision issue
-5. **Check the code** — [Review the solver implementation]({{ config.extra.repo_url }}/blob/main/crates/gat-algo/src/solver)
+5. **Check the code** — [Review the solver implementation](https://github.com/monistowl/gat/blob/main/crates/gat-algo/src/solver)
 
-[Open an issue]({{ config.extra.repo_url }}/issues) with your analysis and we'll investigate.
+[Open an issue](https://github.com/monistowl/gat/issues) with your analysis and we'll investigate.
 
 ## Performance & Optimization
 
@@ -441,9 +521,9 @@ Even very large grids fit in standard laptop RAM.
 ### Is there an active community?
 
 Yes! Join via:
-- **Discussions:** [GitHub Discussions]({{ config.extra.repo_url }}/discussions)
-- **Issues:** [GitHub Issues]({{ config.extra.repo_url }}/issues)
-- **Contributors:** See [GitHub Contributors]({{ config.extra.repo_url }}/graphs/contributors)
+- **Discussions:** [GitHub Discussions](https://github.com/monistowl/gat/discussions)
+- **Issues:** [GitHub Issues](https://github.com/monistowl/gat/issues)
+- **Contributors:** See [GitHub Contributors](https://github.com/monistowl/gat/graphs/contributors)
 
 ### How often is GAT updated?
 
@@ -452,7 +532,7 @@ Currently:
 - **Security patches:** As needed
 - **Major features:** Every 3-6 months
 
-Follow [releases]({{ config.extra.repo_url }}/releases) for updates.
+Follow [releases](https://github.com/monistowl/gat/releases) for updates.
 
 ### Is GAT production-ready?
 
@@ -471,4 +551,4 @@ For critical systems, test thoroughly in your environment.
 
 ---
 
-**Didn't find your question?** [Start a discussion]({{ config.extra.repo_url }}/discussions) or [open an issue]({{ config.extra.repo_url }}/issues)!
+**Didn't find your question?** [Start a discussion](https://github.com/monistowl/gat/discussions) or [open an issue](https://github.com/monistowl/gat/issues)!

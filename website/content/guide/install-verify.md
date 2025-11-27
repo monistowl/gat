@@ -8,7 +8,7 @@ weight = 5
 next_steps = [
   { title = "Quickstart Guide", description = "Run your first power flow analysis in 5 minutes", link = "/guide/quickstart/" },
   { title = "Power Flow Analysis", description = "Deep dive into power flow analysis options", link = "/guide/pf/" },
-  { title = "Command Builder", description = "Interactively build commands", link = "/tools/" }
+  { title = "Command Builder", description = "Interactively build commands", link = "/command-builder/" }
 ]
 +++
 
@@ -24,7 +24,7 @@ gat --version
 
 You should see output like:
 ```
-gat 0.3.4
+gat 0.4.0
 ```
 
 If you get "command not found", check that your shell has reloaded the PATH:
@@ -133,7 +133,7 @@ curl -I https://github.com
 If still stuck, download and run the installer directly:
 ```bash
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.3.4/install-modular.sh \
+  https://github.com/monistowl/gat/releases/download/v0.4.0/install-modular.sh \
   -o install.sh
 bash install.sh
 ```

@@ -145,7 +145,7 @@ Development happens in the open:
 
 ## Project Status
 
-**Current Version:** v{{ config.extra.version }}
+**Current Version:** v0.4.0
 
 **Status:** Production-ready, actively developed
 
@@ -177,7 +177,7 @@ See our [License & Terms](/license/) page for complete details.
 
 ## Roadmap
 
-See our [project roadmap]({{ config.extra.repo_url }}/blob/main/docs/ROADMAP.md) for upcoming features and long-term plans.
+See our [project roadmap](https://github.com/monistowl/gat/blob/main/docs/ROADMAP.md) for upcoming features and long-term plans.
 
 **Near-term priorities:**
 - Enhanced TUI with real-time visualization
@@ -188,17 +188,17 @@ See our [project roadmap]({{ config.extra.repo_url }}/blob/main/docs/ROADMAP.md)
 
 ## Community
 
-- **GitHub:** [{{ config.extra.repo_url }}]({{ config.extra.repo_url }})
-- **Issues:** [Report bugs, request features]({{ config.extra.repo_url }}/issues)
-- **Discussions:** [Community Q&A]({{ config.extra.repo_url }}/discussions)
+- **GitHub:** [github.com/monistowl/gat](https://github.com/monistowl/gat)
+- **Issues:** [Report bugs, request features](https://github.com/monistowl/gat/issues)
+- **Discussions:** [Community Q&A](https://github.com/monistowl/gat/discussions)
 - **Documentation:** [Full docs](/docs/)
 
 ## Contact
 
 For commercial licensing, partnerships, or general inquiries:
 
-- **GitHub Issues:** [Open an issue]({{ config.extra.repo_url }}/issues/new)
-- **Discussions:** [Start a discussion]({{ config.extra.repo_url }}/discussions)
+- **GitHub Issues:** [Open an issue](https://github.com/monistowl/gat/issues/new)
+- **Discussions:** [Start a discussion](https://github.com/monistowl/gat/discussions)
 
 ---
 

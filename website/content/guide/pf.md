@@ -45,4 +45,30 @@ Runs the AC Newton–Raphson driver with tolerance/iteration controls:
 * `--solver` and `--threads` behave as in the DC command.
 * The output lives under `pf-ac/` plus the canonical `flows.parquet`.
 
-Both commands share `history/milestone3-plan.md`, which lists the planned validators, regression fixtures, and docs updates that make Milestone 3 trackable.
+### Q-Limit Enforcement
+
+AC power flow supports PV-PQ bus switching for reactive power limits:
+
+{% code(lang="bash") %}
+gat pf ac grid.arrow --out flows.parquet --enforce-q-limits
+{% end %}
+
+When a generator hits its Q limit (qmin or qmax), the bus switches from PV (voltage-controlled) to PQ (load bus) and the reactive output is clamped.
+
+### Shunt Element Support (v0.4.0)
+
+AC power flow includes full shunt element modeling (fixed capacitors and reactors). This is essential for achieving exact agreement with external tools like MATPOWER, PowerModels.jl, and PSS/E:
+
+{% code(lang="bash") %}
+gat pf ac grid.arrow --out flows.parquet --include-shunts
+{% end %}
+
+Shunts are modeled as constant-admittance injections:
+- **Gs**: Shunt conductance (p.u.) — real power injection
+- **Bs**: Shunt susceptance (p.u.) — reactive power injection (positive = capacitive)
+
+## Related Commands
+
+- [OPF](/guide/opf/) — Optimal power flow analysis
+- [Inspect](/guide/inspect/) — Network inspection and validation
+- [Batch](/guide/batch/) — Multi-scenario power flow
