@@ -281,6 +281,6 @@ You're ready to explore deeper! Pick a topic from [Next Steps](#6-next-steps) or
 
 ## Get Help
 
-- **Questions?** [Start a discussion]({{ config.extra.repo_url }}/discussions)
-- **Issues?** [Report a bug]({{ config.extra.repo_url }}/issues)
+- **Questions?** [Start a discussion](https://github.com/monistowl/gat/discussions)
+- **Issues?** [Report a bug](https://github.com/monistowl/gat/issues)
 - **Want to contribute?** See [Contributing Guide](/contributing/)

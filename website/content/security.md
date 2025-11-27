@@ -20,12 +20,12 @@ If you discover a security vulnerability in GAT, please report it responsibly:
 ### How to Report
 
 1. **GitHub Security Advisories (Preferred)**
-   - Go to [Security Advisories]({{ config.extra.repo_url }}/security/advisories)
+   - Go to [Security Advisories](https://github.com/monistowl/gat/security/advisories)
    - Click "Report a vulnerability"
    - Provide details privately
 
 2. **Direct Contact**
-   - Open a [private discussion]({{ config.extra.repo_url }}/discussions)
+   - Open a [private discussion](https://github.com/monistowl/gat/discussions)
    - Email through GitHub profile
 
 ### What to Include
@@ -108,7 +108,7 @@ GAT can be used in regulated environments:
 
 ### Certifications
 
-Currently, GAT does not have formal security certifications. For enterprise deployments requiring specific certifications, [contact us]({{ config.extra.repo_url }}/issues/new) to discuss.
+Currently, GAT does not have formal security certifications. For enterprise deployments requiring specific certifications, [contact us](https://github.com/monistowl/gat/issues/new) to discuss.
 
 ## Updates and Patches
 
@@ -132,8 +132,8 @@ gat-cli --version
 ```
 
 Subscribe to:
-- [GitHub Releases]({{ config.extra.repo_url }}/releases)
-- [Security Advisories]({{ config.extra.repo_url }}/security/advisories)
+- [GitHub Releases](https://github.com/monistowl/gat/releases)
+- [Security Advisories](https://github.com/monistowl/gat/security/advisories)
 
 ## Security Considerations by Use Case
 
@@ -172,7 +172,7 @@ Subscribe to:
 
 There are currently no known security issues in the latest release.
 
-Check [Security Advisories]({{ config.extra.repo_url }}/security/advisories) for historical issues and fixes.
+Check [Security Advisories](https://github.com/monistowl/gat/security/advisories) for historical issues and fixes.
 
 ## Dependency Security
 
@@ -204,11 +204,11 @@ View dependencies: `cargo tree` in the repository
 ## Questions?
 
 For general security questions:
-- [Open a discussion]({{ config.extra.repo_url }}/discussions)
+- [Open a discussion](https://github.com/monistowl/gat/discussions)
 - [Check documentation](/docs/)
 
 For vulnerability reports:
-- Use [Security Advisories]({{ config.extra.repo_url }}/security/advisories)
+- Use [Security Advisories](https://github.com/monistowl/gat/security/advisories)
 
 ---
 
