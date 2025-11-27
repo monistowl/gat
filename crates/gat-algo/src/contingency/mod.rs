@@ -28,5 +28,10 @@
 //! - Alsac et al., "Fast Calculation of LODF and Application to Branch Outage Studies"
 
 pub mod lodf;
+pub mod n_k;
 
 pub use lodf::{compute_lodf_matrix, compute_ptdf_matrix, LodfMatrix, PtdfMatrix};
+pub use n_k::{
+    screen_nk_contingencies, Contingency, NkScreener, NkScreeningConfig, NkScreeningResults,
+    ScreeningResult,
+};
