@@ -278,14 +278,30 @@ gat opf dc test_data/matpower/case9.arrow \
 ### 3. AC Optimal Power Flow (Full Nonlinear)
 
 ```bash
-gat opf ac test_data/matpower/case9.arrow \
-  --out out/ac-opf.parquet \
-  --tol 1e-4 --max-iter 200
+gat opf ac-nlp test_data/matpower/case9.arrow \
+  -o out/ac-opf.json \
+  --tol 1e-4 --max-iter 200 --warm-start flat
 ```
 
-Full nonlinear AC-OPF using penalty method with L-BFGS. Handles polar variables (V, θ) with explicit power balance constraints.
+Full nonlinear AC-OPF using penalty method with L-BFGS. Handles polar variables (V, θ) with explicit power balance constraints. Minimizes total generation cost subject to power balance and physical limits.
 
-### 4. Benchmark Against PGLib
+Options:
+- `--tol`: Convergence tolerance (default: 1e-4)
+- `--max-iter`: Maximum iterations (default: 200)
+- `--warm-start`: Initial point strategy - `flat`, `dc`, or `socp` (default: flat)
+
+### 4. Inspect Network Data
+
+```bash
+gat inspect summary grid.arrow        # Quick network summary
+gat inspect generators grid.arrow     # List all generators
+gat inspect power-balance grid.arrow  # Check feasibility
+gat inspect json grid.arrow --pretty  # Export as JSON
+```
+
+Deep-dive analysis for debugging imports and understanding network structure.
+
+### 5. Benchmark Against PGLib
 
 ```bash
 gat benchmark pglib \
@@ -296,7 +312,7 @@ gat benchmark pglib \
 
 Run the AC-OPF solver against the industry-standard PGLib benchmark suite (68 MATPOWER cases from 14 to 13,659 buses).
 
-### 5. Interactive Exploration with TUI
+### 6. Interactive Exploration with TUI
 
 ```bash
 gat-tui
@@ -315,9 +331,10 @@ gat <category> <subcommand> [options]
 ### Data Import & Management
 
 ```
-gat import {psse,matpower,cim,pandapower}    # Import grid models
+gat import {psse,matpower,cim,pandapower,powermodels}  # Import grid models
 gat dataset public {list,describe,fetch}  # Fetch public datasets
 gat runs {list,describe,resume}   # Manage previous runs
+gat inspect {summary,generators,branches,power-balance,json}  # Network diagnostics
 ```
 
 ### Grid Analysis
@@ -325,7 +342,7 @@ gat runs {list,describe,resume}   # Manage previous runs
 ```
 gat graph {stats,islands,export,visualize}  # Network topology
 gat pf {dc,ac}                    # Power flows
-gat opf {dc,ac}                   # Optimal dispatch
+gat opf {dc,ac,ac-nlp}            # Optimal dispatch (dc=LP, ac=SOR, ac-nlp=NLP)
 gat nminus1 {dc,ac}               # Contingency screening
 gat se wls                         # State estimation
 ```

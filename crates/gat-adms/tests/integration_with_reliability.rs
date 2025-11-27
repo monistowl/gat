@@ -11,12 +11,14 @@ fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Net
         id: BusId::new(0),
         name: format!("{}_bus1", name),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: format!("{}_bus2", name),
         voltage_kv: 100.0,
+        ..Bus::default()
     }));
 
     network.graph.add_node(Node::Gen(Gen {
@@ -31,6 +33,7 @@ fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Net
         qmax_mvar: f64::INFINITY,
         cost_model: gat_core::CostModel::NoCost,
         is_synchronous_condenser: false,
+        ..Gen::default()
     }));
 
     network.graph.add_node(Node::Load(Load {
