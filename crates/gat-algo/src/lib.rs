@@ -70,6 +70,7 @@ pub mod io;
 pub mod opf;
 pub mod power_flow;
 pub mod reliability_monte_carlo;
+pub mod tep;
 pub mod test_utils;
 pub mod validation;
 
@@ -93,6 +94,10 @@ pub use power_flow::*;
 pub use reliability_monte_carlo::{
     DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
     ReliabilityMetrics,
+};
+pub use tep::{
+    solve_tep, CandidateId, CandidateLine, LineBuildDecision, TepError, TepProblem,
+    TepProblemBuilder, TepSolution, TepSolverConfig,
 };
 pub use validation::{
     compute_opf_violations, compute_pf_errors, OPFViolationMetrics, ObjectiveGap, PFErrorMetrics,
