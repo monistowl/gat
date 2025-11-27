@@ -1,6 +1,6 @@
 # Power Flow and Optimal Power Flow
 
-GAT provides DC and AC power flow solvers, plus optimal power flow (OPF) solvers for economic dispatch. The v0.3.4 release adds full nonlinear AC-OPF with penalty-based optimization.
+GAT provides DC and AC power flow solvers, plus optimal power flow (OPF) solvers for economic dispatch. The v0.4.0 release adds multi-period dispatch, IPOPT backend, and shunt element support for exact agreement with external tools.
 
 ## Power Flow Commands
 
@@ -41,6 +41,20 @@ gat pf ac grid.arrow --out flows.parquet --enforce-q-limits
 
 When a generator hits its Q limit (qmin or qmax), the bus switches from PV (voltage-controlled) to PQ (load bus) and the reactive output is clamped. This produces more physically accurate solutions.
 
+**Shunt Element Support (v0.4.0+):**
+
+AC power flow now includes full shunt element modeling (fixed capacitors and reactors). This is essential for achieving exact agreement with external tools like MATPOWER, PowerModels.jl, and PSS/E:
+
+```bash
+gat pf ac grid.arrow --out flows.parquet --include-shunts
+```
+
+Shunts are modeled as constant-admittance injections at their connected bus:
+- `Gs`: Shunt conductance (p.u.) — real power injection
+- `Bs`: Shunt susceptance (p.u.) — reactive power injection (positive = capacitive)
+
+The Y-bus construction includes both branch charging and bus shunt elements, ensuring power balance equations match the physical network.
+
 ---
 
 ## Optimal Power Flow
@@ -72,10 +86,10 @@ gat opf socp grid.arrow --out dispatch.parquet
 
 Second-order cone programming relaxation of AC-OPF. Fast but may produce inexact solutions for meshed networks.
 
-### AC Optimal Power Flow (Full Nonlinear) — v0.3.4
+### AC Optimal Power Flow (Full Nonlinear) — v0.4.0
 
 ```bash
-gat opf ac grid.arrow --out dispatch.parquet --tol 1e-4 --max-iter 200
+gat opf ac-nlp grid.arrow --out dispatch.json --tol 1e-4 --max-iter 200
 ```
 
 Full nonlinear AC-OPF using penalty method with L-BFGS optimizer (argmin crate).
@@ -100,7 +114,7 @@ Subject to:
 4. Project solution onto bounds
 5. Return generator dispatch, bus voltages, and LMPs
 
-**Performance (PGLib v0.3.4):**
+**Performance (PGLib v0.4.0):**
 - 65/68 cases converge (95.6%)
 - Median objective gap: 2.91% vs. baseline
 - 48 cases under 5% gap (76%)
@@ -162,7 +176,7 @@ for (gen, p) in &solution.generator_p {
 
 - `OpfMethod::DcOpf` — Linear DC approximation
 - `OpfMethod::SocpRelaxation` — Second-order cone relaxation
-- `OpfMethod::AcOpf` — Full nonlinear AC-OPF (v0.3.4)
+- `OpfMethod::AcOpf` — Full nonlinear AC-OPF (v0.4.0)
 
 ---
 

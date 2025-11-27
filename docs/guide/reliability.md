@@ -2,7 +2,10 @@
 
 GAT provides comprehensive reliability analysis tools for evaluating power system performance under uncertainty, including Monte Carlo simulation, LOLE/EUE metrics, multi-area coordination, and integration with ADMS operations.
 
-**v0.3.4 Updates:**
+**v0.4.0 Updates:**
+- **LODF/PTDF matrix computation** for fast N-k contingency screening
+- **Probabilistic ranking with EUE** for N-k contingency prioritization
+- **Full N-k evaluation** for flagged high-risk contingencies
 - N-2 contingency benchmarks validated (100% convergence across 45,000 test cases)
 - Q-limit enforcement in reliability power flows
 - Integration with full nonlinear AC-OPF for accurate constraint evaluation
@@ -65,6 +68,95 @@ score = 100 × exp(-LOLE / LOLE_max) ×
 - `LOLE_max`: Threshold LOLE (hours/year, default 5.0)
 - `voltage_weight`: Relative importance (default 0.4)
 - `thermal_weight`: Relative importance (default 0.6)
+
+## N-k Contingency Analysis with LODF/PTDF (v0.4.0)
+
+For N-k analysis with k ≥ 2, the combinatorial explosion makes exhaustive power flow infeasible. GAT uses **Line Outage Distribution Factors (LODFs)** and **Power Transfer Distribution Factors (PTDFs)** for efficient pre-screening.
+
+### Key Concepts
+
+- **PTDF (Power Transfer Distribution Factor):** Sensitivity of branch flow to bus injection.
+  `PTDF[ℓ,n]` = ∂f_ℓ/∂P_n (change in flow on branch ℓ per MW injected at bus n)
+
+- **LODF (Line Outage Distribution Factor):** Redistribution of flow when a branch trips.
+  `LODF[ℓ,m]` = flow increase on branch ℓ when branch m is outaged, as a fraction of the pre-outage flow on branch m.
+
+### Algorithm
+
+```
+For N-k analysis:
+  1. Pre-compute PTDF and LODF matrices (one-time O(n³) cost)
+  2. For each contingency combination, estimate post-contingency flows using LODFs
+  3. Flag combinations where estimated flows exceed 90% of limits
+  4. Run full DC power flow only on flagged cases (~1-5% of total)
+  5. Rank flagged contingencies by Expected Unserved Energy (EUE)
+```
+
+### Usage
+
+```rust
+use gat_algo::contingency::{
+    compute_ptdf_matrix, compute_lodf_matrix,
+    NkScreener, NkScreeningConfig, screen_nk_contingencies,
+};
+
+// Pre-compute sensitivity matrices
+let ptdf = compute_ptdf_matrix(&network)?;
+let lodf = compute_lodf_matrix(&network, &ptdf)?;
+
+// Configure N-2 screening
+let config = NkScreeningConfig {
+    k: 2,                       // N-2 contingencies
+    flow_threshold: 0.9,        // Flag at 90% of limit
+    max_violations: 1000,       // Limit on flagged cases
+    ..Default::default()
+};
+
+// Screen contingencies
+let results = screen_nk_contingencies(&network, &lodf, &config)?;
+
+println!("Screened {} combinations", results.total_screened);
+println!("Flagged {} potential violations", results.flagged.len());
+
+// Run full evaluation on flagged cases
+for contingency in results.flagged.iter().take(100) {
+    let eval = NkEvaluator::new(&network).evaluate(contingency)?;
+    println!(
+        "Contingency {:?}: {} violations, EUE = {:.2} MWh",
+        contingency.branches,
+        eval.violations.len(),
+        eval.expected_unserved_energy
+    );
+}
+```
+
+### Probabilistic Ranking with EUE
+
+Contingencies are ranked by Expected Unserved Energy (EUE) which combines:
+- **Outage probability**: Product of individual component failure rates
+- **Load not served**: MW curtailed during the contingency
+- **Duration**: Expected time to restore (MTTR)
+
+```rust
+EUE = P(outage) × Load_curtailed × MTTR
+```
+
+This prioritizes contingencies that are both likely and impactful.
+
+### Performance
+
+- **PTDF/LODF computation**: O(n³) where n = number of buses (one-time)
+- **Screening**: O(C(m,k)) where m = branches, k = contingency order
+- **Full evaluation**: Only ~1-5% of screened cases require full power flow
+
+For IEEE 118-bus network with 186 branches:
+- N-1: 186 contingencies → all evaluated
+- N-2: 17,205 combinations → ~500-800 flagged for full evaluation
+
+### References
+
+- Wood & Wollenberg, "Power Generation, Operation and Control", Ch. 9
+- Alsac et al., "Fast Calculation of LODF and Application to Branch Outage Studies"
 
 ## Usage Examples
 
