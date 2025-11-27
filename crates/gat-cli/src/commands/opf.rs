@@ -1,6 +1,9 @@
+use std::fs::File;
+use std::io::Write;
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use gat_algo::opf::ac_nlp::{solve_ac_opf, AcOpfProblem};
 use gat_algo::power_flow;
 use gat_algo::LpSolverKind;
 use gat_cli::cli::OpfCommands;
@@ -105,6 +108,81 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
                     );
                 }
                 res
+            })();
+            result
+        }
+        OpfCommands::AcNlp {
+            grid_file,
+            out,
+            tol,
+            max_iter,
+            warm_start,
+            threads,
+        } => {
+            configure_threads(threads);
+            let result = (|| -> Result<()> {
+                // Load network
+                let network = importers::load_grid_from_arrow(grid_file.as_str())
+                    .context("loading grid file")?;
+
+                // Build AC-OPF problem
+                let problem = AcOpfProblem::from_network(&network)
+                    .context("building AC-OPF problem from network")?;
+
+                // Solve using penalty method + L-BFGS
+                let solution = solve_ac_opf(&problem, *max_iter as usize, *tol)
+                    .context("solving AC-OPF")?;
+
+                // Output results
+                if solution.converged {
+                    println!(
+                        "AC-OPF converged in {} iterations (objective: ${:.2}/hr)",
+                        solution.iterations,
+                        solution.objective_value
+                    );
+
+                    // Print generator dispatch summary
+                    println!("\nGenerator Dispatch:");
+                    for (gen, mw) in &solution.generator_p {
+                        let mvar = solution.generator_q.get(gen).unwrap_or(&0.0);
+                        println!("  {}: {:.1} MW, {:.1} MVAr", gen, mw, mvar);
+                    }
+
+                    // Print voltage summary
+                    let v_min = solution.bus_voltage_mag.values().copied()
+                        .min_by(|a, b| a.partial_cmp(b).unwrap())
+                        .unwrap_or(0.0);
+                    let v_max = solution.bus_voltage_mag.values().copied()
+                        .max_by(|a, b| a.partial_cmp(b).unwrap())
+                        .unwrap_or(0.0);
+                    println!("\nVoltage range: {:.4} - {:.4} p.u.", v_min, v_max);
+
+                    // Write JSON output
+                    let json = serde_json::to_string_pretty(&solution)
+                        .context("serializing solution to JSON")?;
+                    let mut file = File::create(out)
+                        .context("creating output file")?;
+                    file.write_all(json.as_bytes())
+                        .context("writing JSON output")?;
+
+                    println!("\nResults written to {}", out);
+
+                    record_run(
+                        out,
+                        "opf ac-nlp",
+                        &[
+                            ("grid_file", grid_file),
+                            ("threads", threads),
+                            ("tol", &tol.to_string()),
+                            ("max_iter", &max_iter.to_string()),
+                            ("warm_start", warm_start),
+                        ],
+                    );
+                } else {
+                    println!("AC-OPF did not converge after {} iterations", solution.iterations);
+                }
+
+                Ok(())
             })();
             result
         }

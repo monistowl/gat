@@ -1405,7 +1405,7 @@ pub enum OpfCommands {
         #[arg(long)]
         out_partitions: Option<String>,
     },
-    /// Run AC optimal power flow
+    /// Run AC optimal power flow (fast-decoupled, linear approximation)
     Ac {
         /// Path to the grid data file (Arrow format)
         grid_file: String,
@@ -1427,6 +1427,30 @@ pub enum OpfCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+    },
+    /// Run full nonlinear AC-OPF with cost optimization
+    ///
+    /// Uses penalty method + L-BFGS to solve the full nonlinear AC optimal power
+    /// flow problem including voltage magnitudes, angles, and generator dispatch.
+    /// Minimizes total generation cost subject to power balance and physical limits.
+    AcNlp {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Output JSON file for dispatch results
+        #[arg(short, long)]
+        out: String,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-4")]
+        tol: f64,
+        /// Maximum number of iterations
+        #[arg(long, default_value = "200")]
+        max_iter: u32,
+        /// Warm-start method: flat, dc, socp
+        #[arg(long, default_value = "flat")]
+        warm_start: String,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
     },
 }
 

@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use serde::Serialize;
+
 /// OPF solution method
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 pub enum OpfMethod {
     /// Merit-order economic dispatch (no network constraints)
     EconomicDispatch,
@@ -41,7 +43,7 @@ impl std::str::FromStr for OpfMethod {
 }
 
 /// Type of constraint for reporting
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum ConstraintType {
     GeneratorPMax,
     GeneratorPMin,
@@ -54,7 +56,7 @@ pub enum ConstraintType {
 }
 
 /// Information about a binding or violated constraint
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ConstraintInfo {
     pub name: String,
     pub constraint_type: ConstraintType,
@@ -64,7 +66,7 @@ pub struct ConstraintInfo {
 }
 
 /// OPF solution output
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct OpfSolution {
     // === Status ===
     pub converged: bool,
