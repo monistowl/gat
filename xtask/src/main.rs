@@ -394,12 +394,56 @@ fn install_solver_binary(info: &SolverInfo) -> Result<()> {
         fs::set_permissions(&dest, perms)?;
     }
 
+    // Register solver in solvers.toml
+    register_solver_in_state(info)?;
+
     println!();
     println!("Installed {} to {}", info.crate_name, dest.display());
     println!();
     println!("To enable native solvers, add to ~/.gat/config/gat.toml:");
     println!("  [solvers]");
     println!("  native_enabled = true");
+
+    Ok(())
+}
+
+fn register_solver_in_state(info: &SolverInfo) -> Result<()> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+    let state_path = home.join(".gat").join("config").join("solvers.toml");
+
+    // Read existing state or create new
+    let mut state: toml::Table = if state_path.exists() {
+        let content = fs::read_to_string(&state_path)?;
+        toml::from_str(&content).unwrap_or_default()
+    } else {
+        toml::Table::new()
+    };
+
+    // Ensure protocol_version
+    state.entry("protocol_version".to_string())
+        .or_insert(toml::Value::Integer(1));
+
+    // Get or create installed table
+    let installed = state.entry("installed".to_string())
+        .or_insert(toml::Value::Table(toml::Table::new()))
+        .as_table_mut()
+        .ok_or_else(|| anyhow::anyhow!("Invalid solvers.toml format"))?;
+
+    // Add/update solver entry
+    let mut solver_entry = toml::Table::new();
+    solver_entry.insert("version".to_string(), toml::Value::String(env!("CARGO_PKG_VERSION").to_string()));
+    solver_entry.insert("binary_path".to_string(), toml::Value::String(
+        home.join(".gat").join("solvers").join(info.crate_name).to_string_lossy().to_string()
+    ));
+    solver_entry.insert("installed_at".to_string(), toml::Value::String(
+        chrono::Utc::now().to_rfc3339()
+    ));
+
+    installed.insert(info.name.to_string(), toml::Value::Table(solver_entry));
+
+    // Write back
+    fs::create_dir_all(state_path.parent().unwrap())?;
+    fs::write(&state_path, toml::to_string_pretty(&state)?)?;
 
     Ok(())
 }
