@@ -151,3 +151,52 @@ build_ipopt() {
 }
 
 build_ipopt
+
+# =============================================================================
+# Verify Installation
+# =============================================================================
+verify_install() {
+    echo ""
+    echo "=== Verifying Installation ==="
+
+    local ERRORS=0
+
+    # Check libraries exist
+    for lib in libipopt.so libcoinmumps.a libcoinmetis.a; do
+        if [ -f "$PREFIX/lib/$lib" ]; then
+            echo "✓ Found $lib"
+        else
+            echo "✗ Missing $lib"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+
+    # Check pkg-config
+    if [ -f "$PREFIX/lib/pkgconfig/ipopt.pc" ]; then
+        echo "✓ Found ipopt.pc"
+    else
+        echo "✗ Missing ipopt.pc"
+        ERRORS=$((ERRORS + 1))
+    fi
+
+    if [ $ERRORS -gt 0 ]; then
+        echo ""
+        echo "ERROR: Installation incomplete ($ERRORS errors)"
+        exit 1
+    fi
+
+    echo ""
+    echo "=== Build Complete ==="
+    echo ""
+    echo "IPOPT installed to: $PREFIX"
+    echo ""
+    echo "To use with Cargo:"
+    echo "  export PKG_CONFIG_PATH=\"$PREFIX/lib/pkgconfig:\$PKG_CONFIG_PATH\""
+    echo "  export LD_LIBRARY_PATH=\"$PREFIX/lib:\$LD_LIBRARY_PATH\""
+    echo "  cargo build --features solver-ipopt"
+    echo ""
+    echo "Or use the wrapper script:"
+    echo "  ./scripts/with-ipopt.sh cargo test --features solver-ipopt"
+}
+
+verify_install
