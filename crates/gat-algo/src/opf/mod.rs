@@ -157,17 +157,13 @@ impl OpfSolver {
 
                     #[cfg(feature = "native-dispatch")]
                     {
-                        // Check if IPOPT is actually installed
-                        if !is_native_solver_available("ipopt") {
-                            return Err(OpfError::NotImplemented(
-                                "Native IPOPT requested but not installed. \
-                                 Install with: cargo xtask solver build ipopt --install"
-                                    .to_string(),
-                            ));
+                        if native_dispatch::is_ipopt_available() {
+                            return native_dispatch::solve_ac_opf_native(
+                                network,
+                                self.timeout_seconds,
+                            );
                         }
-                        // TODO: Actually dispatch to native IPOPT via IPC
-                        // For now, fall through to L-BFGS with a warning
-                        eprintln!("Warning: Native IPOPT requested but IPC dispatch not yet implemented, using L-BFGS");
+                        // Fall through to L-BFGS if IPOPT not installed
                     }
                 }
 
@@ -184,26 +180,3 @@ impl Default for OpfSolver {
     }
 }
 
-/// Check if a native solver is available (installed and enabled).
-#[cfg(feature = "native-dispatch")]
-fn is_native_solver_available(name: &str) -> bool {
-    // Check the solvers state file
-    let home = match dirs::home_dir() {
-        Some(h) => h,
-        None => return false,
-    };
-
-    let state_path = home.join(".gat").join("config").join("solvers.toml");
-    if !state_path.exists() {
-        return false;
-    }
-
-    // Parse the state file
-    let contents = match std::fs::read_to_string(&state_path) {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
-
-    // Check if solver is in the installed table
-    contents.contains(&format!("[installed.{}]", name))
-}

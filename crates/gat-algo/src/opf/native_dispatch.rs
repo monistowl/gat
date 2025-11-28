@@ -298,6 +298,71 @@ pub fn is_clp_available() -> bool {
     SolverProcess::find_binary(SolverId::Clp).is_ok()
 }
 
+/// Solve AC-OPF using the native IPOPT solver via subprocess.
+///
+/// This function:
+/// 1. Converts the Network to a ProblemBatch
+/// 2. Spawns the gat-ipopt solver binary
+/// 3. Sends the problem via Arrow IPC stdin
+/// 4. Receives the solution via Arrow IPC stdout
+/// 5. Converts back to OpfSolution
+pub fn solve_ac_opf_native(
+    network: &Network,
+    timeout_seconds: u64,
+) -> Result<OpfSolution, OpfError> {
+    // Find the solver binary
+    let binary_path = SolverProcess::find_binary(SolverId::Ipopt).map_err(|e| {
+        OpfError::NotImplemented(format!(
+            "Native IPOPT solver not found: {}. \
+             Build with: cargo build -p gat-ipopt --features ipopt-sys --release",
+            e
+        ))
+    })?;
+
+    // Convert network to IPC format
+    let problem = network_to_problem(network, ProblemType::AcOpf, timeout_seconds);
+
+    // Create and run solver process
+    let solver = SolverProcess::new(SolverId::Ipopt, binary_path, timeout_seconds);
+    let solution = solver
+        .solve_blocking(&problem)
+        .map_err(|e| OpfError::NumericalIssue(format!("Native IPOPT solver failed: {}", e)))?;
+
+    // Check solution status
+    match solution.status {
+        SolutionStatus::Optimal => {}
+        SolutionStatus::Infeasible => {
+            return Err(OpfError::Infeasible("Problem is infeasible".to_string()));
+        }
+        SolutionStatus::Unbounded => {
+            return Err(OpfError::Unbounded);
+        }
+        SolutionStatus::Timeout => {
+            return Err(OpfError::SolverTimeout(std::time::Duration::from_secs(
+                timeout_seconds,
+            )));
+        }
+        SolutionStatus::IterationLimit => {
+            return Err(OpfError::NumericalIssue(
+                "Iteration limit reached".to_string(),
+            ));
+        }
+        _ => {
+            if let Some(msg) = &solution.error_message {
+                return Err(OpfError::NumericalIssue(msg.clone()));
+            }
+        }
+    }
+
+    // Convert back to OpfSolution
+    Ok(solution_to_opf(&solution, network, OpfMethod::AcOpf))
+}
+
+/// Check if the native IPOPT solver is available.
+pub fn is_ipopt_available() -> bool {
+    SolverProcess::find_binary(SolverId::Ipopt).is_ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
