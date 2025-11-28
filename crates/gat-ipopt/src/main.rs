@@ -133,39 +133,301 @@ fn run() -> Result<()> {
 
 /// Solve the optimization problem using IPOPT.
 ///
-/// This is a placeholder implementation. A full implementation would:
-/// 1. Convert ProblemBatch to IPOPT's NLP format
-/// 2. Set up power flow equations as nonlinear constraints
-/// 3. Configure IPOPT options for AC-OPF
-/// 4. Parse solution back to SolutionBatch format
+/// Converts ProblemBatch to AcOpfProblem, solves using IPOPT, and converts
+/// the solution back to SolutionBatch format.
 #[cfg(feature = "ipopt-sys")]
 fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
-    // TODO: Implement full IPOPT integration
-    // This requires:
-    // - Formulating the AC-OPF as an NLP
-    // - Implementing the required IPOPT callbacks
-    // - Mapping solution back to GAT's data structures
+    use gat_algo::opf::ac_nlp::{branch_flow, ipopt_solver, AcOpfProblem, BranchData, BusData, GenData, YBus};
+    use gat_core::{BusId, CostModel};
+    use std::collections::HashMap;
+    use std::time::Instant;
 
-    info!("IPOPT integration not fully implemented - returning placeholder");
+    let start_time = Instant::now();
+
+    info!("Converting ProblemBatch to AcOpfProblem...");
+
+    // ========================================================================
+    // BUILD BUS ID MAPPING (external ID -> internal index)
+    // ========================================================================
+    let bus_map: HashMap<i64, usize> = problem
+        .bus_id
+        .iter()
+        .enumerate()
+        .map(|(idx, &id)| (id, idx))
+        .collect();
+
+    // ========================================================================
+    // BUILD Y-BUS MATRIX FROM BRANCH DATA
+    // ========================================================================
+    let n_bus = problem.bus_id.len();
+    let mut ybus = YBus::new(n_bus);
+
+    for i in 0..problem.branch_id.len() {
+        if problem.branch_status[i] == 0 {
+            continue; // Skip offline branches
+        }
+
+        let from_idx = *bus_map.get(&problem.branch_from[i]).ok_or_else(|| {
+            anyhow::anyhow!("Branch {} references unknown from bus {}", i, problem.branch_from[i])
+        })?;
+        let to_idx = *bus_map.get(&problem.branch_to[i]).ok_or_else(|| {
+            anyhow::anyhow!("Branch {} references unknown to bus {}", i, problem.branch_to[i])
+        })?;
+
+        let r = problem.branch_r[i];
+        let x = problem.branch_x[i];
+        let b = problem.branch_b[i];
+        let tap = problem.branch_tap[i];
+        let shift = problem.branch_shift[i];
+
+        // Series admittance: y = 1/z = 1/(r + jx)
+        let z_sq = r * r + x * x;
+        if z_sq < 1e-12 {
+            anyhow::bail!("Branch {} has zero impedance (r={}, x={})", i, r, x);
+        }
+        let g = r / z_sq;
+        let b_series = -x / z_sq;
+
+        // Add to Y-bus (with tap ratio and phase shift)
+        ybus.add_branch_pi_model(from_idx, to_idx, g, b_series, b, tap, shift);
+    }
+
+    debug!("Y-bus built with {} non-zeros", ybus.nnz());
+
+    // ========================================================================
+    // BUILD BUS DATA
+    // ========================================================================
+    let buses: Vec<BusData> = (0..n_bus)
+        .map(|i| BusData {
+            id: BusId::new(problem.bus_id[i] as u32),
+            name: if i < problem.bus_name.len() {
+                problem.bus_name[i].clone()
+            } else {
+                format!("Bus{}", problem.bus_id[i])
+            },
+            index: i,
+            v_min: problem.bus_v_min[i],
+            v_max: problem.bus_v_max[i],
+            p_load: problem.bus_p_load[i],
+            q_load: problem.bus_q_load[i],
+        })
+        .collect();
+
+    // ========================================================================
+    // BUILD GENERATOR DATA
+    // ========================================================================
+    let n_gen = problem.gen_id.len();
+    let mut generators = Vec::with_capacity(n_gen);
+
+    for i in 0..n_gen {
+        if problem.gen_status[i] == 0 {
+            continue; // Skip offline generators
+        }
+
+        let bus_idx = *bus_map.get(&problem.gen_bus_id[i]).ok_or_else(|| {
+            anyhow::anyhow!("Generator {} references unknown bus {}", i, problem.gen_bus_id[i])
+        })?;
+
+        // Build cost model from coefficients
+        let c0 = problem.gen_cost_c0[i];
+        let c1 = problem.gen_cost_c1[i];
+        let c2 = problem.gen_cost_c2[i];
+        let cost_coeffs = vec![c0, c1, c2];
+        let cost_model = CostModel::Polynomial(cost_coeffs.clone());
+
+        generators.push(GenData {
+            name: format!("Gen{}", problem.gen_id[i]),
+            bus_id: BusId::new(problem.gen_bus_id[i] as u32),
+            pmin_mw: problem.gen_p_min[i],
+            pmax_mw: problem.gen_p_max[i],
+            qmin_mvar: problem.gen_q_min[i],
+            qmax_mvar: problem.gen_q_max[i],
+            cost_coeffs,
+            cost_model,
+            capability_curve: Vec::new(),
+        });
+    }
+
+    if generators.is_empty() {
+        anyhow::bail!("No online generators in problem");
+    }
+
+    // Build generator-to-bus index mapping
+    let gen_bus_idx: Vec<usize> = generators
+        .iter()
+        .map(|g| *bus_map.get(&(g.bus_id.0 as i64)).unwrap_or(&0))
+        .collect();
+
+    // ========================================================================
+    // BUILD BRANCH DATA FOR FLOW CALCULATIONS
+    // ========================================================================
+    let mut branches = Vec::with_capacity(problem.branch_id.len());
+    for i in 0..problem.branch_id.len() {
+        if problem.branch_status[i] == 0 {
+            continue;
+        }
+
+        let from_idx = *bus_map.get(&problem.branch_from[i]).unwrap();
+        let to_idx = *bus_map.get(&problem.branch_to[i]).unwrap();
+
+        branches.push(BranchData {
+            name: format!("Branch{}", problem.branch_id[i]),
+            from_idx,
+            to_idx,
+            r: problem.branch_r[i],
+            x: problem.branch_x[i],
+            b_charging: problem.branch_b[i],
+            tap: problem.branch_tap[i],
+            shift: problem.branch_shift[i],
+            rate_mva: problem.branch_rate[i],
+            angle_diff_max: 0.0,
+        });
+    }
+
+    let n_branch = branches.len();
+
+    // ========================================================================
+    // CONSTRUCT AC-OPF PROBLEM
+    // ========================================================================
+    let n_var = 2 * n_bus + 2 * generators.len();
+    let ac_problem = AcOpfProblem {
+        ybus,
+        buses,
+        generators,
+        ref_bus: 0,
+        base_mva: problem.base_mva,
+        n_bus,
+        n_gen: generators.len(),
+        n_var,
+        v_offset: 0,
+        theta_offset: n_bus,
+        pg_offset: 2 * n_bus,
+        qg_offset: 2 * n_bus + generators.len(),
+        gen_bus_idx,
+        branches,
+        n_branch,
+    };
+
+    info!(
+        "AC-OPF problem: {} buses, {} generators, {} branches, {} variables",
+        ac_problem.n_bus, ac_problem.n_gen, ac_problem.n_branch, ac_problem.n_var
+    );
+
+    // ========================================================================
+    // SOLVE WITH IPOPT
+    // ========================================================================
+    info!("Calling IPOPT solver...");
+    let max_iter = Some(problem.max_iterations as usize);
+    let tol = Some(problem.tolerance);
+
+    let opf_solution = match ipopt_solver::solve_with_ipopt(&ac_problem, max_iter, tol) {
+        Ok(sol) => sol,
+        Err(e) => {
+            error!("IPOPT solver failed: {:?}", e);
+            return Ok(SolutionBatch {
+                status: SolutionStatus::Error,
+                objective: f64::NAN,
+                iterations: 0,
+                solve_time_ms: start_time.elapsed().as_millis() as i64,
+                error_message: Some(format!("IPOPT solver error: {}", e)),
+                bus_id: problem.bus_id.clone(),
+                bus_v_mag: vec![f64::NAN; problem.bus_id.len()],
+                bus_v_ang: vec![f64::NAN; problem.bus_id.len()],
+                bus_lmp: vec![f64::NAN; problem.bus_id.len()],
+                gen_id: problem.gen_id.clone(),
+                gen_p: vec![f64::NAN; problem.gen_id.len()],
+                gen_q: vec![f64::NAN; problem.gen_id.len()],
+                branch_id: problem.branch_id.clone(),
+                branch_p_from: vec![f64::NAN; problem.branch_id.len()],
+                branch_q_from: vec![f64::NAN; problem.branch_id.len()],
+                branch_p_to: vec![f64::NAN; problem.branch_id.len()],
+                branch_q_to: vec![f64::NAN; problem.branch_id.len()],
+            });
+        }
+    };
+
+    let solve_time_ms = start_time.elapsed().as_millis() as i64;
+
+    info!(
+        "IPOPT converged={}, objective={:.2} $/hr",
+        opf_solution.converged, opf_solution.objective_value
+    );
+
+    // ========================================================================
+    // CONVERT SOLUTION BACK TO SOLUTIONBATCH
+    // ========================================================================
+
+    // Extract bus voltages (convert angles from degrees to radians for consistency)
+    let mut bus_v_mag = vec![f64::NAN; problem.bus_id.len()];
+    let mut bus_v_ang = vec![f64::NAN; problem.bus_id.len()];
+    let mut bus_lmp = vec![0.0; problem.bus_id.len()];
+
+    for (i, bus) in ac_problem.buses.iter().enumerate() {
+        if let Some(&v_mag) = opf_solution.bus_voltage_mag.get(&bus.name) {
+            bus_v_mag[i] = v_mag;
+        }
+        if let Some(&v_ang_deg) = opf_solution.bus_voltage_ang.get(&bus.name) {
+            bus_v_ang[i] = v_ang_deg; // Already in degrees from OpfSolution
+        }
+        if let Some(&lmp) = opf_solution.bus_lmp.get(&bus.name) {
+            bus_lmp[i] = lmp;
+        }
+    }
+
+    // Extract generator dispatch
+    let mut gen_p = vec![f64::NAN; problem.gen_id.len()];
+    let mut gen_q = vec![f64::NAN; problem.gen_id.len()];
+
+    for (i, gen) in ac_problem.generators.iter().enumerate() {
+        if let Some(&p_mw) = opf_solution.generator_p.get(&gen.name) {
+            gen_p[i] = p_mw;
+        }
+        if let Some(&q_mvar) = opf_solution.generator_q.get(&gen.name) {
+            gen_q[i] = q_mvar;
+        }
+    }
+
+    // Compute branch flows from voltage solution
+    let v: Vec<f64> = bus_v_mag.clone();
+    let theta: Vec<f64> = bus_v_ang.iter().map(|&ang| ang.to_radians()).collect();
+    let branch_flows = branch_flow::compute_branch_flows(&ac_problem, &v, &theta);
+
+    let mut branch_p_from = vec![0.0; problem.branch_id.len()];
+    let mut branch_q_from = vec![0.0; problem.branch_id.len()];
+    let mut branch_p_to = vec![0.0; problem.branch_id.len()];
+    let mut branch_q_to = vec![0.0; problem.branch_id.len()];
+
+    for (i, (pf, qf, pt, qt)) in branch_flows.iter().enumerate() {
+        if i < problem.branch_id.len() {
+            branch_p_from[i] = *pf;
+            branch_q_from[i] = *qf;
+            branch_p_to[i] = *pt;
+            branch_q_to[i] = *qt;
+        }
+    }
 
     Ok(SolutionBatch {
-        status: SolutionStatus::Error,
-        objective: f64::NAN,
-        iterations: 0,
-        solve_time_ms: 0,
-        error_message: Some("IPOPT integration not yet complete".to_string()),
+        status: if opf_solution.converged {
+            SolutionStatus::Optimal
+        } else {
+            SolutionStatus::Error
+        },
+        objective: opf_solution.objective_value,
+        iterations: opf_solution.iterations as i32,
+        solve_time_ms,
+        error_message: None,
         bus_id: problem.bus_id.clone(),
-        bus_v_mag: vec![1.0; problem.bus_id.len()],
-        bus_v_ang: vec![0.0; problem.bus_id.len()],
-        bus_lmp: vec![0.0; problem.bus_id.len()],
+        bus_v_mag,
+        bus_v_ang,
+        bus_lmp,
         gen_id: problem.gen_id.clone(),
-        gen_p: vec![0.0; problem.gen_id.len()],
-        gen_q: vec![0.0; problem.gen_id.len()],
+        gen_p,
+        gen_q,
         branch_id: problem.branch_id.clone(),
-        branch_p_from: vec![0.0; problem.branch_id.len()],
-        branch_q_from: vec![0.0; problem.branch_id.len()],
-        branch_p_to: vec![0.0; problem.branch_id.len()],
-        branch_q_to: vec![0.0; problem.branch_id.len()],
+        branch_p_from,
+        branch_q_from,
+        branch_p_to,
+        branch_q_to,
     })
 }
 
