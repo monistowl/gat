@@ -48,6 +48,28 @@ struct DiagnosticsEntry {
     converged: bool,
 }
 
+/// Native solver preference
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SolverPreference {
+    /// Use pure Rust solvers (L-BFGS for AC-OPF)
+    None,
+    /// Prefer native solvers if available (IPOPT), fall back to pure Rust
+    Prefer,
+    /// Require native solvers, fail if unavailable
+    Require,
+}
+
+impl SolverPreference {
+    fn from_str(s: &str) -> anyhow::Result<Self> {
+        match s.to_lowercase().as_str() {
+            "none" | "" => Ok(SolverPreference::None),
+            "prefer" => Ok(SolverPreference::Prefer),
+            "require" => Ok(SolverPreference::Require),
+            _ => Err(anyhow::anyhow!("Invalid solver preference '{}': use none, prefer, or require", s)),
+        }
+    }
+}
+
 /// Configuration for OPFData benchmark runs
 #[derive(Debug)]
 struct BenchmarkConfig {
@@ -61,6 +83,8 @@ struct BenchmarkConfig {
     max_iter: u32,
     diagnostics_log: Option<String>,
     strict: bool,
+    /// Native solver preference for AC-OPF
+    solver_pref: SolverPreference,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -75,10 +99,14 @@ pub fn handle(
     max_iter: u32,
     diagnostics_log: Option<&str>,
     strict: bool,
+    solver: &str,
 ) -> Result<()> {
     // Parse OPF method
     let opf_method = OpfMethod::from_str(method)
         .map_err(|e| anyhow::anyhow!("Invalid OPF method '{}': {}", method, e))?;
+
+    // Parse solver preference
+    let solver_pref = SolverPreference::from_str(solver)?;
 
     let config = BenchmarkConfig {
         opfdata_dir: opfdata_dir.to_string(),
@@ -91,9 +119,15 @@ pub fn handle(
         max_iter,
         diagnostics_log: diagnostics_log.map(|s| s.to_string()),
         strict,
+        solver_pref,
     };
 
-    eprintln!("Using OPF method: {}", config.method);
+    let solver_info = match solver_pref {
+        SolverPreference::None => "",
+        SolverPreference::Prefer => " (prefer IPOPT)",
+        SolverPreference::Require => " (require IPOPT)",
+    };
+    eprintln!("Using OPF method: {}{}", config.method, solver_info);
     run_benchmark(&config)
 }
 
@@ -150,11 +184,12 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     let tol = config.tol;
     let max_iter = config.max_iter;
     let method = config.method;
+    let solver_pref = config.solver_pref;
 
     let outputs: Vec<BenchmarkSampleOutput> = sample_refs
         .par_iter()
         .filter_map(|sample_ref| {
-            match benchmark_opfdata_sample(sample_ref, method, tol, max_iter) {
+            match benchmark_opfdata_sample(sample_ref, method, tol, max_iter, solver_pref) {
                 Ok(output) => Some(output),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", sample_ref.sample_id, e);
@@ -271,6 +306,7 @@ fn benchmark_opfdata_sample(
     method: OpfMethod,
     tol: f64,
     max_iter: u32,
+    solver_pref: SolverPreference,
 ) -> Result<BenchmarkSampleOutput> {
     let load_start = Instant::now();
     let (instance, diagnostics) =
@@ -309,11 +345,13 @@ fn benchmark_opfdata_sample(
     }
     let num_branches = instance.network.graph.edge_count();
 
-    // Solve OPF using selected method
+    // Solve OPF using selected method with native solver preference
     let solver = OpfSolver::new()
         .with_method(method)
         .with_max_iterations(max_iter as usize)
-        .with_tolerance(tol);
+        .with_tolerance(tol)
+        .prefer_native(solver_pref == SolverPreference::Prefer || solver_pref == SolverPreference::Require)
+        .require_native(solver_pref == SolverPreference::Require);
 
     let solve_start = Instant::now();
     let solution = solver

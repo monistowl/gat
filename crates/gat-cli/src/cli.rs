@@ -524,6 +524,12 @@ pub enum BenchmarkCommands {
         /// Use enhanced SOCP (OBBT + QC envelopes for tighter relaxation)
         #[arg(long)]
         enhanced: bool,
+        /// Native solver preference for AC-OPF: none, prefer, require
+        /// - none: use pure Rust L-BFGS (default)
+        /// - prefer: use IPOPT if available, fall back to L-BFGS
+        /// - require: require IPOPT, fail if unavailable
+        #[arg(long, default_value = "none")]
+        solver: String,
     },
     /// Run OPFData benchmark suite (GNN-format JSON)
     Opfdata {
@@ -557,6 +563,12 @@ pub enum BenchmarkCommands {
         /// Fail if any sample has import warnings (for CI quality gates)
         #[arg(long)]
         strict: bool,
+        /// Native solver preference for AC-OPF: none, prefer, require
+        /// - none: use pure Rust L-BFGS (default)
+        /// - prefer: use IPOPT if available, fall back to L-BFGS
+        /// - require: require IPOPT, fail if unavailable
+        #[arg(long, default_value = "none")]
+        solver: String,
     },
 }
 

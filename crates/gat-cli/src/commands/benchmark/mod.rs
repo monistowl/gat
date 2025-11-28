@@ -45,6 +45,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             tol,
             max_iter,
             enhanced,
+            solver,
         } => pglib::handle(
             pglib_dir,
             baseline.as_deref(),
@@ -56,6 +57,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             *tol,
             *max_iter,
             *enhanced,
+            solver,
         ),
         BenchmarkCommands::Opfdata {
             opfdata_dir,
@@ -68,6 +70,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             max_iter,
             diagnostics_log,
             strict,
+            solver,
         } => opfdata::handle(
             opfdata_dir,
             case_filter.as_deref(),
@@ -79,6 +82,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             *max_iter,
             diagnostics_log.as_deref(),
             *strict,
+            solver,
         ),
     }
 }

@@ -1,0 +1,2 @@
+case_name,load_time_ms,solve_time_ms,total_time_ms,converged,iterations,num_buses,num_branches,num_gens,objective_value,baseline_objective,objective_gap_abs,objective_gap_rel,max_vm_violation_pu,max_gen_p_violation_mw,max_branch_flow_violation_mva
+pglib_opf_case14_ieee,8.253604,22.373719,30.627323,true,0,14,20,5,2169.556144995738,2178.1,8.543855004261786,0.003922618339039432,0.040000000000000036,0.0,0.0

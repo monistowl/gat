@@ -175,7 +175,18 @@ impl OpfSolver {
                 }
             }
             OpfMethod::AcOpf => {
-                // Try native IPOPT if preferred and available
+                // Try direct IPOPT if solver-ipopt feature is enabled and preferred
+                #[cfg(feature = "solver-ipopt")]
+                if self.prefer_native || self.require_native {
+                    let problem = ac_nlp::AcOpfProblem::from_network(network)?;
+                    return ac_nlp::solve_with_ipopt(
+                        &problem,
+                        Some(self.max_iterations),
+                        Some(self.tolerance),
+                    );
+                }
+
+                // Try native-dispatch IPOPT if preferred and available
                 #[cfg(feature = "native-dispatch")]
                 if self.prefer_native && native_dispatch::is_ipopt_available() {
                     return native_dispatch::solve_ac_opf_native(network, self.timeout_seconds);
@@ -183,17 +194,16 @@ impl OpfSolver {
 
                 // Check if native IPOPT is required but not available
                 if self.require_native {
-                    #[cfg(not(feature = "native-dispatch"))]
+                    #[cfg(not(any(feature = "solver-ipopt", feature = "native-dispatch")))]
                     {
                         return Err(OpfError::NotImplemented(
-                            "Native IPOPT requested but 'native-dispatch' feature not enabled. \
-                             Either install IPOPT (`cargo xtask solver build ipopt --install`) \
-                             or use the pure-Rust solver by removing require_native(true)."
+                            "Native IPOPT requested but neither 'solver-ipopt' nor 'native-dispatch' \
+                             feature is enabled. Build with: --features solver-ipopt"
                                 .to_string(),
                         ));
                     }
 
-                    #[cfg(feature = "native-dispatch")]
+                    #[cfg(all(feature = "native-dispatch", not(feature = "solver-ipopt")))]
                     {
                         if !native_dispatch::is_ipopt_available() {
                             return Err(OpfError::NotImplemented(
