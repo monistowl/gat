@@ -252,8 +252,9 @@ pub fn solve_with_ipopt(
     solver.set_option("print_level", 0); // Quiet mode
     solver.set_option("sb", "yes"); // Suppress banner
 
-    // Use exact Hessian for second-order (Newton) convergence
-    // This is faster than limited-memory BFGS for most power system sizes
+    // NOTE: Using exact Hessian but Jacobian is finite-difference (slow).
+    // For larger cases (>14 buses), consider implementing analytical Jacobian.
+    // See: ipopt_solver.rs:161-196 for the FD Jacobian code.
     solver.set_option("hessian_approximation", "exact");
 
     // Solve
