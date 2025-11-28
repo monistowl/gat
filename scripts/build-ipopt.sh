@@ -111,3 +111,43 @@ build_mumps() {
 }
 
 build_mumps
+
+# =============================================================================
+# Build IPOPT (interior point optimizer)
+# =============================================================================
+build_ipopt() {
+    echo ""
+    echo "=== Building IPOPT ==="
+
+    if [ -f "$PREFIX/lib/libipopt.so" ]; then
+        echo "IPOPT already built, skipping..."
+        return 0
+    fi
+
+    local IPOPT_DIR="$VENDOR/Ipopt-stable-3.14"
+    if [ ! -d "$IPOPT_DIR" ]; then
+        echo "ERROR: IPOPT source not found at $IPOPT_DIR"
+        exit 1
+    fi
+
+    cd "$IPOPT_DIR"
+
+    # Clean any previous build
+    make distclean 2>/dev/null || true
+
+    # Configure with our custom MUMPS and Metis
+    ./configure --prefix="$PREFIX" \
+        --with-mumps="$PREFIX" \
+        --with-metis="$PREFIX" \
+        --with-lapack="-lopenblas" \
+        --enable-shared \
+        CXXFLAGS="-O3 -fopenmp" \
+        LDFLAGS="-fopenmp"
+
+    make -j"$JOBS"
+    make install
+
+    echo "IPOPT installed to $PREFIX"
+}
+
+build_ipopt
