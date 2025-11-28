@@ -32,3 +32,38 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$PREFIX" "$BUILD_DIR"
+
+# =============================================================================
+# Build Metis (graph partitioning for fill reduction)
+# =============================================================================
+build_metis() {
+    echo ""
+    echo "=== Building Metis ==="
+
+    if [ -f "$PREFIX/lib/libcoinmetis.a" ]; then
+        echo "Metis already built, skipping..."
+        return 0
+    fi
+
+    local METIS_ZIP="$VENDOR/ThirdParty-Metis-stable-2.0.zip"
+    if [ ! -f "$METIS_ZIP" ]; then
+        echo "ERROR: Metis source not found at $METIS_ZIP"
+        exit 1
+    fi
+
+    cd "$BUILD_DIR"
+    unzip -q "$METIS_ZIP"
+    cd ThirdParty-Metis-stable-2.0
+
+    # Download Metis source
+    ./get.Metis
+
+    # Configure and build
+    ./configure --prefix="$PREFIX" --disable-shared
+    make -j"$JOBS"
+    make install
+
+    echo "Metis installed to $PREFIX"
+}
+
+build_metis
