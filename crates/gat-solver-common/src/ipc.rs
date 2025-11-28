@@ -85,32 +85,77 @@ pub fn solution_schema() -> Schema {
 pub fn write_problem<W: Write>(problem: &ProblemBatch, writer: W) -> SolverResult<()> {
     let schema = Arc::new(problem_schema());
 
-    // Create record batch with bus data
-    let bus_batch = RecordBatch::try_new(
-        Arc::new(Schema::new(vec![
-            Field::new("bus_id", DataType::Int64, false),
-            Field::new("bus_v_min", DataType::Float64, false),
-            Field::new("bus_v_max", DataType::Float64, false),
-            Field::new("bus_p_load", DataType::Float64, false),
-            Field::new("bus_q_load", DataType::Float64, false),
-            Field::new("bus_type", DataType::Int32, false),
-            Field::new("bus_v_mag", DataType::Float64, false),
-            Field::new("bus_v_ang", DataType::Float64, false),
-        ])),
+    // Determine row count - use max of all arrays, minimum 1 for metadata
+    let n_rows = [
+        problem.bus_id.len(),
+        problem.gen_id.len(),
+        problem.branch_id.len(),
+    ]
+    .into_iter()
+    .max()
+    .unwrap_or(0)
+    .max(1);
+
+    // Helper to pad arrays to n_rows
+    fn pad_i64(arr: &[i64], n: usize) -> Vec<i64> {
+        let mut v = arr.to_vec();
+        v.resize(n, 0);
+        v
+    }
+    fn pad_i32(arr: &[i32], n: usize) -> Vec<i32> {
+        let mut v = arr.to_vec();
+        v.resize(n, 0);
+        v
+    }
+    fn pad_f64(arr: &[f64], n: usize) -> Vec<f64> {
+        let mut v = arr.to_vec();
+        v.resize(n, 0.0);
+        v
+    }
+
+    // Create record batch with ALL fields to match schema
+    let batch = RecordBatch::try_new(
+        schema.clone(),
         vec![
-            Arc::new(Int64Array::from(problem.bus_id.clone())),
-            Arc::new(Float64Array::from(problem.bus_v_min.clone())),
-            Arc::new(Float64Array::from(problem.bus_v_max.clone())),
-            Arc::new(Float64Array::from(problem.bus_p_load.clone())),
-            Arc::new(Float64Array::from(problem.bus_q_load.clone())),
-            Arc::new(Int32Array::from(problem.bus_type.clone())),
-            Arc::new(Float64Array::from(problem.bus_v_mag.clone())),
-            Arc::new(Float64Array::from(problem.bus_v_ang.clone())),
+            // Metadata fields (repeated for each row)
+            Arc::new(Int32Array::from(vec![problem.protocol_version; n_rows])),
+            Arc::new(Float64Array::from(vec![problem.base_mva; n_rows])),
+            Arc::new(Float64Array::from(vec![problem.tolerance; n_rows])),
+            Arc::new(Int32Array::from(vec![problem.max_iterations as i32; n_rows])),
+            // Bus fields
+            Arc::new(Int64Array::from(pad_i64(&problem.bus_id, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.bus_v_min, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.bus_v_max, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.bus_p_load, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.bus_q_load, n_rows))),
+            Arc::new(Int32Array::from(pad_i32(&problem.bus_type, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.bus_v_mag, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.bus_v_ang, n_rows))),
+            // Generator fields
+            Arc::new(Int64Array::from(pad_i64(&problem.gen_id, n_rows))),
+            Arc::new(Int64Array::from(pad_i64(&problem.gen_bus_id, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.gen_p_min, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.gen_p_max, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.gen_q_min, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.gen_q_max, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.gen_cost_c0, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.gen_cost_c1, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.gen_cost_c2, n_rows))),
+            // Branch fields
+            Arc::new(Int64Array::from(pad_i64(&problem.branch_id, n_rows))),
+            Arc::new(Int64Array::from(pad_i64(&problem.branch_from, n_rows))),
+            Arc::new(Int64Array::from(pad_i64(&problem.branch_to, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.branch_r, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.branch_x, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.branch_b, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.branch_rate, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.branch_tap, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&problem.branch_shift, n_rows))),
         ],
     )?;
 
     let mut ipc_writer = StreamWriter::try_new(writer, &schema)?;
-    ipc_writer.write(&bus_batch)?;
+    ipc_writer.write(&batch)?;
     ipc_writer.finish()?;
 
     Ok(())
@@ -224,7 +269,7 @@ pub fn read_problem<R: Read>(reader: R) -> SolverResult<ProblemBatch> {
 pub fn write_solution<W: Write>(solution: &SolutionBatch, writer: W) -> SolverResult<()> {
     let schema = Arc::new(solution_schema());
 
-    // Create record batch with solution data
+    // Convert status to string
     let status_str = match solution.status {
         SolutionStatus::Optimal => "optimal",
         SolutionStatus::Infeasible => "infeasible",
@@ -236,20 +281,56 @@ pub fn write_solution<W: Write>(solution: &SolutionBatch, writer: W) -> SolverRe
         SolutionStatus::Unknown => "unknown",
     };
 
+    // Determine row count - use max of all arrays, minimum 1 for header
+    let n_rows = [
+        solution.bus_id.len(),
+        solution.gen_id.len(),
+        solution.branch_id.len(),
+    ]
+    .into_iter()
+    .max()
+    .unwrap_or(0)
+    .max(1);
+
+    // Helper to pad arrays to n_rows
+    fn pad_i64(arr: &[i64], n: usize) -> Vec<i64> {
+        let mut v = arr.to_vec();
+        v.resize(n, 0);
+        v
+    }
+    fn pad_f64(arr: &[f64], n: usize) -> Vec<f64> {
+        let mut v = arr.to_vec();
+        v.resize(n, 0.0);
+        v
+    }
+
+    // Create record batch with ALL fields to match schema
     let batch = RecordBatch::try_new(
-        Arc::new(Schema::new(vec![
-            Field::new("status", DataType::Utf8, false),
-            Field::new("objective", DataType::Float64, false),
-            Field::new("iterations", DataType::Int32, false),
-            Field::new("solve_time_ms", DataType::Int64, false),
-            Field::new("error_message", DataType::Utf8, true),
-        ])),
+        schema.clone(),
         vec![
-            Arc::new(StringArray::from(vec![status_str])),
-            Arc::new(Float64Array::from(vec![solution.objective])),
-            Arc::new(Int32Array::from(vec![solution.iterations as i32])),
-            Arc::new(Int64Array::from(vec![solution.solve_time_ms as i64])),
-            Arc::new(StringArray::from(vec![solution.error_message.clone()])),
+            // Header fields (repeated for each row)
+            Arc::new(StringArray::from(vec![status_str; n_rows])),
+            Arc::new(Float64Array::from(vec![solution.objective; n_rows])),
+            Arc::new(Int32Array::from(vec![solution.iterations as i32; n_rows])),
+            Arc::new(Int64Array::from(vec![solution.solve_time_ms as i64; n_rows])),
+            Arc::new(StringArray::from(
+                vec![solution.error_message.clone(); n_rows],
+            )),
+            // Bus results
+            Arc::new(Int64Array::from(pad_i64(&solution.bus_id, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.bus_v_mag, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.bus_v_ang, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.bus_lmp, n_rows))),
+            // Generator results
+            Arc::new(Int64Array::from(pad_i64(&solution.gen_id, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.gen_p, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.gen_q, n_rows))),
+            // Branch results
+            Arc::new(Int64Array::from(pad_i64(&solution.branch_id, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.branch_p_from, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.branch_q_from, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.branch_p_to, n_rows))),
+            Arc::new(Float64Array::from(pad_f64(&solution.branch_q_to, n_rows))),
         ],
     )?;
 
