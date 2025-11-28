@@ -168,17 +168,28 @@ impl<'a> ConstrainedProblem for IpoptAcOpf<'a> {
         let g0 = self.problem.equality_constraints(x);
         let mut x_plus = x.to_vec();
 
-        let mut idx = 0;
+        // Compute Jacobian columns: dg/dx_j for each variable j
+        // Store in row-major order to match constraint_jacobian_indices
+        let mut jac = vec![vec![0.0; nv]; nc]; // jac[i][j] = dg_i/dx_j
+
         for j in 0..nv {
             x_plus[j] = x[j] + eps;
             let g_plus = self.problem.equality_constraints(&x_plus);
 
             for i in 0..nc {
-                vals[idx] = (g_plus[i] - g0[i]) / eps;
-                idx += 1;
+                jac[i][j] = (g_plus[i] - g0[i]) / eps;
             }
 
             x_plus[j] = x[j]; // Reset for next iteration
+        }
+
+        // Fill vals in row-major order (matching indices: for i { for j })
+        let mut idx = 0;
+        for i in 0..nc {
+            for j in 0..nv {
+                vals[idx] = jac[i][j];
+                idx += 1;
+            }
         }
 
         true
@@ -703,17 +714,28 @@ impl<'a> ConstrainedProblem for IpoptAcOpfWarmStart<'a> {
         let g0 = self.problem.equality_constraints(x);
         let mut x_plus = x.to_vec();
 
-        let mut idx = 0;
+        // Compute Jacobian columns: dg/dx_j for each variable j
+        // Store in row-major order to match constraint_jacobian_indices
+        let mut jac = vec![vec![0.0; nv]; nc]; // jac[i][j] = dg_i/dx_j
+
         for j in 0..nv {
             x_plus[j] = x[j] + eps;
             let g_plus = self.problem.equality_constraints(&x_plus);
 
             for i in 0..nc {
-                vals[idx] = (g_plus[i] - g0[i]) / eps;
-                idx += 1;
+                jac[i][j] = (g_plus[i] - g0[i]) / eps;
             }
 
             x_plus[j] = x[j];
+        }
+
+        // Fill vals in row-major order (matching indices: for i { for j })
+        let mut idx = 0;
+        for i in 0..nc {
+            for j in 0..nv {
+                vals[idx] = jac[i][j];
+                idx += 1;
+            }
         }
 
         true
