@@ -49,6 +49,8 @@ struct BenchmarkConfig {
     method: OpfMethod,
     tol: f64,
     max_iter: u32,
+    /// Use enhanced SOCP with OBBT and QC envelopes
+    enhanced: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -62,6 +64,7 @@ pub fn handle(
     method: &str,
     tol: f64,
     max_iter: u32,
+    enhanced: bool,
 ) -> Result<()> {
     // Parse OPF method
     let opf_method = OpfMethod::from_str(method)
@@ -77,9 +80,10 @@ pub fn handle(
         method: opf_method,
         tol,
         max_iter,
+        enhanced,
     };
 
-    eprintln!("Using OPF method: {}", config.method);
+    eprintln!("Using OPF method: {}{}", config.method, if enhanced { " (enhanced)" } else { "" });
     run_benchmark(&config)
 }
 
@@ -133,11 +137,12 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     let tol = config.tol;
     let max_iter = config.max_iter;
     let method = config.method;
+    let enhanced = config.enhanced;
 
     let results: Vec<PglibBenchmarkResult> = matpower_files
         .par_iter()
         .filter_map(|(case_name, path)| {
-            match benchmark_pglib_case(case_name, path, &baseline_map, method, tol, max_iter) {
+            match benchmark_pglib_case(case_name, path, &baseline_map, method, tol, max_iter, enhanced) {
                 Ok(result) => Some(result),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", case_name, e);
@@ -250,6 +255,7 @@ fn benchmark_pglib_case(
     method: OpfMethod,
     tol: f64,
     max_iter: u32,
+    enhanced: bool,
 ) -> Result<PglibBenchmarkResult> {
     let load_start = Instant::now();
     let network = load_matpower_network(path)?;
@@ -272,7 +278,8 @@ fn benchmark_pglib_case(
     let solver = OpfSolver::new()
         .with_method(method)
         .with_max_iterations(max_iter as usize)
-        .with_tolerance(tol);
+        .with_tolerance(tol)
+        .enhanced_socp(enhanced);
 
     let solve_start = Instant::now();
     let solution = solver

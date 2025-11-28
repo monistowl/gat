@@ -44,6 +44,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             method,
             tol,
             max_iter,
+            enhanced,
         } => pglib::handle(
             pglib_dir,
             baseline.as_deref(),
@@ -54,6 +55,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             method,
             *tol,
             *max_iter,
+            *enhanced,
         ),
         BenchmarkCommands::Opfdata {
             opfdata_dir,

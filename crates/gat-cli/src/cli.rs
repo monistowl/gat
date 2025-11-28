@@ -521,6 +521,9 @@ pub enum BenchmarkCommands {
         /// Maximum AC solver iterations
         #[arg(long, default_value_t = 200)]
         max_iter: u32,
+        /// Use enhanced SOCP (OBBT + QC envelopes for tighter relaxation)
+        #[arg(long)]
+        enhanced: bool,
     },
     /// Run OPFData benchmark suite (GNN-format JSON)
     Opfdata {
