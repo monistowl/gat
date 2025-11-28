@@ -52,6 +52,8 @@ pub struct OpfSolver {
     require_native: bool,
     /// If true, prefer native solvers when available.
     prefer_native: bool,
+    /// If true, use enhanced SOCP with OBBT bound tightening and QC envelopes.
+    use_enhanced_socp: bool,
 }
 
 impl OpfSolver {
@@ -64,6 +66,7 @@ impl OpfSolver {
             timeout_seconds: 300, // 5 minutes default
             require_native: false,
             prefer_native: false,
+            use_enhanced_socp: false,
         }
     }
 
@@ -118,6 +121,19 @@ impl OpfSolver {
         self
     }
 
+    /// Enable enhanced SOCP with OBBT bound tightening and QC envelopes.
+    ///
+    /// When enabled for `SocpRelaxation`:
+    /// - Applies Optimization-Based Bound Tightening (OBBT) to tighten variable bounds
+    /// - Adds Quadratic Convex (QC) envelope constraints for cos(θ) terms
+    /// - Results in tighter relaxation at the cost of additional computation
+    ///
+    /// Has no effect on other methods.
+    pub fn enhanced_socp(mut self, enhanced: bool) -> Self {
+        self.use_enhanced_socp = enhanced;
+        self
+    }
+
     /// Get the configured method
     pub fn method(&self) -> OpfMethod {
         self.method
@@ -144,7 +160,20 @@ impl OpfSolver {
                 // Fall back to pure-Rust Clarabel solver
                 dc_opf::solve(network, self.max_iterations, self.tolerance)
             }
-            OpfMethod::SocpRelaxation => socp::solve(network, self.max_iterations, self.tolerance),
+            OpfMethod::SocpRelaxation => {
+                if self.use_enhanced_socp {
+                    let config = socp::SocpSolverConfig {
+                        max_iter: self.max_iterations as u32,
+                        tol_feas: self.tolerance,
+                        tol_gap: self.tolerance,
+                        equilibrate: true,
+                        verbose: false,
+                    };
+                    socp::solve_enhanced(network, &config, true, true)
+                } else {
+                    socp::solve(network, self.max_iterations, self.tolerance)
+                }
+            }
             OpfMethod::AcOpf => {
                 // Try native IPOPT if preferred and available
                 #[cfg(feature = "native-dispatch")]
@@ -265,11 +294,12 @@ pub fn solve_cascaded(
     // Stage 2: SOCP with DC warm-start
     let _dc_warm: DcWarmStart = (&dc_solution).into();
 
-    // For now, use standard SOCP solve (warm-starting to be implemented in Phase 3)
+    // Use enhanced SOCP if configured (OBBT + QC envelopes for tighter relaxation)
     let socp_solver = OpfSolver::new()
         .with_method(OpfMethod::SocpRelaxation)
         .with_max_iterations(config.max_iterations)
-        .with_tolerance(config.tolerance);
+        .with_tolerance(config.tolerance)
+        .enhanced_socp(config.use_enhanced_socp);
 
     let socp_solution = socp_solver.solve(network)?;
     result.socp_solution = Some(socp_solution.clone());
@@ -332,6 +362,8 @@ pub struct CascadedConfig {
     pub use_loss_factors: bool,
     /// Whether to prefer native solvers (IPOPT) for AC stage
     pub prefer_native: bool,
+    /// Whether to use enhanced SOCP with OBBT and QC envelopes
+    pub use_enhanced_socp: bool,
     /// Timeout per stage in seconds
     pub timeout_seconds: u64,
 }
@@ -343,6 +375,7 @@ impl Default for CascadedConfig {
             tolerance: 1e-6,
             use_loss_factors: true,
             prefer_native: true,
+            use_enhanced_socp: false, // Disabled by default (adds overhead)
             timeout_seconds: 300,
         }
     }
