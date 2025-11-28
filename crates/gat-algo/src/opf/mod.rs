@@ -143,6 +143,12 @@ impl OpfSolver {
             }
             OpfMethod::SocpRelaxation => socp::solve(network, self.max_iterations, self.tolerance),
             OpfMethod::AcOpf => {
+                // Try native IPOPT if preferred and available
+                #[cfg(feature = "native-dispatch")]
+                if self.prefer_native && native_dispatch::is_ipopt_available() {
+                    return native_dispatch::solve_ac_opf_native(network, self.timeout_seconds);
+                }
+
                 // Check if native IPOPT is required but not available
                 if self.require_native {
                     #[cfg(not(feature = "native-dispatch"))]
@@ -157,16 +163,22 @@ impl OpfSolver {
 
                     #[cfg(feature = "native-dispatch")]
                     {
-                        if native_dispatch::is_ipopt_available() {
-                            return native_dispatch::solve_ac_opf_native(
-                                network,
-                                self.timeout_seconds,
-                            );
+                        if !native_dispatch::is_ipopt_available() {
+                            return Err(OpfError::NotImplemented(
+                                "Native IPOPT requested but not installed. \
+                                 Build with: cargo build -p gat-ipopt --features ipopt-sys --release"
+                                    .to_string(),
+                            ));
                         }
-                        // Fall through to L-BFGS if IPOPT not installed
+                        // IPOPT is available, dispatch to it
+                        return native_dispatch::solve_ac_opf_native(
+                            network,
+                            self.timeout_seconds,
+                        );
                     }
                 }
 
+                // Fall back to pure-Rust L-BFGS solver
                 let problem = ac_nlp::AcOpfProblem::from_network(network)?;
                 ac_nlp::solve_ac_opf(&problem, self.max_iterations, self.tolerance)
             }
