@@ -151,7 +151,7 @@ jobs:
           grep -q "\[installed\]" solver-list.txt || (echo "FAIL: IPOPT not showing as installed" && exit 1)
           echo "SUCCESS: IPOPT properly registered"
 
-  # Job 4: Test solver dispatch logic
+  # Job 4: Test solver dispatch logic and native-dispatch integration
   solver-dispatch:
     name: Test solver dispatch
     runs-on: ubuntu-latest
@@ -166,11 +166,17 @@ jobs:
         with:
           shared-key: native-solvers
 
-      - name: Run dispatch tests
+      - name: Run dispatch tests (base)
         run: cargo test -p gat-algo solver_dispatch --release -- --nocapture
 
       - name: Run dispatch tests with native-dispatch feature
         run: cargo test -p gat-algo solver_dispatch --release --features native-dispatch -- --nocapture
+
+      - name: Run native-dispatch integration tests
+        run: |
+          # Run all tests in native_dispatch.rs (except ignored ones)
+          # Ignored tests require actual solver binaries to be built
+          cargo test -p gat-algo --release --features native-dispatch --test native_dispatch -- --nocapture
 
   # Job 5: IPC protocol verification
   ipc-protocol:
