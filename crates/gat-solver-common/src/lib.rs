@@ -77,6 +77,17 @@ pub enum SolverId {
     /// **DOI:** [10.1007/s10107-004-0559-y](https://doi.org/10.1007/s10107-004-0559-y)
     Ipopt,
 
+    /// CLP - COIN-OR LP solver for linear programs.
+    ///
+    /// Efficient dual revised simplex method for large sparse LP problems.
+    /// Used for DC-OPF and other linear relaxations.
+    ///
+    /// **Algorithm:** Dual revised simplex with presolve
+    /// **Reference:** Forrest, J., & Lougee-Heimer, R. (2005). CBC User's Guide.
+    /// In *Emerging Theory, Methods, and Applications* (pp. 257-277). INFORMS.
+    /// **DOI:** [10.1287/educ.1053.0020](https://doi.org/10.1287/educ.1053.0020)
+    Clp,
+
     /// CBC - COIN-OR Branch and Cut for MIP.
     ///
     /// Solves mixed-integer linear programs using branch-and-cut with
@@ -136,6 +147,7 @@ impl SolverId {
     pub fn binary_name(&self) -> &'static str {
         match self {
             SolverId::Ipopt => "gat-ipopt",
+            SolverId::Clp => "gat-clp",
             SolverId::Cbc => "gat-cbc",
             SolverId::Highs => "gat-highs",
             SolverId::Bonmin => "gat-bonmin",
@@ -148,6 +160,7 @@ impl SolverId {
     pub fn display_name(&self) -> &'static str {
         match self {
             SolverId::Ipopt => "IPOPT",
+            SolverId::Clp => "CLP",
             SolverId::Cbc => "CBC",
             SolverId::Highs => "HiGHS",
             SolverId::Bonmin => "Bonmin",
@@ -160,6 +173,7 @@ impl SolverId {
     pub fn description(&self) -> &'static str {
         match self {
             SolverId::Ipopt => "NLP interior-point optimizer",
+            SolverId::Clp => "LP dual simplex",
             SolverId::Cbc => "MIP branch-and-cut",
             SolverId::Highs => "LP/MIP high-performance",
             SolverId::Bonmin => "MINLP branch-and-bound",
@@ -172,6 +186,7 @@ impl SolverId {
     pub fn all() -> &'static [SolverId] {
         &[
             SolverId::Ipopt,
+            SolverId::Clp,
             SolverId::Cbc,
             SolverId::Highs,
             SolverId::Bonmin,
@@ -193,6 +208,7 @@ impl std::str::FromStr for SolverId {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "ipopt" => Ok(SolverId::Ipopt),
+            "clp" => Ok(SolverId::Clp),
             "cbc" => Ok(SolverId::Cbc),
             "highs" => Ok(SolverId::Highs),
             "bonmin" => Ok(SolverId::Bonmin),

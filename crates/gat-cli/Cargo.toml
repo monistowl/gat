@@ -13,7 +13,6 @@ tui = ["dep:gat-tui"]
 viz = ["dep:gat-viz"]
 all-backends = [
     "solver-clarabel",
-    "solver-coin_cbc",
     "solver-highs",
     "polars-lazy",
     "polars-parquet",
@@ -21,8 +20,9 @@ all-backends = [
 ]
 minimal = ["solver-clarabel", "polars-lazy", "polars-parquet", "polars-ipc"]
 solver-clarabel = ["gat-algo/solver-clarabel"]
-solver-coin_cbc = ["gat-algo/solver-coin_cbc"]
 solver-highs = ["gat-algo/solver-highs"]
+# DEPRECATED: Use native-dispatch + gat-cbc instead. Requires system CBC install.
+solver-coin_cbc = ["gat-algo/solver-coin_cbc"]
 polars-lazy = ["gat-algo/polars-lazy"]
 polars-parquet = ["gat-algo/polars-parquet"]
 polars-ipc = ["gat-algo/polars-ipc"]

@@ -49,6 +49,19 @@ enum Task {
         #[arg(long)]
         install: bool,
     },
+    /// Build COIN-OR solvers from vendored sources
+    #[command(name = "build-solvers")]
+    BuildSolvers {
+        /// Build only CLP (LP solver)
+        #[arg(long)]
+        clp: bool,
+        /// Build only CBC (MIP solver)
+        #[arg(long)]
+        cbc: bool,
+        /// Clean and rebuild from scratch
+        #[arg(long)]
+        clean: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -119,6 +132,7 @@ fn main() -> Result<()> {
             SolverCommand::Clean { solver } => clean_solver(&solver),
         },
         Task::BuildSolver { solver, install } => build_solver(&solver, install),
+        Task::BuildSolvers { clp, cbc, clean } => build_coinor_solvers(clp, cbc, clean),
     }
 }
 
@@ -545,6 +559,109 @@ fn clean_solver(solver: &str) -> Result<()> {
         println!("Removed {}", binary_path.display());
     } else {
         println!("{} is not installed.", info.name);
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// COIN-OR vendored build infrastructure
+// ============================================================================
+
+/// Build COIN-OR solvers from vendored source archives.
+///
+/// This compiles CoinUtils, Osi, CLP, Cgl, and CBC from the ZIP files
+/// in vendor/ and outputs static libraries to target/coinor/.
+fn build_coinor_solvers(clp_only: bool, cbc_only: bool, clean: bool) -> Result<()> {
+    use gat_coinor_build::{CoinorBuildConfig, Component};
+
+    let project_root = std::env::current_dir()?;
+    let vendor_dir = project_root.join("vendor");
+    let target_coinor = project_root.join("target/coinor");
+
+    // Verify vendor directory exists with required files
+    if !vendor_dir.exists() {
+        bail!(
+            "vendor/ directory not found. Expected at: {}",
+            vendor_dir.display()
+        );
+    }
+
+    // Determine which components to build
+    let components: Vec<Component> = if clp_only {
+        println!("Building CLP (LP solver) from vendored sources...");
+        Component::clp_deps().to_vec()
+    } else if cbc_only {
+        println!("Building CBC (MIP solver) from vendored sources...");
+        Component::cbc_deps().to_vec()
+    } else {
+        println!("Building all COIN-OR solvers from vendored sources...");
+        Component::all_in_order().to_vec()
+    };
+
+    // Clean if requested
+    if clean {
+        println!("Cleaning previous build artifacts...");
+        if target_coinor.exists() {
+            fs::remove_dir_all(&target_coinor)?;
+        }
+    }
+
+    // Check for pre-built libraries
+    if !clean {
+        if let Some(artifacts) = gat_coinor_build::find_prebuilt(&target_coinor) {
+            println!();
+            println!("Found pre-built COIN-OR libraries at {}", target_coinor.display());
+            println!("Libraries: {:?}", artifacts.libraries);
+            println!();
+            println!("To rebuild, run: cargo xtask build-solvers --clean");
+            return Ok(());
+        }
+    }
+
+    // Verify required ZIP files exist
+    for comp in &components {
+        let zip_path = vendor_dir.join(comp.zip_name());
+        if !zip_path.exists() {
+            bail!(
+                "Missing vendor archive: {}\nExpected at: {}",
+                comp.zip_name(),
+                zip_path.display()
+            );
+        }
+    }
+
+    println!();
+    println!("Components to build: {:?}", components);
+    println!("Vendor directory: {}", vendor_dir.display());
+    println!("Output directory: {}", target_coinor.display());
+    println!();
+
+    // Build configuration
+    let config = CoinorBuildConfig {
+        vendor_dir,
+        build_dir: target_coinor.join("build"),
+        install_dir: target_coinor.clone(),
+        components,
+    };
+
+    // Run the build
+    let artifacts = gat_coinor_build::build(&config)?;
+
+    println!();
+    println!("Build complete!");
+    println!("Libraries: {}", artifacts.lib_dir.display());
+    println!("Headers: {}", artifacts.include_dir.display());
+    println!();
+    println!("Built libraries:");
+    for lib in &artifacts.libraries {
+        println!("  - lib{}.a", lib);
+    }
+    println!();
+    println!("To use in build.rs, link with:");
+    println!("  cargo:rustc-link-search=native={}", artifacts.lib_dir.display());
+    for lib in &artifacts.libraries {
+        println!("  cargo:rustc-link-lib=static={}", lib);
     }
 
     Ok(())

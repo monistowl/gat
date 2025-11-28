@@ -13,19 +13,22 @@
 //!
 //! # Native Solver Mode
 //!
-//! By default, AC-OPF uses the pure-Rust L-BFGS solver. To require native
-//! IPOPT (and fail if unavailable), use `require_native(true)`:
+//! By default, DC-OPF uses Clarabel and AC-OPF uses L-BFGS. To use native
+//! solvers (CLP for LP, IPOPT for NLP), enable the `native-dispatch` feature
+//! and use `prefer_native(true)`:
 //!
 //! ```ignore
 //! let solver = OpfSolver::new()
-//!     .with_method(OpfMethod::AcOpf)
-//!     .require_native(true);  // Fails if IPOPT not installed
+//!     .with_method(OpfMethod::DcOpf)
+//!     .prefer_native(true);  // Use CLP if available
 //! ```
 
 pub mod ac_nlp;
 mod dc_opf;
 pub mod dispatch;
 mod economic;
+#[cfg(feature = "native-dispatch")]
+pub mod native_dispatch;
 mod socp;
 mod types;
 
@@ -40,9 +43,12 @@ pub struct OpfSolver {
     method: OpfMethod,
     max_iterations: usize,
     tolerance: f64,
+    timeout_seconds: u64,
     /// If true, fail when native solver requested but not available.
     /// If false (default), silently fall back to pure-Rust solver.
     require_native: bool,
+    /// If true, prefer native solvers when available.
+    prefer_native: bool,
 }
 
 impl OpfSolver {
@@ -52,7 +58,9 @@ impl OpfSolver {
             method: OpfMethod::default(),
             max_iterations: 100,
             tolerance: 1e-6,
+            timeout_seconds: 300, // 5 minutes default
             require_native: false,
+            prefer_native: false,
         }
     }
 
@@ -71,6 +79,26 @@ impl OpfSolver {
     /// Set convergence tolerance
     pub fn with_tolerance(mut self, tol: f64) -> Self {
         self.tolerance = tol;
+        self
+    }
+
+    /// Set solver timeout in seconds
+    pub fn with_timeout(mut self, seconds: u64) -> Self {
+        self.timeout_seconds = seconds;
+        self
+    }
+
+    /// Prefer native solvers when available.
+    ///
+    /// When `prefer_native(true)` is set:
+    /// - For `DcOpf`: uses CLP if installed, falls back to Clarabel
+    /// - For `AcOpf`: uses IPOPT if installed, falls back to L-BFGS
+    /// - For other methods: no effect
+    ///
+    /// This allows using optimized native solvers without failing if they're
+    /// not available.
+    pub fn prefer_native(mut self, prefer: bool) -> Self {
+        self.prefer_native = prefer;
         self
     }
 
@@ -103,7 +131,16 @@ impl OpfSolver {
             OpfMethod::EconomicDispatch => {
                 economic::solve(network, self.max_iterations, self.tolerance)
             }
-            OpfMethod::DcOpf => dc_opf::solve(network, self.max_iterations, self.tolerance),
+            OpfMethod::DcOpf => {
+                // Try native CLP if preferred and available
+                #[cfg(feature = "native-dispatch")]
+                if self.prefer_native && native_dispatch::is_clp_available() {
+                    return native_dispatch::solve_dc_opf_native(network, self.timeout_seconds);
+                }
+
+                // Fall back to pure-Rust Clarabel solver
+                dc_opf::solve(network, self.max_iterations, self.tolerance)
+            }
             OpfMethod::SocpRelaxation => socp::solve(network, self.max_iterations, self.tolerance),
             OpfMethod::AcOpf => {
                 // Check if native IPOPT is required but not available

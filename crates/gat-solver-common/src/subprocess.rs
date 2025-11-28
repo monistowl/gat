@@ -161,6 +161,71 @@ impl SolverProcess {
     pub fn binary_path(&self) -> &PathBuf {
         &self.binary_path
     }
+
+    /// Solve a problem synchronously (blocking).
+    ///
+    /// This is a blocking version of [`solve`] that uses `std::process::Command`
+    /// instead of tokio, suitable for integration with synchronous code.
+    pub fn solve_blocking(&self, problem: &ProblemBatch) -> SolverResult<SolutionBatch> {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+        use std::time::Instant;
+
+        let start = Instant::now();
+
+        // Serialize problem to Arrow IPC
+        let mut problem_bytes = Vec::new();
+        write_problem(problem, &mut problem_bytes)?;
+
+        // Spawn solver process
+        let mut child = Command::new(&self.binary_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(SolverError::ProcessStart)?;
+
+        // Write problem to stdin
+        {
+            let stdin = child.stdin.as_mut().expect("stdin was piped");
+            stdin
+                .write_all(&problem_bytes)
+                .map_err(|e| SolverError::Ipc(format!("Failed to write problem: {}", e)))?;
+        }
+        // stdin is closed when it goes out of scope
+
+        // Wait for output (timeout is handled by the subprocess itself via problem.timeout_seconds)
+        let output = child
+            .wait_with_output()
+            .map_err(SolverError::ProcessStart)?;
+
+        let elapsed = start.elapsed();
+
+        // Check exit code
+        let exit_code = ExitCode::from_raw(output.status.code().unwrap_or(-1));
+
+        if !exit_code.is_success() {
+            let stderr_str = String::from_utf8_lossy(&output.stderr);
+            return Err(SolverError::ProcessFailed {
+                exit_code,
+                message: stderr_str.to_string(),
+            });
+        }
+
+        // Deserialize solution
+        if output.stdout.is_empty() {
+            return Err(SolverError::Ipc("Empty solution from solver".to_string()));
+        }
+
+        let mut solution = read_solution(&output.stdout[..])?;
+
+        // Update solve time if not already set
+        if solution.solve_time_ms == 0 {
+            solution.solve_time_ms = elapsed.as_millis() as i64;
+        }
+
+        Ok(solution)
+    }
 }
 
 /// Check if a solver is installed and available.

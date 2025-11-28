@@ -34,14 +34,15 @@ default = [
     "polars-ipc",
 ]
 
-all-solvers = ["solver-clarabel", "solver-coin_cbc", "solver-highs", "solver-ipopt"]
+all-solvers = ["solver-clarabel", "solver-highs", "solver-ipopt"]
 native-dispatch = ["gat-solver-common", "dirs"]
 all-polars = ["polars-lazy", "polars-parquet", "polars-ipc"]
 full = ["all-solvers", "all-polars"]
 
 solver-clarabel = ["good_lp/clarabel"]
-solver-coin_cbc = ["good_lp/coin_cbc"]
 solver-highs = ["good_lp/highs"]
+# DEPRECATED: Use native-dispatch + gat-cbc instead. Requires system CBC install.
+solver-coin_cbc = ["good_lp/coin_cbc"]
 solver-ipopt = ["ipopt"]
 
 polars-lazy = ["polars/lazy"]

@@ -275,6 +275,31 @@ pub fn read_problem<R: Read>(reader: R) -> SolverResult<ProblemBatch> {
                 problem.gen_p_max = arr.values().to_vec();
             }
         }
+        if let Some(col) = batch.column_by_name("gen_q_min") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.gen_q_min = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_q_max") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.gen_q_max = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_cost_c0") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.gen_cost_c0 = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_cost_c1") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.gen_cost_c1 = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_cost_c2") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.gen_cost_c2 = arr.values().to_vec();
+            }
+        }
 
         // Extract branch data
         if let Some(col) = batch.column_by_name("branch_id") {
