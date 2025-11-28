@@ -7,7 +7,7 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Instant;
 
-use gat_algo::validation::ObjectiveGap;
+use gat_algo::validation::{compute_opf_violations_from_solution, ObjectiveGap};
 use gat_algo::{OpfMethod, OpfSolver};
 use gat_io::importers::load_matpower_network;
 use std::str::FromStr;
@@ -31,6 +31,10 @@ struct PglibBenchmarkResult {
     baseline_objective: f64,
     objective_gap_abs: f64,
     objective_gap_rel: f64,
+    // Constraint violations
+    max_vm_violation_pu: f64,
+    max_gen_p_violation_mw: f64,
+    max_branch_flow_violation_mva: f64,
 }
 
 /// Configuration for PGLib benchmark runs
@@ -290,6 +294,9 @@ fn benchmark_pglib_case(
         ObjectiveGap::default()
     };
 
+    // Compute constraint violations
+    let violations = compute_opf_violations_from_solution(&network, &solution);
+
     Ok(PglibBenchmarkResult {
         case_name: case_name.to_string(),
         load_time_ms,
@@ -304,5 +311,8 @@ fn benchmark_pglib_case(
         baseline_objective,
         objective_gap_abs: gap.gap_abs,
         objective_gap_rel: gap.gap_rel,
+        max_vm_violation_pu: violations.max_vm_violation,
+        max_gen_p_violation_mw: violations.max_gen_p_violation,
+        max_branch_flow_violation_mva: violations.max_branch_flow_violation,
     })
 }

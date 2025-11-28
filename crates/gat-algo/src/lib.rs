@@ -100,8 +100,8 @@ pub use tep::{
     TepProblemBuilder, TepSolution, TepSolverConfig,
 };
 pub use validation::{
-    compute_opf_violations, compute_pf_errors, OPFViolationMetrics, ObjectiveGap, PFErrorMetrics,
-    PFReferenceSolution,
+    compute_opf_violations, compute_opf_violations_from_solution, compute_pf_errors,
+    OPFViolationMetrics, ObjectiveGap, PFErrorMetrics, PFReferenceSolution,
 };
 
 pub fn run_algorithm() -> String {
