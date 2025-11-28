@@ -176,6 +176,9 @@ impl OpfSolver {
             }
             OpfMethod::AcOpf => {
                 // Try direct IPOPT if solver-ipopt feature is enabled and preferred
+                // Note: SOCP warm-start was tested but caused worse convergence,
+                // likely due to SOCP relaxation values not being AC-feasible.
+                // Using flat-start which works for small cases (14-bus).
                 #[cfg(feature = "solver-ipopt")]
                 if self.prefer_native || self.require_native {
                     let problem = ac_nlp::AcOpfProblem::from_network(network)?;
