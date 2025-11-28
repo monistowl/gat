@@ -2,14 +2,14 @@
 set -euo pipefail
 
 # Build optimized IPOPT with parallel MUMPS
-# Prerequisites: build-essential, gfortran, libopenblas-dev
+# Prerequisites: build-essential, gfortran, libblas-dev, liblapack-dev
 #
 # Usage: ./scripts/build-ipopt.sh
 #
 # This builds IPOPT from vendor sources with:
 # - Metis 4.0.3 for graph partitioning (fill reduction)
 # - MUMPS 5.6.2 with OpenMP parallelism
-# - Links against system OpenBLAS
+# - Links against system BLAS/LAPACK
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -17,6 +17,7 @@ PREFIX="$PROJECT_ROOT/vendor/local"
 VENDOR="$PROJECT_ROOT/vendor"
 JOBS=$(nproc)
 BUILD_DIR="/tmp/gat-ipopt-build-$$"
+export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}:$PREFIX/lib/pkgconfig"
 
 echo "=== GAT IPOPT Build ==="
 echo "Project root: $PROJECT_ROOT"
@@ -96,10 +97,11 @@ build_mumps() {
     # Configure with:
     # - Metis for ordering
     # - OpenMP for parallelism
-    # - OpenBLAS for linear algebra
+    # - System BLAS/LAPACK for linear algebra
     ./configure --prefix="$PREFIX" \
-        --with-metis="$PREFIX" \
-        --with-lapack="-lopenblas" \
+        --with-metis-lflags="-L$PREFIX/lib -lcoinmetis -lm" \
+        --with-metis-cflags="-I$PREFIX/include/coin-or/metis" \
+        --with-lapack="-llapack -lblas" \
         --disable-shared \
         CFLAGS="-O3 -fopenmp" \
         FCFLAGS="-O3 -fopenmp"
@@ -137,9 +139,11 @@ build_ipopt() {
 
     # Configure with our custom MUMPS and Metis
     ./configure --prefix="$PREFIX" \
-        --with-mumps="$PREFIX" \
-        --with-metis="$PREFIX" \
-        --with-lapack="-lopenblas" \
+        --with-mumps-lflags="-L$PREFIX/lib -lcoinmumps" \
+        --with-mumps-cflags="-I$PREFIX/include/coin-or/mumps" \
+        --with-metis-lflags="-L$PREFIX/lib -lcoinmetis -lm" \
+        --with-metis-cflags="-I$PREFIX/include/coin-or/metis" \
+        --with-lapack="-llapack -lblas" \
         --enable-shared \
         CXXFLAGS="-O3 -fopenmp" \
         LDFLAGS="-fopenmp"
