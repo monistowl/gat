@@ -2,8 +2,11 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use gat_algo::opf::ac_nlp::{solve_ac_opf, AcOpfProblem};
+
+#[cfg(feature = "solver-ipopt")]
+use gat_algo::opf::ac_nlp::solve_with_ipopt;
 use gat_algo::power_flow;
 use gat_algo::LpSolverKind;
 use gat_cli::cli::OpfCommands;
@@ -118,6 +121,7 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
             max_iter,
             warm_start,
             threads,
+            solver,
         } => {
             configure_threads(threads);
             let result = (|| -> Result<()> {
@@ -129,9 +133,25 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
                 let problem = AcOpfProblem::from_network(&network)
                     .context("building AC-OPF problem from network")?;
 
-                // Solve using penalty method + L-BFGS
-                let solution =
-                    solve_ac_opf(&problem, *max_iter as usize, *tol).context("solving AC-OPF")?;
+                // Solve using selected solver
+                let solution = match solver.as_str() {
+                    "lbfgs" => {
+                        solve_ac_opf(&problem, *max_iter as usize, *tol).context("solving AC-OPF with L-BFGS")?
+                    }
+                    #[cfg(feature = "solver-ipopt")]
+                    "ipopt" => {
+                        solve_with_ipopt(&problem, Some(*max_iter as usize), Some(*tol))
+                            .context("solving AC-OPF with IPOPT")?
+                    }
+                    #[cfg(not(feature = "solver-ipopt"))]
+                    "ipopt" => {
+                        bail!("IPOPT solver requested but gat-cli was not compiled with solver-ipopt feature. \
+                               Rebuild with: cargo build --features solver-ipopt");
+                    }
+                    other => {
+                        bail!("Unknown solver '{}'. Available: lbfgs, ipopt", other);
+                    }
+                };
 
                 // Output results
                 if solution.converged {
@@ -180,6 +200,7 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
                             ("tol", &tol.to_string()),
                             ("max_iter", &max_iter.to_string()),
                             ("warm_start", warm_start),
+                            ("solver", solver),
                         ],
                     );
                 } else {

@@ -61,6 +61,21 @@ Run tests:
 ./scripts/with-ipopt.sh cargo test --features solver-ipopt -p gat-algo -- ac_nlp
 ```
 
+## CLI Usage
+
+The IPOPT solver is available via the `opf ac-nlp` command with `--solver ipopt`:
+
+```bash
+# Build with IPOPT support
+./scripts/with-ipopt.sh cargo build --release --features solver-ipopt
+
+# Run AC-OPF with IPOPT
+./scripts/with-ipopt.sh cargo run --release --features solver-ipopt --bin gat-cli -- \
+    opf ac-nlp /path/to/network --solver ipopt -o output.json
+
+# Available solvers: lbfgs (default), ipopt
+```
+
 ## Current Status
 
 | Component | Status |
@@ -69,14 +84,7 @@ Run tests:
 | MUMPS parallel | ✅ Static linked with OpenMP |
 | Metis ordering | ✅ Integrated |
 | Library tests | ✅ 175 tests pass |
-| CLI integration | ⚠️ Not yet wired (uses L-BFGS) |
-
-## Next Steps
-
-To use IPOPT from the CLI, the `opf ac-nlp` command needs to be updated to:
-1. Accept `--solver ipopt` option
-2. Dispatch to `solve_with_ipopt()` when selected
-3. Use warm-start from SOCP when available
+| CLI integration | ✅ `--solver ipopt` available |
 
 ## Files
 

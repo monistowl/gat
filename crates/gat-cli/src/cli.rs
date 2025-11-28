@@ -1535,6 +1535,9 @@ pub enum OpfCommands {
         /// Threading hint (`auto` or integer)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// NLP solver to use: lbfgs (default), ipopt (requires solver-ipopt feature)
+        #[arg(long, default_value = "lbfgs")]
+        solver: String,
     },
 }
 
