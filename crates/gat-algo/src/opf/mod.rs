@@ -281,16 +281,39 @@ pub fn solve_cascaded(
     }
 
     // Stage 3: AC-OPF with SOCP warm-start
-    let _socp_warm: SocpWarmStart = (&socp_solution).into();
+    let socp_warm: SocpWarmStart = (&socp_solution).into();
 
-    // For now, use standard AC solve (warm-starting to be implemented in Phase 5)
-    let ac_solver = OpfSolver::new()
-        .with_method(OpfMethod::AcOpf)
-        .with_max_iterations(config.max_iterations)
-        .with_tolerance(config.tolerance)
-        .prefer_native(config.prefer_native);
+    // Use IPOPT with warm-start if available and requested
+    #[cfg(feature = "solver-ipopt")]
+    let ac_solution = if config.prefer_native {
+        // Build AC problem and solve with SOCP warm-start
+        let problem = ac_nlp::AcOpfProblem::from_network(network)?;
+        let ipopt_config = ac_nlp::IpoptConfig {
+            max_iter: config.max_iterations as i32,
+            tol: config.tolerance,
+            warm_start: true,
+            ..Default::default()
+        };
+        ac_nlp::solve_with_socp_warm_start(&problem, &socp_warm, &ipopt_config)?
+    } else {
+        // Fallback to L-BFGS solver
+        let ac_solver = OpfSolver::new()
+            .with_method(OpfMethod::AcOpf)
+            .with_max_iterations(config.max_iterations)
+            .with_tolerance(config.tolerance);
+        ac_solver.solve(network)?
+    };
 
-    let ac_solution = ac_solver.solve(network)?;
+    // Without IPOPT, use L-BFGS (warm-start via initial point)
+    #[cfg(not(feature = "solver-ipopt"))]
+    let ac_solution = {
+        let problem = ac_nlp::AcOpfProblem::from_network(network)?;
+        let bus_order: Vec<String> = problem.buses.iter().map(|b| b.name.clone()).collect();
+        let gen_order: Vec<String> = problem.generators.iter().map(|g| g.name.clone()).collect();
+        let initial_point = socp_warm.to_vec(&bus_order, &gen_order);
+        ac_nlp::solve_ac_opf_warm_start(&problem, initial_point, config.max_iterations, config.tolerance)?
+    };
+
     result.ac_solution = Some(ac_solution.clone());
     result.final_solution = ac_solution;
     result.total_time_ms = start.elapsed().as_millis();
