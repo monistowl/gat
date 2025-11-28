@@ -2,6 +2,48 @@
 //!
 //! Provides helpers for serializing/deserializing problem and solution batches
 //! to/from Arrow IPC format for subprocess communication.
+//!
+//! # Why Arrow IPC?
+//!
+//! Arrow IPC provides several advantages for solver communication:
+//!
+//! 1. **Zero-copy reads:** Data can be memory-mapped without deserialization
+//! 2. **Language-agnostic:** Arrow has bindings for C++, Python, Julia, etc.
+//! 3. **Columnar format:** Efficient for numerical arrays (bus voltages, power flows)
+//! 4. **Schema evolution:** Fields can be added without breaking compatibility
+//!
+//! # Schema Design
+//!
+//! The IPC schema uses a "wide" format where all problem/solution data is in a
+//! single RecordBatch. This simplifies parsing but requires padding arrays to
+//! equal length. Alternative designs (multiple batches per entity type) are
+//! possible but complicate streaming.
+//!
+//! ## Problem Schema Fields
+//!
+//! | Field | Type | Description |
+//! |-------|------|-------------|
+//! | `bus_id` | Int64 | Bus identifiers (1-indexed) |
+//! | `bus_v_min/max` | Float64 | Voltage limits (p.u.) |
+//! | `gen_id` | Int64 | Generator identifiers |
+//! | `gen_p_min/max` | Float64 | Active power limits (MW) |
+//! | `branch_id` | Int64 | Branch identifiers |
+//! | `branch_r/x` | Float64 | Resistance/reactance (p.u.) |
+//!
+//! ## Solution Schema Fields
+//!
+//! | Field | Type | Description |
+//! |-------|------|-------------|
+//! | `status` | Utf8 | Solution status string |
+//! | `objective` | Float64 | Objective value ($/hr) |
+//! | `bus_v_mag/ang` | Float64 | Voltage solution (p.u., rad) |
+//! | `bus_lmp` | Float64 | Locational marginal prices ($/MWh) |
+//! | `gen_p/q` | Float64 | Generator dispatch (MW, MVAr) |
+//!
+//! # Protocol Version
+//!
+//! The `protocol_version` field in [`ProblemBatch`] enables schema evolution.
+//! Increment [`PROTOCOL_VERSION`](crate::PROTOCOL_VERSION) when making breaking changes.
 
 use crate::error::SolverResult;
 use crate::problem::ProblemBatch;
@@ -121,7 +163,7 @@ pub fn write_problem<W: Write>(problem: &ProblemBatch, writer: W) -> SolverResul
             Arc::new(Int32Array::from(vec![problem.protocol_version; n_rows])),
             Arc::new(Float64Array::from(vec![problem.base_mva; n_rows])),
             Arc::new(Float64Array::from(vec![problem.tolerance; n_rows])),
-            Arc::new(Int32Array::from(vec![problem.max_iterations as i32; n_rows])),
+            Arc::new(Int32Array::from(vec![problem.max_iterations; n_rows])),
             // Bus fields
             Arc::new(Int64Array::from(pad_i64(&problem.bus_id, n_rows))),
             Arc::new(Float64Array::from(pad_f64(&problem.bus_v_min, n_rows))),
@@ -311,11 +353,12 @@ pub fn write_solution<W: Write>(solution: &SolutionBatch, writer: W) -> SolverRe
             // Header fields (repeated for each row)
             Arc::new(StringArray::from(vec![status_str; n_rows])),
             Arc::new(Float64Array::from(vec![solution.objective; n_rows])),
-            Arc::new(Int32Array::from(vec![solution.iterations as i32; n_rows])),
-            Arc::new(Int64Array::from(vec![solution.solve_time_ms as i64; n_rows])),
-            Arc::new(StringArray::from(
-                vec![solution.error_message.clone(); n_rows],
-            )),
+            Arc::new(Int32Array::from(vec![solution.iterations; n_rows])),
+            Arc::new(Int64Array::from(vec![solution.solve_time_ms; n_rows])),
+            Arc::new(StringArray::from(vec![
+                solution.error_message.clone();
+                n_rows
+            ])),
             // Bus results
             Arc::new(Int64Array::from(pad_i64(&solution.bus_id, n_rows))),
             Arc::new(Float64Array::from(pad_f64(&solution.bus_v_mag, n_rows))),

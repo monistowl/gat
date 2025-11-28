@@ -5,6 +5,28 @@
 //! 2. Solves using IPOPT (Interior Point OPTimizer)
 //! 3. Writes an Arrow IPC stream to stdout containing the solution
 //!
+//! # IPOPT Algorithm
+//!
+//! IPOPT implements a primal-dual interior-point algorithm with a filter
+//! line-search method for nonlinear programming. Key features:
+//!
+//! - **Barrier method:** Converts inequality constraints to logarithmic barriers
+//! - **Newton system:** Solves KKT conditions using sparse symmetric indefinite factorization
+//! - **Filter line-search:** Accepts steps that improve objective OR constraint violation
+//! - **Restoration phase:** Recovers feasibility when standard steps fail
+//!
+//! For AC-OPF, the KKT system has the following structure:
+//! ```text
+//! [H + Σ   Aᵀ ] [Δx] = [-∇f - Aᵀλ]
+//! [A       0  ] [Δλ]   [-c(x)     ]
+//! ```
+//! where H is the Hessian of the Lagrangian and A is the Jacobian of constraints.
+//!
+//! **Reference:** Wächter, A., & Biegler, L. T. (2006). On the implementation of
+//! an interior-point filter line-search algorithm for large-scale nonlinear
+//! programming. *Mathematical Programming*, 106(1), 25-57.
+//! **DOI:** [10.1007/s10107-004-0559-y](https://doi.org/10.1007/s10107-004-0559-y)
+//!
 //! # Protocol
 //!
 //! The binary expects:
@@ -21,6 +43,15 @@
 //! - From source: https://coin-or.github.io/Ipopt/INSTALL.html
 //!
 //! Build with: `cargo build -p gat-ipopt --features ipopt-sys --release`
+//!
+//! # Performance Notes
+//!
+//! IPOPT performance depends heavily on the linear solver used:
+//! - **MA27/MA57** (HSL): Best for small-medium problems
+//! - **MUMPS**: Good open-source option, parallel capable
+//! - **MA86/MA97** (HSL): Best for large problems with parallelism
+//!
+//! For AC-OPF on networks with > 10,000 buses, consider using MA86.
 
 use anyhow::{Context, Result};
 use gat_solver_common::{ExitCode, ProblemBatch, SolutionBatch, SolutionStatus, PROTOCOL_VERSION};
@@ -37,7 +68,11 @@ fn main() {
         .with_writer(io::stderr)
         .init();
 
-    info!("gat-ipopt v{} (protocol v{})", env!("CARGO_PKG_VERSION"), PROTOCOL_VERSION);
+    info!(
+        "gat-ipopt v{} (protocol v{})",
+        env!("CARGO_PKG_VERSION"),
+        PROTOCOL_VERSION
+    );
 
     let exit_code = match run() {
         Ok(()) => ExitCode::Success,
@@ -88,8 +123,10 @@ fn run() -> Result<()> {
         .write_all(&output)
         .context("Failed to write solution to stdout")?;
 
-    info!("Solution written: status={:?}, objective={:.6}",
-          solution.status, solution.objective);
+    info!(
+        "Solution written: status={:?}, objective={:.6}",
+        solution.status, solution.objective
+    );
 
     Ok(())
 }

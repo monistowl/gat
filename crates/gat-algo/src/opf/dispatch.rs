@@ -9,26 +9,91 @@
 //! 1. User-specified solver (if installed and enabled)
 //! 2. Best available solver for the problem type
 //! 3. Fallback to pure-Rust solver
+//!
+//! # Problem Class Mapping
+//!
+//! | OPF Method | Problem Class | Recommended Solver |
+//! |------------|---------------|-------------------|
+//! | DC-OPF | LinearProgram | Clarabel, HiGHS |
+//! | SOCP Relaxation | ConicProgram | Clarabel |
+//! | AC-OPF | NonlinearProgram | IPOPT, L-BFGS |
+//! | Unit Commitment | MixedInteger | CBC, HiGHS |
+//!
+//! # Algorithm References
+//!
+//! - **Interior-point methods:** Wächter & Biegler (2006), doi:[10.1007/s10107-004-0559-y]
+//! - **Simplex method:** Dantzig (1963), *Linear Programming and Extensions*
+//! - **Branch-and-cut:** Padberg & Rinaldi (1991), doi:[10.1137/1033004]
+//! - **SOCP relaxation for OPF:** Jabr (2006), doi:[10.1109/TPWRS.2006.876672]
+//!
+//! [10.1007/s10107-004-0559-y]: https://doi.org/10.1007/s10107-004-0559-y
+//! [10.1137/1033004]: https://doi.org/10.1137/1033004
+//! [10.1109/TPWRS.2006.876672]: https://doi.org/10.1109/TPWRS.2006.876672
 
 use crate::OpfError;
 
 /// Represents the available solver backends.
+///
+/// Solver backends are divided into two categories:
+///
+/// 1. **Pure-Rust** - Ship with GAT, no external dependencies
+/// 2. **Native** - Require installation, better performance for large problems
+///
+/// The dispatch system automatically selects the best available solver for
+/// each problem type, preferring native solvers when available.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SolverBackend {
     // === Pure-Rust solvers (always available) ===
-    /// Clarabel - Conic solver for SOCP relaxation
+    /// Clarabel - Interior-point conic solver for SOCP/SDP.
+    ///
+    /// Uses a homogeneous self-dual embedding with Nesterov-Todd scaling.
+    /// Primary solver for SOCP relaxation of AC-OPF.
+    ///
+    /// **Complexity:** O(n³) per iteration, O(√n log(1/ε)) iterations
+    /// **Best for:** SOCP relaxation, moderate-size networks (< 10k buses)
     Clarabel,
-    /// L-BFGS penalty method for NLP
+
+    /// L-BFGS with augmented Lagrangian for constrained NLP.
+    ///
+    /// Limited-memory BFGS approximates the Hessian using m recent gradient
+    /// vectors (typically m=10). Combined with augmented Lagrangian method
+    /// to handle power flow constraints.
+    ///
+    /// **Complexity:** O(mn) per iteration where m = memory depth
+    /// **Best for:** AC-OPF fallback when IPOPT unavailable
+    /// **Reference:** Nocedal, J. (1980). Updating quasi-Newton matrices with
+    /// limited storage. *Mathematics of Computation*, 35(151), 773-782.
+    /// doi:[10.1090/S0025-5718-1980-0572855-7](https://doi.org/10.1090/S0025-5718-1980-0572855-7)
     Lbfgs,
 
     // === Native solvers (require installation) ===
-    /// IPOPT - Interior point optimizer for AC-OPF
+    /// IPOPT - Interior Point OPTimizer for large-scale NLP.
+    ///
+    /// State-of-the-art primal-dual interior-point method with filter
+    /// line-search. Industry standard for AC-OPF.
+    ///
+    /// **Complexity:** O(n²) per iteration (with sparse linear algebra)
+    /// **Best for:** AC-OPF on large networks (> 1000 buses)
+    /// **Reference:** Wächter & Biegler (2006), doi:10.1007/s10107-004-0559-y
     #[cfg(feature = "native-dispatch")]
     Ipopt,
-    /// HiGHS - High-performance LP/MIP solver
+
+    /// HiGHS - High-performance LP/MIP solver.
+    ///
+    /// Dual revised simplex and interior-point for LP, branch-and-cut for MIP.
+    /// Open-source successor to CPLEX's academic algorithms.
+    ///
+    /// **Best for:** DC-OPF, unit commitment
+    /// **Reference:** Huangfu & Hall (2018), doi:10.1007/s12532-017-0130-5
     #[cfg(feature = "native-dispatch")]
     Highs,
-    /// CBC - Branch and cut MIP solver
+
+    /// CBC - COIN-OR Branch and Cut for MIP.
+    ///
+    /// Uses LP relaxation with Gomory cuts, mixed-integer rounding,
+    /// and clique cuts. Good general-purpose MIP solver.
+    ///
+    /// **Best for:** Unit commitment, network design with discrete decisions
     #[cfg(feature = "native-dispatch")]
     Cbc,
 }
@@ -73,15 +138,58 @@ impl SolverBackend {
 }
 
 /// Problem class for solver selection.
+///
+/// Each OPF formulation maps to a mathematical optimization problem class,
+/// which determines which solvers can be used.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProblemClass {
-    /// Linear programming (DC-OPF, economic dispatch)
+    /// Linear programming (LP) - DC-OPF, economic dispatch.
+    ///
+    /// The DC power flow approximation linearizes the AC equations by assuming:
+    /// - Voltage magnitudes fixed at 1.0 p.u.
+    /// - Small angle differences (sin θ ≈ θ)
+    /// - Negligible line losses (R << X)
+    ///
+    /// **Reference:** Stott, B., Jardim, J., & Alsaç, O. (2009). DC power flow
+    /// revisited. *IEEE Trans. Power Systems*, 24(3), 1290-1300.
+    /// doi:[10.1109/TPWRS.2009.2021235](https://doi.org/10.1109/TPWRS.2009.2021235)
     LinearProgram,
-    /// Second-order cone programming (SOCP relaxation)
+
+    /// Second-order cone programming (SOCP) - convex relaxation of AC-OPF.
+    ///
+    /// Relaxes the nonconvex power flow equations into second-order cone
+    /// constraints. Provides a lower bound on the true AC-OPF objective.
+    /// Exact for radial networks under mild conditions.
+    ///
+    /// **Reference:** Jabr, R. A. (2006). Radial distribution load flow using
+    /// conic programming. *IEEE Trans. Power Systems*, 21(3), 1458-1459.
+    /// doi:[10.1109/TPWRS.2006.879234](https://doi.org/10.1109/TPWRS.2006.879234)
     ConicProgram,
-    /// Nonlinear programming (AC-OPF)
+
+    /// Nonlinear programming (NLP) - full AC-OPF.
+    ///
+    /// Solves the nonconvex AC power flow equations exactly using interior-point
+    /// methods. Most accurate but may find local optima.
+    ///
+    /// Standard AC-OPF formulation:
+    /// - min  Σᵢ fᵢ(Pgᵢ)           (generator costs)
+    /// - s.t. Pᵢ = Σⱼ |Vᵢ||Vⱼ|Yᵢⱼcos(θᵢ-θⱼ-φᵢⱼ)  (real power balance)
+    ///        Qᵢ = Σⱼ |Vᵢ||Vⱼ|Yᵢⱼsin(θᵢ-θⱼ-φᵢⱼ)  (reactive power balance)
+    ///
+    /// **Reference:** Carpentier, J. (1962). Contribution à l'étude du dispatching
+    /// économique. *Bulletin de la Société Française des Électriciens*, 3(8), 431-447.
     NonlinearProgram,
-    /// Mixed-integer programming
+
+    /// Mixed-integer programming (MIP) - unit commitment, network design.
+    ///
+    /// Includes binary/integer variables for on/off decisions. Used for:
+    /// - Unit commitment (generator scheduling)
+    /// - Transmission expansion planning
+    /// - Network reconfiguration
+    ///
+    /// **Reference:** Padberg, M., & Rinaldi, G. (1991). A branch-and-cut algorithm
+    /// for the resolution of large-scale symmetric traveling salesman problems.
+    /// *SIAM Review*, 33(1), 60-100. doi:[10.1137/1033004](https://doi.org/10.1137/1033004)
     MixedInteger,
 }
 
