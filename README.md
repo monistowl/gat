@@ -1,6 +1,6 @@
 ![image](./screenshot.png)
 
-# GRID ANALYSIS TOOLKIT (GAT) — v0.4.0
+# GRID ANALYSIS TOOLKIT (GAT) — v0.5.0
 
 *A fast Rust-powered command-line toolkit for power-system modeling, flows, dispatch, and time-series analysis.*
 
@@ -9,8 +9,8 @@ If you're comfortable running simple CLI commands and want to start doing *real*
 ## Table of Contents
 
 - [Why GAT?](#why-gat)
-- [Interfaces](#interfaces)
 - [Installation](#installation)
+- [Interfaces](#interfaces)
 - [Quick Start](#quick-start)
 - [CLI Reference](#cli-reference)
 - [Common Workflows](#common-workflows)
@@ -50,6 +50,171 @@ GAT scales with you:
 * Two lines for a DC power flow
 * A thousand AC-OPF scenarios on 20 machines when you need throughput
 * All without Conda, Jupyter, or heavyweight clusters
+
+---
+
+## Installation
+
+### Quick Install (Recommended)
+
+The modular installer lets you choose components on the fly and installs to `~/.gat` with no dependency on Rust:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.0/scripts/install-modular.sh | bash
+```
+
+Then add to your PATH:
+
+```bash
+export PATH="$HOME/.gat/bin:$PATH"
+```
+
+#### Component Selection
+
+By default, only the CLI is installed. Choose additional components:
+
+```bash
+# CLI + TUI (interactive dashboard)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.0/scripts/install-modular.sh)
+
+# CLI + TUI + GUI dashboard (future)
+GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.0/scripts/install-modular.sh)
+
+# Everything (CLI + TUI + GUI + native solvers)
+GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.0/scripts/install-modular.sh)
+```
+
+Or from the downloaded script:
+
+```bash
+bash scripts/install-modular.sh --components cli,tui
+bash scripts/install-modular.sh --prefix /opt/gat --components cli,tui,solvers
+```
+
+#### Installation Directory Structure
+
+Everything installs under `~/.gat/`:
+
+```
+~/.gat/
+├── bin/           # Executables (gat, gat-tui, gat-gui, gat-cli)
+├── config/        # Configuration (gat.toml, tui.toml, gui.toml)
+├── solvers/       # Native solver binaries (gat-clp, gat-cbc, gat-ipopt)
+└── cache/         # Dataset cache, run history
+```
+
+### Alternative: Bundle Variants (Full Tarball)
+
+If you prefer bundled releases with docs, download and unpack a variant:
+
+```bash
+# Full variant (CLI + TUI + all features)
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.5.0/gat-0.5.0-linux-x86_64-full.tar.gz | tar xz
+cd gat-0.5.0-linux-x86_64-full
+./install.sh
+
+# Headless variant (CLI only, minimal footprint)
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.5.0/gat-0.5.0-linux-x86_64-headless.tar.gz | tar xz
+cd gat-0.5.0-linux-x86_64-headless
+./install.sh --variant headless
+```
+
+### Build from Source (Fallback)
+
+If no binary is available for your platform, both installers fall back to a source build. This requires Rust:
+
+Go to https://rustup.rs to install the Rust toolchain.
+
+Then:
+
+```bash
+# Full variant (default): CLI + TUI + all features
+cargo build -p gat-cli --release --all-features
+
+# Headless (CLI only, minimal dependencies)
+cargo build -p gat-cli --release --no-default-features --features minimal-io
+
+# Analyst (CLI + visualization/analysis tools)
+cargo build -p gat-cli --release --no-default-features --features "minimal-io,viz,all-backends"
+```
+
+The binary lands under `target/release/gat-cli`.
+
+#### Feature Flags
+
+* Default builds use the lightweight Clarabel backend. Enable other `good_lp` solvers:
+
+  ```bash
+  cargo build -p gat-cli --no-default-features --features "all-backends"
+  ```
+
+* To keep dependencies lean while supporting Parquet/IPC I/O:
+
+  ```bash
+  cargo build -p gat-cli --no-default-features --features "minimal-io"
+  ```
+
+### Native Solvers (Optional)
+
+GAT v0.5.0 introduces vendored COIN-OR solver binaries that run as isolated subprocesses, communicating via Arrow IPC. This eliminates unsafe FFI from the main codebase while providing access to industrial-strength solvers.
+
+**Available native solvers:**
+
+| Solver | Binary | Problem Type | Use Case |
+|--------|--------|--------------|----------|
+| CLP | `gat-clp` | LP | DC-OPF, economic dispatch |
+| CBC | `gat-cbc` | MIP | Unit commitment (coming soon) |
+| IPOPT | `gat-ipopt` | NLP | AC-OPF (coming soon) |
+
+**Build native solvers from vendored sources:**
+
+```bash
+# Build CLP solver
+cargo xtask build-solvers clp
+
+# Install to ~/.gat/solvers/
+cargo xtask build-solvers clp --install
+```
+
+**Use native solvers in your code:**
+
+```rust
+use gat_algo::opf::OpfSolver;
+
+let solution = OpfSolver::new()
+    .with_method(OpfMethod::DcOpf)
+    .prefer_native(true)  // Use CLP if available, fall back to Clarabel
+    .solve(&network)?;
+```
+
+### Shell Completions (After Installation)
+
+Generate shell completions once `gat` is in your PATH:
+
+```bash
+gat completions bash | sudo tee /etc/bash_completion.d/gat > /dev/null
+gat completions zsh --out ~/.local/share/zsh/site-functions/_gat
+gat completions fish --out ~/.config/fish/completions/gat.fish
+gat completions powershell --out ~/gat.ps1
+```
+
+Or source them on the fly:
+
+```bash
+source <(gat completions bash)
+```
+
+### For Development
+
+If you're contributing to GAT:
+
+1. Install Rust: https://rustup.rs
+2. Clone the repository and run `cargo build`
+3. Optional helpers:
+   * `bd` — the beads issue tracker (run `bd ready` before you start work)
+   * `beads-mcp` — so MCP-compatible agents can inspect docs via `gat-mcp-docs`
+   * `jq` — required by `scripts/package.sh`
+4. See `RELEASE_PROCESS.md` for our branch strategy (experimental → staging → main)
 
 ---
 
@@ -102,138 +267,6 @@ Navigate with arrow keys, Tab to switch panes, Enter to select, Esc to close mod
 ### GUI Dashboard
 
 Coming in Horizon 7 (planned).
-
----
-
-## Installation
-
-### Quick Install (Recommended)
-
-The modular installer lets you choose components on the fly and installs to `~/.gat` with no dependency on Rust:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh | bash
-```
-
-Then add to your PATH:
-
-```bash
-export PATH="$HOME/.gat/bin:$PATH"
-```
-
-#### Component Selection
-
-By default, only the CLI is installed. Choose additional components:
-
-```bash
-# CLI + TUI (interactive dashboard)
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
-
-# CLI + TUI + GUI dashboard (future)
-GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
-
-# Everything (CLI + TUI + GUI + solvers)
-GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
-```
-
-Or from the downloaded script:
-
-```bash
-bash scripts/install-modular.sh --components cli,tui
-bash scripts/install-modular.sh --prefix /opt/gat --components cli,tui,solvers
-```
-
-#### Installation Directory Structure
-
-Everything installs under `~/.gat/`:
-
-```
-~/.gat/
-├── bin/           # Executables (gat, gat-tui, gat-gui, gat-cli)
-├── config/        # Configuration (gat.toml, tui.toml, gui.toml)
-├── lib/solvers/   # Solver binaries and data
-└── cache/         # Dataset cache, run history
-```
-
-### Alternative: Bundle Variants (Full Tarball)
-
-If you prefer bundled releases with docs, download and unpack a variant:
-
-```bash
-# Full variant (CLI + TUI + all features)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.4.0/gat-0.4.0-linux-x86_64-full.tar.gz | tar xz
-cd gat-0.4.0-linux-x86_64-full
-./install.sh
-
-# Headless variant (CLI only, minimal footprint)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.4.0/gat-0.4.0-linux-x86_64-headless.tar.gz | tar xz
-cd gat-0.4.0-linux-x86_64-headless
-./install.sh --variant headless
-```
-
-### Build from Source (Fallback)
-
-If no binary is available for your platform, both installers fall back to a source build. This requires Rust:
-
-Go to https://rustup.rs to install the Rust toolchain.
-
-Then:
-
-```bash
-# Full variant (default): CLI + TUI + all features
-cargo build -p gat-cli --release --all-features
-
-# Headless (CLI only, minimal dependencies)
-cargo build -p gat-cli --release --no-default-features --features minimal-io
-
-# Analyst (CLI + visualization/analysis tools)
-cargo build -p gat-cli --release --no-default-features --features "minimal-io,viz,all-backends"
-```
-
-The binary lands under `target/release/gat-cli`.
-
-#### Feature Flags
-
-* Default builds use the lightweight Clarabel backend. Enable other `good_lp` solvers:
-
-  ```bash
-  cargo build -p gat-cli --no-default-features --features "all-backends"
-  ```
-
-* To keep dependencies lean while supporting Parquet/IPC I/O:
-
-  ```bash
-  cargo build -p gat-cli --no-default-features --features "minimal-io"
-  ```
-
-### Shell Completions (After Installation)
-
-Generate shell completions once `gat` is in your PATH:
-
-```bash
-gat completions bash | sudo tee /etc/bash_completion.d/gat > /dev/null
-gat completions zsh --out ~/.local/share/zsh/site-functions/_gat
-gat completions fish --out ~/.config/fish/completions/gat.fish
-gat completions powershell --out ~/gat.ps1
-```
-
-Or source them on the fly:
-
-```bash
-source <(gat completions bash)
-```
-
-### For Development
-
-If you're contributing to GAT:
-
-1. Install Rust: https://rustup.rs
-2. Clone the repository and run `cargo build`
-3. Optional helpers:
-   * `bd` — the beads issue tracker (run `bd ready` before you start work)
-   * `beads-mcp` — so MCP-compatible agents can inspect docs via `gat-mcp-docs`
-   * `jq` — required by `scripts/package.sh`
-4. See `RELEASE_PROCESS.md` for our branch strategy (experimental → staging → main)
 
 ---
 
@@ -556,12 +589,12 @@ Available datasets include:
 
 ### Installation & Upgrades
 
-**Q: I have v0.1 or v0.3.x. How do I upgrade to v0.4.0?**
+**Q: I have v0.1, v0.3.x, or v0.4.x. How do I upgrade to v0.5.0?**
 
-A: v0.4.0 keeps the modular installer and adds pandapower import plus refreshed schemas. Upgrade by re-running the installer:
+A: v0.5.0 adds vendored COIN-OR solvers (CLP, CBC) as isolated binaries, eliminates unsafe FFI from the main codebase, and introduces the `prefer_native()` API for solver dispatch. Upgrade by re-running the installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.0/scripts/install-modular.sh | bash
 ```
 
 This installs to `~/.gat/bin/` by default (changed from `~/.local/bin/` in v0.1). Update your PATH:
@@ -572,25 +605,24 @@ export PATH="$HOME/.gat/bin:$PATH"
 
 **Q: Can I keep multiple versions installed?**
 
-A: Yes. Use the `--prefix` flag to install v0.4.0 elsewhere:
+A: Yes. Use the `--prefix` flag to install v0.5.0 elsewhere:
 
 ```bash
-bash scripts/install-modular.sh --prefix /opt/gat-0.4.0
+bash scripts/install-modular.sh --prefix /opt/gat-0.5.0
 ```
 
 Then choose which to use in your PATH by ordering the paths or using full paths.
 
-**Q: What changed between v0.1/0.3.x and v0.4.0?**
+**Q: What changed in v0.5.0?**
 
 A: Major improvements include:
 
-* **Modular installation** — Install only what you need (CLI, TUI, GUI, solvers)
-* **Centralized config** — All config in `~/.gat/config/`
-* **New TUI** — Interactive 7-pane dashboard for exploration and batch jobs
-* **Distribution tools** — ADMS, DERMS, hosting-capacity analysis
-* **Pandapower import** — Load pandapower JSON directly with `gat import pandapower`
-* **Binary-first delivery** — Pre-built binaries for Linux/macOS x86_64 and ARM64
-* **Improved CLI** — Better error messages, more commands, faster execution
+* **Vendored COIN-OR solvers** — CLP (LP) and CBC (MIP) built from source, no system dependencies
+* **Isolated solver binaries** — Native solvers run as subprocesses with Arrow IPC, eliminating unsafe FFI
+* **`prefer_native()` API** — Opt into native CLP for DC-OPF with automatic fallback to Clarabel
+* **`cargo xtask build-solvers`** — Build and install native solvers from vendored sources
+* **Trimmed dependencies** — Reduced tokio feature footprint in gat-tui
+* **Deprecated `solver-coin_cbc`** — Use native dispatch instead of system CBC
 
 See the release notes for the full changelog.
 
@@ -607,22 +639,24 @@ A: No. The CLI is fully featured and standalone. The TUI is optional and great f
 Install it with:
 
 ```bash
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.0/scripts/install-modular.sh)
 ```
 
 **Q: What are the solver components for?**
 
-A: The `solvers` component includes additional solver backends (CBC, HiGHS) beyond the default Clarabel. Install with:
+A: The `solvers` component includes native solver binaries (gat-clp, gat-cbc, gat-ipopt) built from vendored COIN-OR sources. These run as isolated subprocesses and provide industrial-strength optimization. Install with:
 
 ```bash
-GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.0/scripts/install-modular.sh)
 ```
 
-Then use them with:
+Or build from source:
 
 ```bash
-gat opf dc grid.arrow --solver cbc  # Use CBC instead of default Clarabel
+cargo xtask build-solvers clp --install
 ```
+
+Then use them programmatically with `prefer_native(true)` or via CLI flags (coming soon).
 
 **Q: What features are in the "headless" variant?**
 
@@ -727,7 +761,7 @@ rm -rf /opt/gat/  # Or whatever prefix you used
 A: Install the solver binaries:
 
 ```bash
-GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.4.0/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.0/scripts/install-modular.sh)
 ```
 
 Or build from source (slower but self-contained):
@@ -819,6 +853,14 @@ gat-mcp-docs --docs docs --addr 127.0.0.1:4321
 - **`gat-schemas`** — Schema helpers for Arrow/Parquet consistency
 - **`gat-ts`** — Time-series resampling, joining, aggregation
 - **`gat-viz`** — Visualization and graph layout tools
+
+### Solver Crates (v0.5.0+)
+
+- **`gat-solver-common`** — Arrow IPC protocol, subprocess management, shared types
+- **`gat-coinor-build`** — Build infrastructure for vendored COIN-OR libraries
+- **`gat-clp`** — CLP linear programming solver binary (DC-OPF, economic dispatch)
+- **`gat-cbc`** — CBC mixed-integer programming solver binary (unit commitment)
+- **`gat-ipopt`** — IPOPT nonlinear programming solver binary (AC-OPF)
 
 For details on any crate, see its `README.md` in `crates/<crate>/`.
 

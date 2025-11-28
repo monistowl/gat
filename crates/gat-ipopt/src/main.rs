@@ -137,8 +137,11 @@ fn run() -> Result<()> {
 /// the solution back to SolutionBatch format.
 #[cfg(feature = "ipopt-sys")]
 fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
-    use gat_algo::opf::ac_nlp::{branch_flow, ipopt_solver, AcOpfProblem, BranchData, BusData, GenData, YBus};
-    use gat_core::{BusId, CostModel};
+    use gat_algo::opf::ac_nlp::{
+        compute_branch_flows, solve_with_ipopt as ipopt_solve, AcOpfProblem, BranchData, BusData,
+        GenData, YBusBuilder,
+    };
+    use gat_core::{Branch, BusId, CostModel, Edge, Network, Node};
     use std::collections::HashMap;
     use std::time::Instant;
 
@@ -159,47 +162,110 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
     // ========================================================================
     // BUILD Y-BUS MATRIX FROM BRANCH DATA
     // ========================================================================
+    // We build a temporary Network structure and use YBusBuilder to construct
+    // the Y-bus. This reuses the existing code and avoids duplication.
     let n_bus = problem.bus_id.len();
-    let mut ybus = YBus::new(n_bus);
+    let mut temp_network = Network::new();
 
+    // Add buses to temporary network
+    for i in 0..n_bus {
+        temp_network.graph.add_node(Node::Bus(gat_core::Bus {
+            id: BusId::new(problem.bus_id[i] as usize),
+            name: if i < problem.bus_name.len() {
+                problem.bus_name[i].clone()
+            } else {
+                format!("Bus{}", problem.bus_id[i])
+            },
+            voltage_kv: 138.0, // Default, not used for Y-bus construction
+            voltage_pu: 1.0,
+            angle_rad: 0.0,
+            vmin_pu: Some(problem.bus_v_min[i]),
+            vmax_pu: Some(problem.bus_v_max[i]),
+            area_id: None,
+            zone_id: None,
+        }));
+    }
+
+    // Add branches to temporary network
     for i in 0..problem.branch_id.len() {
         if problem.branch_status[i] == 0 {
             continue; // Skip offline branches
         }
 
-        let from_idx = *bus_map.get(&problem.branch_from[i]).ok_or_else(|| {
-            anyhow::anyhow!("Branch {} references unknown from bus {}", i, problem.branch_from[i])
-        })?;
-        let to_idx = *bus_map.get(&problem.branch_to[i]).ok_or_else(|| {
-            anyhow::anyhow!("Branch {} references unknown to bus {}", i, problem.branch_to[i])
-        })?;
+        let from_bus_id = BusId::new(problem.branch_from[i] as usize);
+        let to_bus_id = BusId::new(problem.branch_to[i] as usize);
 
-        let r = problem.branch_r[i];
-        let x = problem.branch_x[i];
-        let b = problem.branch_b[i];
-        let tap = problem.branch_tap[i];
-        let shift = problem.branch_shift[i];
+        // Find node indices for from and to buses
+        let from_idx = temp_network
+            .graph
+            .node_indices()
+            .find(|&idx| {
+                if let Node::Bus(bus) = &temp_network.graph[idx] {
+                    bus.id == from_bus_id
+                } else {
+                    false
+                }
+            })
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Branch {} references unknown from bus {}",
+                    i,
+                    problem.branch_from[i]
+                )
+            })?;
 
-        // Series admittance: y = 1/z = 1/(r + jx)
-        let z_sq = r * r + x * x;
-        if z_sq < 1e-12 {
-            anyhow::bail!("Branch {} has zero impedance (r={}, x={})", i, r, x);
-        }
-        let g = r / z_sq;
-        let b_series = -x / z_sq;
+        let to_idx = temp_network
+            .graph
+            .node_indices()
+            .find(|&idx| {
+                if let Node::Bus(bus) = &temp_network.graph[idx] {
+                    bus.id == to_bus_id
+                } else {
+                    false
+                }
+            })
+            .ok_or_else(|| {
+                anyhow::anyhow!("Branch {} references unknown to bus {}", i, problem.branch_to[i])
+            })?;
 
-        // Add to Y-bus (with tap ratio and phase shift)
-        ybus.add_branch_pi_model(from_idx, to_idx, g, b_series, b, tap, shift);
+        temp_network.graph.add_edge(
+            from_idx,
+            to_idx,
+            Edge::Branch(Branch {
+                id: gat_core::BranchId::new(i),
+                name: format!("Branch{}", problem.branch_id[i]),
+                from_bus: from_bus_id,
+                to_bus: to_bus_id,
+                resistance: problem.branch_r[i],
+                reactance: problem.branch_x[i],
+                tap_ratio: problem.branch_tap[i],
+                phase_shift_rad: problem.branch_shift[i],
+                charging_b_pu: problem.branch_b[i],
+                s_max_mva: Some(problem.branch_rate[i]),
+                rating_a_mva: Some(problem.branch_rate[i]),
+                rating_b_mva: None,
+                rating_c_mva: None,
+                status: true,
+                angle_min_rad: None,
+                angle_max_rad: None,
+                element_type: "line".to_string(),
+                is_phase_shifter: false,
+            }),
+        );
     }
 
-    debug!("Y-bus built with {} non-zeros", ybus.nnz());
+    // Build Y-bus using YBusBuilder
+    let ybus = YBusBuilder::from_network(&temp_network)
+        .map_err(|e| anyhow::anyhow!("Failed to build Y-bus: {:?}", e))?;
+
+    debug!("Y-bus built for {} buses", ybus.n_bus());
 
     // ========================================================================
     // BUILD BUS DATA
     // ========================================================================
     let buses: Vec<BusData> = (0..n_bus)
         .map(|i| BusData {
-            id: BusId::new(problem.bus_id[i] as u32),
+            id: BusId::new(problem.bus_id[i] as usize),
             name: if i < problem.bus_name.len() {
                 problem.bus_name[i].clone()
             } else {
@@ -224,7 +290,7 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
             continue; // Skip offline generators
         }
 
-        let bus_idx = *bus_map.get(&problem.gen_bus_id[i]).ok_or_else(|| {
+        let _bus_idx = *bus_map.get(&problem.gen_bus_id[i]).ok_or_else(|| {
             anyhow::anyhow!("Generator {} references unknown bus {}", i, problem.gen_bus_id[i])
         })?;
 
@@ -237,7 +303,7 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
 
         generators.push(GenData {
             name: format!("Gen{}", problem.gen_id[i]),
-            bus_id: BusId::new(problem.gen_bus_id[i] as u32),
+            bus_id: BusId::new(problem.gen_bus_id[i] as usize),
             pmin_mw: problem.gen_p_min[i],
             pmax_mw: problem.gen_p_max[i],
             qmin_mvar: problem.gen_q_min[i],
@@ -255,7 +321,7 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
     // Build generator-to-bus index mapping
     let gen_bus_idx: Vec<usize> = generators
         .iter()
-        .map(|g| *bus_map.get(&(g.bus_id.0 as i64)).unwrap_or(&0))
+        .map(|g| *bus_map.get(&(g.bus_id.value() as i64)).unwrap_or(&0))
         .collect();
 
     // ========================================================================
@@ -289,7 +355,8 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
     // ========================================================================
     // CONSTRUCT AC-OPF PROBLEM
     // ========================================================================
-    let n_var = 2 * n_bus + 2 * generators.len();
+    let n_gen = generators.len();
+    let n_var = 2 * n_bus + 2 * n_gen;
     let ac_problem = AcOpfProblem {
         ybus,
         buses,
@@ -297,12 +364,12 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
         ref_bus: 0,
         base_mva: problem.base_mva,
         n_bus,
-        n_gen: generators.len(),
+        n_gen,
         n_var,
         v_offset: 0,
         theta_offset: n_bus,
         pg_offset: 2 * n_bus,
-        qg_offset: 2 * n_bus + generators.len(),
+        qg_offset: 2 * n_bus + n_gen,
         gen_bus_idx,
         branches,
         n_branch,
@@ -320,7 +387,7 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
     let max_iter = Some(problem.max_iterations as usize);
     let tol = Some(problem.tolerance);
 
-    let opf_solution = match ipopt_solver::solve_with_ipopt(&ac_problem, max_iter, tol) {
+    let opf_solution = match ipopt_solve(&ac_problem, max_iter, tol) {
         Ok(sol) => sol,
         Err(e) => {
             error!("IPOPT solver failed: {:?}", e);
@@ -390,7 +457,7 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
     // Compute branch flows from voltage solution
     let v: Vec<f64> = bus_v_mag.clone();
     let theta: Vec<f64> = bus_v_ang.iter().map(|&ang| ang.to_radians()).collect();
-    let branch_flows = branch_flow::compute_branch_flows(&ac_problem, &v, &theta);
+    let branch_flows = compute_branch_flows(&ac_problem, &v, &theta);
 
     let mut branch_p_from = vec![0.0; problem.branch_id.len()];
     let mut branch_q_from = vec![0.0; problem.branch_id.len()];

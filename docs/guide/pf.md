@@ -1,6 +1,6 @@
 # Power Flow and Optimal Power Flow
 
-GAT provides DC and AC power flow solvers, plus optimal power flow (OPF) solvers for economic dispatch. The v0.4.0 release adds multi-period dispatch, IPOPT backend, and shunt element support for exact agreement with external tools.
+GAT provides DC and AC power flow solvers, plus optimal power flow (OPF) solvers for economic dispatch. The v0.5.0 release adds vendored native solvers (CLP, IPOPT), multi-period dispatch, and shunt element support for exact agreement with external tools.
 
 ## Power Flow Commands
 
@@ -41,7 +41,7 @@ gat pf ac grid.arrow --out flows.parquet --enforce-q-limits
 
 When a generator hits its Q limit (qmin or qmax), the bus switches from PV (voltage-controlled) to PQ (load bus) and the reactive output is clamped. This produces more physically accurate solutions.
 
-**Shunt Element Support (v0.4.0+):**
+**Shunt Element Support (v0.4.0+, enhanced in v0.5.0):**
 
 AC power flow now includes full shunt element modeling (fixed capacitors and reactors). This is essential for achieving exact agreement with external tools like MATPOWER, PowerModels.jl, and PSS/E:
 
@@ -86,7 +86,7 @@ gat opf socp grid.arrow --out dispatch.parquet
 
 Second-order cone programming relaxation of AC-OPF. Fast but may produce inexact solutions for meshed networks.
 
-### AC Optimal Power Flow (Full Nonlinear) — v0.4.0
+### AC Optimal Power Flow (Full Nonlinear) — v0.4.0+
 
 ```bash
 gat opf ac-nlp grid.arrow --out dispatch.json --tol 1e-4 --max-iter 200
@@ -176,7 +176,7 @@ for (gen, p) in &solution.generator_p {
 
 - `OpfMethod::DcOpf` — Linear DC approximation
 - `OpfMethod::SocpRelaxation` — Second-order cone relaxation
-- `OpfMethod::AcOpf` — Full nonlinear AC-OPF (v0.4.0)
+- `OpfMethod::AcOpf` — Full nonlinear AC-OPF (v0.4.0+)
 
 ---
 

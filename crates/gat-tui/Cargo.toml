@@ -1,6 +1,6 @@
 [package]
 name = "gat-tui"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 authors = ["Grid Team <grid@example.com>"]
 description = "Terminal UI for inspecting GAT workflows"

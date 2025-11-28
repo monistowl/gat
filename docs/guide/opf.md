@@ -2,7 +2,7 @@
 
 This reference describes the OPF solver architecture, solution methods, and CLI commands.
 
-## Architecture Overview (v0.4.0)
+## Architecture Overview (v0.5.0)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods with varying accuracy/speed tradeoffs:
 
