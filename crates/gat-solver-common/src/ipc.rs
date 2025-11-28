@@ -365,4 +365,109 @@ mod tests {
         write_problem(&problem, &mut buffer).unwrap();
         assert!(!buffer.is_empty());
     }
+
+    #[test]
+    fn test_ipc_problem_roundtrip_with_data() {
+        // Create a problem with some data
+        let mut problem = ProblemBatch::new(ProblemType::AcOpf);
+        problem.bus_id = vec![1, 2, 3];
+        problem.bus_v_min = vec![0.95, 0.95, 0.95];
+        problem.bus_v_max = vec![1.05, 1.05, 1.05];
+        problem.bus_p_load = vec![50.0, 100.0, 75.0];
+        problem.bus_q_load = vec![25.0, 50.0, 37.5];
+        problem.bus_type = vec![3, 1, 1]; // Slack, PQ, PQ
+        problem.bus_v_mag = vec![1.0, 1.0, 1.0];
+        problem.bus_v_ang = vec![0.0, 0.0, 0.0];
+
+        // Write to buffer
+        let mut buffer = Vec::new();
+        write_problem(&problem, &mut buffer).unwrap();
+
+        // Read back
+        let recovered = read_problem(&buffer[..]).unwrap();
+
+        // Verify data preserved
+        assert_eq!(recovered.bus_id, vec![1, 2, 3]);
+        assert_eq!(recovered.bus_v_min, vec![0.95, 0.95, 0.95]);
+        assert_eq!(recovered.bus_type, vec![3, 1, 1]);
+    }
+
+    #[test]
+    fn test_ipc_solution_roundtrip() {
+        let solution = SolutionBatch {
+            status: SolutionStatus::Optimal,
+            objective: 12345.67,
+            iterations: 42,
+            solve_time_ms: 123,
+            error_message: None,
+            bus_id: vec![],
+            bus_v_mag: vec![],
+            bus_v_ang: vec![],
+            bus_lmp: vec![],
+            gen_id: vec![],
+            gen_p: vec![],
+            gen_q: vec![],
+            branch_id: vec![],
+            branch_p_from: vec![],
+            branch_q_from: vec![],
+            branch_p_to: vec![],
+            branch_q_to: vec![],
+        };
+
+        let mut buffer = Vec::new();
+        write_solution(&solution, &mut buffer).unwrap();
+
+        let recovered = read_solution(&buffer[..]).unwrap();
+        assert_eq!(recovered.status, SolutionStatus::Optimal);
+        assert!((recovered.objective - 12345.67).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_ipc_solution_error_status() {
+        let solution = SolutionBatch {
+            status: SolutionStatus::Error,
+            objective: 0.0,
+            iterations: 0,
+            solve_time_ms: 0,
+            error_message: Some("Test error message".to_string()),
+            ..Default::default()
+        };
+
+        let mut buffer = Vec::new();
+        write_solution(&solution, &mut buffer).unwrap();
+
+        let recovered = read_solution(&buffer[..]).unwrap();
+        assert_eq!(recovered.status, SolutionStatus::Error);
+    }
+
+    #[test]
+    fn test_ipc_all_solution_statuses() {
+        let statuses = vec![
+            SolutionStatus::Optimal,
+            SolutionStatus::Infeasible,
+            SolutionStatus::Unbounded,
+            SolutionStatus::Timeout,
+            SolutionStatus::IterationLimit,
+            SolutionStatus::NumericalError,
+            SolutionStatus::Error,
+            SolutionStatus::Unknown,
+        ];
+
+        for status in statuses {
+            let solution = SolutionBatch {
+                status,
+                ..Default::default()
+            };
+
+            let mut buffer = Vec::new();
+            write_solution(&solution, &mut buffer).unwrap();
+
+            let recovered = read_solution(&buffer[..]).unwrap();
+            assert_eq!(
+                recovered.status, status,
+                "Failed to roundtrip status {:?}",
+                status
+            );
+        }
+    }
 }

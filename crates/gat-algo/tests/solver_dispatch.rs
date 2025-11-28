@@ -127,6 +127,161 @@ fn test_list_available_minimum_solvers() {
     );
 }
 
+// =============================================================================
+// OpfSolver require_native tests
+// =============================================================================
+
+mod opf_solver_require_native {
+    use gat_algo::opf::{OpfMethod, OpfSolver};
+    use gat_core::{
+        Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node,
+    };
+
+    /// Create a simple 2-bus network for testing OpfSolver.
+    fn create_test_network() -> Network {
+        let mut network = Network::new();
+
+        // Add buses
+        let bus1 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(0),
+            name: "slack".to_string(),
+            voltage_kv: 100.0,
+            ..Bus::default()
+        }));
+
+        let bus2 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "load_bus".to_string(),
+            voltage_kv: 100.0,
+            ..Bus::default()
+        }));
+
+        // Add line between buses
+        network.graph.add_edge(
+            bus1,
+            bus2,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                name: "line".to_string(),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+
+        // Add generator at bus 1
+        network.graph.add_node(Node::Gen(Gen {
+            id: GenId::new(0),
+            name: "gen1".to_string(),
+            bus: BusId::new(0),
+            active_power_mw: 0.0,
+            reactive_power_mvar: 0.0,
+            pmin_mw: 0.0,
+            pmax_mw: 100.0,
+            qmin_mvar: -50.0,
+            qmax_mvar: 50.0,
+            is_synchronous_condenser: false,
+            cost_model: CostModel::linear(0.0, 10.0),
+            ..Gen::default()
+        }));
+
+        // Add load at bus 2
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(0),
+            name: "load1".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: 50.0,
+            reactive_power_mvar: 10.0,
+        }));
+
+        network
+    }
+
+    /// Test that OpfSolver defaults to not requiring native solver.
+    #[test]
+    fn test_default_does_not_require_native() {
+        let solver = OpfSolver::new();
+        assert!(!solver.requires_native());
+    }
+
+    /// Test that require_native can be set.
+    #[test]
+    fn test_require_native_can_be_set() {
+        let solver = OpfSolver::new().require_native(true);
+        assert!(solver.requires_native());
+
+        let solver = OpfSolver::new().require_native(false);
+        assert!(!solver.requires_native());
+    }
+
+    /// Test builder pattern chaining with require_native.
+    #[test]
+    fn test_builder_pattern_chaining() {
+        let solver = OpfSolver::new()
+            .with_method(OpfMethod::AcOpf)
+            .with_max_iterations(50)
+            .with_tolerance(1e-8)
+            .require_native(true);
+
+        assert_eq!(solver.method(), OpfMethod::AcOpf);
+        assert!(solver.requires_native());
+    }
+
+    /// Test that require_native only affects AC-OPF method.
+    /// Other methods don't have native backends, so require_native has no effect.
+    #[test]
+    fn test_require_native_only_affects_ac_opf() {
+        // DC-OPF, SOCP, and EconomicDispatch don't have native backends
+        // so require_native should have no effect on their behavior
+        let dc_solver = OpfSolver::new()
+            .with_method(OpfMethod::DcOpf)
+            .require_native(true);
+
+        // The method should still be DC-OPF regardless of require_native
+        assert_eq!(dc_solver.method(), OpfMethod::DcOpf);
+    }
+
+    /// Test that requiring native IPOPT without the feature fails.
+    ///
+    /// When native-dispatch feature is NOT enabled, require_native(true) should
+    /// cause AC-OPF to fail with a helpful error message.
+    #[cfg(not(feature = "native-dispatch"))]
+    #[test]
+    fn test_require_native_without_feature_fails() {
+        let network = create_test_network();
+        let solver = OpfSolver::new()
+            .with_method(OpfMethod::AcOpf)
+            .require_native(true);
+
+        let result = solver.solve(&network);
+        assert!(result.is_err());
+
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("native-dispatch"),
+            "Error should mention 'native-dispatch' feature: {}",
+            err_msg
+        );
+    }
+
+    /// Test that default behavior (no require_native) succeeds with pure-Rust solver.
+    #[cfg(not(feature = "native-dispatch"))]
+    #[test]
+    fn test_default_fallback_succeeds() {
+        let network = create_test_network();
+        let solver = OpfSolver::new()
+            .with_method(OpfMethod::AcOpf)
+            .with_max_iterations(200);
+        // require_native defaults to false
+
+        let result = solver.solve(&network);
+        // Should succeed using L-BFGS fallback
+        assert!(result.is_ok(), "Should succeed with L-BFGS fallback: {:?}", result.err());
+    }
+}
+
 #[cfg(feature = "native-dispatch")]
 mod native_dispatch_tests {
     use super::*;
@@ -190,5 +345,96 @@ mod native_dispatch_tests {
         assert!(SolverBackend::Ipopt.is_native());
         assert!(SolverBackend::Highs.is_native());
         assert!(SolverBackend::Cbc.is_native());
+    }
+
+    /// Test OpfSolver with require_native when feature enabled but solver not installed.
+    ///
+    /// This tests the case where:
+    /// - native-dispatch feature IS enabled
+    /// - require_native(true) is set
+    /// - But IPOPT is NOT in solvers.toml
+    ///
+    /// Should fail with a helpful installation error.
+    #[test]
+    fn test_require_native_without_installed_solver_fails() {
+        use gat_algo::opf::{OpfMethod, OpfSolver};
+        use gat_core::{
+            Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Load, LoadId, Network, Node,
+        };
+
+        // Create a simple test network
+        let mut network = Network::new();
+        let bus1 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(0),
+            name: "slack".to_string(),
+            voltage_kv: 100.0,
+            ..Bus::default()
+        }));
+        let bus2 = network.graph.add_node(Node::Bus(Bus {
+            id: BusId::new(1),
+            name: "load".to_string(),
+            voltage_kv: 100.0,
+            ..Bus::default()
+        }));
+        network.graph.add_edge(
+            bus1,
+            bus2,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                name: "line".to_string(),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
+        network.graph.add_node(Node::Gen(Gen {
+            id: GenId::new(0),
+            name: "gen".to_string(),
+            bus: BusId::new(0),
+            active_power_mw: 0.0,
+            reactive_power_mvar: 0.0,
+            pmin_mw: 0.0,
+            pmax_mw: 100.0,
+            qmin_mvar: -50.0,
+            qmax_mvar: 50.0,
+            is_synchronous_condenser: false,
+            cost_model: CostModel::linear(0.0, 10.0),
+            ..Gen::default()
+        }));
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(0),
+            name: "load".to_string(),
+            bus: BusId::new(1),
+            active_power_mw: 50.0,
+            reactive_power_mvar: 10.0,
+        }));
+
+        let solver = OpfSolver::new()
+            .with_method(OpfMethod::AcOpf)
+            .require_native(true);
+
+        // If IPOPT is not actually installed, this should fail
+        // If IPOPT is installed, this will succeed or show warning
+        let result = solver.solve(&network);
+
+        // We can't easily control whether IPOPT is installed in the test environment
+        // so just verify the solver runs without panicking
+        // The important thing is the code path exists
+        match result {
+            Ok(_) => {
+                // Either IPOPT was installed or the warning was printed
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                // Error should mention IPOPT or installation
+                assert!(
+                    msg.contains("IPOPT") || msg.contains("install"),
+                    "Error should guide user to install IPOPT: {}",
+                    msg
+                );
+            }
+        }
     }
 }

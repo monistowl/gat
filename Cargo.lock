@@ -2171,6 +2171,7 @@ dependencies = [
  "chrono",
  "clarabel",
  "csv",
+ "dirs 5.0.1",
  "faer",
  "gat-core",
  "gat-solver-common",
@@ -6819,6 +6820,7 @@ dependencies = [
  "gat-cli",
  "serde",
  "serde_json",
+ "toml",
  "walkdir",
 ]
 
