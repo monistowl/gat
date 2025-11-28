@@ -88,11 +88,7 @@ pub fn save_solvers_state(state: &SolversState) -> Result<()> {
 }
 
 /// Register a newly installed solver.
-pub fn register_solver(
-    name: &str,
-    binary_path: PathBuf,
-    version: &str,
-) -> Result<()> {
+pub fn register_solver(name: &str, binary_path: PathBuf, version: &str) -> Result<()> {
     let mut state = load_solvers_state()?;
 
     let installed = InstalledSolver {
@@ -137,10 +133,7 @@ pub fn get_solver_info(name: &str) -> Result<Option<InstalledSolver>> {
 /// List all installed solvers.
 pub fn list_installed_solvers() -> Result<Vec<(String, InstalledSolver)>> {
     let state = load_solvers_state()?;
-    Ok(state
-        .installed
-        .into_iter()
-        .collect())
+    Ok(state.installed.into_iter().collect())
 }
 
 /// Enable or disable a solver.

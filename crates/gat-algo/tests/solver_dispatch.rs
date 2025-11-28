@@ -278,7 +278,11 @@ mod opf_solver_require_native {
 
         let result = solver.solve(&network);
         // Should succeed using L-BFGS fallback
-        assert!(result.is_ok(), "Should succeed with L-BFGS fallback: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Should succeed with L-BFGS fallback: {:?}",
+            result.err()
+        );
     }
 }
 

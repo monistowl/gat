@@ -23,8 +23,8 @@
 //! ```
 
 pub mod ac_nlp;
-pub mod dispatch;
 mod dc_opf;
+pub mod dispatch;
 mod economic;
 mod socp;
 mod types;
@@ -113,7 +113,8 @@ impl OpfSolver {
                         return Err(OpfError::NotImplemented(
                             "Native IPOPT requested but 'native-dispatch' feature not enabled. \
                              Either install IPOPT (`cargo xtask solver build ipopt --install`) \
-                             or use the pure-Rust solver by removing require_native(true).".to_string()
+                             or use the pure-Rust solver by removing require_native(true)."
+                                .to_string(),
                         ));
                     }
 
@@ -123,7 +124,8 @@ impl OpfSolver {
                         if !is_native_solver_available("ipopt") {
                             return Err(OpfError::NotImplemented(
                                 "Native IPOPT requested but not installed. \
-                                 Install with: cargo xtask solver build ipopt --install".to_string()
+                                 Install with: cargo xtask solver build ipopt --install"
+                                    .to_string(),
                             ));
                         }
                         // TODO: Actually dispatch to native IPOPT via IPC

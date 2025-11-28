@@ -17,6 +17,6 @@ pub use github::{build_download_url, detect_arch, detect_os, fetch_latest_releas
 pub use installer::{install_component, upgrade_all};
 pub use solvers_state::{
     get_solver_info, is_solver_available, list_installed_solvers, load_solvers_state,
-    register_solver, save_solvers_state, set_solver_enabled, solvers_state_path,
-    unregister_solver, InstalledSolver, SolversState,
+    register_solver, save_solvers_state, set_solver_enabled, solvers_state_path, unregister_solver,
+    InstalledSolver, SolversState,
 };

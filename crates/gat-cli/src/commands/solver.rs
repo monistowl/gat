@@ -146,13 +146,16 @@ fn install_solver(solver: &str, force: bool) -> Result<()> {
     println!("Native solver installation is not yet automated.");
     println!();
     println!("To install {} manually:", solver);
-    println!("  1. Build the {} crate: cargo build -p {} --release", binary_name, binary_name);
     println!(
-        "  2. Copy the binary to: {}",
-        binary_path.display()
+        "  1. Build the {} crate: cargo build -p {} --release",
+        binary_name, binary_name
     );
+    println!("  2. Copy the binary to: {}", binary_path.display());
     println!();
-    println!("Or use the xtask helper: cargo xtask build-solver {}", solver_lower);
+    println!(
+        "Or use the xtask helper: cargo xtask build-solver {}",
+        solver_lower
+    );
 
     Ok(())
 }
@@ -210,8 +213,14 @@ fn show_status() -> Result<()> {
     );
     println!("  Default LP solver:      {}", config.solvers.default_lp);
     println!("  Default NLP solver:     {}", config.solvers.default_nlp);
-    println!("  Timeout:                {} seconds", config.solvers.timeout_seconds);
-    println!("  Max iterations:         {}", config.solvers.max_iterations);
+    println!(
+        "  Timeout:                {} seconds",
+        config.solvers.timeout_seconds
+    );
+    println!(
+        "  Max iterations:         {}",
+        config.solvers.max_iterations
+    );
     println!();
 
     // Show installed solvers from registry
@@ -221,7 +230,10 @@ fn show_status() -> Result<()> {
             let enabled_str = if info.enabled { "" } else { " [disabled]" };
             println!(
                 "  {:<12} v{:<10} {}{}",
-                name, info.version, info.binary_path.display(), enabled_str
+                name,
+                info.version,
+                info.binary_path.display(),
+                enabled_str
             );
         }
         println!();

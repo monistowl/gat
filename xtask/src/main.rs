@@ -315,7 +315,8 @@ fn get_solver_info(name: &str) -> Option<&'static SolverInfo> {
 }
 
 fn get_gat_solvers_dir() -> Result<std::path::PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+    let home =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
     Ok(home.join(".gat").join("solvers"))
 }
 
@@ -324,7 +325,11 @@ fn build_solver(solver: &str, install: bool) -> Result<()> {
         anyhow::anyhow!(
             "Unknown solver '{}'. Valid solvers: {}",
             solver,
-            SOLVER_INFOS.iter().map(|s| s.name).collect::<Vec<_>>().join(", ")
+            SOLVER_INFOS
+                .iter()
+                .map(|s| s.name)
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     })?;
 
@@ -362,8 +367,14 @@ fn build_solver(solver: &str, install: bool) -> Result<()> {
         install_solver_binary(info)?;
     } else {
         println!();
-        println!("To install, run: cargo xtask build-solver {} --install", solver);
-        println!("Or copy target/release/{} to ~/.gat/solvers/", info.crate_name);
+        println!(
+            "To install, run: cargo xtask build-solver {} --install",
+            solver
+        );
+        println!(
+            "Or copy target/release/{} to ~/.gat/solvers/",
+            info.crate_name
+        );
     }
 
     Ok(())
@@ -408,7 +419,8 @@ fn install_solver_binary(info: &SolverInfo) -> Result<()> {
 }
 
 fn register_solver_in_state(info: &SolverInfo) -> Result<()> {
-    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+    let home =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
     let state_path = home.join(".gat").join("config").join("solvers.toml");
 
     // Read existing state or create new
@@ -420,24 +432,37 @@ fn register_solver_in_state(info: &SolverInfo) -> Result<()> {
     };
 
     // Ensure protocol_version
-    state.entry("protocol_version".to_string())
+    state
+        .entry("protocol_version".to_string())
         .or_insert(toml::Value::Integer(1));
 
     // Get or create installed table
-    let installed = state.entry("installed".to_string())
+    let installed = state
+        .entry("installed".to_string())
         .or_insert(toml::Value::Table(toml::Table::new()))
         .as_table_mut()
         .ok_or_else(|| anyhow::anyhow!("Invalid solvers.toml format"))?;
 
     // Add/update solver entry
     let mut solver_entry = toml::Table::new();
-    solver_entry.insert("version".to_string(), toml::Value::String(env!("CARGO_PKG_VERSION").to_string()));
-    solver_entry.insert("binary_path".to_string(), toml::Value::String(
-        home.join(".gat").join("solvers").join(info.crate_name).to_string_lossy().to_string()
-    ));
-    solver_entry.insert("installed_at".to_string(), toml::Value::String(
-        chrono::Utc::now().to_rfc3339()
-    ));
+    solver_entry.insert(
+        "version".to_string(),
+        toml::Value::String(env!("CARGO_PKG_VERSION").to_string()),
+    );
+    solver_entry.insert(
+        "binary_path".to_string(),
+        toml::Value::String(
+            home.join(".gat")
+                .join("solvers")
+                .join(info.crate_name)
+                .to_string_lossy()
+                .to_string(),
+        ),
+    );
+    solver_entry.insert(
+        "installed_at".to_string(),
+        toml::Value::String(chrono::Utc::now().to_rfc3339()),
+    );
 
     installed.insert(info.name.to_string(), toml::Value::Table(solver_entry));
 
@@ -504,7 +529,11 @@ fn clean_solver(solver: &str) -> Result<()> {
         anyhow::anyhow!(
             "Unknown solver '{}'. Valid solvers: {} (or 'all')",
             solver,
-            SOLVER_INFOS.iter().map(|s| s.name).collect::<Vec<_>>().join(", ")
+            SOLVER_INFOS
+                .iter()
+                .map(|s| s.name)
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     })?;
 

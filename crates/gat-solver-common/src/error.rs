@@ -61,7 +61,9 @@ pub enum SolverError {
     },
 
     /// Native solvers are disabled globally.
-    #[error("Native solvers are disabled. Enable with `native_enabled = true` in ~/.gat/config.toml")]
+    #[error(
+        "Native solvers are disabled. Enable with `native_enabled = true` in ~/.gat/config.toml"
+    )]
     NativeDisabled,
 
     /// Solver process failed to start.
