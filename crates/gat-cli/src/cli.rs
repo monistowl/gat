@@ -101,6 +101,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: SeCommands,
     },
+    /// Native solver management (install, list, status)
+    Solver {
+        #[command(subcommand)]
+        command: SolverCommands,
+    },
     /// Visualization helpers
     #[cfg(feature = "viz")]
     Viz {
@@ -1558,6 +1563,27 @@ pub enum SeCommands {
         #[arg(long)]
         slack_bus: Option<usize>,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SolverCommands {
+    /// List available and installed solvers
+    List,
+    /// Install a native solver plugin
+    Install {
+        /// Solver name (ipopt, highs, cbc, bonmin, couenne, symphony)
+        solver: String,
+        /// Force reinstall if already installed
+        #[arg(long)]
+        force: bool,
+    },
+    /// Uninstall a native solver plugin
+    Uninstall {
+        /// Solver name to uninstall
+        solver: String,
+    },
+    /// Show solver configuration status
+    Status,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum)]

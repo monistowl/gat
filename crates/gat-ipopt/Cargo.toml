@@ -1,0 +1,33 @@
+[package]
+name = "gat-ipopt"
+version = "0.4.0"
+edition = "2021"
+description = "IPOPT solver wrapper for GAT native solver plugin system"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+
+# This is a binary crate that implements the GAT solver IPC protocol
+[[bin]]
+name = "gat-ipopt"
+path = "src/main.rs"
+
+[dependencies]
+gat-solver-common = { path = "../gat-solver-common" }
+anyhow = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# IPOPT bindings - optional because it requires native IPOPT library
+# Install IPOPT: https://coin-or.github.io/Ipopt/INSTALL.html
+# On Ubuntu: sudo apt install coinor-libipopt-dev
+# On macOS: brew install ipopt
+ipopt = { version = "0.5", optional = true }
+
+[features]
+default = []
+# Enable this feature when IPOPT is installed on the system
+ipopt-sys = ["dep:ipopt"]
+
+[dev-dependencies]
+tempfile = "3"

@@ -96,6 +96,52 @@ The power flow equations create a **non-convex** feasible region:
 
 This makes AC-OPF **NP-hard** in general. No known algorithm guarantees a global optimum in polynomial time.
 
+### Solver Backends
+
+GAT provides a **native solver plugin system** that automatically selects the best available backend:
+
+| Backend | Type | Best For | Availability |
+|---------|------|----------|--------------|
+| L-BFGS (default) | Pure Rust | General AC-OPF, portability | Always available |
+| Clarabel | Pure Rust | SOCP, LP problems | Always available |
+| IPOPT | Native (C++) | Large NLP, high accuracy | Optional installation |
+| HiGHS | Native (C++) | LP/MIP, high performance | Optional installation |
+| CBC | Native (C) | MIP problems | Optional installation |
+
+**Solver Selection:**
+```rust
+use gat_algo::opf::{SolverDispatcher, DispatchConfig, ProblemClass};
+
+// Configure dispatcher (native solvers enabled if installed)
+let config = DispatchConfig {
+    native_enabled: true,
+    ..Default::default()
+};
+
+let dispatcher = SolverDispatcher::with_config(config);
+
+// Automatic selection based on problem class
+let solver = dispatcher.select(ProblemClass::NonlinearProgram)?;
+// Returns IPOPT if installed, otherwise L-BFGS
+```
+
+**Installing Native Solvers:**
+```bash
+# Build and install IPOPT wrapper
+cargo xtask solver build ipopt --install
+
+# List installed solvers
+gat solver list
+
+# Uninstall a solver
+gat solver uninstall ipopt
+```
+
+Native solvers run as **isolated subprocesses** communicating via Arrow IPC, ensuring:
+- Crash isolation (native library issues don't crash the main process)
+- Version flexibility (different solver versions can coexist)
+- Portability (pure-Rust fallbacks always available)
+
 ### Solver Architecture
 
 GAT's AC-OPF uses a **penalty method with L-BFGS** quasi-Newton optimization:

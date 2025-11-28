@@ -5,13 +5,20 @@
 //! - DC-OPF (linearized power flow)
 //! - SOCP relaxation (convex AC approximation)
 //! - AC-OPF (full nonlinear, future)
+//!
+//! # Solver Dispatch
+//!
+//! The [`dispatch`] module handles solver selection between pure-Rust
+//! and native solvers based on availability and user configuration.
 
 pub mod ac_nlp;
+pub mod dispatch;
 mod dc_opf;
 mod economic;
 mod socp;
 mod types;
 
+pub use dispatch::{DispatchConfig, ProblemClass, SolverBackend, SolverDispatcher};
 pub use types::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution};
 
 use crate::OpfError;

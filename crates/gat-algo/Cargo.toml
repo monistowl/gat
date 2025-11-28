@@ -8,6 +8,7 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 csv = "1.4"
 gat-core = { path = "../gat-core" }
+gat-solver-common = { path = "../gat-solver-common", optional = true }
 good_lp = { version = "1.14", default-features = false }
 sprs = "0.11"
 faer = "0.17"
@@ -33,6 +34,7 @@ default = [
 ]
 
 all-solvers = ["solver-clarabel", "solver-coin_cbc", "solver-highs", "solver-ipopt"]
+native-dispatch = ["gat-solver-common"]
 all-polars = ["polars-lazy", "polars-parquet", "polars-ipc"]
 full = ["all-solvers", "all-polars"]
 

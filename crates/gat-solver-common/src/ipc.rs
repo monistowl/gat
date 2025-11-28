@@ -1,0 +1,368 @@
+//! Arrow IPC serialization for solver communication.
+//!
+//! Provides helpers for serializing/deserializing problem and solution batches
+//! to/from Arrow IPC format for subprocess communication.
+
+use crate::error::SolverResult;
+use crate::problem::ProblemBatch;
+use crate::solution::{SolutionBatch, SolutionStatus};
+use arrow::array::{Float64Array, Int32Array, Int64Array, StringArray};
+use arrow::datatypes::{DataType, Field, Schema};
+use arrow::ipc::reader::StreamReader;
+use arrow::ipc::writer::StreamWriter;
+use arrow::record_batch::RecordBatch;
+use std::io::{Read, Write};
+use std::sync::Arc;
+
+/// Schema for problem data sent to solvers.
+pub fn problem_schema() -> Schema {
+    Schema::new(vec![
+        // Metadata fields
+        Field::new("protocol_version", DataType::Int32, false),
+        Field::new("base_mva", DataType::Float64, false),
+        Field::new("tolerance", DataType::Float64, false),
+        Field::new("max_iterations", DataType::Int32, false),
+        // Bus fields
+        Field::new("bus_id", DataType::Int64, false),
+        Field::new("bus_v_min", DataType::Float64, false),
+        Field::new("bus_v_max", DataType::Float64, false),
+        Field::new("bus_p_load", DataType::Float64, false),
+        Field::new("bus_q_load", DataType::Float64, false),
+        Field::new("bus_type", DataType::Int32, false),
+        Field::new("bus_v_mag", DataType::Float64, false),
+        Field::new("bus_v_ang", DataType::Float64, false),
+        // Generator fields
+        Field::new("gen_id", DataType::Int64, false),
+        Field::new("gen_bus_id", DataType::Int64, false),
+        Field::new("gen_p_min", DataType::Float64, false),
+        Field::new("gen_p_max", DataType::Float64, false),
+        Field::new("gen_q_min", DataType::Float64, false),
+        Field::new("gen_q_max", DataType::Float64, false),
+        Field::new("gen_cost_c0", DataType::Float64, false),
+        Field::new("gen_cost_c1", DataType::Float64, false),
+        Field::new("gen_cost_c2", DataType::Float64, false),
+        // Branch fields
+        Field::new("branch_id", DataType::Int64, false),
+        Field::new("branch_from", DataType::Int64, false),
+        Field::new("branch_to", DataType::Int64, false),
+        Field::new("branch_r", DataType::Float64, false),
+        Field::new("branch_x", DataType::Float64, false),
+        Field::new("branch_b", DataType::Float64, false),
+        Field::new("branch_rate", DataType::Float64, false),
+        Field::new("branch_tap", DataType::Float64, false),
+        Field::new("branch_shift", DataType::Float64, false),
+    ])
+}
+
+/// Schema for solution data received from solvers.
+pub fn solution_schema() -> Schema {
+    Schema::new(vec![
+        // Status fields
+        Field::new("status", DataType::Utf8, false),
+        Field::new("objective", DataType::Float64, false),
+        Field::new("iterations", DataType::Int32, false),
+        Field::new("solve_time_ms", DataType::Int64, false),
+        Field::new("error_message", DataType::Utf8, true),
+        // Bus results
+        Field::new("bus_id", DataType::Int64, false),
+        Field::new("bus_v_mag", DataType::Float64, false),
+        Field::new("bus_v_ang", DataType::Float64, false),
+        Field::new("bus_lmp", DataType::Float64, false),
+        // Generator results
+        Field::new("gen_id", DataType::Int64, false),
+        Field::new("gen_p", DataType::Float64, false),
+        Field::new("gen_q", DataType::Float64, false),
+        // Branch results
+        Field::new("branch_id", DataType::Int64, false),
+        Field::new("branch_p_from", DataType::Float64, false),
+        Field::new("branch_q_from", DataType::Float64, false),
+        Field::new("branch_p_to", DataType::Float64, false),
+        Field::new("branch_q_to", DataType::Float64, false),
+    ])
+}
+
+/// Write a problem batch to Arrow IPC format.
+pub fn write_problem<W: Write>(problem: &ProblemBatch, writer: W) -> SolverResult<()> {
+    let schema = Arc::new(problem_schema());
+
+    // Create record batch with bus data
+    let bus_batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("bus_id", DataType::Int64, false),
+            Field::new("bus_v_min", DataType::Float64, false),
+            Field::new("bus_v_max", DataType::Float64, false),
+            Field::new("bus_p_load", DataType::Float64, false),
+            Field::new("bus_q_load", DataType::Float64, false),
+            Field::new("bus_type", DataType::Int32, false),
+            Field::new("bus_v_mag", DataType::Float64, false),
+            Field::new("bus_v_ang", DataType::Float64, false),
+        ])),
+        vec![
+            Arc::new(Int64Array::from(problem.bus_id.clone())),
+            Arc::new(Float64Array::from(problem.bus_v_min.clone())),
+            Arc::new(Float64Array::from(problem.bus_v_max.clone())),
+            Arc::new(Float64Array::from(problem.bus_p_load.clone())),
+            Arc::new(Float64Array::from(problem.bus_q_load.clone())),
+            Arc::new(Int32Array::from(problem.bus_type.clone())),
+            Arc::new(Float64Array::from(problem.bus_v_mag.clone())),
+            Arc::new(Float64Array::from(problem.bus_v_ang.clone())),
+        ],
+    )?;
+
+    let mut ipc_writer = StreamWriter::try_new(writer, &schema)?;
+    ipc_writer.write(&bus_batch)?;
+    ipc_writer.finish()?;
+
+    Ok(())
+}
+
+/// Read a problem batch from Arrow IPC format.
+pub fn read_problem<R: Read>(reader: R) -> SolverResult<ProblemBatch> {
+    let stream_reader = StreamReader::try_new(reader, None)?;
+
+    let mut problem = ProblemBatch::default();
+
+    for batch_result in stream_reader {
+        let batch = batch_result?;
+
+        // Extract bus data
+        if let Some(col) = batch.column_by_name("bus_id") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                problem.bus_id = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_v_min") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.bus_v_min = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_v_max") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.bus_v_max = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_p_load") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.bus_p_load = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_q_load") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.bus_q_load = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_type") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int32Array>() {
+                problem.bus_type = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_v_mag") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.bus_v_mag = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_v_ang") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.bus_v_ang = arr.values().to_vec();
+            }
+        }
+
+        // Extract generator data
+        if let Some(col) = batch.column_by_name("gen_id") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                problem.gen_id = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_bus_id") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                problem.gen_bus_id = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_p_min") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.gen_p_min = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_p_max") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.gen_p_max = arr.values().to_vec();
+            }
+        }
+
+        // Extract branch data
+        if let Some(col) = batch.column_by_name("branch_id") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                problem.branch_id = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("branch_from") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                problem.branch_from = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("branch_to") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                problem.branch_to = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("branch_r") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.branch_r = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("branch_x") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                problem.branch_x = arr.values().to_vec();
+            }
+        }
+    }
+
+    Ok(problem)
+}
+
+/// Write a solution batch to Arrow IPC format.
+pub fn write_solution<W: Write>(solution: &SolutionBatch, writer: W) -> SolverResult<()> {
+    let schema = Arc::new(solution_schema());
+
+    // Create record batch with solution data
+    let status_str = match solution.status {
+        SolutionStatus::Optimal => "optimal",
+        SolutionStatus::Infeasible => "infeasible",
+        SolutionStatus::Unbounded => "unbounded",
+        SolutionStatus::Timeout => "timeout",
+        SolutionStatus::IterationLimit => "iteration_limit",
+        SolutionStatus::NumericalError => "numerical_error",
+        SolutionStatus::Error => "error",
+        SolutionStatus::Unknown => "unknown",
+    };
+
+    let batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![
+            Field::new("status", DataType::Utf8, false),
+            Field::new("objective", DataType::Float64, false),
+            Field::new("iterations", DataType::Int32, false),
+            Field::new("solve_time_ms", DataType::Int64, false),
+            Field::new("error_message", DataType::Utf8, true),
+        ])),
+        vec![
+            Arc::new(StringArray::from(vec![status_str])),
+            Arc::new(Float64Array::from(vec![solution.objective])),
+            Arc::new(Int32Array::from(vec![solution.iterations as i32])),
+            Arc::new(Int64Array::from(vec![solution.solve_time_ms as i64])),
+            Arc::new(StringArray::from(vec![solution.error_message.clone()])),
+        ],
+    )?;
+
+    let mut ipc_writer = StreamWriter::try_new(writer, &schema)?;
+    ipc_writer.write(&batch)?;
+    ipc_writer.finish()?;
+
+    Ok(())
+}
+
+/// Read a solution batch from Arrow IPC format.
+pub fn read_solution<R: Read>(reader: R) -> SolverResult<SolutionBatch> {
+    let stream_reader = StreamReader::try_new(reader, None)?;
+
+    let mut solution = SolutionBatch::default();
+
+    for batch_result in stream_reader {
+        let batch = batch_result?;
+
+        // Extract status from first column
+        if let Some(status_col) = batch.column_by_name("status") {
+            if let Some(status_array) = status_col.as_any().downcast_ref::<StringArray>() {
+                if let Some(status_str) = status_array.value(0).to_string().as_str().into() {
+                    solution.status = match status_str {
+                        "optimal" => crate::SolutionStatus::Optimal,
+                        "infeasible" => crate::SolutionStatus::Infeasible,
+                        "unbounded" => crate::SolutionStatus::Unbounded,
+                        "timeout" => crate::SolutionStatus::Timeout,
+                        "iteration_limit" => crate::SolutionStatus::IterationLimit,
+                        "numerical_error" => crate::SolutionStatus::NumericalError,
+                        "error" => crate::SolutionStatus::Error,
+                        _ => crate::SolutionStatus::Unknown,
+                    };
+                }
+            }
+        }
+
+        // Extract objective
+        if let Some(obj_col) = batch.column_by_name("objective") {
+            if let Some(obj_array) = obj_col.as_any().downcast_ref::<Float64Array>() {
+                solution.objective = obj_array.value(0);
+            }
+        }
+
+        // Extract bus data
+        if let Some(col) = batch.column_by_name("bus_id") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                solution.bus_id = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_v_mag") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                solution.bus_v_mag = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_v_ang") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                solution.bus_v_ang = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("bus_lmp") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                solution.bus_lmp = arr.values().to_vec();
+            }
+        }
+
+        // Extract generator data
+        if let Some(col) = batch.column_by_name("gen_id") {
+            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                solution.gen_id = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_p") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                solution.gen_p = arr.values().to_vec();
+            }
+        }
+        if let Some(col) = batch.column_by_name("gen_q") {
+            if let Some(arr) = col.as_any().downcast_ref::<Float64Array>() {
+                solution.gen_q = arr.values().to_vec();
+            }
+        }
+    }
+
+    Ok(solution)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::problem::ProblemType;
+
+    #[test]
+    fn test_problem_schema() {
+        let schema = problem_schema();
+        assert!(schema.field_with_name("bus_id").is_ok());
+        assert!(schema.field_with_name("gen_id").is_ok());
+        assert!(schema.field_with_name("branch_id").is_ok());
+    }
+
+    #[test]
+    fn test_solution_schema() {
+        let schema = solution_schema();
+        assert!(schema.field_with_name("status").is_ok());
+        assert!(schema.field_with_name("objective").is_ok());
+        assert!(schema.field_with_name("bus_v_mag").is_ok());
+    }
+
+    #[test]
+    fn test_roundtrip_empty_problem() {
+        let problem = ProblemBatch::new(ProblemType::DcOpf);
+        let mut buffer = Vec::new();
+        write_problem(&problem, &mut buffer).unwrap();
+        assert!(!buffer.is_empty());
+    }
+}

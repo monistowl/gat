@@ -37,6 +37,18 @@ enum Task {
     /// Release helpers that rely on the canonical metadata
     #[command(subcommand)]
     Release(ReleaseCommand),
+    /// Native solver build helpers
+    #[command(subcommand)]
+    Solver(SolverCommand),
+    /// `xtask build-solver <name>` - shorthand for solver build
+    #[command(name = "build-solver")]
+    BuildSolver {
+        /// Solver name (ipopt, highs, cbc, bonmin, couenne, symphony)
+        solver: String,
+        /// Install to ~/.gat/solvers/ after building
+        #[arg(long)]
+        install: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -49,6 +61,25 @@ enum ReleaseCommand {
         /// Optional version override (defaults to workspace release version)
         #[arg(long)]
         version: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum SolverCommand {
+    /// Build a native solver wrapper crate
+    Build {
+        /// Solver name (ipopt, highs, cbc, bonmin, couenne, symphony)
+        solver: String,
+        /// Install to ~/.gat/solvers/ after building
+        #[arg(long)]
+        install: bool,
+    },
+    /// List available solver crates and their build status
+    List,
+    /// Clean built solver binaries
+    Clean {
+        /// Solver name (or "all" to clean all)
+        solver: String,
     },
 }
 
@@ -82,6 +113,12 @@ fn main() -> Result<()> {
                 run_release_info(&variant, version.as_deref())
             }
         },
+        Task::Solver(cmd) => match cmd {
+            SolverCommand::Build { solver, install } => build_solver(&solver, install),
+            SolverCommand::List => list_solvers(),
+            SolverCommand::Clean { solver } => clean_solver(&solver),
+        },
+        Task::BuildSolver { solver, install } => build_solver(&solver, install),
     }
 }
 
@@ -219,6 +256,224 @@ fn run_release_info(variant: &str, version: Option<&str>) -> Result<()> {
     if !status {
         bail!("platform-info.sh failed");
     }
+    Ok(())
+}
+
+// ============================================================================
+// Solver build infrastructure
+// ============================================================================
+
+/// Information about a native solver wrapper crate.
+struct SolverInfo {
+    name: &'static str,
+    crate_name: &'static str,
+    description: &'static str,
+    native_lib: &'static str,
+}
+
+const SOLVER_INFOS: &[SolverInfo] = &[
+    SolverInfo {
+        name: "ipopt",
+        crate_name: "gat-ipopt",
+        description: "Interior point optimizer for large-scale NLP",
+        native_lib: "libipopt",
+    },
+    SolverInfo {
+        name: "highs",
+        crate_name: "gat-highs",
+        description: "High-performance LP/MIP solver",
+        native_lib: "libhighs",
+    },
+    SolverInfo {
+        name: "cbc",
+        crate_name: "gat-cbc",
+        description: "COIN-OR branch and cut MIP solver",
+        native_lib: "libCbc",
+    },
+    SolverInfo {
+        name: "bonmin",
+        crate_name: "gat-bonmin",
+        description: "Basic Open-source Nonlinear Mixed Integer",
+        native_lib: "libbonmin",
+    },
+    SolverInfo {
+        name: "couenne",
+        crate_name: "gat-couenne",
+        description: "Convex Over and Under ENvelopes for Nonlinear Estimation",
+        native_lib: "libcouenne",
+    },
+    SolverInfo {
+        name: "symphony",
+        crate_name: "gat-symphony",
+        description: "COIN-OR parallel MIP solver",
+        native_lib: "libSym",
+    },
+];
+
+fn get_solver_info(name: &str) -> Option<&'static SolverInfo> {
+    SOLVER_INFOS.iter().find(|s| s.name == name.to_lowercase())
+}
+
+fn get_gat_solvers_dir() -> Result<std::path::PathBuf> {
+    let home = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+    Ok(home.join(".gat").join("solvers"))
+}
+
+fn build_solver(solver: &str, install: bool) -> Result<()> {
+    let info = get_solver_info(solver).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Unknown solver '{}'. Valid solvers: {}",
+            solver,
+            SOLVER_INFOS.iter().map(|s| s.name).collect::<Vec<_>>().join(", ")
+        )
+    })?;
+
+    println!("Building {} ({})...", info.crate_name, info.description);
+    println!();
+
+    // Check if the crate exists
+    let crate_path = Path::new("crates").join(info.crate_name);
+    if !crate_path.exists() {
+        println!("Note: {} crate does not exist yet.", info.crate_name);
+        println!();
+        println!("To create the solver wrapper crate:");
+        println!("  1. Create crates/{}/Cargo.toml", info.crate_name);
+        println!("  2. Implement the solver IPC protocol from gat-solver-common");
+        println!("  3. Link against {} native library", info.native_lib);
+        println!();
+        println!("See docs/architecture/native-solver-plugins.md for details.");
+        return Ok(());
+    }
+
+    // Build the crate in release mode
+    let status = Command::new("cargo")
+        .args(["build", "-p", info.crate_name, "--release"])
+        .status()?;
+
+    if !status.success() {
+        bail!("Failed to build {}", info.crate_name);
+    }
+
+    println!();
+    println!("Successfully built {}!", info.crate_name);
+
+    // Install if requested
+    if install {
+        install_solver_binary(info)?;
+    } else {
+        println!();
+        println!("To install, run: cargo xtask build-solver {} --install", solver);
+        println!("Or copy target/release/{} to ~/.gat/solvers/", info.crate_name);
+    }
+
+    Ok(())
+}
+
+fn install_solver_binary(info: &SolverInfo) -> Result<()> {
+    let solvers_dir = get_gat_solvers_dir()?;
+    fs::create_dir_all(&solvers_dir)?;
+
+    let source = Path::new("target/release").join(info.crate_name);
+    let dest = solvers_dir.join(info.crate_name);
+
+    if !source.exists() {
+        bail!(
+            "Binary not found at {}. Build the solver first.",
+            source.display()
+        );
+    }
+
+    fs::copy(&source, &dest)?;
+
+    // Make executable on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&dest)?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&dest, perms)?;
+    }
+
+    println!();
+    println!("Installed {} to {}", info.crate_name, dest.display());
+    println!();
+    println!("To enable native solvers, add to ~/.gat/config/gat.toml:");
+    println!("  [solvers]");
+    println!("  native_enabled = true");
+
+    Ok(())
+}
+
+fn list_solvers() -> Result<()> {
+    println!("Available native solver wrappers:");
+    println!();
+
+    let solvers_dir = get_gat_solvers_dir()?;
+
+    for info in SOLVER_INFOS {
+        let crate_path = Path::new("crates").join(info.crate_name);
+        let binary_path = solvers_dir.join(info.crate_name);
+
+        let crate_status = if crate_path.exists() {
+            "crate exists"
+        } else {
+            "not implemented"
+        };
+
+        let install_status = if binary_path.exists() {
+            "[installed]"
+        } else {
+            "[not installed]"
+        };
+
+        println!(
+            "  {:<10} {:<50} {} {}",
+            info.name, info.description, crate_status, install_status
+        );
+    }
+
+    println!();
+    println!("Build with: cargo xtask build-solver <name>");
+    println!("Install with: cargo xtask build-solver <name> --install");
+
+    Ok(())
+}
+
+fn clean_solver(solver: &str) -> Result<()> {
+    if solver == "all" {
+        println!("Cleaning all solver binaries...");
+        let solvers_dir = get_gat_solvers_dir()?;
+        if solvers_dir.exists() {
+            for info in SOLVER_INFOS {
+                let binary_path = solvers_dir.join(info.crate_name);
+                if binary_path.exists() {
+                    fs::remove_file(&binary_path)?;
+                    println!("  Removed {}", binary_path.display());
+                }
+            }
+        }
+        println!("Done.");
+        return Ok(());
+    }
+
+    let info = get_solver_info(solver).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Unknown solver '{}'. Valid solvers: {} (or 'all')",
+            solver,
+            SOLVER_INFOS.iter().map(|s| s.name).collect::<Vec<_>>().join(", ")
+        )
+    })?;
+
+    let solvers_dir = get_gat_solvers_dir()?;
+    let binary_path = solvers_dir.join(info.crate_name);
+
+    if binary_path.exists() {
+        fs::remove_file(&binary_path)?;
+        println!("Removed {}", binary_path.display());
+    } else {
+        println!("{} is not installed.", info.name);
+    }
+
     Ok(())
 }
 
