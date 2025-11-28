@@ -67,3 +67,47 @@ build_metis() {
 }
 
 build_metis
+
+# =============================================================================
+# Build MUMPS (parallel sparse direct solver)
+# =============================================================================
+build_mumps() {
+    echo ""
+    echo "=== Building MUMPS (parallel) ==="
+
+    if [ -f "$PREFIX/lib/libcoinmumps.a" ]; then
+        echo "MUMPS already built, skipping..."
+        return 0
+    fi
+
+    local MUMPS_ZIP="$VENDOR/ThirdParty-Mumps-stable-3.0.zip"
+    if [ ! -f "$MUMPS_ZIP" ]; then
+        echo "ERROR: MUMPS source not found at $MUMPS_ZIP"
+        exit 1
+    fi
+
+    cd "$BUILD_DIR"
+    unzip -q "$MUMPS_ZIP"
+    cd ThirdParty-Mumps-stable-3.0
+
+    # Download MUMPS source
+    ./get.Mumps
+
+    # Configure with:
+    # - Metis for ordering
+    # - OpenMP for parallelism
+    # - OpenBLAS for linear algebra
+    ./configure --prefix="$PREFIX" \
+        --with-metis="$PREFIX" \
+        --with-lapack="-lopenblas" \
+        --disable-shared \
+        CFLAGS="-O3 -fopenmp" \
+        FCFLAGS="-O3 -fopenmp"
+
+    make -j"$JOBS"
+    make install
+
+    echo "MUMPS installed to $PREFIX"
+}
+
+build_mumps
