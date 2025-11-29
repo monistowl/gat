@@ -176,12 +176,23 @@ impl OpfSolver {
             }
             OpfMethod::AcOpf => {
                 // Try direct IPOPT if solver-ipopt feature is enabled and preferred
-                // Note: SOCP warm-start was tested but caused worse convergence,
-                // likely due to SOCP relaxation values not being AC-feasible.
-                // Using flat-start which works for small cases (14-bus).
+                // DC warm-start provides generator dispatch and angles from DC-OPF,
+                // which is much faster than SOCP and provides a reasonable initial point.
+                // SOCP warm-start was tested but caused worse convergence due to
+                // SOCP relaxation values not being AC-feasible.
                 #[cfg(feature = "solver-ipopt")]
                 if self.prefer_native || self.require_native {
                     let problem = ac_nlp::AcOpfProblem::from_network(network)?;
+
+                    // Note: DC warm-start was tested but produced worse convergence
+                    // than flat start. The DC solution's angles and dispatch may
+                    // violate AC constraints (voltage, reactive power, thermal limits)
+                    // causing IPOPT to start in an infeasible region.
+                    //
+                    // SOCP warm-start was also tested but similarly caused issues
+                    // due to SOCP relaxation values not being AC-feasible.
+                    //
+                    // For now, flat start with tuned IPOPT options works best.
                     return ac_nlp::solve_with_ipopt(
                         &problem,
                         Some(self.max_iterations),
@@ -335,6 +346,7 @@ pub fn solve_cascaded(
             max_iter: config.max_iterations as i32,
             tol: config.tolerance,
             warm_start: true,
+            print_level: 5, // Debug: show IPOPT iteration progress
             ..Default::default()
         };
         ac_nlp::solve_with_socp_warm_start(&problem, &socp_warm, &ipopt_config)?

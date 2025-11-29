@@ -174,6 +174,8 @@
 
 mod branch_flow;
 mod hessian;
+#[cfg(feature = "solver-ipopt")]
+mod jacobian;
 mod multiperiod;
 mod power_equations;
 mod problem;
@@ -203,6 +205,6 @@ pub use ybus::{YBus, YBusBuilder};
 
 #[cfg(feature = "solver-ipopt")]
 pub use ipopt_solver::{
-    solve_with_ipopt, solve_with_socp_warm_start, warm_start_from_socp, IpoptAcOpfWarmStart,
-    IpoptConfig,
+    solve_with_dc_warm_start, solve_with_ipopt, solve_with_socp_warm_start, warm_start_from_dc,
+    warm_start_from_socp, IpoptAcOpfWarmStart, IpoptConfig,
 };

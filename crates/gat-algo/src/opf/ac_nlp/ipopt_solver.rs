@@ -13,7 +13,7 @@
 
 #![cfg(feature = "solver-ipopt")]
 
-use super::{hessian, AcOpfProblem};
+use super::{hessian, jacobian, AcOpfProblem};
 use crate::opf::{OpfMethod, OpfSolution};
 use crate::OpfError;
 use ipopt::{BasicProblem, ConstrainedProblem, Index, Ipopt, Number, SolveStatus};
@@ -39,10 +39,21 @@ impl<'a> IpoptAcOpf<'a> {
     }
 
     /// Get number of equality constraints (2*n_bus + 1)
-    fn n_constraints(&self) -> usize {
+    fn n_equality_constraints(&self) -> usize {
         // Power balance: n_bus P equations + n_bus Q equations
         // Reference angle: 1 equation
         2 * self.problem.n_bus + 1
+    }
+
+    /// Get number of inequality constraints (2 per branch with thermal limit)
+    fn n_inequality_constraints(&self) -> usize {
+        // Each thermally-constrained branch has 2 constraints (from and to sides)
+        2 * self.problem.n_thermal_constrained_branches()
+    }
+
+    /// Get total number of constraints
+    fn n_constraints(&self) -> usize {
+        self.n_equality_constraints() + self.n_inequality_constraints()
     }
 }
 
@@ -97,19 +108,10 @@ impl<'a> BasicProblem for IpoptAcOpf<'a> {
     }
 
     fn objective_grad(&self, x: &[Number], _new_x: bool, grad_f: &mut [Number]) -> bool {
-        // Finite difference gradient for now
-        // TODO: Implement analytical gradient
-        let eps = 1e-7;
-        let n = x.len();
-        let f0 = self.problem.objective(x);
-
-        let mut x_plus = x.to_vec();
-        for i in 0..n {
-            x_plus[i] = x[i] + eps;
-            grad_f[i] = (self.problem.objective(&x_plus) - f0) / eps;
-            x_plus[i] = x[i]; // Reset for next iteration
-        }
-
+        // Use analytical gradient for performance (O(n_gen) vs O(n_var) for finite-diff)
+        // The objective only depends on generator P, so most entries are zero
+        let grad = self.problem.objective_gradient(x);
+        grad_f.copy_from_slice(&grad);
         true
     }
 }
@@ -120,78 +122,57 @@ impl<'a> ConstrainedProblem for IpoptAcOpf<'a> {
     }
 
     fn num_constraint_jacobian_non_zeros(&self) -> usize {
-        // Dense Jacobian for now (all entries non-zero)
-        // TODO: Implement sparse pattern
-        self.n_constraints() * self.problem.n_var
+        // Use analytical sparse Jacobian
+        jacobian::jacobian_nnz(self.problem)
     }
 
     fn constraint_bounds(&self, g_l: &mut [Number], g_u: &mut [Number]) -> bool {
-        // All equality constraints: g(x) = 0
-        for i in 0..self.n_constraints() {
+        let n_eq = self.n_equality_constraints();
+
+        // Equality constraints: g(x) = 0
+        for i in 0..n_eq {
             g_l[i] = 0.0;
+            g_u[i] = 0.0;
+        }
+
+        // Inequality constraints (thermal limits): h(x) ≤ 0
+        // IPOPT expects: g_l ≤ g(x) ≤ g_u
+        // For h(x) ≤ 0, we set g_l = -∞, g_u = 0
+        for i in n_eq..self.n_constraints() {
+            g_l[i] = f64::NEG_INFINITY;
             g_u[i] = 0.0;
         }
         true
     }
 
     fn constraint(&self, x: &[Number], _new_x: bool, g: &mut [Number]) -> bool {
-        let constraints = self.problem.equality_constraints(x);
-        g.copy_from_slice(&constraints);
+        // Equality constraints (power balance + reference angle)
+        let eq_constraints = self.problem.equality_constraints(x);
+        let n_eq = eq_constraints.len();
+        g[..n_eq].copy_from_slice(&eq_constraints);
+
+        // Inequality constraints (thermal limits)
+        let ineq_constraints = self.problem.thermal_constraints(x);
+        if !ineq_constraints.is_empty() {
+            g[n_eq..n_eq + ineq_constraints.len()].copy_from_slice(&ineq_constraints);
+        }
         true
     }
 
     fn constraint_jacobian_indices(&self, irow: &mut [Index], jcol: &mut [Index]) -> bool {
-        // Dense Jacobian for now (all entries non-zero)
-        // TODO: Implement sparse pattern
-        let nc = self.n_constraints();
-        let nv = self.problem.n_var;
-
-        let mut idx = 0;
-        for i in 0..nc {
-            for j in 0..nv {
-                irow[idx] = i as Index;
-                jcol[idx] = j as Index;
-                idx += 1;
-            }
+        // Use analytical sparse Jacobian pattern
+        let (rows, cols) = jacobian::jacobian_sparsity(self.problem);
+        for (i, (&r, &c)) in rows.iter().zip(cols.iter()).enumerate() {
+            irow[i] = r as Index;
+            jcol[i] = c as Index;
         }
-
         true
     }
 
     fn constraint_jacobian_values(&self, x: &[Number], _new_x: bool, vals: &mut [Number]) -> bool {
-        // Finite difference Jacobian for now
-        // TODO: Implement analytical Jacobian
-        let nc = self.n_constraints();
-        let nv = self.problem.n_var;
-        let eps = 1e-7;
-
-        let g0 = self.problem.equality_constraints(x);
-        let mut x_plus = x.to_vec();
-
-        // Compute Jacobian columns: dg/dx_j for each variable j
-        // Store in row-major order to match constraint_jacobian_indices
-        let mut jac = vec![vec![0.0; nv]; nc]; // jac[i][j] = dg_i/dx_j
-
-        for j in 0..nv {
-            x_plus[j] = x[j] + eps;
-            let g_plus = self.problem.equality_constraints(&x_plus);
-
-            for i in 0..nc {
-                jac[i][j] = (g_plus[i] - g0[i]) / eps;
-            }
-
-            x_plus[j] = x[j]; // Reset for next iteration
-        }
-
-        // Fill vals in row-major order (matching indices: for i { for j })
-        let mut idx = 0;
-        for i in 0..nc {
-            for j in 0..nv {
-                vals[idx] = jac[i][j];
-                idx += 1;
-            }
-        }
-
+        // Use analytical Jacobian for better accuracy and performance
+        let jac_vals = jacobian::jacobian_values(self.problem, x);
+        vals[..jac_vals.len()].copy_from_slice(&jac_vals);
         true
     }
 
@@ -247,15 +228,30 @@ pub fn solve_with_ipopt(
         .map_err(|e| OpfError::NumericalIssue(format!("IPOPT init failed: {}", e)))?;
 
     // Configure solver options
-    solver.set_option("max_iter", max_iter.unwrap_or(200) as i32);
+    solver.set_option("max_iter", max_iter.unwrap_or(500) as i32);
     solver.set_option("tol", tol.unwrap_or(1e-6));
     solver.set_option("print_level", 0); // Quiet mode
     solver.set_option("sb", "yes"); // Suppress banner
 
-    // NOTE: Using exact Hessian but Jacobian is finite-difference (slow).
-    // For larger cases (>14 buses), consider implementing analytical Jacobian.
-    // See: ipopt_solver.rs:161-196 for the FD Jacobian code.
-    solver.set_option("hessian_approximation", "exact");
+    // Use L-BFGS Hessian approximation because the exact Hessian doesn't
+    // include thermal constraint terms yet (only objective + power balance).
+    // With incomplete Hessian, IPOPT struggles to converge on larger cases.
+    solver.set_option("hessian_approximation", "limited-memory");
+
+    // NLP scaling helps with ill-conditioned problems (power balance in p.u.)
+    solver.set_option("nlp_scaling_method", "gradient-based");
+
+    // Barrier parameter tuning for power systems
+    // Start with smaller mu for better initial path
+    solver.set_option("mu_strategy", "adaptive");
+    solver.set_option("mu_init", 1e-2);
+
+    // Accept solutions that are "good enough" when optimal is hard to reach
+    solver.set_option("acceptable_tol", 1e-4);
+    solver.set_option("acceptable_iter", 10);
+
+    // Bound relaxation helps with tight voltage/angle bounds
+    solver.set_option("bound_relax_factor", 1e-8);
 
     // Solve
     let result = solver.solve();
@@ -333,7 +329,7 @@ pub fn solve_with_ipopt(
 // The key insight is that SOCP provides a near-feasible AC solution,
 // so IPOPT can refine it rather than starting from scratch.
 
-use crate::opf::SocpWarmStart;
+use crate::opf::{DcWarmStart, SocpWarmStart};
 
 /// Configuration for IPOPT solver with warm-start support.
 #[derive(Debug, Clone)]
@@ -362,14 +358,14 @@ pub struct IpoptConfig {
 impl Default for IpoptConfig {
     fn default() -> Self {
         Self {
-            max_iter: 200,
+            max_iter: 500,
             tol: 1e-6,
             warm_start: false,
             warm_start_bound_push: 1e-6,
             warm_start_bound_frac: 1e-6,
             warm_start_slack_bound_push: 1e-6,
             print_level: 0,
-            use_exact_hessian: true,
+            use_exact_hessian: false, // Use L-BFGS until thermal Hessian is implemented
         }
     }
 }
@@ -377,16 +373,42 @@ impl Default for IpoptConfig {
 #[cfg(feature = "solver-ipopt")]
 impl IpoptConfig {
     /// Create config optimized for warm-starting from SOCP.
+    ///
+    /// Uses L-BFGS Hessian approximation because the exact Hessian
+    /// doesn't include thermal constraint terms yet.
     pub fn warm_start_from_socp() -> Self {
         Self {
-            max_iter: 100,           // Fewer iterations needed with good start
+            max_iter: 500,           // More iterations needed with L-BFGS
             tol: 1e-6,
             warm_start: true,
             warm_start_bound_push: 1e-6,
             warm_start_bound_frac: 1e-6,
             warm_start_slack_bound_push: 1e-6,
             print_level: 0,
-            use_exact_hessian: true,
+            use_exact_hessian: false, // Use L-BFGS until thermal Hessian is implemented
+        }
+    }
+
+    /// Create config optimized for warm-starting from DC-OPF.
+    ///
+    /// DC warm-start provides generator dispatch and angles, but not
+    /// voltage magnitudes or reactive power. Unlike SOCP warm-start,
+    /// we DON'T enable IPOPT's warm_start options because the DC
+    /// solution is too far from the AC solution - IPOPT's barrier
+    /// parameter tuning works better with normal initialization.
+    ///
+    /// The benefit of DC warm-start is the initial point itself (angles
+    /// and dispatch), not the IPOPT warm-start heuristics.
+    pub fn warm_start_from_dc() -> Self {
+        Self {
+            max_iter: 500,           // Same as cold start (DC point not as close as SOCP)
+            tol: 1e-6,
+            warm_start: false,       // IMPORTANT: Don't use IPOPT warm-start options
+            warm_start_bound_push: 1e-6,
+            warm_start_bound_frac: 1e-6,
+            warm_start_slack_bound_push: 1e-6,
+            print_level: 0,
+            use_exact_hessian: false, // Use L-BFGS until thermal Hessian is implemented
         }
     }
 }
@@ -455,6 +477,154 @@ pub fn warm_start_from_socp(
     x
 }
 
+/// Convert DC-OPF warm-start to IPOPT initial point.
+///
+/// DC-OPF provides angles and generator real power, but not voltage magnitudes
+/// or reactive power (since DC-OPF ignores losses and reactive power).
+///
+/// The mapping is:
+/// - Voltage magnitudes: flat start at 1.0 p.u. (DC assumption)
+/// - Voltage angles: from DC solution (already in radians)
+/// - Generator P: from DC solution (convert MW → p.u.)
+/// - Generator Q: initialized to middle of bounds (DC-OPF doesn't compute Q)
+///
+/// This provides a better starting point than flat start by getting the
+/// generator dispatch and angle differences approximately correct.
+///
+/// # Arguments
+/// * `warm_start` - DC-OPF solution data
+/// * `problem` - AC-OPF problem definition (provides variable ordering)
+///
+/// # Returns
+/// Initial point vector for IPOPT.
+#[cfg(feature = "solver-ipopt")]
+pub fn warm_start_from_dc(warm_start: &DcWarmStart, problem: &AcOpfProblem) -> Vec<f64> {
+    let mut x = vec![0.0; problem.n_var];
+
+    // Voltage magnitudes: DC-OPF assumes V = 1.0 everywhere
+    // Use middle of bounds for better starting point
+    for (i, bus) in problem.buses.iter().enumerate() {
+        let v_mid = (bus.v_min + bus.v_max) / 2.0;
+        x[problem.v_offset + i] = v_mid;
+    }
+
+    // Voltage angles: from DC solution (radians)
+    // Note: DC-OPF stores angles in radians
+    for (i, bus) in problem.buses.iter().enumerate() {
+        let theta = warm_start.bus_angles.get(&bus.name).copied().unwrap_or(0.0);
+        // Clamp to angle bounds
+        let theta_clamped = theta
+            .max(-std::f64::consts::FRAC_PI_2)
+            .min(std::f64::consts::FRAC_PI_2);
+        x[problem.theta_offset + i] = theta_clamped;
+    }
+
+    // Generator real power: from DC solution (MW → p.u.)
+    for (i, gen) in problem.generators.iter().enumerate() {
+        let pg_mw = warm_start.generator_p.get(&gen.name).copied().unwrap_or(0.0);
+        let pg_pu = pg_mw / problem.base_mva;
+        // Clamp to bounds
+        let pg_min = gen.pmin_mw / problem.base_mva;
+        let pg_max = gen.pmax_mw / problem.base_mva;
+        let pg_clamped = pg_pu.max(pg_min).min(pg_max);
+        x[problem.pg_offset + i] = pg_clamped;
+    }
+
+    // Generator reactive power: DC-OPF doesn't compute Q
+    // Initialize to middle of bounds for robustness
+    for (i, gen) in problem.generators.iter().enumerate() {
+        let qg_min = gen.qmin_mvar / problem.base_mva;
+        let qg_max = gen.qmax_mvar / problem.base_mva;
+        let qg_mid = (qg_min + qg_max) / 2.0;
+        x[problem.qg_offset + i] = qg_mid;
+    }
+
+    x
+}
+
+/// Solve AC-OPF using IPOPT with warm-start from DC-OPF.
+///
+/// DC-OPF provides a fast approximation that captures the essential dispatch
+/// pattern (generator outputs, angle differences) without the complexity of
+/// full AC power flow. This makes it a good initialization for IPOPT.
+///
+/// Benefits over flat start:
+/// - Generator dispatch is already near-optimal for MW balance
+/// - Angle differences reflect approximate power flows
+/// - Much faster to compute than SOCP warm-start
+///
+/// Limitations:
+/// - Voltage magnitudes start at flat (1.0 p.u.)
+/// - Reactive power starts at middle of bounds
+/// - May not help for voltage-constrained problems
+///
+/// # Arguments
+/// * `problem` - AC-OPF problem definition
+/// * `warm_start` - DC-OPF solution to initialize from
+/// * `config` - IPOPT configuration
+///
+/// # Returns
+/// * `Ok(OpfSolution)` - Optimal solution
+/// * `Err(OpfError)` - Solver failed
+#[cfg(feature = "solver-ipopt")]
+pub fn solve_with_dc_warm_start(
+    problem: &AcOpfProblem,
+    warm_start: &DcWarmStart,
+    config: &IpoptConfig,
+) -> Result<OpfSolution, OpfError> {
+    // Create initial point from DC solution
+    let x0 = warm_start_from_dc(warm_start, problem);
+
+    // Create IPOPT wrapper with custom initial point
+    let ipopt_problem = IpoptAcOpfWarmStart::new(problem, x0);
+
+    let mut solver = Ipopt::new(ipopt_problem)
+        .map_err(|e| OpfError::NumericalIssue(format!("IPOPT init failed: {}", e)))?;
+
+    // Configure solver - same options as SOCP warm-start
+    solver.set_option("max_iter", config.max_iter);
+    solver.set_option("tol", config.tol);
+    solver.set_option("print_level", config.print_level);
+    solver.set_option("sb", "yes");
+
+    // Warm-start options
+    if config.warm_start {
+        solver.set_option("warm_start_init_point", "yes");
+        solver.set_option("warm_start_bound_push", config.warm_start_bound_push);
+        solver.set_option("warm_start_bound_frac", config.warm_start_bound_frac);
+        solver.set_option("warm_start_slack_bound_push", config.warm_start_slack_bound_push);
+    }
+
+    // Hessian approximation
+    if config.use_exact_hessian {
+        solver.set_option("hessian_approximation", "exact");
+    } else {
+        solver.set_option("hessian_approximation", "limited-memory");
+    }
+
+    // NLP scaling and barrier tuning
+    solver.set_option("nlp_scaling_method", "gradient-based");
+    solver.set_option("mu_strategy", "adaptive");
+    solver.set_option("mu_init", 1e-2);
+    solver.set_option("acceptable_tol", 1e-4);
+    solver.set_option("acceptable_iter", 10);
+    solver.set_option("bound_relax_factor", 1e-8);
+
+    // Solve
+    let result = solver.solve();
+
+    match result.status {
+        SolveStatus::SolveSucceeded | SolveStatus::SolvedToAcceptableLevel => {
+            let x = &result.solver_data.solution.primal_variables;
+            extract_solution(problem, x)
+        }
+        _ => Err(OpfError::NumericalIssue(format!(
+            "IPOPT failed with status: {:?}",
+            result.status
+        ))),
+    }
+}
+
 /// Solve AC-OPF using IPOPT with warm-start from SOCP.
 ///
 /// This is the recommended approach for production use:
@@ -521,6 +691,20 @@ pub fn solve_with_socp_warm_start(
     } else {
         solver.set_option("hessian_approximation", "limited-memory");
     }
+
+    // NLP scaling helps with ill-conditioned problems
+    solver.set_option("nlp_scaling_method", "gradient-based");
+
+    // Barrier parameter tuning for power systems
+    solver.set_option("mu_strategy", "adaptive");
+    solver.set_option("mu_init", 1e-2);
+
+    // Accept solutions that are "good enough"
+    solver.set_option("acceptable_tol", 1e-4);
+    solver.set_option("acceptable_iter", 10);
+
+    // Bound relaxation
+    solver.set_option("bound_relax_factor", 1e-8);
 
     // Solve
     let result = solver.solve();
@@ -600,8 +784,16 @@ impl<'a> IpoptAcOpfWarmStart<'a> {
         Self { problem, initial_x }
     }
 
-    fn n_constraints(&self) -> usize {
+    fn n_equality_constraints(&self) -> usize {
         2 * self.problem.n_bus + 1
+    }
+
+    fn n_inequality_constraints(&self) -> usize {
+        2 * self.problem.n_thermal_constrained_branches()
+    }
+
+    fn n_constraints(&self) -> usize {
+        self.n_equality_constraints() + self.n_inequality_constraints()
     }
 }
 
@@ -652,17 +844,9 @@ impl<'a> BasicProblem for IpoptAcOpfWarmStart<'a> {
     }
 
     fn objective_grad(&self, x: &[Number], _new_x: bool, grad_f: &mut [Number]) -> bool {
-        let eps = 1e-7;
-        let n = x.len();
-        let f0 = self.problem.objective(x);
-
-        let mut x_plus = x.to_vec();
-        for i in 0..n {
-            x_plus[i] = x[i] + eps;
-            grad_f[i] = (self.problem.objective(&x_plus) - f0) / eps;
-            x_plus[i] = x[i];
-        }
-
+        // Use analytical gradient for performance (O(n_gen) vs O(n_var) for finite-diff)
+        let grad = self.problem.objective_gradient(x);
+        grad_f.copy_from_slice(&grad);
         true
     }
 }
@@ -674,71 +858,55 @@ impl<'a> ConstrainedProblem for IpoptAcOpfWarmStart<'a> {
     }
 
     fn num_constraint_jacobian_non_zeros(&self) -> usize {
-        self.n_constraints() * self.problem.n_var
+        // Use analytical sparse Jacobian
+        jacobian::jacobian_nnz(self.problem)
     }
 
     fn constraint_bounds(&self, g_l: &mut [Number], g_u: &mut [Number]) -> bool {
-        for i in 0..self.n_constraints() {
+        let n_eq = self.n_equality_constraints();
+
+        // Equality constraints: g(x) = 0
+        for i in 0..n_eq {
             g_l[i] = 0.0;
+            g_u[i] = 0.0;
+        }
+
+        // Inequality constraints (thermal limits): h(x) ≤ 0
+        for i in n_eq..self.n_constraints() {
+            g_l[i] = f64::NEG_INFINITY;
             g_u[i] = 0.0;
         }
         true
     }
 
     fn constraint(&self, x: &[Number], _new_x: bool, g: &mut [Number]) -> bool {
-        let constraints = self.problem.equality_constraints(x);
-        g.copy_from_slice(&constraints);
+        // Equality constraints (power balance + reference angle)
+        let eq_constraints = self.problem.equality_constraints(x);
+        let n_eq = eq_constraints.len();
+        g[..n_eq].copy_from_slice(&eq_constraints);
+
+        // Inequality constraints (thermal limits)
+        let ineq_constraints = self.problem.thermal_constraints(x);
+        if !ineq_constraints.is_empty() {
+            g[n_eq..n_eq + ineq_constraints.len()].copy_from_slice(&ineq_constraints);
+        }
         true
     }
 
     fn constraint_jacobian_indices(&self, irow: &mut [Index], jcol: &mut [Index]) -> bool {
-        let nc = self.n_constraints();
-        let nv = self.problem.n_var;
-
-        let mut idx = 0;
-        for i in 0..nc {
-            for j in 0..nv {
-                irow[idx] = i as Index;
-                jcol[idx] = j as Index;
-                idx += 1;
-            }
+        // Use analytical sparse Jacobian pattern
+        let (rows, cols) = jacobian::jacobian_sparsity(self.problem);
+        for (i, (&r, &c)) in rows.iter().zip(cols.iter()).enumerate() {
+            irow[i] = r as Index;
+            jcol[i] = c as Index;
         }
-
         true
     }
 
     fn constraint_jacobian_values(&self, x: &[Number], _new_x: bool, vals: &mut [Number]) -> bool {
-        let nc = self.n_constraints();
-        let nv = self.problem.n_var;
-        let eps = 1e-7;
-
-        let g0 = self.problem.equality_constraints(x);
-        let mut x_plus = x.to_vec();
-
-        // Compute Jacobian columns: dg/dx_j for each variable j
-        // Store in row-major order to match constraint_jacobian_indices
-        let mut jac = vec![vec![0.0; nv]; nc]; // jac[i][j] = dg_i/dx_j
-
-        for j in 0..nv {
-            x_plus[j] = x[j] + eps;
-            let g_plus = self.problem.equality_constraints(&x_plus);
-
-            for i in 0..nc {
-                jac[i][j] = (g_plus[i] - g0[i]) / eps;
-            }
-
-            x_plus[j] = x[j];
-        }
-
-        // Fill vals in row-major order (matching indices: for i { for j })
-        let mut idx = 0;
-        for i in 0..nc {
-            for j in 0..nv {
-                vals[idx] = jac[i][j];
-                idx += 1;
-            }
-        }
-
+        // Use analytical Jacobian for better accuracy and performance
+        let jac_vals = jacobian::jacobian_values(self.problem, x);
+        vals[..jac_vals.len()].copy_from_slice(&jac_vals);
         true
     }
 

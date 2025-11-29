@@ -786,6 +786,183 @@ impl AcOpfProblem {
         grad
     }
 
+    // ========================================================================
+    // BRANCH FLOW COMPUTATION
+    // ========================================================================
+
+    /// Compute power flow on a branch (from side) in per-unit.
+    ///
+    /// For a branch from bus i to bus j with:
+    /// - Series admittance: g + jb = 1/(r + jx)
+    /// - Line charging: bc (total charging susceptance, split half to each side)
+    /// - Tap ratio: a (1.0 for transmission lines)
+    /// - Phase shift: θ_s (radians)
+    ///
+    /// The "from" side power injection is:
+    /// ```text
+    /// P_ij = (Vi²/a²) · g - (Vi·Vj/a) · [g·cos(θi-θj-θs) + b·sin(θi-θj-θs)]
+    /// Q_ij = -(Vi²/a²) · (b + bc/2) - (Vi·Vj/a) · [g·sin(θi-θj-θs) - b·cos(θi-θj-θs)]
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `branch` - Branch data (impedance, tap, limits)
+    /// * `vi` - Voltage magnitude at from bus (p.u.)
+    /// * `vj` - Voltage magnitude at to bus (p.u.)
+    /// * `theta_i` - Voltage angle at from bus (radians)
+    /// * `theta_j` - Voltage angle at to bus (radians)
+    ///
+    /// # Returns
+    ///
+    /// Tuple `(P_ij, Q_ij)` - real and reactive power flow in per-unit
+    pub fn branch_flow_from(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+        // Compute series admittance g + jb = 1/(r + jx)
+        let z_sq = branch.r * branch.r + branch.x * branch.x;
+        let g = branch.r / z_sq;
+        let b = -branch.x / z_sq;
+
+        // Tap ratio (default 1.0 for lines)
+        let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
+        let a_sq = a * a;
+
+        // Angle difference including phase shift
+        let theta_diff = theta_i - theta_j - branch.shift;
+        let cos_diff = theta_diff.cos();
+        let sin_diff = theta_diff.sin();
+
+        // Voltage products
+        let vi_sq = vi * vi;
+        let vi_vj = vi * vj;
+
+        // Real power: P_ij = (Vi²/a²)·g - (Vi·Vj/a)·[g·cos + b·sin]
+        let p_ij = (vi_sq / a_sq) * g - (vi_vj / a) * (g * cos_diff + b * sin_diff);
+
+        // Reactive power: Q_ij = -(Vi²/a²)·(b + bc/2) - (Vi·Vj/a)·[g·sin - b·cos]
+        let bc_half = branch.b_charging / 2.0;
+        let q_ij = -(vi_sq / a_sq) * (b + bc_half) - (vi_vj / a) * (g * sin_diff - b * cos_diff);
+
+        (p_ij, q_ij)
+    }
+
+    /// Compute power flow on a branch (to side) in per-unit.
+    ///
+    /// The "to" side power flow differs because the tap and phase shift
+    /// are on the from side. The formulas become:
+    /// ```text
+    /// P_ji = Vj² · g - (Vi·Vj/a) · [g·cos(θj-θi+θs) + b·sin(θj-θi+θs)]
+    /// Q_ji = -Vj² · (b + bc/2) - (Vi·Vj/a) · [g·sin(θj-θi+θs) - b·cos(θj-θi+θs)]
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// Tuple `(P_ji, Q_ji)` - real and reactive power flow in per-unit
+    pub fn branch_flow_to(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+        // Compute series admittance
+        let z_sq = branch.r * branch.r + branch.x * branch.x;
+        let g = branch.r / z_sq;
+        let b = -branch.x / z_sq;
+
+        // Tap ratio
+        let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
+
+        // Angle difference (reversed direction, plus phase shift)
+        let theta_diff = theta_j - theta_i + branch.shift;
+        let cos_diff = theta_diff.cos();
+        let sin_diff = theta_diff.sin();
+
+        // Voltage products
+        let vj_sq = vj * vj;
+        let vi_vj = vi * vj;
+
+        // Real power: P_ji = Vj²·g - (Vi·Vj/a)·[g·cos + b·sin]
+        let p_ji = vj_sq * g - (vi_vj / a) * (g * cos_diff + b * sin_diff);
+
+        // Reactive power: Q_ji = -Vj²·(b + bc/2) - (Vi·Vj/a)·[g·sin - b·cos]
+        let bc_half = branch.b_charging / 2.0;
+        let q_ji = -vj_sq * (b + bc_half) - (vi_vj / a) * (g * sin_diff - b * cos_diff);
+
+        (p_ji, q_ji)
+    }
+
+    /// Compute squared apparent power flow on branch (from side) in per-unit².
+    ///
+    /// S²_ij = P²_ij + Q²_ij
+    ///
+    /// Used for thermal limit constraints: S²_ij ≤ S²_max
+    pub fn branch_flow_sq_from(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> f64 {
+        let (p, q) = self.branch_flow_from(branch, vi, vj, theta_i, theta_j);
+        p * p + q * q
+    }
+
+    /// Compute squared apparent power flow on branch (to side) in per-unit².
+    pub fn branch_flow_sq_to(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> f64 {
+        let (p, q) = self.branch_flow_to(branch, vi, vj, theta_i, theta_j);
+        p * p + q * q
+    }
+
+    /// Evaluate thermal limit inequality constraints.
+    ///
+    /// For each branch with a thermal limit (rate_mva > 0), we add constraints:
+    /// - S²_ij - S²_max ≤ 0  (from side)
+    /// - S²_ji - S²_max ≤ 0  (to side)
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Decision variable vector
+    ///
+    /// # Returns
+    ///
+    /// Vector of constraint values (should be ≤ 0 for feasibility).
+    /// Length = 2 * number of branches with thermal limits.
+    pub fn thermal_constraints(&self, x: &[f64]) -> Vec<f64> {
+        let (v, theta) = self.extract_v_theta(x);
+        let mut h = Vec::new();
+
+        for branch in &self.branches {
+            // Skip branches without thermal limits
+            if branch.rate_mva <= 0.0 {
+                continue;
+            }
+
+            let vi = v[branch.from_idx];
+            let vj = v[branch.to_idx];
+            let theta_i = theta[branch.from_idx];
+            let theta_j = theta[branch.to_idx];
+
+            // Thermal limit in per-unit squared
+            let s_max_pu = branch.rate_mva / self.base_mva;
+            let s_max_sq = s_max_pu * s_max_pu;
+
+            // From side: S²_ij - S²_max ≤ 0
+            let s_sq_from = self.branch_flow_sq_from(branch, vi, vj, theta_i, theta_j);
+            h.push(s_sq_from - s_max_sq);
+
+            // To side: S²_ji - S²_max ≤ 0
+            let s_sq_to = self.branch_flow_sq_to(branch, vi, vj, theta_i, theta_j);
+            h.push(s_sq_to - s_max_sq);
+        }
+
+        h
+    }
+
+    /// Count branches with thermal limits.
+    ///
+    /// Returns the number of branches that have rate_mva > 0, which determines
+    /// how many inequality constraints we need (2 per branch: from and to sides).
+    pub fn n_thermal_constrained_branches(&self) -> usize {
+        self.branches.iter().filter(|b| b.rate_mva > 0.0).count()
+    }
+
+    /// Get indices of branches with thermal limits.
+    pub fn thermal_constrained_branch_indices(&self) -> Vec<usize> {
+        self.branches
+            .iter()
+            .enumerate()
+            .filter(|(_, b)| b.rate_mva > 0.0)
+            .map(|(i, _)| i)
+            .collect()
+    }
+
     /// Evaluate equality constraints (power balance equations).
     ///
     /// The constraints enforce:
