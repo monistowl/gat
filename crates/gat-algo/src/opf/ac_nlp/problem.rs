@@ -589,10 +589,11 @@ impl AcOpfProblem {
     /// A flat start assumes:
     /// - All voltages at 1.0 p.u. (nominal)
     /// - All angles at 0 radians (synchronized)
-    /// - Generators at midpoint of operating range
+    /// - Generators dispatched proportionally to meet total load
     ///
-    /// This is a common initialization strategy that works well for most networks.
-    /// For difficult cases, a DC power flow solution may provide a better start.
+    /// This improved initialization ensures generators provide enough power to
+    /// approximately meet the load, providing a much better starting point for
+    /// convergence than simple midpoint dispatch.
     ///
     /// # Returns
     ///
@@ -621,17 +622,74 @@ impl AcOpfProblem {
         // Already initialized by vec![0.0; n_var]
 
         // ====================================================================
-        // GENERATOR DISPATCH: MIDPOINT START
+        // GENERATOR DISPATCH: LOAD-PROPORTIONAL START
         // ====================================================================
         //
-        // Starting at midpoint of [P_min, P_max] is a safe choice:
-        // - Guaranteed to be feasible
-        // - Provides room to adjust up or down
-        // - Roughly balances load with generation
+        // Dispatch generators proportionally to meet total load, accounting for
+        // estimated losses. This provides a much better initial point than
+        // simple midpoint, especially for large cases where midpoint may not
+        // provide enough generation.
+        //
+        // Algorithm:
+        // 1. Compute total load (P and Q)
+        // 2. Add estimated losses (~5% of P load, ~10% of Q for reactive)
+        // 3. Dispatch each generator proportionally to its capacity headroom
 
+        let total_p_load: f64 = self.buses.iter().map(|b| b.p_load).sum::<f64>() / self.base_mva;
+        let total_q_load: f64 = self.buses.iter().map(|b| b.q_load).sum::<f64>() / self.base_mva;
+
+        // Target generation = load + estimated losses
+        // Use 5% loss estimate for P, 10% for Q (typical for transmission networks)
+        let target_p_gen = total_p_load * 1.05;
+        let target_q_gen = total_q_load * 1.10;
+
+        // Compute total capacity ranges
+        let total_pmin: f64 = self
+            .generators
+            .iter()
+            .map(|g| g.pmin_mw / self.base_mva)
+            .sum();
+        let total_pmax: f64 = self
+            .generators
+            .iter()
+            .map(|g| g.pmax_mw / self.base_mva)
+            .sum();
+        let total_qmin: f64 = self
+            .generators
+            .iter()
+            .map(|g| g.qmin_mvar / self.base_mva)
+            .sum();
+        let total_qmax: f64 = self
+            .generators
+            .iter()
+            .map(|g| g.qmax_mvar / self.base_mva)
+            .sum();
+
+        let total_p_headroom = total_pmax - total_pmin;
+        let total_q_headroom = total_qmax - total_qmin;
+
+        // Fraction of headroom to use (0 = all at Pmin, 1 = all at Pmax)
+        let p_frac = if total_p_headroom > 1e-6 {
+            ((target_p_gen - total_pmin) / total_p_headroom).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+
+        let q_frac = if total_q_headroom > 1e-6 {
+            ((target_q_gen - total_qmin) / total_q_headroom).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+
+        // Set each generator's output proportionally
         for (i, gen) in self.generators.iter().enumerate() {
-            x[self.pg_offset + i] = (gen.pmin_mw + gen.pmax_mw) / 2.0 / self.base_mva;
-            x[self.qg_offset + i] = (gen.qmin_mvar + gen.qmax_mvar) / 2.0 / self.base_mva;
+            let pmin_pu = gen.pmin_mw / self.base_mva;
+            let pmax_pu = gen.pmax_mw / self.base_mva;
+            let qmin_pu = gen.qmin_mvar / self.base_mva;
+            let qmax_pu = gen.qmax_mvar / self.base_mva;
+
+            x[self.pg_offset + i] = pmin_pu + p_frac * (pmax_pu - pmin_pu);
+            x[self.qg_offset + i] = qmin_pu + q_frac * (qmax_pu - qmin_pu);
         }
 
         x
