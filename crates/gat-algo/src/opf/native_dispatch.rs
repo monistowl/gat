@@ -257,6 +257,15 @@ pub fn solve_dc_opf_native(
     // Convert network to IPC format
     let problem = network_to_problem(network, ProblemType::DcOpf, timeout_seconds);
 
+    // Debug: log problem dimensions
+    eprintln!(
+        "DC-OPF problem: {} buses, {} gens (IDs: {:?}), {} branches",
+        problem.bus_id.len(),
+        problem.gen_id.len(),
+        problem.gen_id,
+        problem.branch_id.len()
+    );
+
     // Create and run solver process
     let solver = SolverProcess::new(SolverId::Clp, binary_path, timeout_seconds);
     let solution = solver

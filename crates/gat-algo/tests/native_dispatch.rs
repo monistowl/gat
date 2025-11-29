@@ -231,14 +231,14 @@ fn test_solve_dc_opf_native_two_bus() {
     assert!(solution.converged, "Solution should converge");
     assert_eq!(solution.method_used, OpfMethod::DcOpf);
 
-    // NOTE: The current gat-clp implementation returns a placeholder solution.
-    // Full DC-OPF formulation is not yet implemented (see crates/gat-clp/src/main.rs:178).
+    // Full DC-OPF formulation is implemented.
     // This test verifies:
     // 1. The IPC protocol works (problem → Arrow → solver → Arrow → solution)
     // 2. The binary can be found and executed
-    // 3. The conversion functions handle the roundtrip correctly
+    // 3. The DC-OPF formulation (power balance, line limits) is correct
+    // 4. The conversion functions handle the roundtrip correctly
 
-    // Verify solution structure is populated (even if placeholder)
+    // Verify solution structure is populated
     assert!(
         solution.generator_p.contains_key("gen1"),
         "Solution should include gen1"
@@ -252,11 +252,35 @@ fn test_solve_dc_opf_native_two_bus() {
         "Solution should include bus2 LMP"
     );
 
-    // When full DC-OPF is implemented, these assertions should be uncommented:
-    // let gen_p = solution.generator_p.get("gen1").copied().unwrap_or(0.0);
-    // assert!(gen_p > 45.0 && gen_p < 55.0, "Gen should supply ~50 MW, got {}", gen_p);
-    // assert!(solution.objective_value > 400.0 && solution.objective_value < 600.0,
-    //     "Objective should be ~$500/hr, got {}", solution.objective_value);
+    // Verify generator output matches load (50 MW)
+    let gen_p = solution.generator_p.get("gen1").copied().unwrap_or(0.0);
+    assert!(
+        gen_p > 45.0 && gen_p < 55.0,
+        "Gen should supply ~50 MW (matching load), got {}",
+        gen_p
+    );
+
+    // Verify objective value (~$500/hr for 50 MW at $10/MWh)
+    assert!(
+        solution.objective_value > 400.0 && solution.objective_value < 600.0,
+        "Objective should be ~$500/hr, got {}",
+        solution.objective_value
+    );
+
+    // Verify bus angles: bus 0 (ref) should be 0, bus 1 should be negative
+    // (power flows from bus 0 → bus 1, so θ_0 > θ_1)
+    let theta_0 = solution.bus_voltage_ang.get("bus1").copied().unwrap_or(0.0);
+    let theta_1 = solution.bus_voltage_ang.get("bus2").copied().unwrap_or(0.0);
+    assert!(
+        theta_0.abs() < 1e-6,
+        "Reference bus angle should be ~0, got {}",
+        theta_0
+    );
+    assert!(
+        theta_1 < 0.0,
+        "Load bus angle should be negative (power flows to it), got {}",
+        theta_1
+    );
 }
 
 #[test]

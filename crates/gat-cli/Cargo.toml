@@ -22,6 +22,7 @@ minimal = ["solver-clarabel", "polars-lazy", "polars-parquet", "polars-ipc"]
 solver-clarabel = ["gat-algo/solver-clarabel"]
 solver-highs = ["gat-algo/solver-highs"]
 solver-ipopt = ["gat-algo/solver-ipopt"]
+native-dispatch = ["gat-algo/native-dispatch"]
 # DEPRECATED: Use native-dispatch + gat-cbc instead. Requires system CBC install.
 solver-coin_cbc = ["gat-algo/solver-coin_cbc"]
 polars-lazy = ["gat-algo/polars-lazy"]

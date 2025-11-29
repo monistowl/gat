@@ -15,16 +15,19 @@ fn main() {
     let prebuilt_dir = workspace_root.join("target/coinor");
     let vendor_dir = workspace_root.join("vendor");
 
-    // Check for pre-built libraries first (from `cargo xtask build-solvers`)
-    if let Some(artifacts) = gat_coinor_build::find_prebuilt(&prebuilt_dir) {
-        println!("cargo:warning=Using pre-built CLP from {}", prebuilt_dir.display());
+    // Check for pre-built libraries first
+    // Priority: 1) target/coinor (from xtask), 2) vendor/local (from build-clp.sh)
+    let vendor_local_dir = workspace_root.join("vendor/local");
 
-        // Check that CLP is actually built
-        if artifacts.libraries.iter().any(|l| l == "Clp") {
-            emit_link_flags(&artifacts);
-            return;
+    for check_dir in [&prebuilt_dir, &vendor_local_dir] {
+        if let Some(artifacts) = gat_coinor_build::find_prebuilt(check_dir) {
+            // Check that CLP is actually built
+            if artifacts.libraries.iter().any(|l| l == "Clp") {
+                println!("cargo:warning=Using pre-built CLP from {}", check_dir.display());
+                emit_link_flags(&artifacts);
+                return;
+            }
         }
-        println!("cargo:warning=Pre-built libraries found but missing CLP, building from source...");
     }
 
     // Fallback: build from vendored sources
