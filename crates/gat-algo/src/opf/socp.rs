@@ -416,10 +416,9 @@ fn extract_network_data(
                 // Default voltage limits: ±10% of nominal
                 // These are typical NERC/FERC requirements for bulk transmission
                 // Distribution systems may use tighter bounds (±5%)
-                // Use Bus-specified limits if available, otherwise defaults
-                // DEBUG: Using very wide limits to rule out voltage as infeasibility cause
-                let v_min = bus.vmin_pu.unwrap_or(0.9).min(0.5); // At least as relaxed as 0.5
-                let v_max = bus.vmax_pu.unwrap_or(1.1).max(1.5); // At least as relaxed as 1.5
+                // Use actual case file bounds to produce warm-starts compatible with AC-OPF
+                let v_min = bus.vmin_pu.unwrap_or(0.9);
+                let v_max = bus.vmax_pu.unwrap_or(1.1);
 
                 buses.push(BusData {
                     id: bus.id,
@@ -903,23 +902,16 @@ pub fn solve(
     // In practice, the slack bus is usually a large generator with good
     // voltage regulation capability.
 
-    // Reference voltage magnitude: v[0] in [0.95, 1.05] (relaxed for transformer networks)
-    // Using a small range instead of exact equality helps with numerical stability
-    // when transformers with tap ratios create voltage differences
-    push_leq(
-        &[(var_v_start, 1.0)],
-        1.05, // v[0] <= 1.05
-        &mut rows,
-        &mut rhs,
-        &mut cones,
-    );
-    push_leq(
-        &[(var_v_start, -1.0)],
-        -0.95, // v[0] >= 0.95
-        &mut rows,
-        &mut rhs,
-        &mut cones,
-    );
+    // Reference voltage magnitude: use actual case file bounds for bus 0
+    // Note: v[0] represents |V₀|² (squared magnitude), so bounds must be squared
+    // The general voltage constraints (lines 869-889) already handle this correctly,
+    // so we don't need additional reference bus voltage constraints here.
+    // The general constraints v[0] >= v_min² and v[0] <= v_max² are sufficient.
+    //
+    // Previously this used hardcoded [0.95, 1.05] which was incorrect:
+    // - v <= 1.05 meant |V| <= 1.025 (too tight!)
+    // - v >= 0.95 meant |V| >= 0.975 (too tight!)
+    // This caused SOCP infeasibility when cases required wider voltage ranges.
 
     // Reference angle: θ[0] = 0
     push_eq(
