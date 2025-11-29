@@ -3,7 +3,7 @@
 //! Handles spawning solver binaries and managing their lifecycle.
 
 use crate::error::{ExitCode, SolverError, SolverResult};
-use crate::ipc::{read_solution, write_problem};
+use crate::ipc::{read_solution_v2, write_problem_v2};
 use crate::problem::ProblemBatch;
 use crate::solution::SolutionBatch;
 use crate::SolverId;
@@ -69,13 +69,13 @@ impl SolverProcess {
     ///
     /// This method:
     /// 1. Spawns the solver binary
-    /// 2. Writes the problem to stdin as Arrow IPC
-    /// 3. Reads the solution from stdout as Arrow IPC
+    /// 2. Writes the problem to stdin as Arrow IPC v2 (length-prefixed multi-batch)
+    /// 3. Reads the solution from stdout as Arrow IPC v2
     /// 4. Returns the solution or an error
     pub async fn solve(&self, problem: &ProblemBatch) -> SolverResult<SolutionBatch> {
-        // Serialize problem to Arrow IPC
+        // Serialize problem to Arrow IPC v2
         let mut problem_bytes = Vec::new();
-        write_problem(problem, &mut problem_bytes)?;
+        write_problem_v2(problem, &mut problem_bytes)?;
 
         // Spawn solver process
         let mut child = Command::new(&self.binary_path)
@@ -139,7 +139,7 @@ impl SolverProcess {
                     return Err(SolverError::Ipc("Empty solution from solver".to_string()));
                 }
 
-                read_solution(&solution_bytes[..])
+                read_solution_v2(&solution_bytes[..])
             }
             Ok(Err(e)) => Err(e),
             Err(_) => {
@@ -173,9 +173,9 @@ impl SolverProcess {
 
         let start = Instant::now();
 
-        // Serialize problem to Arrow IPC
+        // Serialize problem to Arrow IPC v2
         let mut problem_bytes = Vec::new();
-        write_problem(problem, &mut problem_bytes)?;
+        write_problem_v2(problem, &mut problem_bytes)?;
 
         // Spawn solver process
         let mut child = Command::new(&self.binary_path)
@@ -217,7 +217,7 @@ impl SolverProcess {
             return Err(SolverError::Ipc("Empty solution from solver".to_string()));
         }
 
-        let mut solution = read_solution(&output.stdout[..])?;
+        let mut solution = read_solution_v2(&output.stdout[..])?;
 
         // Update solve time if not already set
         if solution.solve_time_ms == 0 {

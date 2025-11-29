@@ -1,9 +1,9 @@
 //! Integration tests for gat-clp binary.
 //!
-//! These tests verify the Arrow IPC round-trip by spawning the gat-clp binary
+//! These tests verify the Arrow IPC v2 round-trip by spawning the gat-clp binary
 //! and sending/receiving data through stdin/stdout.
 
-use gat_solver_common::ipc::{read_solution, write_problem};
+use gat_solver_common::ipc::{read_solution_v2, write_problem_v2};
 use gat_solver_common::problem::{ProblemBatch, ProblemType};
 use gat_solver_common::solution::SolutionStatus;
 use std::process::{Command, Stdio};
@@ -55,7 +55,7 @@ fn test_clp_empty_problem() {
 
     // Serialize to Arrow IPC
     let mut problem_bytes = Vec::new();
-    write_problem(&problem, &mut problem_bytes).expect("Failed to serialize problem");
+    write_problem_v2(&problem, &mut problem_bytes).expect("Failed to serialize problem");
 
     // Spawn gat-clp and pipe data
     let mut child = Command::new(&binary)
@@ -79,7 +79,7 @@ fn test_clp_empty_problem() {
             output.status, String::from_utf8_lossy(&output.stderr));
 
     // Read solution
-    let solution = read_solution(&output.stdout[..]).expect("Failed to parse solution");
+    let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse solution");
 
     // Verify solution
     assert_eq!(solution.status, SolutionStatus::Optimal, "Expected optimal solution");
@@ -116,7 +116,7 @@ fn test_clp_simple_dispatch() {
 
     // Serialize
     let mut problem_bytes = Vec::new();
-    write_problem(&problem, &mut problem_bytes).expect("Failed to serialize problem");
+    write_problem_v2(&problem, &mut problem_bytes).expect("Failed to serialize problem");
 
     // Spawn and run
     let mut child = Command::new(&binary)
@@ -138,22 +138,21 @@ fn test_clp_simple_dispatch() {
     assert!(output.status.success(), "gat-clp failed: {}",
             String::from_utf8_lossy(&output.stderr));
 
-    let solution = read_solution(&output.stdout[..]).expect("Failed to parse solution");
+    let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse solution");
 
-    // The simple formulation in gat-clp just optimizes generator bounds
-    // Without network constraints, it should dispatch at minimum gen (50 MW)
-    // to minimize cost (since objective = c1 * P)
+    // DC-OPF enforces power balance: Σ P_gen = Σ P_load
+    // With 100 MW load, generator must produce exactly 100 MW
     assert_eq!(solution.status, SolutionStatus::Optimal);
     assert!(!solution.gen_p.is_empty(), "Should have generator dispatch");
 
-    // Generator should be at its minimum (50 MW) to minimize cost
+    // Generator must produce 100 MW to meet load (power balance constraint)
     let gen_p = solution.gen_p[0];
-    assert!((gen_p - 50.0).abs() < 1e-4,
-            "Expected gen_p = 50.0 (minimum), got {}", gen_p);
+    assert!((gen_p - 100.0).abs() < 1e-4,
+            "Expected gen_p = 100.0 (to meet load), got {}", gen_p);
 
-    // Objective should be 50 * 10 = 500
-    assert!((solution.objective - 500.0).abs() < 1e-4,
-            "Expected objective = 500.0, got {}", solution.objective);
+    // Objective should be 100 * 10 = 1000
+    assert!((solution.objective - 1000.0).abs() < 1e-4,
+            "Expected objective = 1000.0, got {}", solution.objective);
 }
 
 #[test]
@@ -188,7 +187,7 @@ fn test_clp_multiple_generators() {
 
     // Serialize
     let mut problem_bytes = Vec::new();
-    write_problem(&problem, &mut problem_bytes).expect("Failed to serialize");
+    write_problem_v2(&problem, &mut problem_bytes).expect("Failed to serialize");
 
     // Run solver
     let mut child = Command::new(&binary)
@@ -206,7 +205,7 @@ fn test_clp_multiple_generators() {
     let output = child.wait_with_output().expect("Failed to wait");
     assert!(output.status.success());
 
-    let solution = read_solution(&output.stdout[..]).expect("Failed to parse");
+    let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse");
 
     // Both should be at minimum (0) to minimize cost
     assert_eq!(solution.status, SolutionStatus::Optimal);
@@ -268,7 +267,7 @@ fn test_clp_infeasible_problem() {
 
     // Serialize
     let mut problem_bytes = Vec::new();
-    write_problem(&problem, &mut problem_bytes).expect("Failed to serialize");
+    write_problem_v2(&problem, &mut problem_bytes).expect("Failed to serialize");
 
     // Run solver
     let mut child = Command::new(&binary)
@@ -289,7 +288,7 @@ fn test_clp_infeasible_problem() {
     assert!(output.status.success(),
             "Solver should complete (status={:?})", output.status);
 
-    let solution = read_solution(&output.stdout[..]).expect("Failed to parse");
+    let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse");
 
     // Current behavior: returns Optimal with generators at minimum
     // Future behavior: should return Infeasible
@@ -303,46 +302,45 @@ fn test_clp_infeasible_problem() {
 #[test]
 fn test_clp_multi_gen_economic_dispatch() {
     // Test multi-generator economic dispatch with different costs
-    // This tests that when we have actual demand (non-zero min generation),
-    // the solver will prefer cheaper generators
+    // DC-OPF enforces power balance: Σ P_gen = P_load
+    // With load = 100 MW and two generators, the solver should:
+    // 1. First use the cheaper generator (gen2 at $15/MWh)
+    // 2. Only use expensive generator (gen1 at $25/MWh) if needed
     //
-    // NOTE: Current implementation minimizes cost by setting all gens to minimum.
-    //
-    // EXPECTED BEHAVIOR WHEN FULL SOLVER IS IMPLEMENTED:
-    // - Total demand would come from load + power balance constraints
-    // - Cheaper generator (gen2) should dispatch more to serve the load
-    // - More expensive generator (gen1) should dispatch less or at minimum
+    // Since load (100 MW) > gen2 max (80 MW), we need both generators:
+    // - Gen 2: 80 MW (maxed out, cheaper)
+    // - Gen 1: 20 MW (remaining load, at minimum)
 
     let binary = find_binary();
 
     let mut problem = ProblemBatch::new(ProblemType::DcOpf);
 
-    // Single bus (simplified)
+    // Single bus with 100 MW load
     problem.bus_id = vec![1];
     problem.bus_v_min = vec![0.95];
     problem.bus_v_max = vec![1.05];
-    problem.bus_p_load = vec![0.0];
+    problem.bus_p_load = vec![100.0];  // 100 MW load requires power balance
     problem.bus_q_load = vec![0.0];
     problem.bus_type = vec![3];  // Slack bus
     problem.bus_v_mag = vec![1.0];
     problem.bus_v_ang = vec![0.0];
 
-    // Two generators with must-run minimums
-    // Gen 1: 20-100 MW, $25/MWh (expensive, must run at least 20 MW)
-    // Gen 2: 30-150 MW, $15/MWh (cheaper, must run at least 30 MW)
+    // Two generators:
+    // Gen 1: 20-100 MW, $25/MWh (expensive)
+    // Gen 2: 0-80 MW, $15/MWh (cheaper but limited capacity)
     problem.gen_id = vec![1, 2];
     problem.gen_bus_id = vec![1, 1];
-    problem.gen_p_min = vec![20.0, 30.0];  // Non-zero minimums
-    problem.gen_p_max = vec![100.0, 150.0];
-    problem.gen_q_min = vec![-50.0, -75.0];
-    problem.gen_q_max = vec![50.0, 75.0];
+    problem.gen_p_min = vec![20.0, 0.0];  // Gen 1 must-run, Gen 2 flexible
+    problem.gen_p_max = vec![100.0, 80.0];
+    problem.gen_q_min = vec![-50.0, -40.0];
+    problem.gen_q_max = vec![50.0, 40.0];
     problem.gen_cost_c0 = vec![0.0, 0.0];
     problem.gen_cost_c1 = vec![25.0, 15.0];  // Gen 2 is cheaper
     problem.gen_cost_c2 = vec![0.0, 0.0];
 
     // Serialize
     let mut problem_bytes = Vec::new();
-    write_problem(&problem, &mut problem_bytes).expect("Failed to serialize");
+    write_problem_v2(&problem, &mut problem_bytes).expect("Failed to serialize");
 
     // Run solver
     let mut child = Command::new(&binary)
@@ -360,54 +358,49 @@ fn test_clp_multi_gen_economic_dispatch() {
     let output = child.wait_with_output().expect("Failed to wait");
     assert!(output.status.success());
 
-    let solution = read_solution(&output.stdout[..]).expect("Failed to parse");
+    let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse");
 
     assert_eq!(solution.status, SolutionStatus::Optimal);
     assert_eq!(solution.gen_p.len(), 2);
 
-    // With current implementation: both at minimum to minimize cost
-    // Gen 1 should be at 20 MW (its minimum)
+    // Economic dispatch: use cheap gen2 first (80 MW max), then expensive gen1 (20 MW)
+    // Gen 1 should be at 20 MW (its minimum, expensive)
     assert!((solution.gen_p[0] - 20.0).abs() < 1e-4,
-            "Gen 1 should be at its minimum (20 MW), got {}", solution.gen_p[0]);
+            "Gen 1 should be at minimum (20 MW), got {}", solution.gen_p[0]);
 
-    // Gen 2 should be at 30 MW (its minimum)
-    assert!((solution.gen_p[1] - 30.0).abs() < 1e-4,
-            "Gen 2 should be at its minimum (30 MW), got {}", solution.gen_p[1]);
+    // Gen 2 should be at 80 MW (maxed out, cheaper)
+    assert!((solution.gen_p[1] - 80.0).abs() < 1e-4,
+            "Gen 2 should be at max (80 MW), got {}", solution.gen_p[1]);
 
-    // Objective = 25*20 + 15*30 = 500 + 450 = 950
-    let expected_objective = 25.0 * 20.0 + 15.0 * 30.0;
+    // Objective = 25*20 + 15*80 = 500 + 1200 = 1700
+    let expected_objective = 25.0 * 20.0 + 15.0 * 80.0;
     assert!((solution.objective - expected_objective).abs() < 1e-3,
             "Expected objective = {}, got {}", expected_objective, solution.objective);
 }
 
 #[test]
 fn test_clp_all_generators_at_max() {
-    // Test case where optimal solution has generators at maximum capacity
-    // This verifies that the solver correctly handles upper bounds
+    // Test case where power balance forces generator to maximum capacity
+    // DC-OPF: Σ P_gen = P_load, so if load > gen_p_min, gen must produce more
     //
-    // NOTE: CLP minimizes the objective function. With a negative cost coefficient,
-    // minimize(-10 * P) means minimize P (since -10 is negative), so it will choose
-    // the MINIMUM value. To test maximization, we need a scenario where max is optimal
-    // for minimization, so we use a high positive cost with high upper bounds.
-    //
-    // Instead, this test will verify that the solver respects BOTH bounds correctly
-    // by using a wide range and verifying it stays within bounds.
+    // With 100 MW load and gen capacity 10-100 MW:
+    // - Generator must produce 100 MW to meet load (at upper bound)
 
     let binary = find_binary();
 
     let mut problem = ProblemBatch::new(ProblemType::DcOpf);
 
-    // Single bus
+    // Single bus with 100 MW load - requires gen at max
     problem.bus_id = vec![1];
     problem.bus_v_min = vec![0.95];
     problem.bus_v_max = vec![1.05];
-    problem.bus_p_load = vec![0.0];
+    problem.bus_p_load = vec![100.0];  // Load forces gen to max
     problem.bus_q_load = vec![0.0];
     problem.bus_type = vec![3];
     problem.bus_v_mag = vec![1.0];
     problem.bus_v_ang = vec![0.0];
 
-    // Generator with positive cost - solver will minimize to lower bound
+    // Generator: 10-100 MW capacity
     problem.gen_id = vec![1];
     problem.gen_bus_id = vec![1];
     problem.gen_p_min = vec![10.0];
@@ -415,12 +408,12 @@ fn test_clp_all_generators_at_max() {
     problem.gen_q_min = vec![-50.0];
     problem.gen_q_max = vec![50.0];
     problem.gen_cost_c0 = vec![0.0];
-    problem.gen_cost_c1 = vec![10.0];  // Positive: minimize cost = minimize P
+    problem.gen_cost_c1 = vec![10.0];
     problem.gen_cost_c2 = vec![0.0];
 
     // Serialize
     let mut problem_bytes = Vec::new();
-    write_problem(&problem, &mut problem_bytes).expect("Failed to serialize");
+    write_problem_v2(&problem, &mut problem_bytes).expect("Failed to serialize");
 
     // Run solver
     let mut child = Command::new(&binary)
@@ -438,46 +431,46 @@ fn test_clp_all_generators_at_max() {
     let output = child.wait_with_output().expect("Failed to wait");
     assert!(output.status.success());
 
-    let solution = read_solution(&output.stdout[..]).expect("Failed to parse");
+    let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse");
 
     assert_eq!(solution.status, SolutionStatus::Optimal);
     assert_eq!(solution.gen_p.len(), 1);
 
-    // With positive cost, optimizer minimizes to lower bound
-    assert!((solution.gen_p[0] - 10.0).abs() < 1e-4,
-            "Gen should be at minimum (10 MW), got {}", solution.gen_p[0]);
+    // Generator must produce 100 MW to meet load (at upper bound)
+    assert!((solution.gen_p[0] - 100.0).abs() < 1e-4,
+            "Gen should be at max (100 MW) to meet load, got {}", solution.gen_p[0]);
 
     // Verify solution respects bounds
     assert!(solution.gen_p[0] >= 10.0 - 1e-6, "Gen below lower bound");
     assert!(solution.gen_p[0] <= 100.0 + 1e-6, "Gen above upper bound");
 
-    // Objective should be: 10 * 10 = 100
-    assert!((solution.objective - 100.0).abs() < 1e-3,
-            "Expected objective = 100, got {}", solution.objective);
+    // Objective should be: 10 * 100 = 1000
+    assert!((solution.objective - 1000.0).abs() < 1e-3,
+            "Expected objective = 1000, got {}", solution.objective);
 }
 
 #[test]
 fn test_clp_zero_capacity_generator() {
-    // Test edge case: generator with zero capacity range (Pmin = Pmax)
-    // This is a fixed output generator
+    // Test edge case: generator with zero capacity range (Pmin = Pmax = 50 MW)
+    // This is a fixed output "must-run" generator (e.g., baseload nuclear)
     //
-    // NOTE: Current CLP implementation only uses c1 (linear cost coefficient)
-    // in the objective, not c0 (constant cost). So objective = c1 * P_g
+    // DC-OPF enforces power balance: load must equal 50 MW to match fixed gen
 
     let binary = find_binary();
 
     let mut problem = ProblemBatch::new(ProblemType::DcOpf);
 
+    // Load exactly matches fixed generator output for power balance
     problem.bus_id = vec![1];
     problem.bus_v_min = vec![0.95];
     problem.bus_v_max = vec![1.05];
-    problem.bus_p_load = vec![0.0];
+    problem.bus_p_load = vec![50.0];  // Must match fixed gen output
     problem.bus_q_load = vec![0.0];
     problem.bus_type = vec![3];
     problem.bus_v_mag = vec![1.0];
     problem.bus_v_ang = vec![0.0];
 
-    // Generator with fixed output: Pmin = Pmax = 50 MW
+    // Generator with fixed output: Pmin = Pmax = 50 MW (must-run baseload)
     problem.gen_id = vec![1];
     problem.gen_bus_id = vec![1];
     problem.gen_p_min = vec![50.0];
@@ -490,7 +483,7 @@ fn test_clp_zero_capacity_generator() {
 
     // Serialize
     let mut problem_bytes = Vec::new();
-    write_problem(&problem, &mut problem_bytes).expect("Failed to serialize");
+    write_problem_v2(&problem, &mut problem_bytes).expect("Failed to serialize");
 
     // Run solver
     let mut child = Command::new(&binary)
@@ -508,7 +501,7 @@ fn test_clp_zero_capacity_generator() {
     let output = child.wait_with_output().expect("Failed to wait");
     assert!(output.status.success());
 
-    let solution = read_solution(&output.stdout[..]).expect("Failed to parse");
+    let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse");
 
     assert_eq!(solution.status, SolutionStatus::Optimal);
     assert_eq!(solution.gen_p.len(), 1);
