@@ -2230,6 +2230,7 @@ dependencies = [
  "dirs 5.0.1",
  "faer",
  "gat-core",
+ "gat-io",
  "gat-solver-common",
  "good_lp",
  "ipopt 0.6.0",

@@ -25,6 +25,7 @@ ipopt = { version = "0.6", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
+gat-io = { path = "../gat-io" }
 
 [features]
 default = [

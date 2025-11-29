@@ -327,6 +327,17 @@ pub enum InspectCommands {
         #[arg(long)]
         pretty: bool,
     },
+    /// Analyze branch thermal limits to identify potential bottlenecks
+    Thermal {
+        /// Path to Arrow directory or importable file
+        input: String,
+        /// Only show branches with rating below this threshold (MVA)
+        #[arg(long)]
+        threshold: Option<f64>,
+        /// Output format (table or json)
+        #[arg(long, default_value = "table")]
+        format: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -569,6 +580,21 @@ pub enum BenchmarkCommands {
         /// - require: require IPOPT, fail if unavailable
         #[arg(long, default_value = "none")]
         solver: String,
+    },
+    /// Display summary statistics from a benchmark CSV
+    Summary {
+        /// Path to benchmark CSV file
+        #[arg(value_hint = ValueHint::FilePath)]
+        csv: String,
+    },
+    /// Compare two benchmark CSV files to show improvements/regressions
+    Compare {
+        /// Path to "before" benchmark CSV
+        #[arg(value_hint = ValueHint::FilePath)]
+        before: String,
+        /// Path to "after" benchmark CSV
+        #[arg(value_hint = ValueHint::FilePath)]
+        after: String,
     },
 }
 

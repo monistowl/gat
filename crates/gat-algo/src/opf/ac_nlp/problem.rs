@@ -255,6 +255,18 @@ pub struct BusData {
     /// Reactive power load at this bus (MVAr).
     /// Positive = inductive load (absorbs VARs).
     pub q_load: f64,
+
+    /// Bus shunt conductance (per-unit on system MVA base).
+    /// Represents fixed shunt loads that draw real power: P_shunt = gs_pu * V²
+    /// Typically zero, but can represent constant-impedance loads.
+    pub gs_pu: f64,
+
+    /// Bus shunt susceptance (per-unit on system MVA base).
+    /// Represents fixed reactive power compensation:
+    /// - bs_pu > 0: Capacitor bank (supplies VARs, raises voltage)
+    /// - bs_pu < 0: Reactor (absorbs VARs, lowers voltage)
+    /// Power contribution: Q_shunt = bs_pu * V² (injected at bus)
+    pub bs_pu: f64,
 }
 
 // ============================================================================
@@ -388,20 +400,26 @@ impl AcOpfProblem {
 
         let mut buses = Vec::new();
         let mut loads: HashMap<BusId, (f64, f64)> = HashMap::new();
+        let mut shunts: HashMap<BusId, (f64, f64)> = HashMap::new(); // (gs_pu, bs_pu)
         let mut bus_idx = 0;
 
         for node_idx in network.graph.node_indices() {
             match &network.graph[node_idx] {
                 Node::Bus(bus) => {
-                    // Create bus with default voltage limits (can be overridden)
+                    // Use actual voltage limits from case data, with sensible defaults
+                    // PGLib cases typically use 0.94-1.06 for IEEE cases
+                    let v_min = bus.vmin_pu.unwrap_or(0.9);
+                    let v_max = bus.vmax_pu.unwrap_or(1.1);
                     buses.push(BusData {
                         id: bus.id,
                         name: bus.name.clone(),
                         index: bus_idx,
-                        v_min: 0.9, // Typical minimum (could be 0.95 for tighter control)
-                        v_max: 1.1, // Typical maximum (could be 1.05)
+                        v_min,
+                        v_max,
                         p_load: 0.0,
                         q_load: 0.0,
+                        gs_pu: 0.0,
+                        bs_pu: 0.0,
                     });
                     bus_idx += 1;
                 }
@@ -412,6 +430,16 @@ impl AcOpfProblem {
                     entry.0 += load.active_power_mw;
                     entry.1 += load.reactive_power_mvar;
                 }
+                Node::Shunt(shunt) => {
+                    // Accumulate shunts at each bus (there may be multiple)
+                    // Shunts represent fixed reactive power compensation:
+                    // - gs_pu: conductance (draws real power)
+                    // - bs_pu > 0: capacitor bank (supplies VARs)
+                    // - bs_pu < 0: reactor (absorbs VARs)
+                    let entry = shunts.entry(shunt.bus).or_insert((0.0, 0.0));
+                    entry.0 += shunt.gs_pu;
+                    entry.1 += shunt.bs_pu;
+                }
                 _ => {}
             }
         }
@@ -421,6 +449,14 @@ impl AcOpfProblem {
             if let Some((p, q)) = loads.get(&bus.id) {
                 bus.p_load = *p;
                 bus.q_load = *q;
+            }
+        }
+
+        // Apply accumulated shunts to bus data (already in per-unit)
+        for bus in &mut buses {
+            if let Some((gs, bs)) = shunts.get(&bus.id) {
+                bus.gs_pu = *gs;
+                bus.bs_pu = *bs;
             }
         }
 
@@ -1007,24 +1043,33 @@ impl AcOpfProblem {
         }
 
         // ====================================================================
-        // REAL POWER BALANCE: P_inj - P_gen + P_load = 0
+        // REAL POWER BALANCE: P_inj - P_gen + P_load + P_shunt = 0
         // ====================================================================
         //
-        // Rearranged from: P_gen = P_load + P_inj
-        // At a feasible point, generation equals load plus network injection.
+        // Rearranged from: P_gen = P_load + P_shunt + P_inj
+        // At a feasible point, generation equals load, shunt consumption, plus network injection.
+        // P_shunt = gs_pu * V² represents power consumed by shunt conductance (like a load).
 
         for (i, bus) in self.buses.iter().enumerate() {
             let p_load_pu = bus.p_load / self.base_mva;
-            g.push(p_inj[i] - pg_bus[i] + p_load_pu);
+            let v_sq = v[i] * v[i];
+            let p_shunt_pu = bus.gs_pu * v_sq; // Power consumed by shunt conductance
+            g.push(p_inj[i] - pg_bus[i] + p_load_pu + p_shunt_pu);
         }
 
         // ====================================================================
-        // REACTIVE POWER BALANCE: Q_inj - Q_gen + Q_load = 0
+        // REACTIVE POWER BALANCE: Q_inj - Q_gen + Q_load - Q_shunt = 0
         // ====================================================================
+        //
+        // Q_shunt = bs_pu * V² is reactive power supplied by the shunt:
+        // - bs_pu > 0 (capacitor): supplies VARs, reduces effective Q load
+        // - bs_pu < 0 (reactor): absorbs VARs, increases effective Q load
 
         for (i, bus) in self.buses.iter().enumerate() {
             let q_load_pu = bus.q_load / self.base_mva;
-            g.push(q_inj[i] - qg_bus[i] + q_load_pu);
+            let v_sq = v[i] * v[i];
+            let q_shunt_pu = bus.bs_pu * v_sq; // Reactive power supplied by shunt
+            g.push(q_inj[i] - qg_bus[i] + q_load_pu - q_shunt_pu);
         }
 
         // ====================================================================

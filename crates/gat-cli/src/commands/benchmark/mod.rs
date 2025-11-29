@@ -3,9 +3,11 @@ use gat_cli::cli::BenchmarkCommands;
 
 pub mod baseline;
 pub mod common;
+pub mod compare;
 pub mod opfdata;
 pub mod pfdelta;
 pub mod pglib;
+pub mod summary;
 
 pub fn handle(command: &BenchmarkCommands) -> Result<()> {
     match command {
@@ -84,5 +86,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             *strict,
             solver,
         ),
+        BenchmarkCommands::Summary { csv } => summary::handle(csv),
+        BenchmarkCommands::Compare { before, after } => compare::handle(before, after),
     }
 }

@@ -230,21 +230,42 @@ pub fn solve_with_ipopt(
     // Configure solver options
     solver.set_option("max_iter", max_iter.unwrap_or(500) as i32);
     solver.set_option("tol", tol.unwrap_or(1e-6));
-    solver.set_option("print_level", 0); // Quiet mode
-    solver.set_option("sb", "yes"); // Suppress banner
+    // Print level: 0=quiet, 3=medium, 5=verbose
+    let print_level = std::env::var("IPOPT_PRINT_LEVEL")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
+    solver.set_option("print_level", print_level);
+    solver.set_option("sb", if print_level > 0 { "no" } else { "yes" }); // Suppress banner
 
-    // Use L-BFGS Hessian approximation because the exact Hessian doesn't
-    // include thermal constraint terms yet (only objective + power balance).
-    // With incomplete Hessian, IPOPT struggles to converge on larger cases.
-    solver.set_option("hessian_approximation", "limited-memory");
+    // Derivative test: check analytical Jacobian/Hessian against finite differences
+    // Set IPOPT_DERIVATIVE_TEST=first-order (Jacobian only) or second-order (both)
+    if let Ok(deriv_test) = std::env::var("IPOPT_DERIVATIVE_TEST") {
+        solver.set_option("derivative_test", deriv_test.as_str());
+        solver.set_option("derivative_test_print_all", "yes");
+        solver.set_option("derivative_test_tol", 1e-4);
+    }
+
+    // L-BFGS mode: use quasi-Newton approximation instead of exact Hessian
+    // Set IPOPT_LBFGS=1 to enable (useful for debugging Hessian issues)
+    if std::env::var("IPOPT_LBFGS").is_ok() {
+        solver.set_option("hessian_approximation", "limited-memory");
+    }
+
+    // Use exact Hessian (default). The Hessian includes:
+    // - Objective: quadratic generator cost terms (∂²f/∂Pg²)
+    // - Power balance: nodal injection second derivatives (∂²g/∂V∂V, ∂²g/∂V∂θ, ∂²g/∂θ∂θ)
+    // - Thermal constraints: branch flow squared magnitude Hessians
+    // This enables quadratic convergence for better performance on large networks.
 
     // NLP scaling helps with ill-conditioned problems (power balance in p.u.)
     solver.set_option("nlp_scaling_method", "gradient-based");
 
     // Barrier parameter tuning for power systems
-    // Start with smaller mu for better initial path
+    // mu_init=1e-4 matches PowerModels.jl warm-start settings
+    // Smaller mu starts closer to central path, helps with near-feasible points
     solver.set_option("mu_strategy", "adaptive");
-    solver.set_option("mu_init", 1e-2);
+    solver.set_option("mu_init", 1e-4);
 
     // Accept solutions that are "good enough" when optimal is hard to reach
     solver.set_option("acceptable_tol", 1e-4);
@@ -365,7 +386,7 @@ impl Default for IpoptConfig {
             warm_start_bound_frac: 1e-6,
             warm_start_slack_bound_push: 1e-6,
             print_level: 0,
-            use_exact_hessian: false, // Use L-BFGS until thermal Hessian is implemented
+            use_exact_hessian: true, // Exact Hessian with thermal constraints
         }
     }
 }
@@ -374,18 +395,24 @@ impl Default for IpoptConfig {
 impl IpoptConfig {
     /// Create config optimized for warm-starting from SOCP.
     ///
-    /// Uses L-BFGS Hessian approximation because the exact Hessian
-    /// doesn't include thermal constraint terms yet.
+    /// IMPORTANT: Like DC warm-start, we DON'T enable IPOPT's warm_start options
+    /// because the SOCP relaxation solution is too far from AC-feasibility.
+    /// SOCP uses w = v² variables and relaxes power balance constraints, so the
+    /// solution may violate AC constraints significantly. IPOPT's barrier
+    /// parameter tuning works better with normal initialization.
+    ///
+    /// The benefit of SOCP warm-start is the initial point itself (voltages,
+    /// angles, and dispatch), not the IPOPT warm-start heuristics.
     pub fn warm_start_from_socp() -> Self {
         Self {
-            max_iter: 500,           // More iterations needed with L-BFGS
+            max_iter: 500,           // More iterations - SOCP point may need more work
             tol: 1e-6,
-            warm_start: true,
+            warm_start: false,       // IMPORTANT: Don't use IPOPT warm-start options
             warm_start_bound_push: 1e-6,
             warm_start_bound_frac: 1e-6,
             warm_start_slack_bound_push: 1e-6,
             print_level: 0,
-            use_exact_hessian: false, // Use L-BFGS until thermal Hessian is implemented
+            use_exact_hessian: true, // Exact Hessian with thermal constraints
         }
     }
 
@@ -401,14 +428,14 @@ impl IpoptConfig {
     /// and dispatch), not the IPOPT warm-start heuristics.
     pub fn warm_start_from_dc() -> Self {
         Self {
-            max_iter: 500,           // Same as cold start (DC point not as close as SOCP)
+            max_iter: 200,           // Fewer iterations needed with exact Hessian
             tol: 1e-6,
             warm_start: false,       // IMPORTANT: Don't use IPOPT warm-start options
             warm_start_bound_push: 1e-6,
             warm_start_bound_frac: 1e-6,
             warm_start_slack_bound_push: 1e-6,
             print_level: 0,
-            use_exact_hessian: false, // Use L-BFGS until thermal Hessian is implemented
+            use_exact_hessian: true, // Exact Hessian with thermal constraints
         }
     }
 }
@@ -603,9 +630,10 @@ pub fn solve_with_dc_warm_start(
     }
 
     // NLP scaling and barrier tuning
+    // mu_init=1e-4 matches PowerModels.jl warm-start settings
     solver.set_option("nlp_scaling_method", "gradient-based");
     solver.set_option("mu_strategy", "adaptive");
-    solver.set_option("mu_init", 1e-2);
+    solver.set_option("mu_init", 1e-4);
     solver.set_option("acceptable_tol", 1e-4);
     solver.set_option("acceptable_iter", 10);
     solver.set_option("bound_relax_factor", 1e-8);
@@ -696,8 +724,9 @@ pub fn solve_with_socp_warm_start(
     solver.set_option("nlp_scaling_method", "gradient-based");
 
     // Barrier parameter tuning for power systems
+    // mu_init=1e-4 matches PowerModels.jl warm-start settings
     solver.set_option("mu_strategy", "adaptive");
-    solver.set_option("mu_init", 1e-2);
+    solver.set_option("mu_init", 1e-4);
 
     // Accept solutions that are "good enough"
     solver.set_option("acceptable_tol", 1e-4);

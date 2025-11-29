@@ -220,6 +220,7 @@ pub fn jacobian_values(problem: &AcOpfProblem, x: &[f64]) -> Vec<f64> {
 
             let dp_dv = if i == j {
                 // Diagonal: ∂P_i/∂V_i = 2·V_i·G_ii + Σ_{k≠i} V_k·(G_ik·cos(θ_ik) + B_ik·sin(θ_ik))
+                //                      + 2·V_i·gs_pu  (shunt conductance contribution)
                 let mut sum = 2.0 * v[i] * g_ij;
                 for k in 0..n_bus {
                     if k != i {
@@ -229,6 +230,8 @@ pub fn jacobian_values(problem: &AcOpfProblem, x: &[f64]) -> Vec<f64> {
                         sum += v[k] * (g_ik * theta_ik.cos() + b_ik * theta_ik.sin());
                     }
                 }
+                // Add shunt conductance derivative: ∂(gs_pu·V²)/∂V = 2·gs_pu·V
+                sum += 2.0 * problem.buses[i].gs_pu * v[i];
                 sum
             } else {
                 // Off-diagonal: ∂P_i/∂V_j = V_i·(G_ij·cos(θ_ij) + B_ij·sin(θ_ij))
@@ -295,6 +298,7 @@ pub fn jacobian_values(problem: &AcOpfProblem, x: &[f64]) -> Vec<f64> {
 
             let dq_dv = if i == j {
                 // Diagonal: ∂Q_i/∂V_i = -2·V_i·B_ii + Σ_{k≠i} V_k·(G_ik·sin(θ_ik) - B_ik·cos(θ_ik))
+                //                      - 2·V_i·bs_pu  (shunt susceptance contribution)
                 let mut sum = -2.0 * v[i] * b_ij;
                 for k in 0..n_bus {
                     if k != i {
@@ -304,6 +308,8 @@ pub fn jacobian_values(problem: &AcOpfProblem, x: &[f64]) -> Vec<f64> {
                         sum += v[k] * (g_ik * theta_ik.sin() - b_ik * theta_ik.cos());
                     }
                 }
+                // Add shunt susceptance derivative: ∂(-bs_pu·V²)/∂V = -2·bs_pu·V
+                sum -= 2.0 * problem.buses[i].bs_pu * v[i];
                 sum
             } else {
                 // Off-diagonal: ∂Q_i/∂V_j = V_i·(G_ij·sin(θ_ij) - B_ij·cos(θ_ij))

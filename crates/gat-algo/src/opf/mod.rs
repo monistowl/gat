@@ -176,28 +176,99 @@ impl OpfSolver {
             }
             OpfMethod::AcOpf => {
                 // Try direct IPOPT if solver-ipopt feature is enabled and preferred
-                // DC warm-start provides generator dispatch and angles from DC-OPF,
-                // which is much faster than SOCP and provides a reasonable initial point.
-                // SOCP warm-start was tested but caused worse convergence due to
-                // SOCP relaxation values not being AC-feasible.
                 #[cfg(feature = "solver-ipopt")]
                 if self.prefer_native || self.require_native {
                     let problem = ac_nlp::AcOpfProblem::from_network(network)?;
 
-                    // Note: DC warm-start was tested but produced worse convergence
-                    // than flat start. The DC solution's angles and dispatch may
-                    // violate AC constraints (voltage, reactive power, thermal limits)
-                    // causing IPOPT to start in an infeasible region.
+                    // Strategy: Try flat-start first, fall back to DC warm-start if needed.
                     //
-                    // SOCP warm-start was also tested but similarly caused issues
-                    // due to SOCP relaxation values not being AC-feasible.
+                    // Flat start works well for small networks (14-57 buses) because
+                    // the optimization landscape is relatively smooth. For larger
+                    // networks (73+ buses), the flat start may be too far from
+                    // feasibility, causing IPOPT to converge to infeasibility or
+                    // exceed iteration limits.
                     //
-                    // For now, flat start with tuned IPOPT options works best.
-                    return ac_nlp::solve_with_ipopt(
+                    // DC warm-start provides generator dispatch and angles that are
+                    // approximately correct, giving IPOPT a better starting point.
+                    // However, DC ignores voltages and reactive power, so the initial
+                    // point may still violate some AC constraints - that's why we
+                    // don't enable IPOPT's barrier warm-start options.
+
+                    // First attempt: flat start
+                    let flat_result = ac_nlp::solve_with_ipopt(
                         &problem,
                         Some(self.max_iterations),
                         Some(self.tolerance),
                     );
+
+                    match flat_result {
+                        Ok(solution) => return Ok(solution),
+                        Err(ref flat_error) => {
+                            // Check if this is a convergence failure that might benefit
+                            // from a better initial point
+                            let error_msg = format!("{:?}", flat_error);
+                            let is_convergence_failure = error_msg.contains("MaximumIterationsExceeded")
+                                || error_msg.contains("InfeasibleProblemDetected")
+                                || error_msg.contains("RestorationFailed");
+
+                            if !is_convergence_failure {
+                                // Not a convergence issue, propagate the error
+                                return flat_result;
+                            }
+
+                            // === Fallback 1: DC warm-start ===
+                            // DC-OPF provides angles (θ) and generator dispatch (Pg) that
+                            // satisfy ∑P = 0 at each bus exactly. This gives IPOPT a
+                            // starting point with consistent power flow physics.
+                            //
+                            // Note: DC ignores voltage magnitudes and reactive power,
+                            // so we use flat values (V=1.0, Qg=0) for those variables.
+                            if let Ok(dc_solution) = dc_opf::solve(network, self.max_iterations, self.tolerance) {
+                                let dc_warm: DcWarmStart = (&dc_solution).into();
+
+                                // Configure IPOPT for DC warm-start - more iterations since
+                                // DC solution may be far from AC-feasible for reactive power
+                                let mut dc_config = ac_nlp::IpoptConfig::warm_start_from_dc();
+                                dc_config.max_iter = 500;
+                                dc_config.print_level = 0; // Quiet for fallback
+
+                                if let Ok(solution) = ac_nlp::solve_with_dc_warm_start(
+                                    &problem,
+                                    &dc_warm,
+                                    &dc_config,
+                                ) {
+                                    return Ok(solution);
+                                }
+                                // DC warm-start failed, try SOCP next
+                            }
+
+                            // === Fallback 2: SOCP warm-start ===
+                            // SOCP provides V, θ, Pg, Qg but the relaxation allows
+                            // constraint slack that may accumulate in larger networks.
+                            // Still worth trying as it may work for some cases.
+                            let socp_solution = socp::solve(
+                                network,
+                                self.max_iterations,
+                                self.tolerance,
+                            )?;
+
+                            let socp_warm: SocpWarmStart = (&socp_solution).into();
+
+                            // Use more iterations for SOCP fallback
+                            let mut ipopt_config = ac_nlp::IpoptConfig::warm_start_from_socp();
+                            ipopt_config.max_iter = 1000; // More iterations for challenging cases
+                            ipopt_config.print_level = 0; // Quiet for fallback
+
+                            // Retry with SOCP warm-start
+                            match ac_nlp::solve_with_socp_warm_start(&problem, &socp_warm, &ipopt_config) {
+                                Ok(solution) => return Ok(solution),
+                                Err(_) => {
+                                    // Both DC and SOCP warm-starts failed, return flat error
+                                    return flat_result;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Try native-dispatch IPOPT if preferred and available
