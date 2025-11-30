@@ -244,13 +244,12 @@ jobs:
           path: target/release/gat-ipopt
           retention-days: 7
 
-  # Job 7: Verify vendored packages integrity (optional - packages not in git)
-  # This job verifies COIN-OR source packages if they exist locally.
-  # In normal CI, vendor/ is gitignored so this job will skip gracefully.
+  # Job 7: Verify vendored packages integrity
+  # This job verifies COIN-OR source packages are present and valid.
+  # vendor/ is tracked in git and should always be available in CI.
   vendored-packages:
     name: Verify vendored packages
     runs-on: ubuntu-latest
-    continue-on-error: true  # Don't fail CI if vendor/ not present
     steps:
       - uses: actions/checkout@v4
 
@@ -258,11 +257,11 @@ jobs:
         run: |
           echo "=== Checking critical vendored packages ==="
 
-          # Skip gracefully if vendor/ doesn't exist (it's gitignored)
+          # vendor/ is tracked in git - fail if missing
           if [ ! -d "vendor" ]; then
-            echo "SKIP: vendor/ directory not present (gitignored)"
-            echo "This is expected in CI - vendor packages are local only"
-            exit 0
+            echo "ERROR: vendor/ directory not present"
+            echo "This should not happen - vendor/ is tracked in git"
+            exit 1
           fi
 
           # Critical packages for native solver support
@@ -297,10 +296,10 @@ jobs:
         run: |
           echo "=== Validating zip archive integrity ==="
 
-          # Skip if vendor/ doesn't exist
+          # vendor/ is tracked in git - this check is redundant but defensive
           if [ ! -d "vendor" ]; then
-            echo "SKIP: vendor/ not present"
-            exit 0
+            echo "ERROR: vendor/ directory not present"
+            exit 1
           fi
 
           # Test that critical packages can be unzipped
@@ -326,10 +325,10 @@ jobs:
         run: |
           echo "=== Verifying IPOPT package structure ==="
 
-          # Skip if vendor/ doesn't exist
+          # vendor/ is tracked in git - this check is redundant but defensive
           if [ ! -d "vendor" ]; then
-            echo "SKIP: vendor/ not present"
-            exit 0
+            echo "ERROR: vendor/ directory not present"
+            exit 1
           fi
 
           mkdir -p /tmp/ipopt-test
@@ -396,9 +395,9 @@ jobs:
             exit 1
           fi
 
-          # vendored-packages is optional (vendor/ not in git)
+          # vendored-packages should pass - vendor/ is tracked in git
           if [ "$VENDOR_RESULT" != "success" ]; then
-            echo "NOTE: vendored-packages job failed/skipped (vendor/ not in git)"
+            echo "WARN: vendored-packages job failed (unexpected)"
           fi
 
           echo "SUCCESS: All core native solver tests passed"

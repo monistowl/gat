@@ -41,7 +41,10 @@ case "$VARIANT" in
     BUILD_FLAGS="--no-default-features --features minimal-io,viz,all-backends"
     ;;
   full)
-    BUILD_FLAGS="--all-features"
+    # Use explicit features instead of --all-features to avoid embedded solver
+    # crates that require system libraries. Native solvers (IPOPT, CBC) are
+    # built separately from vendored sources via xtask and use native-dispatch.
+    BUILD_FLAGS="--no-default-features --features full-io,viz,gui,tui,docs,all-backends,native-dispatch"
     ;;
   *)
     echo "Unknown variant: $VARIANT. Use headless, analyst, or full." >&2
@@ -126,6 +129,7 @@ package_full() {
   local dest
   dest="$(pkg_dir full)"
   mkdir -p "$dest/bin"
+  mkdir -p "$dest/solvers"
 
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat-cli"
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat"
@@ -134,6 +138,16 @@ package_full() {
   fi
   if [[ -x "$ROOT_DIR/target/release/gat-tui" ]]; then
     cp "$ROOT_DIR/target/release/gat-tui" "$dest/bin/gat-tui"
+  fi
+
+  # Include native solver binaries (built from vendored sources)
+  if [[ -x "$ROOT_DIR/target/release/gat-ipopt" ]]; then
+    cp "$ROOT_DIR/target/release/gat-ipopt" "$dest/solvers/gat-ipopt"
+    echo "Included gat-ipopt solver"
+  fi
+  if [[ -x "$ROOT_DIR/target/release/gat-cbc" ]]; then
+    cp "$ROOT_DIR/target/release/gat-cbc" "$dest/solvers/gat-cbc"
+    echo "Included gat-cbc solver"
   fi
 
   copy_common_files "$dest"

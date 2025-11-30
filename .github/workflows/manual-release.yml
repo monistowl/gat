@@ -34,16 +34,37 @@ jobs:
         with:
           shared-key: release-${{ runner.os }}
 
-      - name: Install Linux dependencies
+      - name: Install build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y coinor-libcbc-dev jq libssl-dev pkg-config
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            gfortran \
+            jq \
+            libssl-dev \
+            pkg-config
 
-      - name: Install macOS dependencies
+      - name: Install build dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install coinor-cbc jq openssl pkg-config || true
+          brew install cmake ninja jq openssl pkg-config || true
+
+      - name: Build COIN-OR libraries from vendored sources
+        run: |
+          echo "=== Building COIN-OR solvers from vendor/ ==="
+          cargo xtask build-solvers
+
+      - name: Build native solver binaries
+        run: |
+          echo "=== Building native solver wrappers ==="
+          cargo xtask solver build ipopt
+          cargo xtask solver build cbc
+
+          echo "=== Built solver binaries ==="
+          ls -la target/release/gat-ipopt target/release/gat-cbc 2>/dev/null || true
 
       - name: Build all requested variants
         run: |

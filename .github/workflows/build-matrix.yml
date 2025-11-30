@@ -56,16 +56,23 @@ jobs:
           echo "rustc=$(rustc --version)" >> $GITHUB_OUTPUT
           echo "cargo=$(cargo --version)" >> $GITHUB_OUTPUT
 
-      - name: Install Linux dependencies
+      - name: Install build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y coinor-libcbc-dev jq libssl-dev pkg-config
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            gfortran \
+            jq \
+            libssl-dev \
+            pkg-config
 
-      - name: Install macOS dependencies
+      - name: Install build dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install coinor-cbc jq openssl pkg-config || true
+          brew install cmake ninja jq openssl pkg-config || true
 
       - name: Determine build features
         id: features
@@ -78,7 +85,9 @@ jobs:
               echo "flags=--no-default-features --features minimal-io,adms,derms,dist,analytics,featurize" >> $GITHUB_OUTPUT
               ;;
             full)
-              echo "flags=--all-features" >> $GITHUB_OUTPUT
+              # Use explicit features instead of --all-features to avoid embedded solver
+              # crates that require system libraries. Native solvers use native-dispatch.
+              echo "flags=--no-default-features --features full-io,viz,gui,tui,docs,all-backends,native-dispatch" >> $GITHUB_OUTPUT
               ;;
           esac
 
