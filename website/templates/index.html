@@ -346,6 +346,169 @@
     </div>
   </section>
 
+  <!-- Solver Pipeline Section -->
+  <section id="solvers" class="relative z-10 py-24 px-6" style="background:var(--c2);">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-16">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono mb-4"
+             style="background:color-mix(in srgb, var(--cg) 15%, transparent);border:1px solid color-mix(in srgb, var(--cg) 30%, transparent);color:var(--cg);">
+          Validated against PGLib-OPF
+        </div>
+        <h2 class="text-4xl font-bold mb-4" style="color:var(--f2);">Four-Tier Solver Hierarchy</h2>
+        <p class="text-lg max-w-2xl mx-auto" style="color:var(--f1);opacity:0.7;">
+          From fast approximations to full AC nonlinear optimization. Pick the right tool for the job.
+        </p>
+      </div>
+
+      <!-- Solver Tiers Visual -->
+      <div class="grid md:grid-cols-4 gap-6 mb-16">
+        <!-- Tier 1: Economic Dispatch -->
+        <div class="p-6 rounded-xl relative overflow-hidden group" style="background:var(--c1);border:1px solid var(--c3);">
+          <div class="absolute top-0 left-0 w-full h-1" style="background:linear-gradient(90deg, var(--cg), transparent);"></div>
+          <div class="text-xs font-mono uppercase tracking-wider mb-2" style="color:var(--cg);">Tier 1</div>
+          <h3 class="text-xl font-bold mb-2" style="color:var(--f2);">Economic Dispatch</h3>
+          <p class="text-sm mb-4" style="color:var(--f1);opacity:0.7;">Merit-order stacking. Ignores network constraints. Microseconds.</p>
+          <div class="font-mono text-xs p-2 rounded" style="background:var(--c2);color:var(--a1);">
+            gat opf ed grid.arrow
+          </div>
+          <div class="mt-4 flex items-center gap-2 text-xs" style="color:var(--cg);">
+            <span class="w-2 h-2 rounded-full" style="background:var(--cg);"></span>
+            <span>&lt;1ms</span>
+          </div>
+        </div>
+
+        <!-- Tier 2: DC-OPF -->
+        <div class="p-6 rounded-xl relative overflow-hidden group" style="background:var(--c1);border:1px solid var(--c3);">
+          <div class="absolute top-0 left-0 w-full h-1" style="background:linear-gradient(90deg, var(--a1), transparent);"></div>
+          <div class="text-xs font-mono uppercase tracking-wider mb-2" style="color:var(--a1);">Tier 2</div>
+          <h3 class="text-xl font-bold mb-2" style="color:var(--f2);">DC-OPF</h3>
+          <p class="text-sm mb-4" style="color:var(--f1);opacity:0.7;">Linear approximation. Real power only. Fast N-1 screening.</p>
+          <div class="font-mono text-xs p-2 rounded" style="background:var(--c2);color:var(--a1);">
+            gat opf dc grid.arrow
+          </div>
+          <div class="mt-4 flex items-center gap-2 text-xs" style="color:var(--a1);">
+            <span class="w-2 h-2 rounded-full" style="background:var(--a1);"></span>
+            <span>~10ms</span>
+          </div>
+        </div>
+
+        <!-- Tier 3: SOCP -->
+        <div class="p-6 rounded-xl relative overflow-hidden group" style="background:var(--c1);border:1px solid var(--c3);">
+          <div class="absolute top-0 left-0 w-full h-1" style="background:linear-gradient(90deg, #f6ad55, transparent);"></div>
+          <div class="text-xs font-mono uppercase tracking-wider mb-2" style="color:#f6ad55;">Tier 3</div>
+          <h3 class="text-xl font-bold mb-2" style="color:var(--f2);">SOCP Relaxation</h3>
+          <p class="text-sm mb-4" style="color:var(--f1);opacity:0.7;">Convex relaxation with voltage. Provable bounds. Production-ready.</p>
+          <div class="font-mono text-xs p-2 rounded" style="background:var(--c2);color:var(--a1);">
+            gat opf socp grid.arrow
+          </div>
+          <div class="mt-4 flex items-center gap-2 text-xs" style="color:#f6ad55;">
+            <span class="w-2 h-2 rounded-full" style="background:#f6ad55;"></span>
+            <span>~100ms</span>
+          </div>
+        </div>
+
+        <!-- Tier 4: AC-OPF -->
+        <div class="p-6 rounded-xl relative overflow-hidden group" style="background:var(--c1);border:1px solid var(--c3);">
+          <div class="absolute top-0 left-0 w-full h-1" style="background:linear-gradient(90deg, var(--cr), transparent);"></div>
+          <div class="text-xs font-mono uppercase tracking-wider mb-2" style="color:var(--cr);">Tier 4</div>
+          <h3 class="text-xl font-bold mb-2" style="color:var(--f2);">AC-OPF (NLP)</h3>
+          <p class="text-sm mb-4" style="color:var(--f1);opacity:0.7;">Full nonlinear. IPOPT backend. Analytical Jacobian/Hessian.</p>
+          <div class="font-mono text-xs p-2 rounded" style="background:var(--c2);color:var(--a1);">
+            gat opf ac grid.arrow
+          </div>
+          <div class="mt-4 flex items-center gap-2 text-xs" style="color:var(--cr);">
+            <span class="w-2 h-2 rounded-full" style="background:var(--cr);"></span>
+            <span>~1s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Benchmark Results -->
+      <div class="rounded-2xl p-8" style="background:var(--c1);border:1px solid var(--c3);">
+        <div class="flex items-center justify-between mb-8 flex-wrap gap-4">
+          <div>
+            <h3 class="text-2xl font-bold mb-2" style="color:var(--f2);">PGLib-OPF Benchmark Results</h3>
+            <p class="text-sm" style="color:var(--f1);opacity:0.7;">SOCP solver validated against 67 standard test cases</p>
+          </div>
+          <a href="{{ get_url(path='/internals/benchmarks/') }}" class="px-4 py-2 rounded-lg text-sm font-medium"
+             style="background:var(--a1);color:white;">
+            View Full Results →
+          </a>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr style="border-bottom:1px solid var(--c3);">
+                <th class="text-left py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Case</th>
+                <th class="text-right py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Buses</th>
+                <th class="text-right py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Solve Time</th>
+                <th class="text-right py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Obj Gap</th>
+                <th class="text-center py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Status</th>
+              </tr>
+            </thead>
+            <tbody style="color:var(--f1);">
+              <tr style="border-bottom:1px solid var(--c3);">
+                <td class="py-3 px-4 font-mono">case14_ieee</td>
+                <td class="py-3 px-4 text-right">14</td>
+                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">15ms</td>
+                <td class="py-3 px-4 text-right font-mono">0.52%</td>
+                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--c3);">
+                <td class="py-3 px-4 font-mono">case118_ieee</td>
+                <td class="py-3 px-4 text-right">118</td>
+                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">157ms</td>
+                <td class="py-3 px-4 text-right font-mono">1.51%</td>
+                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--c3);">
+                <td class="py-3 px-4 font-mono">case2736sp_k</td>
+                <td class="py-3 px-4 text-right">2,736</td>
+                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">6.5s</td>
+                <td class="py-3 px-4 text-right font-mono">0.03%</td>
+                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--c3);">
+                <td class="py-3 px-4 font-mono">case9241_pegase</td>
+                <td class="py-3 px-4 text-right">9,241</td>
+                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">77s</td>
+                <td class="py-3 px-4 text-right font-mono">3.27%</td>
+                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 font-mono">case78484_epigrids</td>
+                <td class="py-3 px-4 text-right font-bold" style="color:var(--a1);">78,484</td>
+                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">8.3min</td>
+                <td class="py-3 px-4 text-right font-mono">0.96%</td>
+                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-6 pt-6 flex flex-wrap gap-6 justify-center" style="border-top:1px solid var(--c3);">
+          <div class="text-center">
+            <div class="text-3xl font-bold" style="color:var(--a1);">67</div>
+            <div class="text-xs font-mono uppercase" style="color:var(--f1);opacity:0.6;">Cases Tested</div>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl font-bold" style="color:var(--cg);">100%</div>
+            <div class="text-xs font-mono uppercase" style="color:var(--f1);opacity:0.6;">Convergence</div>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl font-bold" style="color:var(--f2);">78k</div>
+            <div class="text-xs font-mono uppercase" style="color:var(--f1);opacity:0.6;">Max Buses</div>
+          </div>
+          <div class="text-center">
+            <div class="text-3xl font-bold" style="color:var(--f2);">&lt;1%</div>
+            <div class="text-xs font-mono uppercase" style="color:var(--f1);opacity:0.6;">Median Gap</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Web Studio & WASM Notebook Section -->
   <section id="web-studio" class="relative z-10 py-24 border-y px-6 overflow-hidden" style="background:var(--c2);border-color:var(--c3);">
     <div class="max-w-7xl mx-auto relative space-y-12">
