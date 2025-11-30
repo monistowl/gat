@@ -18,16 +18,21 @@ Topology commands (`gat graph stats`, `gat graph islands`, `gat graph export`) a
 
 `gat pf {dc,ac}` is documented in `docs/guide/pf.md`; the CLI supports solver selection, threading hints, tolerances, and Parquet output that lives under `pf-dc/` or `pf-ac/` for manifest-driven automation.
 
-## Optimal Power Flow (v0.3.2)
+## Optimal Power Flow (v0.5.0)
 
-GAT provides a unified `OpfSolver` with multiple solution methods:
+GAT provides a unified `OpfSolver` with multiple solution methods, all fully implemented:
 
 - **Economic Dispatch** — Merit-order optimization (fastest, ~20% gap)
-- **DC-OPF** — Linear approximation with B-matrix (planned)
-- **SOCP Relaxation** — Convex relaxation for global bounds (planned)
-- **AC-OPF** — Full nonlinear interior-point method (planned)
+- **DC-OPF** — Linear approximation with B-matrix (~3-5% gap)
+- **SOCP Relaxation** — Convex relaxation via Clarabel (~1-3% gap)
+- **AC-OPF (L-BFGS)** — Pure Rust penalty method (~2.9% median gap)
+- **AC-OPF (IPOPT)** — Interior-point with analytical derivatives (**<0.01% gap validated**)
 
-Generators now support polynomial and piecewise-linear cost functions via the `CostModel` enum. See `docs/guide/opf.md` for the full API reference, solver configuration, and CLI commands.
+The IPOPT backend achieves exact agreement with PGLib reference values:
+- IEEE 14-bus: $2,178.08/hr (ref: $2,178.10) — Gap: -0.00%
+- IEEE 118-bus: $97,213.61/hr (ref: $97,214.00) — Gap: -0.00%
+
+Generators support polynomial and piecewise-linear cost functions via the `CostModel` enum. See `docs/guide/opf.md` for the full API reference, solver configuration, and CLI commands.
 
 ## Outputs and partitions
 

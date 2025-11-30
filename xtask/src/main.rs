@@ -37,6 +37,31 @@ enum Task {
     /// Release helpers that rely on the canonical metadata
     #[command(subcommand)]
     Release(ReleaseCommand),
+    /// Native solver build helpers
+    #[command(subcommand)]
+    Solver(SolverCommand),
+    /// `xtask build-solver <name>` - shorthand for solver build
+    #[command(name = "build-solver")]
+    BuildSolver {
+        /// Solver name (ipopt, highs, cbc, bonmin, couenne, symphony)
+        solver: String,
+        /// Install to ~/.gat/solvers/ after building
+        #[arg(long)]
+        install: bool,
+    },
+    /// Build COIN-OR solvers from vendored sources
+    #[command(name = "build-solvers")]
+    BuildSolvers {
+        /// Build only CLP (LP solver)
+        #[arg(long)]
+        clp: bool,
+        /// Build only CBC (MIP solver)
+        #[arg(long)]
+        cbc: bool,
+        /// Clean and rebuild from scratch
+        #[arg(long)]
+        clean: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -49,6 +74,25 @@ enum ReleaseCommand {
         /// Optional version override (defaults to workspace release version)
         #[arg(long)]
         version: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum SolverCommand {
+    /// Build a native solver wrapper crate
+    Build {
+        /// Solver name (ipopt, highs, cbc, bonmin, couenne, symphony)
+        solver: String,
+        /// Install to ~/.gat/solvers/ after building
+        #[arg(long)]
+        install: bool,
+    },
+    /// List available solver crates and their build status
+    List,
+    /// Clean built solver binaries
+    Clean {
+        /// Solver name (or "all" to clean all)
+        solver: String,
     },
 }
 
@@ -82,6 +126,13 @@ fn main() -> Result<()> {
                 run_release_info(&variant, version.as_deref())
             }
         },
+        Task::Solver(cmd) => match cmd {
+            SolverCommand::Build { solver, install } => build_solver(&solver, install),
+            SolverCommand::List => list_solvers(),
+            SolverCommand::Clean { solver } => clean_solver(&solver),
+        },
+        Task::BuildSolver { solver, install } => build_solver(&solver, install),
+        Task::BuildSolvers { clp, cbc, clean } => build_coinor_solvers(clp, cbc, clean),
     }
 }
 
@@ -219,6 +270,400 @@ fn run_release_info(variant: &str, version: Option<&str>) -> Result<()> {
     if !status {
         bail!("platform-info.sh failed");
     }
+    Ok(())
+}
+
+// ============================================================================
+// Solver build infrastructure
+// ============================================================================
+
+/// Information about a native solver wrapper crate.
+struct SolverInfo {
+    name: &'static str,
+    crate_name: &'static str,
+    description: &'static str,
+    native_lib: &'static str,
+}
+
+const SOLVER_INFOS: &[SolverInfo] = &[
+    SolverInfo {
+        name: "ipopt",
+        crate_name: "gat-ipopt",
+        description: "Interior point optimizer for large-scale NLP",
+        native_lib: "libipopt",
+    },
+    SolverInfo {
+        name: "highs",
+        crate_name: "gat-highs",
+        description: "High-performance LP/MIP solver",
+        native_lib: "libhighs",
+    },
+    SolverInfo {
+        name: "cbc",
+        crate_name: "gat-cbc",
+        description: "COIN-OR branch and cut MIP solver",
+        native_lib: "libCbc",
+    },
+    SolverInfo {
+        name: "bonmin",
+        crate_name: "gat-bonmin",
+        description: "Basic Open-source Nonlinear Mixed Integer",
+        native_lib: "libbonmin",
+    },
+    SolverInfo {
+        name: "couenne",
+        crate_name: "gat-couenne",
+        description: "Convex Over and Under ENvelopes for Nonlinear Estimation",
+        native_lib: "libcouenne",
+    },
+    SolverInfo {
+        name: "symphony",
+        crate_name: "gat-symphony",
+        description: "COIN-OR parallel MIP solver",
+        native_lib: "libSym",
+    },
+];
+
+fn get_solver_info(name: &str) -> Option<&'static SolverInfo> {
+    SOLVER_INFOS.iter().find(|s| s.name == name.to_lowercase())
+}
+
+fn get_gat_solvers_dir() -> Result<std::path::PathBuf> {
+    let home =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+    Ok(home.join(".gat").join("solvers"))
+}
+
+fn build_solver(solver: &str, install: bool) -> Result<()> {
+    let info = get_solver_info(solver).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Unknown solver '{}'. Valid solvers: {}",
+            solver,
+            SOLVER_INFOS
+                .iter()
+                .map(|s| s.name)
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    })?;
+
+    println!("Building {} ({})...", info.crate_name, info.description);
+    println!();
+
+    // Check if the crate exists
+    let crate_path = Path::new("crates").join(info.crate_name);
+    if !crate_path.exists() {
+        println!("Note: {} crate does not exist yet.", info.crate_name);
+        println!();
+        println!("To create the solver wrapper crate:");
+        println!("  1. Create crates/{}/Cargo.toml", info.crate_name);
+        println!("  2. Implement the solver IPC protocol from gat-solver-common");
+        println!("  3. Link against {} native library", info.native_lib);
+        println!();
+        println!("See docs/architecture/native-solver-plugins.md for details.");
+        return Ok(());
+    }
+
+    // Build the crate in release mode
+    let status = Command::new("cargo")
+        .args(["build", "-p", info.crate_name, "--release"])
+        .status()?;
+
+    if !status.success() {
+        bail!("Failed to build {}", info.crate_name);
+    }
+
+    println!();
+    println!("Successfully built {}!", info.crate_name);
+
+    // Install if requested
+    if install {
+        install_solver_binary(info)?;
+    } else {
+        println!();
+        println!(
+            "To install, run: cargo xtask build-solver {} --install",
+            solver
+        );
+        println!(
+            "Or copy target/release/{} to ~/.gat/solvers/",
+            info.crate_name
+        );
+    }
+
+    Ok(())
+}
+
+fn install_solver_binary(info: &SolverInfo) -> Result<()> {
+    let solvers_dir = get_gat_solvers_dir()?;
+    fs::create_dir_all(&solvers_dir)?;
+
+    let source = Path::new("target/release").join(info.crate_name);
+    let dest = solvers_dir.join(info.crate_name);
+
+    if !source.exists() {
+        bail!(
+            "Binary not found at {}. Build the solver first.",
+            source.display()
+        );
+    }
+
+    fs::copy(&source, &dest)?;
+
+    // Make executable on Unix
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&dest)?.permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&dest, perms)?;
+    }
+
+    // Register solver in solvers.toml
+    register_solver_in_state(info)?;
+
+    println!();
+    println!("Installed {} to {}", info.crate_name, dest.display());
+    println!();
+    println!("To enable native solvers, add to ~/.gat/config/gat.toml:");
+    println!("  [solvers]");
+    println!("  native_enabled = true");
+
+    Ok(())
+}
+
+fn register_solver_in_state(info: &SolverInfo) -> Result<()> {
+    let home =
+        dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+    let state_path = home.join(".gat").join("config").join("solvers.toml");
+
+    // Read existing state or create new
+    let mut state: toml::Table = if state_path.exists() {
+        let content = fs::read_to_string(&state_path)?;
+        toml::from_str(&content).unwrap_or_default()
+    } else {
+        toml::Table::new()
+    };
+
+    // Ensure protocol_version
+    state
+        .entry("protocol_version".to_string())
+        .or_insert(toml::Value::Integer(1));
+
+    // Get or create installed table
+    let installed = state
+        .entry("installed".to_string())
+        .or_insert(toml::Value::Table(toml::Table::new()))
+        .as_table_mut()
+        .ok_or_else(|| anyhow::anyhow!("Invalid solvers.toml format"))?;
+
+    // Add/update solver entry
+    let mut solver_entry = toml::Table::new();
+    solver_entry.insert(
+        "version".to_string(),
+        toml::Value::String(env!("CARGO_PKG_VERSION").to_string()),
+    );
+    solver_entry.insert(
+        "binary_path".to_string(),
+        toml::Value::String(
+            home.join(".gat")
+                .join("solvers")
+                .join(info.crate_name)
+                .to_string_lossy()
+                .to_string(),
+        ),
+    );
+    solver_entry.insert(
+        "installed_at".to_string(),
+        toml::Value::String(chrono::Utc::now().to_rfc3339()),
+    );
+
+    installed.insert(info.name.to_string(), toml::Value::Table(solver_entry));
+
+    // Write back
+    fs::create_dir_all(state_path.parent().unwrap())?;
+    fs::write(&state_path, toml::to_string_pretty(&state)?)?;
+
+    Ok(())
+}
+
+fn list_solvers() -> Result<()> {
+    println!("Available native solver wrappers:");
+    println!();
+
+    let solvers_dir = get_gat_solvers_dir()?;
+
+    for info in SOLVER_INFOS {
+        let crate_path = Path::new("crates").join(info.crate_name);
+        let binary_path = solvers_dir.join(info.crate_name);
+
+        let crate_status = if crate_path.exists() {
+            "crate exists"
+        } else {
+            "not implemented"
+        };
+
+        let install_status = if binary_path.exists() {
+            "[installed]"
+        } else {
+            "[not installed]"
+        };
+
+        println!(
+            "  {:<10} {:<50} {} {}",
+            info.name, info.description, crate_status, install_status
+        );
+    }
+
+    println!();
+    println!("Build with: cargo xtask build-solver <name>");
+    println!("Install with: cargo xtask build-solver <name> --install");
+
+    Ok(())
+}
+
+fn clean_solver(solver: &str) -> Result<()> {
+    if solver == "all" {
+        println!("Cleaning all solver binaries...");
+        let solvers_dir = get_gat_solvers_dir()?;
+        if solvers_dir.exists() {
+            for info in SOLVER_INFOS {
+                let binary_path = solvers_dir.join(info.crate_name);
+                if binary_path.exists() {
+                    fs::remove_file(&binary_path)?;
+                    println!("  Removed {}", binary_path.display());
+                }
+            }
+        }
+        println!("Done.");
+        return Ok(());
+    }
+
+    let info = get_solver_info(solver).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Unknown solver '{}'. Valid solvers: {} (or 'all')",
+            solver,
+            SOLVER_INFOS
+                .iter()
+                .map(|s| s.name)
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    })?;
+
+    let solvers_dir = get_gat_solvers_dir()?;
+    let binary_path = solvers_dir.join(info.crate_name);
+
+    if binary_path.exists() {
+        fs::remove_file(&binary_path)?;
+        println!("Removed {}", binary_path.display());
+    } else {
+        println!("{} is not installed.", info.name);
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// COIN-OR vendored build infrastructure
+// ============================================================================
+
+/// Build COIN-OR solvers from vendored source archives.
+///
+/// This compiles CoinUtils, Osi, CLP, Cgl, and CBC from the ZIP files
+/// in vendor/ and outputs static libraries to target/coinor/.
+fn build_coinor_solvers(clp_only: bool, cbc_only: bool, clean: bool) -> Result<()> {
+    use gat_coinor_build::{CoinorBuildConfig, Component};
+
+    let project_root = std::env::current_dir()?;
+    let vendor_dir = project_root.join("vendor");
+    let target_coinor = project_root.join("target/coinor");
+
+    // Verify vendor directory exists with required files
+    if !vendor_dir.exists() {
+        bail!(
+            "vendor/ directory not found. Expected at: {}",
+            vendor_dir.display()
+        );
+    }
+
+    // Determine which components to build
+    let components: Vec<Component> = if clp_only {
+        println!("Building CLP (LP solver) from vendored sources...");
+        Component::clp_deps().to_vec()
+    } else if cbc_only {
+        println!("Building CBC (MIP solver) from vendored sources...");
+        Component::cbc_deps().to_vec()
+    } else {
+        println!("Building all COIN-OR solvers from vendored sources...");
+        Component::all_in_order().to_vec()
+    };
+
+    // Clean if requested
+    if clean {
+        println!("Cleaning previous build artifacts...");
+        if target_coinor.exists() {
+            fs::remove_dir_all(&target_coinor)?;
+        }
+    }
+
+    // Check for pre-built libraries
+    if !clean {
+        if let Some(artifacts) = gat_coinor_build::find_prebuilt(&target_coinor) {
+            println!();
+            println!("Found pre-built COIN-OR libraries at {}", target_coinor.display());
+            println!("Libraries: {:?}", artifacts.libraries);
+            println!();
+            println!("To rebuild, run: cargo xtask build-solvers --clean");
+            return Ok(());
+        }
+    }
+
+    // Verify required ZIP files exist
+    for comp in &components {
+        let zip_path = vendor_dir.join(comp.zip_name());
+        if !zip_path.exists() {
+            bail!(
+                "Missing vendor archive: {}\nExpected at: {}",
+                comp.zip_name(),
+                zip_path.display()
+            );
+        }
+    }
+
+    println!();
+    println!("Components to build: {:?}", components);
+    println!("Vendor directory: {}", vendor_dir.display());
+    println!("Output directory: {}", target_coinor.display());
+    println!();
+
+    // Build configuration
+    let config = CoinorBuildConfig {
+        vendor_dir,
+        build_dir: target_coinor.join("build"),
+        install_dir: target_coinor.clone(),
+        components,
+    };
+
+    // Run the build
+    let artifacts = gat_coinor_build::build(&config)?;
+
+    println!();
+    println!("Build complete!");
+    println!("Libraries: {}", artifacts.lib_dir.display());
+    println!("Headers: {}", artifacts.include_dir.display());
+    println!();
+    println!("Built libraries:");
+    for lib in &artifacts.libraries {
+        println!("  - lib{}.a", lib);
+    }
+    println!();
+    println!("To use in build.rs, link with:");
+    println!("  cargo:rustc-link-search=native={}", artifacts.lib_dir.display());
+    for lib in &artifacts.libraries {
+        println!("  cargo:rustc-link-lib=static={}", lib);
+    }
+
     Ok(())
 }
 

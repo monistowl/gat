@@ -1,6 +1,6 @@
 [package]
 name = "gat-algo"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 
 [dependencies]
@@ -8,6 +8,7 @@ anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 csv = "1.4"
 gat-core = { path = "../gat-core" }
+gat-solver-common = { path = "../gat-solver-common", optional = true }
 good_lp = { version = "1.14", default-features = false }
 sprs = "0.11"
 faer = "0.17"
@@ -19,10 +20,12 @@ serde_json = "1.0"
 clarabel = { version = "0.11", default-features = false }
 argmin = "0.10"
 argmin-math = { version = "0.4", features = ["vec"] }
+dirs = { version = "5.0", optional = true }
 ipopt = { version = "0.6", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
+gat-io = { path = "../gat-io" }
 
 [features]
 default = [
@@ -32,13 +35,15 @@ default = [
     "polars-ipc",
 ]
 
-all-solvers = ["solver-clarabel", "solver-coin_cbc", "solver-highs", "solver-ipopt"]
+all-solvers = ["solver-clarabel", "solver-highs", "solver-ipopt"]
+native-dispatch = ["gat-solver-common", "dirs"]
 all-polars = ["polars-lazy", "polars-parquet", "polars-ipc"]
 full = ["all-solvers", "all-polars"]
 
 solver-clarabel = ["good_lp/clarabel"]
-solver-coin_cbc = ["good_lp/coin_cbc"]
 solver-highs = ["good_lp/highs"]
+# DEPRECATED: Use native-dispatch + gat-cbc instead. Requires system CBC install.
+solver-coin_cbc = ["good_lp/coin_cbc"]
 solver-ipopt = ["ipopt"]
 
 polars-lazy = ["polars/lazy"]

@@ -16,7 +16,8 @@
 use std::collections::HashMap;
 
 use gat_core::{
-    Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node, NodeIndex,
+    Branch, BranchId, Bus, BusId, Edge, Gen, GenId, Load, LoadId, Network, Node, NodeIndex, Shunt,
+    ShuntId,
 };
 
 use super::ImportDiagnostics;
@@ -42,6 +43,18 @@ pub struct LoadInput {
     pub name: Option<String>,
     pub active_power_mw: f64,
     pub reactive_power_mvar: f64,
+}
+
+/// Generic input data for shunt creation (capacitor/reactor)
+#[derive(Debug, Clone)]
+pub struct ShuntInput {
+    pub bus_id: usize,
+    pub name: Option<String>,
+    /// Shunt conductance in per-unit (MW at 1.0 p.u. voltage)
+    pub gs_pu: f64,
+    /// Shunt susceptance in per-unit (MVAr at 1.0 p.u. voltage)
+    /// Positive = capacitor, Negative = reactor
+    pub bs_pu: f64,
 }
 
 /// Generic input data for generator creation
@@ -149,6 +162,7 @@ pub struct NetworkBuilder<'a> {
     next_load_id: usize,
     next_gen_id: usize,
     next_branch_id: usize,
+    next_shunt_id: usize,
 }
 
 impl<'a> NetworkBuilder<'a> {
@@ -161,6 +175,7 @@ impl<'a> NetworkBuilder<'a> {
             next_load_id: 0,
             next_gen_id: 0,
             next_branch_id: 0,
+            next_shunt_id: 0,
         }
     }
 
@@ -176,6 +191,7 @@ impl<'a> NetworkBuilder<'a> {
             next_load_id: 0,
             next_gen_id: 0,
             next_branch_id: 0,
+            next_shunt_id: 0,
         }
     }
 
@@ -188,6 +204,7 @@ impl<'a> NetworkBuilder<'a> {
             next_load_id: 0,
             next_gen_id: 0,
             next_branch_id: 0,
+            next_shunt_id: 0,
         }
     }
 
@@ -202,6 +219,7 @@ impl<'a> NetworkBuilder<'a> {
             next_load_id: 0,
             next_gen_id: 0,
             next_branch_id: 0,
+            next_shunt_id: 0,
         }
     }
 
@@ -273,6 +291,39 @@ impl<'a> NetworkBuilder<'a> {
             diag.stats.loads += 1;
         }
 
+        AddResult::Added
+    }
+
+    /// Add a shunt (capacitor/reactor) to the network
+    ///
+    /// Returns `AddResult::Skipped` if the referenced bus doesn't exist.
+    pub fn add_shunt(&mut self, input: ShuntInput) -> AddResult {
+        if !self.bus_map.contains_key(&input.bus_id) {
+            if let Some(ref mut diag) = self.diag {
+                diag.add_warning(
+                    "orphan_shunt",
+                    &format!("shunt references unknown bus {}", input.bus_id),
+                );
+            }
+            return AddResult::Skipped;
+        }
+
+        let name = input
+            .name
+            .unwrap_or_else(|| format!("Shunt {}", input.bus_id));
+
+        self.network.graph.add_node(Node::Shunt(Shunt {
+            id: ShuntId::new(self.next_shunt_id),
+            name,
+            bus: BusId::new(input.bus_id),
+            gs_pu: input.gs_pu,
+            bs_pu: input.bs_pu,
+            status: true,
+        }));
+
+        self.next_shunt_id += 1;
+
+        // Note: diagnostics doesn't track shunts separately yet, but we could add it
         AddResult::Added
     }
 

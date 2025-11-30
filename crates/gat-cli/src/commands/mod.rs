@@ -22,6 +22,7 @@ pub mod pf;
 pub mod runs;
 pub mod scenarios;
 pub mod se;
+pub mod solver;
 pub mod telemetry;
 pub mod ts;
 #[cfg(feature = "tui")]

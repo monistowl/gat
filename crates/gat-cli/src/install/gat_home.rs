@@ -16,6 +16,8 @@ pub struct GatDirs {
     pub lib: PathBuf,
     /// ~/.gat/cache/ - runtime caches
     pub cache: PathBuf,
+    /// ~/.gat/solvers/ - native solver plugins
+    pub solvers: PathBuf,
 }
 
 impl GatDirs {
@@ -26,6 +28,7 @@ impl GatDirs {
             config: root.join("config"),
             lib: root.join("lib"),
             cache: root.join("cache"),
+            solvers: root.join("solvers"),
             root,
         }
     }
@@ -47,6 +50,7 @@ pub fn ensure_gat_dirs() -> Result<GatDirs> {
     std::fs::create_dir_all(&dirs.config)?;
     std::fs::create_dir_all(&dirs.lib)?;
     std::fs::create_dir_all(&dirs.cache)?;
+    std::fs::create_dir_all(&dirs.solvers)?;
 
     Ok(dirs)
 }
@@ -65,6 +69,7 @@ mod tests {
         assert_eq!(dirs.config, root.join("config"));
         assert_eq!(dirs.lib, root.join("lib"));
         assert_eq!(dirs.cache, root.join("cache"));
+        assert_eq!(dirs.solvers, root.join("solvers"));
     }
 
     #[test]

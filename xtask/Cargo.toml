@@ -12,5 +12,8 @@ clap = { version = "4.0", features = ["derive"] }
 serde_json = "1.0"
 walkdir = "2.3"
 gat-cli = { path = "../crates/gat-cli", optional = true, features = ["docs"] }
+gat-coinor-build = { path = "../crates/gat-coinor-build" }
 chrono = "0.4"
 serde = { version = "1.0", features = ["derive"] }
+dirs = "5.0"
+toml = "0.8"

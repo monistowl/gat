@@ -55,6 +55,7 @@ struct Manifest<'a> {
     notebooks_dir: &'a str,
     datasets_dir: &'a str,
     context_dir: &'a str,
+    ui_hints: UiHints<'a>,
     demos: Vec<Demo<'a>>,
 }
 
@@ -63,6 +64,20 @@ struct Demo<'a> {
     title: &'a str,
     description: &'a str,
     path: &'a str,
+}
+
+#[derive(Serialize)]
+struct UiHints<'a> {
+    quick_actions: Vec<QuickAction<'a>>,
+    status_badges: Vec<&'a str>,
+    drawers: Vec<&'a str>,
+}
+
+#[derive(Serialize)]
+struct QuickAction<'a> {
+    label: &'a str,
+    command: &'a str,
+    notes: &'a str,
 }
 
 /// Initialize a GAT-focused notebook environment inspired by the Twinsong workflow.
@@ -97,6 +112,36 @@ pub fn launch(options: NotebookOptions) -> Result<NotebookLaunch> {
         notebooks_dir: "notebooks",
         datasets_dir: "datasets",
         context_dir: "context",
+        ui_hints: UiHints {
+            quick_actions: vec![
+                QuickAction {
+                    label: "Preview manifest",
+                    command: "cat notebooks/demos/power-flow.md",
+                    notes: "Show the seeded demo for the selected run",
+                },
+                QuickAction {
+                    label: "Run batch preview",
+                    command:
+                        "gat batch pf --manifest datasets/runs/manifest.json --max-jobs 8 --threads 4",
+                    notes: "Surface the batch call used in the scenario demos",
+                },
+                QuickAction {
+                    label: "Open rust-script",
+                    command: "rust-script notebooks/demos/rust-script.rs",
+                    notes: "Execute the inline Rust demo that calls GAT functions",
+                },
+            ],
+            status_badges: vec![
+                "WASM runtime idle • ready for notebook cells",
+                "Batch manifest detected • enable rerun button",
+                "rust-script available • direct Rust hooks",
+            ],
+            drawers: vec![
+                "Demo notebooks",
+                "Recent batches",
+                "Rust-script helpers",
+            ],
+        },
         demos: vec![
             Demo {
                 title: "Power flow walkthrough",
@@ -157,6 +202,11 @@ pub fn launch(options: NotebookOptions) -> Result<NotebookLaunch> {
                 title: "Data ingestion + format conversion",
                 description: "Convert RAW/CIM inputs to Arrow, lint metadata, and prep shareable assets.",
                 path: "notebooks/demos/data-ingestion.md",
+            },
+            Demo {
+                title: "Rust-script direct calls",
+                description: "Use rust-script to call GAT crates without leaving the notebook context.",
+                path: "notebooks/demos/rust-script.md",
             },
         ],
     };
@@ -248,6 +298,9 @@ fn seed_workspace(path: &Path) -> Result<()> {
 
     let data_ingestion = path.join("notebooks/demos/data-ingestion.md");
     write_if_absent(&data_ingestion, render_data_ingestion_demo())?;
+
+    let rust_script = path.join("notebooks/demos/rust-script.md");
+    write_if_absent(&rust_script, render_rust_script_demo())?;
 
     Ok(())
 }
@@ -441,6 +494,11 @@ duckdb "SELECT scenario_id, COUNT(*) AS n_violations FROM read_parquet('datasets
 ## Next ideas
 - Switch to OPF with solver selection: `gat batch opf --solver highs ...`
 - Keep congestion pivots in `context/`
+
+## GUI bells + automation
+- Add a "preview manifest" drawer to show which scenarios are queued.
+- Promote a status badge when limits/cost files are detected next to the manifest.
+- Surface a rerun button that shells out to the batch command above with logs to `context/batch.log`.
 "#;
 
     content.to_string()
@@ -774,6 +832,59 @@ duckdb "SELECT solver, COUNT(*) AS n_records FROM read_parquet('notebooks/opf_*.
     content.to_string()
 }
 
+fn render_rust_script_demo() -> String {
+    let content = r#"# Rust-script direct calls
+
+Use [rust-script](https://crates.io/crates/rust-script) to execute Rust notebooks that call
+GAT crates directly—no separate Cargo project required.
+
+## 1) Install rust-script
+```bash
+cargo install rust-script
+```
+
+## 2) Drop a runnable cell
+Save the snippet below as `notebooks/demos/rust-script.rs` and run it with `rust-script notebooks/demos/rust-script.rs`.
+It uses `gat-algo` + `gat-io` to load a grid and run DC power flow directly from Rust:
+
+```rust
+#!/usr/bin/env rust-script
+//! ```cargo
+//! [dependencies]
+//! anyhow = "1"
+//! gat-algo = { path = "../crates/gat-algo" }
+//! gat-io = { path = "../crates/gat-io" }
+//! gat-core = { path = "../crates/gat-core" }
+//! ```
+
+use anyhow::Result;
+use gat_algo::power_flow::dc_power_flow;
+use gat_core::solver::SolverKind;
+use gat_io::importers::load_grid_from_arrow;
+use std::path::Path;
+
+fn main() -> Result<()> {
+    let network = load_grid_from_arrow("datasets/ieee14.arrow")?;
+    let solver = SolverKind::Gauss.build_solver();
+    dc_power_flow(
+        &network,
+        solver.as_ref(),
+        Path::new("notebooks/ieee14_dc.parquet"),
+        &[],
+    )?;
+    Ok(())
+}
+```
+
+## 3) Adapt for batch helpers
+- Swap in `power_flow::ac_power_flow` or OPF helpers once data is staged.
+- Wrap the call in a loop that iterates over `datasets/runs/manifest.json` for GUI-driven batches.
+- Pipe stdout to `context/rust-script.log` so the notebook UI can display live progress.
+"#;
+
+    content.to_string()
+}
+
 fn attempt_open_browser(url: &str) -> bool {
     #[cfg(target_os = "windows")]
     {
@@ -838,6 +949,7 @@ mod tests {
         assert!(manifest.contains("Sensitivity sweeps + post-processing"));
         assert!(manifest.contains("Solver benchmarking + regression"));
         assert!(manifest.contains("Data ingestion + format conversion"));
+        assert!(manifest.contains("Rust-script direct calls"));
     }
 
     #[test]
@@ -955,5 +1067,10 @@ mod tests {
             fs::read_to_string(workspace.join("notebooks/demos/data-ingestion.md")).unwrap();
         assert!(data_ingestion.contains("gat import"));
         assert!(data_ingestion.contains("gat validate"));
+
+        let rust_script =
+            fs::read_to_string(workspace.join("notebooks/demos/rust-script.md")).unwrap();
+        assert!(rust_script.contains("rust-script"));
+        assert!(rust_script.contains("gat-algo"));
     }
 }

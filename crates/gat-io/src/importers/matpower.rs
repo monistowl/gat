@@ -11,6 +11,7 @@ use crate::arrow_manifest::{compute_sha256, SourceInfo};
 use crate::exporters::arrow_directory_writer::SystemInfo;
 use crate::helpers::{
     BranchInput, BusInput, GenInput, ImportDiagnostics, ImportResult, LoadInput, NetworkBuilder,
+    ShuntInput,
 };
 use zip::ZipArchive;
 
@@ -335,6 +336,20 @@ fn build_network_from_matpower_case_impl(
                 name: Some(format!("Load {}", bus.bus_i)),
                 active_power_mw: bus.pd,
                 reactive_power_mvar: bus.qd,
+            });
+        }
+    }
+
+    // Add shunts (embedded in MATPOWER bus data as Gs/Bs columns)
+    // In MATPOWER: Gs (MW) and Bs (MVAr) are power at 1.0 p.u. voltage
+    // Convert to per-unit by dividing by base_mva
+    for bus in &case.bus {
+        if bus.gs != 0.0 || bus.bs != 0.0 {
+            builder.add_shunt(ShuntInput {
+                bus_id: bus.bus_i,
+                name: Some(format!("Shunt {}", bus.bus_i)),
+                gs_pu: bus.gs / case.base_mva,
+                bs_pu: bus.bs / case.base_mva,
             });
         }
     }

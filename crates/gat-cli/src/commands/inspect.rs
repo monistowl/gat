@@ -25,6 +25,11 @@ pub fn handle(command: &InspectCommands) -> Result<()> {
         } => handle_branches(input, *rating_lt, format),
         InspectCommands::PowerBalance { input } => handle_power_balance(input),
         InspectCommands::Json { input, pretty } => handle_json(input, *pretty),
+        InspectCommands::Thermal {
+            input,
+            threshold,
+            format,
+        } => handle_thermal(input, *threshold, format),
     }
 }
 
@@ -477,4 +482,132 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len - 3])
     }
+}
+
+/// Branch thermal loading information
+#[derive(Debug, Serialize)]
+struct ThermalInfo {
+    id: usize,
+    name: String,
+    from_bus: usize,
+    to_bus: usize,
+    rating_mva: f64,
+    // Note: without OPF solution, we can't compute actual flow
+    // This command shows branches by rating and flags potential bottlenecks
+}
+
+/// Handle the `gat inspect thermal` command
+/// Shows branches sorted by thermal rating to identify potential bottlenecks
+pub fn handle_thermal(input: &str, threshold_mva: Option<f64>, format: &str) -> Result<()> {
+    let network = load_network(input)?;
+
+    let mut branches: Vec<(usize, String, usize, usize, f64)> = Vec::new();
+
+    for edge in network.graph.edge_weights() {
+        if let Edge::Branch(b) = edge {
+            if let Some(rating) = b.s_max_mva {
+                // Filter by threshold if provided
+                if let Some(thresh) = threshold_mva {
+                    if rating > thresh {
+                        continue;
+                    }
+                }
+                branches.push((
+                    b.id.value(),
+                    b.name.clone(),
+                    b.from_bus.value(),
+                    b.to_bus.value(),
+                    rating,
+                ));
+            }
+        }
+    }
+
+    // Sort by rating (ascending) - lowest ratings are most likely bottlenecks
+    branches.sort_by(|a, b| a.4.partial_cmp(&b.4).unwrap());
+
+    if format == "json" {
+        let thermal_info: Vec<ThermalInfo> = branches
+            .iter()
+            .map(|(id, name, from, to, rating)| ThermalInfo {
+                id: *id,
+                name: name.clone(),
+                from_bus: *from,
+                to_bus: *to,
+                rating_mva: *rating,
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&thermal_info)?);
+    } else {
+        println!("Thermal Limit Analysis");
+        println!("======================");
+        println!();
+
+        if branches.is_empty() {
+            println!("No branches with thermal ratings found.");
+            return Ok(());
+        }
+
+        // Statistics
+        let ratings: Vec<f64> = branches.iter().map(|(_, _, _, _, r)| *r).collect();
+        let min_rating = ratings.iter().cloned().fold(f64::INFINITY, f64::min);
+        let max_rating = ratings.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let avg_rating: f64 = ratings.iter().sum::<f64>() / ratings.len() as f64;
+
+        println!("Rating Statistics:");
+        println!("  Min:  {:.1} MVA", min_rating);
+        println!("  Max:  {:.1} MVA", max_rating);
+        println!("  Avg:  {:.1} MVA", avg_rating);
+        println!();
+
+        // Show lowest-rated branches (potential bottlenecks)
+        let show_count = branches.len().min(20);
+        println!(
+            "Lowest-rated branches (top {} potential bottlenecks):",
+            show_count
+        );
+        println!();
+        println!(
+            "{:>6} {:>6} {:>6} {:>20} {:>12}",
+            "ID", "From", "To", "Name", "Rating (MVA)"
+        );
+        println!("{}", "-".repeat(60));
+
+        for (id, name, from, to, rating) in branches.iter().take(show_count) {
+            let status = if *rating < avg_rating * 0.5 {
+                " ⚠ LOW"
+            } else {
+                ""
+            };
+            println!(
+                "{:>6} {:>6} {:>6} {:>20} {:>12.1}{}",
+                id,
+                from,
+                to,
+                truncate(name, 20),
+                rating,
+                status
+            );
+        }
+
+        println!();
+        println!("Total: {} branches with thermal limits", branches.len());
+
+        // Identify potential critical paths
+        let low_rated: Vec<_> = branches
+            .iter()
+            .filter(|(_, _, _, _, r)| *r < avg_rating * 0.5)
+            .collect();
+        if !low_rated.is_empty() {
+            println!();
+            println!(
+                "⚠ {} branches have ratings < 50% of average ({:.1} MVA)",
+                low_rated.len(),
+                avg_rating * 0.5
+            );
+            println!("  These may become thermal bottlenecks under high load.");
+        }
+    }
+
+    Ok(())
 }

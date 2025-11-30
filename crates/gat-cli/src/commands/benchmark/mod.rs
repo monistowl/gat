@@ -3,9 +3,11 @@ use gat_cli::cli::BenchmarkCommands;
 
 pub mod baseline;
 pub mod common;
+pub mod compare;
 pub mod opfdata;
 pub mod pfdelta;
 pub mod pglib;
+pub mod summary;
 
 pub fn handle(command: &BenchmarkCommands) -> Result<()> {
     match command {
@@ -44,6 +46,8 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             method,
             tol,
             max_iter,
+            enhanced,
+            solver,
         } => pglib::handle(
             pglib_dir,
             baseline.as_deref(),
@@ -54,6 +58,8 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             method,
             *tol,
             *max_iter,
+            *enhanced,
+            solver,
         ),
         BenchmarkCommands::Opfdata {
             opfdata_dir,
@@ -66,6 +72,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             max_iter,
             diagnostics_log,
             strict,
+            solver,
         } => opfdata::handle(
             opfdata_dir,
             case_filter.as_deref(),
@@ -77,6 +84,9 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             *max_iter,
             diagnostics_log.as_deref(),
             *strict,
+            solver,
         ),
+        BenchmarkCommands::Summary { csv } => summary::handle(csv),
+        BenchmarkCommands::Compare { before, after } => compare::handle(before, after),
     }
 }

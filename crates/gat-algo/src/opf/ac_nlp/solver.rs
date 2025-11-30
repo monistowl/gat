@@ -748,6 +748,8 @@ mod tests {
                 v_max: 1.1,
                 p_load: 0.0,
                 q_load: 0.0,
+                gs_pu: 0.0,
+                bs_pu: 0.0,
             },
             BusData {
                 id: BusId::new(2),
@@ -757,6 +759,8 @@ mod tests {
                 v_max: 1.1,
                 p_load: 0.0,
                 q_load: 0.0,
+                gs_pu: 0.0,
+                bs_pu: 0.0,
             },
         ];
 

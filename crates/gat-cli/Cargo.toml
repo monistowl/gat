@@ -1,6 +1,6 @@
 [package]
 name = "gat-cli"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 
 [features]
@@ -13,7 +13,6 @@ tui = ["dep:gat-tui"]
 viz = ["dep:gat-viz"]
 all-backends = [
     "solver-clarabel",
-    "solver-coin_cbc",
     "solver-highs",
     "polars-lazy",
     "polars-parquet",
@@ -21,8 +20,11 @@ all-backends = [
 ]
 minimal = ["solver-clarabel", "polars-lazy", "polars-parquet", "polars-ipc"]
 solver-clarabel = ["gat-algo/solver-clarabel"]
-solver-coin_cbc = ["gat-algo/solver-coin_cbc"]
 solver-highs = ["gat-algo/solver-highs"]
+solver-ipopt = ["gat-algo/solver-ipopt"]
+native-dispatch = ["gat-algo/native-dispatch"]
+# DEPRECATED: Use native-dispatch + gat-cbc instead. Requires system CBC install.
+solver-coin_cbc = ["gat-algo/solver-coin_cbc"]
 polars-lazy = ["gat-algo/polars-lazy"]
 polars-parquet = ["gat-algo/polars-parquet"]
 polars-ipc = ["gat-algo/polars-ipc"]
@@ -50,6 +52,7 @@ rayon = "1.7"
 num_cpus = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+toml = "0.8"
 uuid = { version = "1.5", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"

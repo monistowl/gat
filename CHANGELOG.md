@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2025-11-28
+
+### Added
+
+#### Vendored COIN-OR Solver Infrastructure
+
+- **`gat-coinor-build`** — Build-time orchestration crate for COIN-OR dependencies
+  - Automatic download and compilation of CoinUtils, Osi, Clp, Cgl, Cbc from source
+  - Cross-platform support (Linux, macOS) with optimized BLAS/LAPACK linking
+  - Caching in `target/coinor/build/` to avoid redundant recompilation
+  - Zero system library dependencies (fully vendored)
+
+- **`gat-solver-common`** — Arrow IPC protocol for solver subprocess communication
+  - `ProblemBatch` / `SolutionBatch` types for serialization
+  - Schema definitions for LP/MIP problem representation
+  - Shared subprocess launcher utilities
+
+- **`gat-clp`** — CLP linear programming solver wrapper
+  - Native Rust bindings via custom C wrapper (`clp_wrapper.c`)
+  - Arrow IPC subprocess interface for crash isolation
+  - `solve_blocking()` API for synchronous LP solving
+
+- **`gat-cbc`** — CBC mixed-integer programming solver wrapper (infrastructure)
+  - Follows same pattern as gat-clp
+  - Ready for MIP problems when needed
+
+#### Native Solver Dispatch
+
+- **`native_dispatch` module** in gat-algo (`crates/gat-algo/src/opf/native_dispatch.rs`)
+  - Converts `Network` → `ProblemBatch` → subprocess → `SolutionBatch` → `OpfSolution`
+  - Automatic solver selection based on problem class
+  - Fallback to pure-Rust solvers when native unavailable
+
+- **`prefer_native(true)` API** for opting into native solvers
+  - Transparent fallback chain: native → pure-Rust
+  - No user action required for basic usage
+
+#### CLI Solver Management
+
+- **`gat solver list`** — Show installed native and pure-Rust solvers
+- **`gat solver uninstall <name>`** — Remove installed native solvers
+- **`cargo xtask solver build <name> --install`** — Build and install native solver wrappers
+
+### Changed
+
+- **Version bump to 0.5.0** across all workspace crates
+- **Deprecated `solver-coin_cbc` feature** — Use `native-dispatch` + gat-cbc instead
+- **Trimmed tokio features** in gat-tui from `"full"` to specific features needed
+- **Updated documentation** to reflect v0.5.0 changes and native solver options
+
+### Architecture Notes
+
+Native solvers run as **isolated subprocesses** communicating via Arrow IPC:
+```
+Network → ProblemBatch → [IPC] → clp-solver → [IPC] → SolutionBatch → OpfSolution
+```
+
+Benefits:
+- **Crash isolation**: Native library issues don't crash the main process
+- **Version flexibility**: Different solver versions can coexist
+- **Portability**: Pure-Rust fallbacks always available
+
+---
+
 ## [0.3.4] - 2025-11-25
 
 ### Added
