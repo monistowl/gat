@@ -535,14 +535,17 @@ jobs:
           shared-key: vendored-ipopt-${{ runner.os }}
 
       - name: Build gat-clp against vendored libraries
-        run: cargo build -p gat-clp --release
+        # Force vendored libs by setting PKG_CONFIG_PATH exclusively (no system paths)
+        # This ensures we test the vendored build, not system pkg-config detection
+        run: PKG_CONFIG_PATH="" cargo build -p gat-clp --release
         env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
+          # Also set LD_LIBRARY_PATH for runtime library lookup during build tests
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
 
       - name: Build gat-cbc against vendored libraries
-        run: cargo build -p gat-cbc --release
+        run: PKG_CONFIG_PATH="" cargo build -p gat-cbc --release
         env:
-          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
 
       - name: Build gat-ipopt with ipopt-sys
         run: cargo build -p gat-ipopt --release --features ipopt-sys

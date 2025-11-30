@@ -221,8 +221,14 @@ verify_install() {
 
     local ERRORS=0
 
-    # Check libraries exist
-    for lib in libipopt.so libcoinmumps.a libcoinmetis.a; do
+    # Check libraries exist (IPOPT is .so on Linux, .dylib on macOS)
+    if [[ "$(uname)" == "Darwin" ]]; then
+        IPOPT_LIB="libipopt.dylib"
+    else
+        IPOPT_LIB="libipopt.so"
+    fi
+
+    for lib in "$IPOPT_LIB" libcoinmumps.a libcoinmetis.a; do
         if [ -f "$PREFIX/lib/$lib" ]; then
             echo "✓ Found $lib"
         else
