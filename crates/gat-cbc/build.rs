@@ -103,9 +103,13 @@ fn emit_link_flags(artifacts: &gat_coinor_build::BuildArtifacts) {
         artifacts.lib_dir.display()
     );
 
-    // Link in reverse dependency order (Cbc depends on Cgl depends on Clp depends on Osi depends on CoinUtils)
+    // Link in reverse dependency order
+    // Full chain: Cbc -> OsiCbc -> Cgl -> OsiClp -> Clp -> Osi -> CoinUtils
+    // Note: OsiCbc and OsiClp are adapter libraries that connect CBC/CLP to the Osi interface
     println!("cargo:rustc-link-lib=static=Cbc");
+    println!("cargo:rustc-link-lib=static=OsiCbc");
     println!("cargo:rustc-link-lib=static=Cgl");
+    println!("cargo:rustc-link-lib=static=OsiClp");
     println!("cargo:rustc-link-lib=static=Clp");
     println!("cargo:rustc-link-lib=static=Osi");
     println!("cargo:rustc-link-lib=static=CoinUtils");
@@ -116,6 +120,15 @@ fn emit_link_flags(artifacts: &gat_coinor_build::BuildArtifacts) {
     #[cfg(target_os = "macos")]
     println!("cargo:rustc-link-lib=c++");
 
-    // Link math library
+    // Link system libraries required by CoinUtils
+    // - bz2: compressed file I/O
+    // - z (zlib): compressed file I/O (gzopen, gzread, etc.)
+    // - lapack/blas: dense linear algebra (dgetrf_, dgetrs_)
+    // - readline: interactive parameter input (CoinParamUtils)
+    println!("cargo:rustc-link-lib=bz2");
+    println!("cargo:rustc-link-lib=z");
+    println!("cargo:rustc-link-lib=lapack");
+    println!("cargo:rustc-link-lib=blas");
+    println!("cargo:rustc-link-lib=readline");
     println!("cargo:rustc-link-lib=m");
 }

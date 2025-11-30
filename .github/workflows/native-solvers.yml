@@ -482,12 +482,14 @@ jobs:
             gfortran \
             libblas-dev \
             liblapack-dev \
+            libbz2-dev \
+            zlib1g-dev \
             pkg-config
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install gcc lapack pkg-config || true
+          brew install gcc lapack pkg-config zlib readline || true
           # Homebrew's GCC installs gfortran as gfortran-14 (or similar version)
           # The configure scripts look for 'gfortran', so we create a symlink
           GCC_VERSION=$(brew list --versions gcc | grep -oE '[0-9]+' | head -1)
