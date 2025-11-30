@@ -115,8 +115,10 @@ build_cbc() {
     make distclean 2>/dev/null || true
 
     # Configure with all dependencies
+    # --enable-cbc-c-interface is required for the C API used by Rust FFI
     ./configure --prefix="$PREFIX" \
         --disable-shared \
+        --enable-cbc-c-interface \
         --with-coinutils-lflags="-L$PREFIX/lib -lCoinUtils" \
         --with-coinutils-cflags="-I$PREFIX/include/coin" \
         --with-osi-lflags="-L$PREFIX/lib -lOsi" \
