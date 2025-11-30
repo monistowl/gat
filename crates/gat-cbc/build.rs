@@ -86,6 +86,14 @@ fn try_system_cbc() -> bool {
     #[cfg(target_os = "macos")]
     println!("cargo:rustc-link-lib=c++");
 
+    // Link additional dependencies that CoinUtils requires
+    // (bz2/zlib for compressed file I/O, LAPACK/BLAS for dense factorization)
+    println!("cargo:rustc-link-lib=bz2");
+    println!("cargo:rustc-link-lib=z");
+    println!("cargo:rustc-link-lib=lapack");
+    println!("cargo:rustc-link-lib=blas");
+    println!("cargo:rustc-link-lib=m");
+
     true
 }
 

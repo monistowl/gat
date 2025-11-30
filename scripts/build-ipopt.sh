@@ -128,15 +128,24 @@ build_mumps() {
 
     # Configure with:
     # - Metis for ordering
-    # - OpenMP for parallelism
+    # - OpenMP for parallelism (Linux only - macOS clang doesn't support it)
     # - System BLAS/LAPACK for linear algebra
+    #
+    # Note: macOS clang does not support -fopenmp without installing libomp.
+    # We disable OpenMP on macOS to keep the build simple.
+    if [[ "$(uname)" == "Darwin" ]]; then
+        OPENMP_FLAGS=""
+    else
+        OPENMP_FLAGS="-fopenmp"
+    fi
+
     ./configure --prefix="$PREFIX" \
         --with-metis-lflags="-L$PREFIX/lib -lcoinmetis -lm" \
         --with-metis-cflags="-I$PREFIX/include/coin-or/metis" \
         --with-lapack="-llapack -lblas" \
         --disable-shared \
-        CFLAGS="-O3 -fopenmp" \
-        FCFLAGS="-O3 -fopenmp"
+        CFLAGS="-O3 $OPENMP_FLAGS" \
+        FCFLAGS="-O3 $OPENMP_FLAGS"
 
     make -j"$JOBS"
     make install
@@ -178,6 +187,13 @@ build_ipopt() {
     make distclean 2>/dev/null || true
 
     # Configure with our custom MUMPS and Metis
+    # Note: macOS clang does not support -fopenmp without installing libomp.
+    if [[ "$(uname)" == "Darwin" ]]; then
+        OPENMP_FLAGS=""
+    else
+        OPENMP_FLAGS="-fopenmp"
+    fi
+
     ./configure --prefix="$PREFIX" \
         --with-mumps-lflags="-L$PREFIX/lib -lcoinmumps" \
         --with-mumps-cflags="-I$PREFIX/include/coin-or/mumps" \
@@ -185,8 +201,8 @@ build_ipopt() {
         --with-metis-cflags="-I$PREFIX/include/coin-or/metis" \
         --with-lapack="-llapack -lblas" \
         --enable-shared \
-        CXXFLAGS="-O3 -fopenmp" \
-        LDFLAGS="-fopenmp"
+        CXXFLAGS="-O3 $OPENMP_FLAGS" \
+        LDFLAGS="$OPENMP_FLAGS"
 
     make -j"$JOBS"
     make install
