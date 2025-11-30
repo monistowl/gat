@@ -22,7 +22,7 @@ Analysis that solves the full nonlinear power flow equations, accounting for bot
 See [Real Power](#real-power-p).
 
 ### Admittance (Y)
-The inverse of impedance. Measures how easily current flows through a circuit element. Complex quantity: Y = G + jB, where G is conductance and B is susceptance. Units: Siemens (S).
+The inverse of impedance. Measures how easily current flows through a circuit element. Complex quantity: Y = G + jB, where G is conductance and B is susceptance. Units: Siemens (S). See [Impedance & Admittance](/reference/impedance-admittance/).
 
 ### ADMS (Advanced Distribution Management System)
 Software platform that integrates SCADA, outage management, and distribution automation. GAT's `gat-adms` crate provides FLISR and VVO algorithms. See [ADMS Guide](/guide/adms/).
@@ -31,7 +31,7 @@ Software platform that integrates SCADA, outage management, and distribution aut
 Voltage angle (θ) at a bus, measured in radians or degrees relative to a reference bus. Angle differences drive real power flow: larger Δθ means more MW flowing.
 
 ### Apparent Power (S)
-The magnitude of complex power: S = √(P² + Q²). Measured in volt-amperes (VA) or megavolt-amperes (MVA). Determines equipment sizing because conductors must carry both real and reactive current.
+The magnitude of complex power: S = √(P² + Q²). Measured in volt-amperes (VA) or megavolt-amperes (MVA). Determines equipment sizing because conductors must carry both real and reactive current. See [Complex Power](/reference/complex-power/).
 
 ### Area
 A geographic or administrative region of the power grid, often corresponding to a utility or balancing authority. Multi-area analysis considers power transfers between areas via tie-lines (corridors).
@@ -70,6 +70,8 @@ Classification determining which quantities are known vs. solved:
 - **PV (Type 2)**: P and V fixed; Q and θ solved
 - **PQ (Type 1)**: P and Q fixed; V and θ solved
 
+See [Bus Types](/reference/bus-types/) for a detailed explanation.
+
 ---
 
 ## C
@@ -99,7 +101,7 @@ Physical wire carrying current. Conductor properties (resistance, ampacity) dete
 When power flow on a branch approaches or exceeds its thermal limit. Congestion creates price separation (different LMPs) between buses.
 
 ### Contingency
-A hypothetical failure event (e.g., loss of a generator or transmission line). Contingency analysis tests whether the system can survive such events. See [N-1](#n-1-criterion).
+A hypothetical failure event (e.g., loss of a generator or transmission line). Contingency analysis tests whether the system can survive such events. See [N-1](#n-1-criterion) and [Contingency Analysis](/reference/contingency-analysis/).
 
 ### Convergence
 When an iterative solver reaches a solution within acceptable tolerance. Power flow typically converges in 3-10 Newton-Raphson iterations. Non-convergence may indicate an infeasible operating point.
@@ -219,7 +221,7 @@ DC transmission for long distances or asynchronous interconnections. Modeled as 
 Standard benchmark networks: IEEE 14, 30, 57, 118, 300 bus systems. Used for algorithm validation. GAT includes these in `test_data/`.
 
 ### Impedance (Z)
-Opposition to current flow. Complex quantity: Z = R + jX, where R is resistance and X is reactance. Units: ohms (Ω).
+Opposition to current flow. Complex quantity: Z = R + jX, where R is resistance and X is reactance. Units: ohms (Ω). See [Impedance & Admittance](/reference/impedance-admittance/).
 
 ### Injection
 Net power entering the network at a bus: P_inj = P_gen - P_load. Positive injection means generation exceeds local load.
@@ -238,7 +240,7 @@ A connected component of the network graph. Synchronous islands must each have a
 ## J
 
 ### Jacobian
-Matrix of partial derivatives relating power injections to voltages and angles. Used in Newton-Raphson power flow. For n buses: 2n × 2n matrix with blocks ∂P/∂θ, ∂P/∂V, ∂Q/∂θ, ∂Q/∂V.
+Matrix of partial derivatives relating power injections to voltages and angles. Used in Newton-Raphson power flow. For n buses: 2n × 2n matrix with blocks ∂P/∂θ, ∂P/∂V, ∂Q/∂θ, ∂Q/∂V. See [Newton-Raphson Method](/reference/newton-raphson/).
 
 ---
 
@@ -264,7 +266,7 @@ Quasi-Newton optimization algorithm using limited Hessian history. GAT's default
 A transmission or distribution conductor connecting buses. Characterized by R, X, and B (line charging). Distinguished from transformers by tap ratio = 1.0.
 
 ### LMP (Locational Marginal Price)
-The marginal cost of serving one additional MW at a specific bus. Includes energy, losses, and congestion components. Units: $/MWh. Key output of OPF for electricity markets.
+The marginal cost of serving one additional MW at a specific bus. Includes energy, losses, and congestion components. Units: $/MWh. Key output of OPF for electricity markets. See [LMP Pricing](/reference/lmp-pricing/).
 
 ### Load
 Electrical demand at a bus. May be constant power (P, Q fixed), constant current, or constant impedance. GAT stores loads in `loads.arrow`.
@@ -308,13 +310,13 @@ Real power unit: 1 MW = 1,000 kW = 1,000,000 W. Standard for generation capacity
 ## N
 
 ### N-1 Criterion
-Security standard requiring the system to survive any single contingency (one generator or line outage) without overloads or voltage violations. Foundation of transmission planning.
+Security standard requiring the system to survive any single contingency (one generator or line outage) without overloads or voltage violations. Foundation of transmission planning. See [Contingency Analysis](/reference/contingency-analysis/).
 
 ### N-2
 Security criterion for two simultaneous contingencies. Required for critical facilities.
 
 ### Newton-Raphson
-Iterative algorithm for nonlinear equations. Power flow uses Newton-Raphson: xₖ₊₁ = xₖ - J⁻¹·f(xₖ). Quadratic convergence near solution.
+Iterative algorithm for nonlinear equations. Power flow uses Newton-Raphson: xₖ₊₁ = xₖ - J⁻¹·f(xₖ). Quadratic convergence near solution. See [Newton-Raphson Method](/reference/newton-raphson/).
 
 ### Node
 See [Bus](#bus).
@@ -361,7 +363,7 @@ Transformer with adjustable phase shift for power flow control. Creates asymmetr
 Representing complex voltage as magnitude and angle: V∠θ. GAT's AC-OPF uses polar formulation.
 
 ### Power Factor
-Ratio of real to apparent power: pf = P/S = cos(φ). Unity power factor (pf = 1) means no reactive power. Lagging pf indicates inductive load.
+Ratio of real to apparent power: pf = P/S = cos(φ). Unity power factor (pf = 1) means no reactive power. Lagging pf indicates inductive load. See [Complex Power](/reference/complex-power/).
 
 ### Power Flow
 Analysis computing steady-state voltages and flows given generation and load. Solves nonlinear algebraic equations (AC) or linear approximation (DC). Foundation of all grid analysis.
@@ -373,10 +375,10 @@ Siemens PTI power system simulator. Industry-standard format for transmission pl
 Sensitivity: 1 MW injection at bus i, withdrawal at bus j → flow change on each line. Linear for DC power flow. Used for transfer limits and congestion analysis.
 
 ### PV Bus
-Generator bus with specified real power P and voltage magnitude V. Reactive power Q and angle θ are solved.
+Generator bus with specified real power P and voltage magnitude V. Reactive power Q and angle θ are solved. See [Bus Types](/reference/bus-types/).
 
 ### PQ Bus
-Load bus with specified real power P and reactive power Q. Voltage magnitude V and angle θ are solved.
+Load bus with specified real power P and reactive power Q. Voltage magnitude V and angle θ are solved. See [Bus Types](/reference/bus-types/).
 
 ---
 
@@ -399,10 +401,10 @@ Maximum continuous operating limit. Thermal rating limits branch flow; generator
 Imaginary part of impedance, representing energy storage in magnetic fields (inductors) or electric fields (capacitors). X = ωL for inductors, X = -1/(ωC) for capacitors.
 
 ### Reactive Power (Q)
-Power oscillating between source and load due to phase difference between voltage and current. Measured in VAR (volt-ampere reactive). Essential for voltage control but does not perform useful work.
+Power oscillating between source and load due to phase difference between voltage and current. Measured in VAR (volt-ampere reactive). Essential for voltage control but does not perform useful work. See [Complex Power](/reference/complex-power/).
 
 ### Real Power (P)
-Power doing useful work, measured in watts (W). Also called active power. P = V·I·cos(φ).
+Power doing useful work, measured in watts (W). Also called active power. P = V·I·cos(φ). See [Complex Power](/reference/complex-power/).
 
 ### Reference Bus
 See [Slack Bus](#slack-bus).
@@ -433,7 +435,7 @@ Ability to withstand disturbances without cascading failures. Security-constrain
 Element connected between bus and ground. Shunt capacitors inject reactive power; shunt reactors absorb it. Modeled as admittance to ground.
 
 ### Slack Bus
-Reference bus with fixed voltage angle (θ = 0) that absorbs power imbalance. Every synchronous island needs exactly one slack bus. Also supplies/absorbs losses.
+Reference bus with fixed voltage angle (θ = 0) that absorbs power imbalance. Every synchronous island needs exactly one slack bus. Also supplies/absorbs losses. See [Bus Types](/reference/bus-types/).
 
 ### SOCP (Second-Order Cone Program)
 Convex optimization with conic constraints. SOCP relaxation of OPF provides lower bounds and often tight solutions for radial networks. See [OPF Guide](/guide/opf/).
@@ -529,7 +531,7 @@ See [Reactance](#reactance-x).
 ## Y
 
 ### Y-Bus (Admittance Matrix)
-Sparse matrix Y where Y_ij = -y_ij (off-diagonal) and Y_ii = Σy + shunts (diagonal). Fundamental to power flow: I = Y·V. GAT builds Y-bus in `ybus.rs`.
+Sparse matrix Y where Y_ij = -y_ij (off-diagonal) and Y_ii = Σy + shunts (diagonal). Fundamental to power flow: I = Y·V. GAT builds Y-bus in `ybus.rs`. See [Y-Bus Matrix](/reference/ybus-matrix/).
 
 ---
 

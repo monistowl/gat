@@ -13,9 +13,27 @@ Technical reference for power systems students, researchers, and practitioners.
 
 - **[Glossary](glossary/)** — A-Z of power systems terminology
 - **[Units & Conventions](units-conventions/)** — Per-unit system, sign conventions, base values
+
+## Foundations
+
+Start here if you're new to power systems:
+
+- **[Complex Power](complex-power/)** — Real, reactive, and apparent power (P, Q, S)
+- **[Impedance & Admittance](impedance-admittance/)** — R, X, Z, G, B, Y explained
+- **[Bus Types](bus-types/)** — Slack, PV, and PQ buses
+- **[Y-Bus Matrix](ybus-matrix/)** — Building the network admittance matrix
+
+## Analysis Methods
+
 - **[Power Flow Theory](power-flow/)** — Mathematical foundations of AC/DC power flow
+- **[Newton-Raphson Method](newton-raphson/)** — The iterative solver for power flow
 - **[OPF Formulations](opf-formulations/)** — DC-OPF, SOCP, and AC-OPF mathematics
 - **[State Estimation Theory](state-estimation/)** — WLS estimation, bad data detection, observability
+
+## Planning & Markets
+
+- **[Contingency Analysis](contingency-analysis/)** — N-1 security and reliability
+- **[LMP Pricing](lmp-pricing/)** — Locational marginal prices in electricity markets
 - **[Reliability Theory](reliability-theory/)** — LOLE, EUE, Monte Carlo methods
 
 ## Algorithms
