@@ -46,6 +46,12 @@
            onmouseout="this.style.color='{% if path is starting_with('/command-builder') %}var(--a1){% else %}var(--c4){% endif %}'">
           Builder
         </a>
+        <a href="{{ get_url(path='/paper/') }}"
+           style="font-size: 0.875rem; text-decoration: none; transition: color 0.2s; {% if path is starting_with('/paper') %}color: var(--a1); font-weight: 500;{% else %}color: var(--c4);{% endif %}"
+           onmouseover="this.style.color='var(--a1)'"
+           onmouseout="this.style.color='{% if path is starting_with('/paper') %}var(--a1){% else %}var(--c4){% endif %}'">
+          Paper
+        </a>
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 1rem;">
@@ -137,6 +143,12 @@
        onmouseover="this.style.background='var(--c2)'"
        onmouseout="this.style.background='{% if path is starting_with('/command-builder') %}color-mix(in srgb, var(--a1) 10%, transparent){% else %}transparent{% endif %}'">
       Command Builder
+    </a>
+    <a href="{{ get_url(path='/paper/') }}"
+       style="font-size: 1rem; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.375rem; transition: background 0.2s; {% if path is starting_with('/paper') %}color: var(--a1); font-weight: 500; background: color-mix(in srgb, var(--a1) 10%, transparent);{% else %}color: var(--f1);{% endif %}"
+       onmouseover="this.style.background='var(--c2)'"
+       onmouseout="this.style.background='{% if path is starting_with('/paper') %}color-mix(in srgb, var(--a1) 10%, transparent){% else %}transparent{% endif %}'">
+      Paper
     </a>
     <div style="border-top: 1px solid var(--c3); margin: 0.5rem 0;"></div>
     <a href="{{ config.extra.repo_url }}"

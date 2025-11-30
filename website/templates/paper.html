@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }} | {{ config.title }}{% endblock title %}
+{% block description %}{{ page.description }}{% endblock description %}
+
+{% block content %}
+<div class="relative z-10">
+  {% include "partials/header.html" %}
+
+  <main class="max-w-5xl mx-auto px-6 py-12">
+    <!-- Paper Header -->
+    <article style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3); border-radius: 0.75rem;" class="p-8 lg:p-12 mb-8">
+
+      <!-- Breadcrumb -->
+      <div class="text-sm mb-6" style="color: var(--c4);">
+        <a href="{{ get_url(path='/') }}" style="color: var(--c4); text-decoration: none;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">Home</a>
+        <span class="mx-2">/</span>
+        <span style="color: var(--f2);">Paper</span>
+      </div>
+
+      <!-- Title -->
+      <h1 class="text-3xl lg:text-4xl font-bold mb-4" style="color: var(--f2);">
+        GAT: A High-Performance Rust Toolkit for Power System Analysis
+      </h1>
+      <p class="text-lg mb-6" style="color: var(--a1);">
+        Comprehensive Technical Reference for Doctoral-Level Engineers
+      </p>
+
+      <!-- Author & Meta -->
+      <div class="flex flex-wrap items-center gap-4 mb-8 text-sm" style="color: var(--c4);">
+        <span><strong style="color: var(--f1);">Author:</strong> Tom Wilson</span>
+        <span>|</span>
+        <span><strong style="color: var(--f1);">Pages:</strong> 24</span>
+        <span>|</span>
+        <span><strong style="color: var(--f1);">Updated:</strong> November 2024</span>
+      </div>
+
+      <!-- Download Button -->
+      <div class="flex gap-4 mb-8">
+        <a href="{{ get_url(path='/papers/gat-arxiv-preprint-draft6.pdf') }}"
+           download
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all"
+           style="background: var(--a1); color: white;"
+           onmouseover="this.style.background='var(--a1-hover)'"
+           onmouseout="this.style.background='var(--a1)'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download PDF (377 KB)
+        </a>
+        <a href="https://github.com/monistowl/gat/blob/main/docs/papers/gat-arxiv-preprint-draft6.tex"
+           target="_blank"
+           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all"
+           style="background: var(--c2); color: var(--f1); border: 1px solid var(--c3);"
+           onmouseover="this.style.borderColor='var(--a1)'"
+           onmouseout="this.style.borderColor='var(--c3)'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+          </svg>
+          View LaTeX Source
+        </a>
+      </div>
+
+      <!-- Abstract -->
+      <div class="mb-8 p-6 rounded-lg" style="background: var(--c2); border: 1px solid var(--c3);">
+        <h2 class="text-lg font-bold mb-3" style="color: var(--a1);">Abstract</h2>
+        <p class="leading-relaxed" style="color: var(--f1);">
+          We present the Grid Analysis Toolkit (GAT), an open-source command-line toolkit for power system analysis implemented in Rust. This comprehensive technical reference documents GAT's complete solver hierarchy for optimal power flow (OPF)—from sub-millisecond economic dispatch through DC-OPF, SOCP relaxation, and full nonlinear AC-OPF with IPOPT—alongside state estimation, N-k contingency analysis, and time-series dispatch. We detail the framework's design decisions rooted in Rust's type system and memory safety guarantees, the challenges of parsing heterogeneous power system datasets (MATPOWER, PSS/E, CIM, pandapower), and the mathematical foundations underlying each analysis module.
+        </p>
+      </div>
+    </article>
+
+    <!-- Key Mathematical Highlights -->
+    <article style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3); border-radius: 0.75rem;" class="p-8 lg:p-12 mb-8">
+      <h2 class="text-2xl font-bold mb-6" style="color: var(--a1);">Key Mathematical Formulations</h2>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- AC Power Flow -->
+        <div class="p-5 rounded-lg" style="background: var(--c2); border: 1px solid var(--c3);">
+          <h3 class="font-bold mb-3" style="color: var(--f2);">AC Power Flow Equations</h3>
+          <p class="text-sm mb-3" style="color: var(--c4);">Complex power balance at each bus:</p>
+          <div class="text-center">
+            $$P_i = \sum_j |V_i||V_j|(G_{ij}\cos\theta_{ij} + B_{ij}\sin\theta_{ij})$$
+            $$Q_i = \sum_j |V_i||V_j|(G_{ij}\sin\theta_{ij} - B_{ij}\cos\theta_{ij})$$
+          </div>
+        </div>
+
+        <!-- DC-OPF -->
+        <div class="p-5 rounded-lg" style="background: var(--c2); border: 1px solid var(--c3);">
+          <h3 class="font-bold mb-3" style="color: var(--f2);">DC Optimal Power Flow</h3>
+          <p class="text-sm mb-3" style="color: var(--c4);">Linearized OPF formulation:</p>
+          <div class="text-center">
+            $$\min_{\mathbf{P}_g, \boldsymbol{\theta}} \sum_g c_{1,g} P_g$$
+            $$\text{s.t. } P_f = B_{ij}(\theta_i - \theta_j)$$
+          </div>
+        </div>
+
+        <!-- SOCP Relaxation -->
+        <div class="p-5 rounded-lg" style="background: var(--c2); border: 1px solid var(--c3);">
+          <h3 class="font-bold mb-3" style="color: var(--f2);">SOCP Relaxation</h3>
+          <p class="text-sm mb-3" style="color: var(--c4);">Second-order cone constraint:</p>
+          <div class="text-center">
+            $$\left\| \begin{matrix} 2P_{ij} \\ 2Q_{ij} \\ \ell_{ij} - v_i \end{matrix} \right\|_2 \leq \ell_{ij} + v_i$$
+          </div>
+        </div>
+
+        <!-- Jacobian -->
+        <div class="p-5 rounded-lg" style="background: var(--c2); border: 1px solid var(--c3);">
+          <h3 class="font-bold mb-3" style="color: var(--f2);">Newton-Raphson Jacobian</h3>
+          <p class="text-sm mb-3" style="color: var(--c4);">Analytical derivatives for IPOPT:</p>
+          <div class="text-center">
+            $$\frac{\partial P_i}{\partial \theta_j} = |V_i||V_j|(G_{ij}\sin\theta_{ij} - B_{ij}\cos\theta_{ij})$$
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Table of Contents -->
+    <article style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3); border-radius: 0.75rem;" class="p-8 lg:p-12 mb-8">
+      <h2 class="text-2xl font-bold mb-6" style="color: var(--a1);">Contents</h2>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Part I -->
+        <div>
+          <h3 class="font-bold mb-3 pb-2" style="color: var(--f2); border-bottom: 2px solid var(--a1);">Part I: Framework Architecture</h3>
+          <ol class="space-y-2 text-sm" style="color: var(--f1);">
+            <li>1. Introduction</li>
+            <li>2. Why Rust for Power Systems</li>
+            <li>3. Crate Architecture</li>
+            <li>4. Type-Driven Design</li>
+            <li>5. Dataset Challenges</li>
+          </ol>
+        </div>
+
+        <!-- Part II -->
+        <div>
+          <h3 class="font-bold mb-3 pb-2" style="color: var(--f2); border-bottom: 2px solid var(--a1);">Part II: Mathematical Foundations</h3>
+          <ol class="space-y-2 text-sm" style="color: var(--f1);">
+            <li>6. Newton-Raphson Power Flow</li>
+            <li>7. OPF Solver Hierarchy</li>
+            <li>8. Economic Dispatch</li>
+            <li>9. DC-OPF & SOCP</li>
+            <li>10. AC-OPF with IPOPT</li>
+            <li>11. Contingency Analysis</li>
+            <li>12. State Estimation</li>
+          </ol>
+        </div>
+
+        <!-- Part III -->
+        <div>
+          <h3 class="font-bold mb-3 pb-2" style="color: var(--f2); border-bottom: 2px solid var(--a1);">Part III: Benchmarks</h3>
+          <ol class="space-y-2 text-sm" style="color: var(--f1);">
+            <li>13. PGLib-OPF Validation</li>
+            <li>14. Performance Profiling</li>
+            <li>15. Conclusions</li>
+            <li class="pt-2" style="color: var(--c4);">+ Appendices</li>
+          </ol>
+        </div>
+      </div>
+    </article>
+
+    <!-- Benchmark Results -->
+    <article style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3); border-radius: 0.75rem;" class="p-8 lg:p-12 mb-8">
+      <h2 class="text-2xl font-bold mb-6" style="color: var(--a1);">Key Results</h2>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr style="background: var(--c2);">
+              <th class="text-left p-3 font-bold" style="color: var(--f2); border: 1px solid var(--c3);">Test Case</th>
+              <th class="text-right p-3 font-bold" style="color: var(--f2); border: 1px solid var(--c3);">GAT Objective</th>
+              <th class="text-right p-3 font-bold" style="color: var(--f2); border: 1px solid var(--c3);">PGLib Reference</th>
+              <th class="text-right p-3 font-bold" style="color: var(--f2); border: 1px solid var(--c3);">Gap</th>
+            </tr>
+          </thead>
+          <tbody style="color: var(--f1);">
+            <tr>
+              <td class="p-3" style="border: 1px solid var(--c3);">case14_ieee</td>
+              <td class="text-right p-3 font-mono" style="border: 1px solid var(--c3);">$2,178.08/hr</td>
+              <td class="text-right p-3 font-mono" style="border: 1px solid var(--c3);">$2,178.10/hr</td>
+              <td class="text-right p-3 font-bold" style="border: 1px solid var(--c3); color: #22c55e;">-0.00%</td>
+            </tr>
+            <tr style="background: color-mix(in srgb, var(--c2) 50%, transparent);">
+              <td class="p-3" style="border: 1px solid var(--c3);">case118_ieee</td>
+              <td class="text-right p-3 font-mono" style="border: 1px solid var(--c3);">$97,213.61/hr</td>
+              <td class="text-right p-3 font-mono" style="border: 1px solid var(--c3);">$97,214.00/hr</td>
+              <td class="text-right p-3 font-bold" style="border: 1px solid var(--c3); color: #22c55e;">-0.00%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-sm mt-4" style="color: var(--c4);">
+        GAT achieves &lt;0.01% objective gap on standard IEEE test cases compared to PGLib-OPF reference solutions.
+      </p>
+    </article>
+
+    <!-- Embedded PDF Viewer -->
+    <article style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3); border-radius: 0.75rem;" class="p-8 lg:p-12">
+      <h2 class="text-2xl font-bold mb-6" style="color: var(--a1);">Full Paper</h2>
+
+      <div class="rounded-lg overflow-hidden" style="border: 1px solid var(--c3);">
+        <iframe
+          src="{{ get_url(path='/papers/gat-arxiv-preprint-draft6.pdf') }}"
+          width="100%"
+          height="800"
+          style="border: none; background: white;"
+          title="GAT Technical Reference Paper">
+        </iframe>
+      </div>
+
+      <p class="text-sm mt-4" style="color: var(--c4);">
+        PDF not loading? <a href="{{ get_url(path='/papers/gat-arxiv-preprint-draft6.pdf') }}" style="color: var(--a1);">Open in new tab</a> or <a href="{{ get_url(path='/papers/gat-arxiv-preprint-draft6.pdf') }}" download style="color: var(--a1);">download directly</a>.
+      </p>
+    </article>
+
+  </main>
+
+  {% include "partials/footer.html" %}
+</div>
+{% endblock content %}
