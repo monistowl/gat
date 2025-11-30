@@ -201,14 +201,3 @@ gat benchmark pglib --solver socp --out results.csv
 gat opf socp ~/.gat/datasets/pglib/case118_ieee.m --out solution.parquet
 ```
 
-## Technical Paper
-
-For complete mathematical formulations and derivations, see our technical paper:
-
-- [GAT: A High-Performance Rust Toolkit for Power System Optimal Power Flow](/docs/papers/gat-arxiv-preprint.pdf)
-
-The paper includes:
-- Complete AC-OPF formulation with power balance equations
-- SOCP relaxation derivation
-- Analytical Jacobian and Hessian computations for IPOPT
-- Validation methodology and results
