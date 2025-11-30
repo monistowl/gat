@@ -76,7 +76,9 @@ fn try_vendor_local(vendor_local: &Path) -> bool {
     if has_shared {
         println!("cargo:rustc-link-lib=ipopt");
         // Set rpath for finding shared library at runtime
-        // Note: -rpath takes a directory, not a file
+        // Use $ORIGIN-relative path for installed binaries (solvers/ -> ../lib/)
+        // Plus absolute path as fallback for development builds
+        println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/../lib");
         println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
     } else {
         println!("cargo:rustc-link-lib=static=ipopt");

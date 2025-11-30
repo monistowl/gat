@@ -126,6 +126,32 @@ install_from_dir() {
   if [[ "$VARIANT" == "full" ]]; then
     install_binary "$bin_dir/gat-gui" "gat-gui"
     install_binary "$bin_dir/gat-tui" "gat-tui"
+
+    # Install native solver binaries
+    local solver_dir="$dir/solvers"
+    if [[ -d "$solver_dir" ]]; then
+      mkdir -p "$GAT_PREFIX/solvers"
+      for solver in "$solver_dir"/*; do
+        if [[ -x "$solver" ]]; then
+          local solver_name
+          solver_name="$(basename "$solver")"
+          cp "$solver" "$GAT_PREFIX/solvers/$solver_name"
+          chmod +x "$GAT_PREFIX/solvers/$solver_name"
+          echo "Installed solver: $solver_name"
+        fi
+      done
+    fi
+
+    # Install shared libraries for native solvers
+    local lib_dir="$dir/lib"
+    if [[ -d "$lib_dir" ]]; then
+      mkdir -p "$GAT_PREFIX/lib"
+      # Copy all shared libraries, preserving symlinks
+      find "$lib_dir" -maxdepth 1 -name "*.so*" -exec cp -P {} "$GAT_PREFIX/lib/" \;
+      local lib_count
+      lib_count=$(find "$GAT_PREFIX/lib" -name "*.so*" 2>/dev/null | wc -l)
+      echo "Installed $lib_count shared libraries"
+    fi
   fi
 }
 

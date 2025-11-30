@@ -130,6 +130,7 @@ package_full() {
   dest="$(pkg_dir full)"
   mkdir -p "$dest/bin"
   mkdir -p "$dest/solvers"
+  mkdir -p "$dest/lib"
 
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat-cli"
   cp "$ROOT_DIR/target/release/gat-cli" "$dest/bin/gat"
@@ -148,6 +149,17 @@ package_full() {
   if [[ -x "$ROOT_DIR/target/release/gat-cbc" ]]; then
     cp "$ROOT_DIR/target/release/gat-cbc" "$dest/solvers/gat-cbc"
     echo "Included gat-cbc solver"
+  fi
+
+  # Bundle shared libraries for native solvers (IPOPT, MUMPS, etc.)
+  # These are found via $ORIGIN/../lib rpath in solver binaries
+  if [[ -d "$ROOT_DIR/vendor/local/lib" ]]; then
+    echo "Bundling shared libraries from vendor/local/lib..."
+    # Copy all shared libraries, preserving symlinks
+    find "$ROOT_DIR/vendor/local/lib" -maxdepth 1 -name "*.so*" -exec cp -P {} "$dest/lib/" \;
+    local lib_count
+    lib_count=$(find "$dest/lib" -name "*.so*" | wc -l)
+    echo "Included $lib_count shared libraries"
   fi
 
   copy_common_files "$dest"

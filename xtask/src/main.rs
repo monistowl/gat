@@ -283,6 +283,8 @@ struct SolverInfo {
     crate_name: &'static str,
     description: &'static str,
     native_lib: &'static str,
+    /// Cargo features required to build this solver (e.g., "ipopt-sys")
+    features: Option<&'static str>,
 }
 
 const SOLVER_INFOS: &[SolverInfo] = &[
@@ -291,36 +293,42 @@ const SOLVER_INFOS: &[SolverInfo] = &[
         crate_name: "gat-ipopt",
         description: "Interior point optimizer for large-scale NLP",
         native_lib: "libipopt",
+        features: Some("ipopt-sys"),
     },
     SolverInfo {
         name: "highs",
         crate_name: "gat-highs",
         description: "High-performance LP/MIP solver",
         native_lib: "libhighs",
+        features: None,
     },
     SolverInfo {
         name: "cbc",
         crate_name: "gat-cbc",
         description: "COIN-OR branch and cut MIP solver",
         native_lib: "libCbc",
+        features: None,
     },
     SolverInfo {
         name: "bonmin",
         crate_name: "gat-bonmin",
         description: "Basic Open-source Nonlinear Mixed Integer",
         native_lib: "libbonmin",
+        features: None,
     },
     SolverInfo {
         name: "couenne",
         crate_name: "gat-couenne",
         description: "Convex Over and Under ENvelopes for Nonlinear Estimation",
         native_lib: "libcouenne",
+        features: None,
     },
     SolverInfo {
         name: "symphony",
         crate_name: "gat-symphony",
         description: "COIN-OR parallel MIP solver",
         native_lib: "libSym",
+        features: None,
     },
 ];
 
@@ -364,10 +372,18 @@ fn build_solver(solver: &str, install: bool) -> Result<()> {
         return Ok(());
     }
 
-    // Build the crate in release mode
-    let status = Command::new("cargo")
-        .args(["build", "-p", info.crate_name, "--release"])
-        .status()?;
+    // Build the crate in release mode with required features
+    let mut args = vec!["build", "-p", info.crate_name, "--release"];
+
+    // Add solver-specific features
+    let features_arg: String;
+    if let Some(features) = info.features {
+        features_arg = features.to_string();
+        args.push("--features");
+        args.push(&features_arg);
+    }
+
+    let status = Command::new("cargo").args(&args).status()?;
 
     if !status.success() {
         bail!("Failed to build {}", info.crate_name);
