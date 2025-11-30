@@ -11,6 +11,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+  <!-- KaTeX for math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -142,6 +147,29 @@
     .prose {
       overflow-wrap: break-word;
       word-wrap: break-word;
+      min-width: 0;
+    }
+    /* Mobile-specific overflow handling */
+    @media (max-width: 640px) {
+      .prose h1 {
+        font-size: 1.75rem;
+        word-break: break-word;
+      }
+      .prose h2 {
+        font-size: 1.5rem;
+        word-break: break-word;
+      }
+      .prose h3 {
+        font-size: 1.25rem;
+      }
+      .prose pre {
+        font-size: 0.75rem;
+        padding: 0.75rem;
+      }
+      .katex-display {
+        padding: 0.5rem;
+        margin: 1em 0;
+      }
     }
 
     /* Markdown content styling - fully theme-aware */
@@ -305,6 +333,28 @@
                         linear-gradient(to right, var(--grid-color) 1px, transparent 1px);
       background-size: 40px 40px;
     }
+
+    /* KaTeX math styling - theme-aware */
+    .katex {
+      font-size: 1.1em;
+      color: var(--f1);
+    }
+    .katex-display {
+      margin: 1.5em 0;
+      padding: 1rem;
+      background: color-mix(in srgb, var(--c2) 60%, transparent);
+      border-radius: 0.5rem;
+      border: 1px solid var(--c3);
+      overflow-x: auto;
+    }
+    .katex-display > .katex {
+      color: var(--f2);
+    }
+    /* Accent color for key symbols */
+    .katex .mord.text,
+    .katex .mop {
+      color: var(--a1);
+    }
   </style>
 
   <!-- Theme initialization script (runs before page render to prevent flash) -->
@@ -339,6 +389,24 @@
 
     // Expose globally for onclick handlers
     window.toggleTheme = toggleTheme;
+  </script>
+
+  <!-- KaTeX auto-render initialization -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\(', right: '\\)', display: false},
+            {left: '\\[', right: '\\]', display: true}
+          ],
+          throwOnError: false,
+          trust: true
+        });
+      }
+    });
   </script>
 
 </body>

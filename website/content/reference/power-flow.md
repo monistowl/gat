@@ -47,9 +47,7 @@ Consider two buses connected by a transmission line:
 
 Power flows from higher to lower voltage angle. The real power transfer is approximately:
 
-```
-P₁₂ ≈ (V₁ · V₂ / X) · sin(θ₁ - θ₂)
-```
+$$P_{12} \approx \frac{V_1 V_2}{X} \sin(\theta_1 - \theta_2)$$
 
 Key insights:
 - **Angle difference drives real power**: Larger θ₁ - θ₂ means more MW flowing
@@ -58,9 +56,7 @@ Key insights:
 
 For reactive power, voltage magnitude difference is the driver:
 
-```
-Q₁₂ ≈ (V₁ / X) · (V₁ - V₂·cos(θ₁ - θ₂))
-```
+$$Q_{12} \approx \frac{V_1}{X} \left( V_1 - V_2 \cos(\theta_1 - \theta_2) \right)$$
 
 This is why generators raise voltage to export reactive power and lower it to absorb.
 
@@ -74,51 +70,45 @@ AC power flow solves the exact nonlinear equations relating voltages, angles, an
 
 At each bus, complex power injection is:
 
-```
-S_i = P_i + jQ_i = V_i · I_i*
-```
+$$S_i = P_i + jQ_i = V_i \cdot I_i^*$$
 
-where V_i is complex voltage and I_i* is the complex conjugate of current.
+where $V_i$ is complex voltage and $I_i^*$ is the complex conjugate of current.
 
 ### The Admittance Matrix (Y-bus)
 
-The network is characterized by the admittance matrix Y, where:
+The network is characterized by the admittance matrix $\mathbf{Y}$, where:
 
-```
-I = Y · V
-```
+$$\mathbf{I} = \mathbf{Y} \cdot \mathbf{V}$$
 
-For a network with n buses, Y is an n×n sparse complex matrix:
+For a network with $n$ buses, $\mathbf{Y}$ is an $n \times n$ sparse complex matrix:
 
-**Off-diagonal elements** (i ≠ j):
-```
-Y_ij = -y_ij = -1/(R_ij + jX_ij)
-```
-where y_ij is the series admittance of the branch connecting buses i and j.
+**Off-diagonal elements** ($i \neq j$):
+
+$$Y_{ij} = -y_{ij} = -\frac{1}{R_{ij} + jX_{ij}}$$
+
+where $y_{ij}$ is the series admittance of the branch connecting buses $i$ and $j$.
 
 **Diagonal elements**:
-```
-Y_ii = Σⱼ y_ij + y_i^shunt
-```
-Sum of all admittances connected to bus i, plus any shunt elements (capacitors, reactors).
+
+$$Y_{ii} = \sum_j y_{ij} + y_i^{\text{shunt}}$$
+
+Sum of all admittances connected to bus $i$, plus any shunt elements (capacitors, reactors).
 
 ### Power Balance Equations
 
-Substituting I = Y·V into S = V·I* gives the power flow equations:
+Substituting $\mathbf{I} = \mathbf{Y} \cdot \mathbf{V}$ into $S = V \cdot I^*$ gives the power flow equations:
 
-**Real power at bus i:**
-```
-P_i = Σⱼ |V_i| · |V_j| · (G_ij · cos(θ_i - θ_j) + B_ij · sin(θ_i - θ_j))
-```
+**Real power at bus $i$:**
 
-**Reactive power at bus i:**
-```
-Q_i = Σⱼ |V_i| · |V_j| · (G_ij · sin(θ_i - θ_j) - B_ij · cos(θ_i - θ_j))
-```
+$$P_i = \sum_j |V_i| |V_j| \left( G_{ij} \cos(\theta_i - \theta_j) + B_{ij} \sin(\theta_i - \theta_j) \right)$$
 
-where G_ij + jB_ij = Y_ij (conductance and susceptance).
+**Reactive power at bus $i$:**
 
-These 2n equations (n real power, n reactive power) must be satisfied simultaneously.
+$$Q_i = \sum_j |V_i| |V_j| \left( G_{ij} \sin(\theta_i - \theta_j) - B_{ij} \cos(\theta_i - \theta_j) \right)$$
+
+where $G_{ij} + jB_{ij} = Y_{ij}$ (conductance and susceptance).
+
+These $2n$ equations ($n$ real power, $n$ reactive power) must be satisfied simultaneously.
 
 ### Bus Classifications
 
@@ -140,24 +130,18 @@ The system is square and (usually) solvable.
 
 The power flow equations are nonlinear, so we solve iteratively. Newton-Raphson linearizes around the current estimate:
 
-```
-[ΔP]   [J₁  J₂] [Δθ ]
-[  ] = [      ] [   ]
-[ΔQ]   [J₃  J₄] [Δ|V|]
-```
+$$\begin{bmatrix} \Delta P \\ \Delta Q \end{bmatrix} = \begin{bmatrix} J_1 & J_2 \\ J_3 & J_4 \end{bmatrix} \begin{bmatrix} \Delta\theta \\ \Delta|V| \end{bmatrix}$$
 
 The Jacobian submatrices contain partial derivatives:
 
-- **J₁ = ∂P/∂θ**: How real power changes with angle
-- **J₂ = ∂P/∂|V|**: How real power changes with voltage magnitude
-- **J₃ = ∂Q/∂θ**: How reactive power changes with angle
-- **J₄ = ∂Q/∂|V|**: How reactive power changes with voltage magnitude
+- **$J_1 = \partial P / \partial \theta$**: How real power changes with angle
+- **$J_2 = \partial P / \partial |V|$**: How real power changes with voltage magnitude
+- **$J_3 = \partial Q / \partial \theta$**: How reactive power changes with angle
+- **$J_4 = \partial Q / \partial |V|$**: How reactive power changes with voltage magnitude
 
-For example, the off-diagonal element of J₁:
+For example, the off-diagonal element of $J_1$:
 
-```
-∂P_i/∂θ_j = |V_i| · |V_j| · (G_ij · sin(θ_i - θ_j) - B_ij · cos(θ_i - θ_j))
-```
+$$\frac{\partial P_i}{\partial \theta_j} = |V_i| |V_j| \left( G_{ij} \sin(\theta_i - \theta_j) - B_{ij} \cos(\theta_i - \theta_j) \right)$$
 
 GAT computes the full Jacobian in `power_equations.rs`.
 
@@ -210,25 +194,21 @@ DC power flow is a linear approximation enabling much faster solutions.
 
 Under these assumptions, the real power equation becomes:
 
-```
-P_i = Σⱼ B_ij · (θ_i - θ_j)
-```
+$$P_i = \sum_j B_{ij} (\theta_i - \theta_j)$$
 
 In matrix form:
 
-```
-P = B · θ
-```
+$$\mathbf{P} = \mathbf{B} \cdot \boldsymbol{\theta}$$
 
-where B is the susceptance matrix (imaginary part of Y-bus, negated).
+where $\mathbf{B}$ is the susceptance matrix (imaginary part of Y-bus, negated).
 
 This is a **linear system** — no iteration needed! One matrix solve gives the answer.
 
 ### Solving DC Power Flow
 
-1. Remove the slack bus row/column from B (it has θ = 0)
-2. Solve the reduced system: θ = B_reduced⁻¹ · P
-3. Compute branch flows: P_ij = (θ_i - θ_j) / X_ij
+1. Remove the slack bus row/column from $\mathbf{B}$ (it has $\theta = 0$)
+2. Solve the reduced system: $\boldsymbol{\theta} = \mathbf{B}_{\text{reduced}}^{-1} \cdot \mathbf{P}$
+3. Compute branch flows: $P_{ij} = (\theta_i - \theta_j) / X_{ij}$
 
 ### What DC Power Flow Ignores
 

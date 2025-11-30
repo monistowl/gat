@@ -7,7 +7,7 @@
 <div class="relative z-10">
   {% include "partials/header.html" %}
 
-  <div class="max-w-screen-2xl mx-auto px-6 py-8 grid lg:grid-cols-12 gap-6 xl:gap-8">
+  <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 grid lg:grid-cols-12 gap-6 xl:gap-8 overflow-x-hidden">
     {% set doc_root = page.ancestors | first | default(value="docs/_index.md") %}
     {% set doc_home = get_section(path=doc_root) %}
     {% set doc_home_label = doc_home.title | default(value="Docs") %}
@@ -19,26 +19,26 @@
     {% include "partials/toc.html" %}
 
     <!-- Main Content -->
-    <main class="col-span-12 lg:col-span-9 xl:col-span-7">
-      <article style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3); border-radius: 0.5rem; padding: 2rem;" class="lg:p-12">
+    <main class="col-span-12 lg:col-span-9 xl:col-span-7 min-w-0">
+      <article style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3); border-radius: 0.5rem;" class="p-4 sm:p-6 lg:p-12">
         <!-- Breadcrumbs and Reading Time -->
-        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.875rem; color: var(--c4); margin-bottom: 1.5rem;">
-          <div>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm mb-4 sm:mb-6" style="color: var(--c4);">
+          <div class="flex flex-wrap items-center gap-1 min-w-0">
             <a href="{{ config.base_url }}/" style="color: var(--c4); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">Home</a>
-            <span style="margin: 0 0.5rem;">/</span>
+            <span>/</span>
             <a href="{{ get_url(path='/docs/') }}" style="color: var(--c4); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">Docs</a>
             {% if page.ancestors %}
               {% for ancestor in page.ancestors %}
                 {% set section = get_section(path=ancestor) %}
-                <span style="margin: 0 0.5rem;">/</span>
-                <a href="{{ section.permalink }}" style="color: var(--c4); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">{{ section.title }}</a>
+                <span>/</span>
+                <a href="{{ section.permalink }}" class="truncate max-w-[120px] sm:max-w-none" style="color: var(--c4); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">{{ section.title }}</a>
               {% endfor %}
             {% endif %}
-            <span style="margin: 0 0.5rem;">/</span>
-            <span style="color: var(--f2);">{{ page.title }}</span>
+            <span>/</span>
+            <span class="truncate" style="color: var(--f2);">{{ page.title }}</span>
           </div>
           <!-- Reading time estimate -->
-          <div style="font-size: 0.75rem; color: var(--c4); white-space: nowrap;">
+          <div class="text-xs whitespace-nowrap" style="color: var(--c4);">
             {% set word_count = page.content | striptags | split(pat=" ") | length %}
             {% set reading_time = (word_count / 200) | round %}
             {% if reading_time < 1 %}
