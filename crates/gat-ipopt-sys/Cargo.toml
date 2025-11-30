@@ -1,0 +1,16 @@
+[package]
+name = "gat-ipopt-sys"
+version = "0.5.0"
+edition = "2021"
+description = "Native FFI bindings to IPOPT (Interior Point OPTimizer) for GAT"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+# No runtime dependencies - pure FFI
+
+[build-dependencies]
+# Build script handles linking
+
+[features]
+default = []

@@ -129,31 +129,94 @@ match problem_type {
 
 ## Installing Native Solvers
 
+GAT supports two methods for installing native solvers: **system packages** (quickest) or **vendored builds** (fully offline, reproducible).
+
+### Method 1: System Packages (Quick)
+
+```bash
+# Ubuntu/Debian - IPOPT
+sudo apt install libipopt-dev coinor-libipopt1v5
+
+# Ubuntu/Debian - CBC/CLP
+sudo apt install coinor-libcbc-dev coinor-libclp-dev
+
+# macOS
+brew install ipopt coin-or-tools/coinor/cbc
+```
+
+### Method 2: Vendored Build (Offline, Reproducible)
+
+GAT includes vendored sources for the complete COIN-OR solver stack. This enables fully offline builds with reproducible results.
+
+**Prerequisites:**
+```bash
+# Ubuntu/Debian
+sudo apt install build-essential gfortran libblas-dev liblapack-dev libbz2-dev zlib1g-dev pkg-config
+
+# macOS
+brew install gcc lapack pkg-config
+```
+
+**Build from vendored sources:**
+```bash
+# LP/SOCP solver stack: CoinUtils → Osi → Clp
+./scripts/build-clp.sh
+
+# MIP solver stack: Cgl → Cbc (requires CLP)
+./scripts/build-cbc.sh
+
+# NLP solver stack: Metis → MUMPS → IPOPT
+./scripts/build-ipopt.sh
+```
+
+**What gets built:**
+
+| Stack | Script | Components | Output Libraries |
+|-------|--------|------------|------------------|
+| LP | `build-clp.sh` | CoinUtils, Osi, Clp | `libCoinUtils.a`, `libOsi.a`, `libClp.a` |
+| MIP | `build-cbc.sh` | Cgl, Cbc | `libCgl.a`, `libCbc.a` |
+| NLP | `build-ipopt.sh` | Metis 4.0, MUMPS 5.8, IPOPT 3.14 | `libcoinmetis.a`, `libcoinmumps.a`, `libipopt.so` |
+
+All libraries install to `vendor/local/`. MUMPS is built with OpenMP for parallel factorization; Metis provides graph-based ordering for better fill-in reduction.
+
+**Use with Cargo:**
+```bash
+# Set paths and build
+export PKG_CONFIG_PATH="$PWD/vendor/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+export LD_LIBRARY_PATH="$PWD/vendor/local/lib:$LD_LIBRARY_PATH"
+cargo build --release --features solver-ipopt
+
+# Or use the wrapper script
+./scripts/with-ipopt.sh cargo test --features solver-ipopt
+```
+
 ### IPOPT (Recommended for AC-OPF)
 
 IPOPT provides the fastest and most accurate AC-OPF solutions:
 
 ```bash
-# Ubuntu/Debian
+# From vendored sources (recommended for CI/reproducibility)
+./scripts/build-ipopt.sh
+./scripts/with-ipopt.sh cargo build --features solver-ipopt
+
+# Or system package (quick setup)
 sudo apt install libipopt-dev coinor-libipopt1v5
-
-# Build and install the GAT wrapper
-cargo xtask solver build ipopt --install
-
-# Verify installation
-gat solver list
+cargo build --features solver-ipopt
 ```
 
-### HiGHS (Recommended for LP/MIP)
+### CBC/CLP (Recommended for LP/MIP)
 
-HiGHS is a high-performance open-source LP/MIP solver:
+CBC provides branch-and-cut MIP solving; CLP provides simplex LP:
 
 ```bash
-# Build from source
-cargo xtask solver build highs --install
+# From vendored sources
+./scripts/build-clp.sh
+./scripts/build-cbc.sh
+cargo build -p gat-cbc -p gat-clp
 
-# Or use system package
-sudo apt install highs
+# Or system package
+sudo apt install coinor-libcbc-dev
+cargo build -p gat-cbc
 ```
 
 ### Managing Solvers
@@ -212,13 +275,40 @@ match native_solver.solve(problem) {
 
 ### Build System Integration
 
-The `cargo xtask solver build` command:
+**Vendored Build Chain:**
 
-1. Checks system dependencies (`libipopt-dev`, etc.)
-2. Compiles the Rust wrapper crate
-3. Links against system libraries
-4. Installs binary to `~/.gat/solvers/`
-5. Registers solver with GAT config
+The shell scripts in `scripts/` handle the native solver build:
+
+1. Extract vendored source archives from `vendor/`
+2. Apply COIN-OR patches for compatibility
+3. Configure with proper dependency ordering
+4. Build with parallel make (`-j$(nproc)`)
+5. Install static libraries to `vendor/local/`
+6. Generate pkg-config files for Cargo build.rs detection
+
+**Cargo Build Integration:**
+
+Each native solver crate (`gat-cbc`, `gat-clp`, `gat-ipopt`) has a `build.rs` that:
+
+1. Tries system pkg-config first (fastest)
+2. Falls back to `vendor/local/` pre-built libraries
+3. Can build from source as last resort (slowest)
+
+```rust
+// Priority order in gat-cbc/build.rs
+fn main() {
+    if try_system_cbc() { return; }           // System pkg-config
+    if try_prebuilt("vendor/local") { return; } // Vendored build
+    build_from_source();                       // Fallback compile
+}
+```
+
+**CI Integration:**
+
+The `.github/workflows/native-solvers.yml` workflow:
+- Caches `vendor/local/` between builds
+- Runs vendored build scripts if cache misses
+- Tests all solver features with proper `LD_LIBRARY_PATH`
 
 ## Performance Characteristics
 

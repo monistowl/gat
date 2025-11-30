@@ -20,6 +20,7 @@ members = [
     "crates/gat-clp",
     "crates/gat-cbc",
     "crates/gat-ipopt",
+    "crates/gat-ipopt-sys",
     "crates/iocraft",
     "xtask",
     "crates/gat-mcp-docs",

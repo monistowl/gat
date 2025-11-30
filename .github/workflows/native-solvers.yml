@@ -272,6 +272,11 @@ jobs:
             "Clp-master.zip"
             "CoinUtils-master.zip"
             "Osi-master.zip"
+            "Cgl-master.zip"
+            "ThirdParty-Metis-stable-2.0.zip"
+            "ThirdParty-Mumps-stable-3.0.zip"
+            "metis-4.0.3.tar.gz"
+            "MUMPS_5.8.1.tar.gz"
           )
 
           MISSING=0
@@ -361,11 +366,159 @@ jobs:
 
           echo "SUCCESS: IPOPT package structure verified"
 
+  # Job 8: Build from vendored sources (full offline build)
+  # This tests that all COIN-OR libraries can be built without network access
+  vendored-build:
+    name: Build from vendored sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libblas-dev \
+            liblapack-dev \
+            libbz2-dev \
+            zlib1g-dev \
+            pkg-config
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: vendored-build
+
+      - name: Build COIN-OR from vendored sources (xtask)
+        run: |
+          echo "=== Building CLP/CBC from vendored sources ==="
+          cargo xtask build-solvers --cbc
+
+      - name: Verify built libraries
+        run: |
+          echo "=== Checking built libraries ==="
+          ls -la target/coinor/lib/
+          test -f target/coinor/lib/libCoinUtils.a
+          test -f target/coinor/lib/libOsi.a
+          test -f target/coinor/lib/libClp.a
+          test -f target/coinor/lib/libCgl.a
+          test -f target/coinor/lib/libCbc.a
+          echo "SUCCESS: All COIN-OR libraries built"
+
+      - name: Build gat-clp against vendored libraries
+        run: cargo build -p gat-clp --release
+
+      - name: Build gat-cbc against vendored libraries
+        run: cargo build -p gat-cbc --release
+
+      - name: Verify solver binaries
+        run: |
+          test -f target/release/gat-clp
+          test -f target/release/gat-cbc
+          echo "SUCCESS: Solver binaries built from vendored sources"
+
+  # Job 9: Build IPOPT from vendored sources (macOS + Linux)
+  vendored-ipopt:
+    name: Build IPOPT (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libblas-dev \
+            liblapack-dev \
+            pkg-config
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install gcc lapack pkg-config || true
+
+      - name: Cache vendored build
+        uses: actions/cache@v4
+        with:
+          path: vendor/local
+          key: coinor-build-${{ runner.os }}-${{ hashFiles('vendor/*.zip', 'vendor/*.tar.gz', 'scripts/build-*.sh') }}
+
+      - name: Build CLP from vendored sources
+        run: ./scripts/build-clp.sh
+
+      - name: Build CBC from vendored sources
+        run: ./scripts/build-cbc.sh
+
+      - name: Build IPOPT from vendored sources
+        run: ./scripts/build-ipopt.sh
+
+      - name: Verify all COIN-OR installations
+        run: |
+          echo "=== Verifying COIN-OR libraries ==="
+          # CLP stack
+          test -f vendor/local/lib/libCoinUtils.a && echo "✓ libCoinUtils.a"
+          test -f vendor/local/lib/libOsi.a && echo "✓ libOsi.a"
+          test -f vendor/local/lib/libClp.a && echo "✓ libClp.a"
+          # CBC stack
+          test -f vendor/local/lib/libCgl.a && echo "✓ libCgl.a"
+          test -f vendor/local/lib/libCbc.a && echo "✓ libCbc.a"
+          # IPOPT stack
+          test -f vendor/local/lib/libcoinmetis.a && echo "✓ libcoinmetis.a"
+          test -f vendor/local/lib/libcoinmumps.a && echo "✓ libcoinmumps.a"
+          (test -f vendor/local/lib/libipopt.so || test -f vendor/local/lib/libipopt.dylib) && echo "✓ libipopt"
+          echo "SUCCESS: All COIN-OR libraries built from vendored sources on ${{ runner.os }}"
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: vendored-ipopt-${{ runner.os }}
+
+      - name: Build gat-clp against vendored libraries
+        run: cargo build -p gat-clp --release
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
+
+      - name: Build gat-cbc against vendored libraries
+        run: cargo build -p gat-cbc --release
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
+
+      - name: Build gat-ipopt with ipopt-sys
+        run: cargo build -p gat-ipopt --release --features ipopt-sys
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
+
+      - name: Verify all solver binaries
+        if: runner.os == 'Linux'
+        run: |
+          echo "=== Verifying solver binaries ==="
+          test -f target/release/gat-clp && echo "✓ gat-clp built"
+          test -f target/release/gat-cbc && echo "✓ gat-cbc built"
+          test -f target/release/gat-ipopt && echo "✓ gat-ipopt built"
+          ldd target/release/gat-ipopt | grep ipopt && echo "✓ gat-ipopt linked against vendored IPOPT"
+          echo "SUCCESS: All solver binaries built from vendored sources"
+
   # Summary job
   summary:
     name: Native Solvers Summary
     runs-on: ubuntu-latest
-    needs: [wrapper-crates, solver-state, xtask-flow, solver-dispatch, ipc-protocol, vendored-packages]
+    needs: [wrapper-crates, solver-state, xtask-flow, solver-dispatch, ipc-protocol, vendored-packages, vendored-build, vendored-ipopt]
     if: always()
     steps:
       - name: Check results
@@ -375,15 +528,23 @@ jobs:
           XTASK_RESULT: ${{ needs.xtask-flow.result }}
           DISPATCH_RESULT: ${{ needs.solver-dispatch.result }}
           IPC_RESULT: ${{ needs.ipc-protocol.result }}
-          VENDOR_RESULT: ${{ needs.vendored-packages.result }}
+          VENDOR_PKG_RESULT: ${{ needs.vendored-packages.result }}
+          VENDOR_BUILD_RESULT: ${{ needs.vendored-build.result }}
+          VENDOR_IPOPT_RESULT: ${{ needs.vendored-ipopt.result }}
         run: |
           echo "=== Native Solvers CI Summary ==="
-          echo "wrapper-crates: $WRAPPER_RESULT"
-          echo "solver-state: $STATE_RESULT"
-          echo "xtask-flow: $XTASK_RESULT"
-          echo "solver-dispatch: $DISPATCH_RESULT"
-          echo "ipc-protocol: $IPC_RESULT"
-          echo "vendored-packages: $VENDOR_RESULT (optional)"
+          echo ""
+          echo "Core jobs:"
+          echo "  wrapper-crates: $WRAPPER_RESULT"
+          echo "  solver-state: $STATE_RESULT"
+          echo "  xtask-flow: $XTASK_RESULT"
+          echo "  solver-dispatch: $DISPATCH_RESULT"
+          echo "  ipc-protocol: $IPC_RESULT"
+          echo ""
+          echo "Vendored build jobs:"
+          echo "  vendored-packages: $VENDOR_PKG_RESULT"
+          echo "  vendored-build: $VENDOR_BUILD_RESULT"
+          echo "  vendored-ipopt: $VENDOR_IPOPT_RESULT"
 
           # Core jobs must pass
           if [ "$WRAPPER_RESULT" != "success" ] || \
@@ -395,9 +556,16 @@ jobs:
             exit 1
           fi
 
-          # vendored-packages should pass - vendor/ is tracked in git
-          if [ "$VENDOR_RESULT" != "success" ]; then
-            echo "WARN: vendored-packages job failed (unexpected)"
+          # Vendored build jobs should pass - this validates full offline build capability
+          if [ "$VENDOR_PKG_RESULT" != "success" ]; then
+            echo "WARN: vendored-packages job failed"
+          fi
+          if [ "$VENDOR_BUILD_RESULT" != "success" ]; then
+            echo "WARN: vendored-build job failed (CLP/CBC from source)"
+          fi
+          if [ "$VENDOR_IPOPT_RESULT" != "success" ]; then
+            echo "WARN: vendored-ipopt job failed (IPOPT from source)"
           fi
 
+          echo ""
           echo "SUCCESS: All core native solver tests passed"

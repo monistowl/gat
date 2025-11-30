@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PREFIX="$PROJECT_ROOT/vendor/local"
 VENDOR="$PROJECT_ROOT/vendor"
-JOBS=$(nproc)
+JOBS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 BUILD_DIR="/tmp/gat-ipopt-build-$$"
 export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}:$PREFIX/lib/pkgconfig"
 
@@ -47,8 +47,14 @@ build_metis() {
     fi
 
     local METIS_ZIP="$VENDOR/ThirdParty-Metis-stable-2.0.zip"
+    local METIS_SRC="$VENDOR/metis-4.0.3.tar.gz"
     if [ ! -f "$METIS_ZIP" ]; then
-        echo "ERROR: Metis source not found at $METIS_ZIP"
+        echo "ERROR: ThirdParty-Metis not found at $METIS_ZIP"
+        exit 1
+    fi
+    if [ ! -f "$METIS_SRC" ]; then
+        echo "ERROR: Metis source not found at $METIS_SRC"
+        echo "Download with: wget -P vendor/ http://coin-or-tools.github.io/ThirdParty-Metis/metis-4.0.3.tar.gz"
         exit 1
     fi
 
@@ -56,8 +62,16 @@ build_metis() {
     unzip -q "$METIS_ZIP"
     cd ThirdParty-Metis-stable-2.0
 
-    # Download Metis source
-    ./get.Metis
+    # Extract vendored Metis source (instead of downloading)
+    echo "Extracting vendored Metis source..."
+    tar xzf "$METIS_SRC"
+
+    # Apply COIN-OR patch for bounds check fix (before renaming)
+    echo "Applying Metis patch..."
+    patch -p0 < metis.patch
+
+    # Rename to match expected directory name
+    mv metis-4.0.? metis-4.0
 
     # Configure and build
     ./configure --prefix="$PREFIX" --disable-shared
@@ -82,8 +96,14 @@ build_mumps() {
     fi
 
     local MUMPS_ZIP="$VENDOR/ThirdParty-Mumps-stable-3.0.zip"
+    local MUMPS_SRC="$VENDOR/MUMPS_5.8.1.tar.gz"
     if [ ! -f "$MUMPS_ZIP" ]; then
-        echo "ERROR: MUMPS source not found at $MUMPS_ZIP"
+        echo "ERROR: ThirdParty-Mumps not found at $MUMPS_ZIP"
+        exit 1
+    fi
+    if [ ! -f "$MUMPS_SRC" ]; then
+        echo "ERROR: MUMPS source not found at $MUMPS_SRC"
+        echo "Download with: wget -P vendor/ http://coin-or-tools.github.io/ThirdParty-Mumps/MUMPS_5.8.1.tar.gz"
         exit 1
     fi
 
@@ -91,8 +111,16 @@ build_mumps() {
     unzip -q "$MUMPS_ZIP"
     cd ThirdParty-Mumps-stable-3.0
 
-    # Download MUMPS source
-    ./get.Mumps
+    # Extract vendored MUMPS source (instead of downloading)
+    echo "Extracting vendored MUMPS source..."
+    tar xzf "$MUMPS_SRC"
+    rm -rf MUMPS
+    mv MUMPS_5.8.1 MUMPS
+
+    # Apply MPI compatibility patch
+    echo "Applying MUMPS MPI patch..."
+    patch -p0 < mumps_mpi.patch
+    mv MUMPS/libseq/mpi.h MUMPS/libseq/mumps_mpi.h
 
     # Configure with:
     # - Metis for ordering

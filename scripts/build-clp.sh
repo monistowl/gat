@@ -15,7 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PREFIX="$PROJECT_ROOT/vendor/local"
 VENDOR="$PROJECT_ROOT/vendor"
-JOBS=$(nproc)
+JOBS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 BUILD_DIR="/tmp/gat-clp-build-$$"
 export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}:$PREFIX/lib/pkgconfig"
 

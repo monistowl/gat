@@ -523,7 +523,10 @@ fn find_sources(component: Component, src_dir: &Path) -> Result<Vec<PathBuf>> {
                             || filename.starts_with("OsiCbc")
                             || filename.starts_with("unitTest")
                             || filename.starts_with("CbcMip")  // CbcMipStartIO needs config
-                            || filename.contains("Sos"); // Some SOS files have issues
+                            || filename.contains("Sos") // Some SOS files have issues
+                            || filename.starts_with("CbcBab")  // CbcBab includes CbcParameters with invalid static_cast
+                            || filename.starts_with("CbcSolution") // CbcSolution also includes CbcParameters
+                            || filename.starts_with("CoinSolve"); // CoinSolve includes CbcSolver.hpp with broken params
                         if skip {
                             continue;
                         }

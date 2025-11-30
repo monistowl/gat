@@ -59,6 +59,23 @@ GAT uses GitHub Actions for continuous integration, testing, packaging, and rele
 - **Purpose:** Test different feature combinations and subcrates
 - **Included in:** staging-diagnostics workflow
 
+### 6. Native Solver Testing
+**File:** `.github/workflows/native-solvers.yml`
+
+- **Trigger:** Manual only (workflow_dispatch)
+- **Purpose:** Build and test native COIN-OR solvers from vendored sources
+- **Components:**
+  - **system-ipopt job**: Tests with system-installed IPOPT (Ubuntu/macOS)
+  - **vendored-ipopt job**: Builds complete COIN-OR stack from vendored sources
+- **Build sequence:**
+  1. `build-clp.sh` — CoinUtils, Osi, Clp
+  2. `build-cbc.sh` — Cgl, Cbc
+  3. `build-ipopt.sh` — Metis, MUMPS (with OpenMP), IPOPT
+- **Caching:** `vendor/local/` is cached keyed on vendored archives and build scripts
+- **Artifacts:** Build logs with 7-day retention
+
+This workflow verifies that the fully offline, vendored build chain works correctly for reproducible native solver builds.
+
 ---
 
 ## Bundle Variants

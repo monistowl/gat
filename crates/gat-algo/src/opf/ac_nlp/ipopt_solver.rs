@@ -16,7 +16,7 @@
 use super::{hessian, jacobian, AcOpfProblem};
 use crate::opf::{OpfMethod, OpfSolution};
 use crate::OpfError;
-use ipopt::{BasicProblem, ConstrainedProblem, Index, Ipopt, Number, SolveStatus};
+use gat_ipopt_sys::{BasicProblem, ConstrainedProblem, Index, Ipopt, Number, SolveStatus};
 
 /// IPOPT problem wrapper for AC-OPF.
 ///

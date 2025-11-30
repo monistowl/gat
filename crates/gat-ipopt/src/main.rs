@@ -280,6 +280,9 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
             v_max: problem.bus_v_max[i],
             p_load: problem.bus_p_load[i],
             q_load: problem.bus_q_load[i],
+            // Shunt elements (not in IPC protocol, default to 0.0)
+            gs_pu: 0.0,
+            bs_pu: 0.0,
         })
         .collect();
 

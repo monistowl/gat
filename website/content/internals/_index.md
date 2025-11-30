@@ -11,7 +11,9 @@ Technical documentation for Rust developers contributing to GAT.
 
 ## Architecture
 
+- **[Data Flow & Design](data-flow/)** — How data moves through GAT, from input to solution
 - **[CLI Architecture](cli-architecture/)** — Command hierarchy and module structure
+- **[Solver Architecture](solver-architecture/)** — Native solver plugin system, subprocess IPC, vendored builds
 - **[Crate Layout](#crates)** — Workspace organization
 
 ## Crates
