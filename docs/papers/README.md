@@ -4,17 +4,40 @@ This directory contains research papers and preprints related to the Grid Analys
 
 ## Contents
 
-### `gat-arxiv-preprint-draft5.tex` (Latest - November 2024)
+### `gat-arxiv-preprint-draft6.tex` (Latest - November 2024)
 
-**Title**: GAT: A High-Performance Rust Toolkit for Power System Optimal Power Flow — Comprehensive Technical Reference
+**Title**: GAT: A High-Performance Rust Toolkit for Power System Analysis — Comprehensive Technical Reference for Doctoral-Level Engineers
 
-**Abstract**: Presents GAT as an open-source command-line toolkit for power system optimal power flow (OPF) implemented in Rust. Provides a comprehensive solver hierarchy spanning four levels of fidelity: economic dispatch, DC-OPF, SOCP relaxation, and full nonlinear AC-OPF. The AC-OPF solver supports both a penalty-based L-BFGS method (pure Rust) and an IPOPT-backed interior-point method with analytical Jacobian and Hessian computation.
+**Author**: Tom Wilson
+
+**Abstract**: Presents the Grid Analysis Toolkit (GAT), an open-source command-line toolkit for power system analysis implemented in Rust. This expanded 24-page technical reference documents GAT's complete solver hierarchy for optimal power flow (OPF)—from sub-millisecond economic dispatch through DC-OPF, SOCP relaxation, and full nonlinear AC-OPF with IPOPT—alongside state estimation, N-k contingency analysis, and time-series dispatch. Details the framework's design decisions rooted in Rust's type system and memory safety guarantees, the challenges of parsing heterogeneous power system datasets (MATPOWER, PSS/E, CIM, pandapower), and the mathematical foundations underlying each analysis module.
 
 **Key Results**:
 - **< 0.01% objective gap** on IEEE 14-bus and IEEE 118-bus vs. PGLib reference
 - Complete solver hierarchy: Economic Dispatch → DC → SOCP → AC-NLP
 - Analytical Jacobian and Hessian for IPOPT with full thermal constraint support
-- 15-page comprehensive technical reference with mathematical formulations
+- 24-page doctoral-level technical reference with complete mathematical formulations
+
+**Major Sections**:
+
+*Part I: Framework Architecture*
+1. Introduction and Why Rust for Power Systems
+2. Crate Architecture (gat-core, gat-algo, gat-io, gat-cli) with TikZ dependency diagram
+3. Type-Driven Design (newtype pattern, algebraic data types, builder pattern)
+4. Dataset Challenges and Validation (format heterogeneity, per-unit normalization)
+
+*Part II: Mathematical Foundations*
+5. Newton-Raphson Power Flow (full Jacobian element derivations)
+6. Optimal Power Flow Solver Hierarchy
+7. Economic Dispatch, DC-OPF, SOCP Relaxation
+8. AC-OPF with IPOPT (analytical derivatives)
+9. Contingency Analysis (PTDF/LODF matrices)
+10. State Estimation via Weighted Least Squares
+
+*Part III: Implementation and Benchmarks*
+11. Benchmark Validation (PGLib-OPF, PFΔ, OPFData)
+12. Profiling and Performance Analysis
+13. Conclusions and Future Work
 
 **Validated Results** (PGLib-OPF):
 | Case | GAT Objective | Reference | Gap |
@@ -22,23 +45,13 @@ This directory contains research papers and preprints related to the Grid Analys
 | case14_ieee | $2,178.08/hr | $2,178.10/hr | -0.00% |
 | case118_ieee | $97,213.61/hr | $97,214.00/hr | -0.00% |
 
-**Contents**:
-1. Mathematical Background (Y-bus, power flow equations)
-2. AC-OPF Formulation (NLP in polar coordinates)
-3. DC-OPF (Linear approximation)
-4. SOCP Relaxation (Branch-flow model, exactness conditions)
-5. IPOPT Solver (Analytical derivatives, warm-start)
-6. Solver Pipeline Flow Diagrams
-7. Benchmark Validation Results
-8. Case Study: IEEE 118-bus convergence debugging
-9. Appendices (Algorithm pseudocode, Jacobian sparsity)
-
-**Citations**: 18 references including Carpentier (1962), MATPOWER, PowerModels.jl, PGLib-OPF, IPOPT, Clarabel, and foundational SOCP relaxation papers.
+**Citations**: 25+ references including Carpentier (1962), MATPOWER, PowerModels.jl, PGLib-OPF, IPOPT, Clarabel, Wood & Wollenberg, and foundational SOCP relaxation papers.
 
 ---
 
 ### Previous Drafts
 
+- `gat-arxiv-preprint-draft5.tex` — 15-page technical reference with OPF solver hierarchy
 - `gat-arxiv-preprint-draft4.tex` — Earlier version with DC-OPF and SOCP focus
 - `gat-arxiv-preprint-draft3.tex` — Benchmark results version
 - `gat-arxiv-preprint-draft2.tex` — Initial architecture overview
@@ -51,9 +64,9 @@ To compile the LaTeX source:
 ```bash
 cd docs/papers
 
-# Draft 5 (latest)
-pdflatex gat-arxiv-preprint-draft5.tex
-pdflatex gat-arxiv-preprint-draft5.tex  # Second pass for cross-references
+# Draft 6 (latest)
+pdflatex gat-arxiv-preprint-draft6.tex
+pdflatex gat-arxiv-preprint-draft6.tex  # Second pass for cross-references
 ```
 
 Or use an online LaTeX editor like Overleaf.
