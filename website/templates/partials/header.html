@@ -180,10 +180,13 @@
 
 <script>
   // Theme toggle functionality
+  // Uses .switch class convention: no class = light (default), .switch = dark
+  // localStorage: 'switch' = dark, 'default' = light, null = use system preference
   (function() {
-    // Check for saved theme preference or system preference
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'switch') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // Apply dark mode if: user chose dark ('switch') OR (no preference AND system prefers dark)
+    if (savedTheme === 'switch' || (!savedTheme && prefersDark)) {
       document.documentElement.classList.add('switch');
     }
 

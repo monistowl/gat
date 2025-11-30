@@ -106,18 +106,14 @@
     }
   </style>
   <!-- Theme initialization script (runs before page render to prevent flash) -->
+  <!-- Uses .switch class convention: no class = light (default), .switch = dark -->
+  <!-- localStorage: 'switch' = dark, 'default' = light, null = use system preference -->
   <script>
     (function() {
-      // Support both 'theme' key (from base.html) and 'switch' class (from Abridge)
       const savedTheme = localStorage.getItem('theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-      // Apply dark theme if saved as 'dark' or 'switch', or if system prefers dark
-      if (savedTheme === 'dark' || savedTheme === 'switch') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        document.documentElement.classList.add('switch');
-      } else if (!savedTheme && prefersDark) {
-        document.documentElement.setAttribute('data-theme', 'dark');
+      // Apply dark mode if: user chose dark ('switch') OR (no preference AND system prefers dark)
+      if (savedTheme === 'switch' || (!savedTheme && prefersDark)) {
         document.documentElement.classList.add('switch');
       }
     })();

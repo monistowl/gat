@@ -48,8 +48,8 @@
       --selection-bg: rgba(234, 88, 12, 0.2);
     }
 
-    /* Dark theme */
-    [data-theme="dark"], .dark {
+    /* Dark theme - activated by .switch class on html element */
+    html.switch {
       --c1: #020617;           /* slate-950 */
       --c2: #0f172a;           /* slate-900 */
       --c3: #1e293b;           /* slate-800 */
@@ -324,8 +324,8 @@
     /* Show/hide icons based on theme */
     .theme-toggle .icon-sun { display: none; }
     .theme-toggle .icon-moon { display: block; }
-    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
-    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+    html.switch .theme-toggle .icon-sun { display: block; }
+    html.switch .theme-toggle .icon-moon { display: none; }
 
     /* Background grid - theme-aware */
     .bg-grid {
@@ -353,13 +353,15 @@
   </style>
 
   <!-- Theme initialization script (runs before page render to prevent flash) -->
+  <!-- Uses .switch class convention: no class = light (default), .switch = dark -->
+  <!-- localStorage: 'switch' = dark, 'default' = light, null = use system preference -->
   <script>
     (function() {
       const savedTheme = localStorage.getItem('theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-      if (theme === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
+      // Apply dark mode if: user chose dark ('switch') OR (no preference AND system prefers dark)
+      if (savedTheme === 'switch' || (!savedTheme && prefersDark)) {
+        document.documentElement.classList.add('switch');
       }
     })();
   </script>
@@ -376,13 +378,13 @@
 
   {% block content %}{% endblock content %}
 
-  <!-- Theme toggle script -->
+  <!-- Theme toggle script - uses .switch class convention -->
   <script>
     function toggleTheme() {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const newTheme = isDark ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
+      document.documentElement.classList.toggle('switch');
+      localStorage.setItem('theme',
+        document.documentElement.classList.contains('switch') ? 'switch' : 'default'
+      );
     }
 
     // Expose globally for onclick handlers
