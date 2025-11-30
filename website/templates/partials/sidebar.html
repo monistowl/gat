@@ -1,85 +1,87 @@
 <aside class="lg:col-span-3 lg:sticky lg:top-24 h-fit">
-  <div class="bg-slate-900/40 border border-slate-800 rounded-lg p-6">
-    <h3 class="text-sm font-bold text-orange-500 uppercase tracking-wider mb-4">Navigation</h3>
-    <nav class="space-y-2">
-      <a href="{{ doc_home_url | safe }}" class="block text-slate-400 hover:text-white transition-colors py-1">
+  <div style="background: color-mix(in srgb, var(--c2) 40%, transparent); border: 1px solid var(--c3); border-radius: 0.5rem; padding: 1.5rem;">
+    <h3 style="font-size: 0.75rem; font-weight: 700; color: var(--a1); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem;">Navigation</h3>
+    <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <a href="{{ doc_home_url | safe }}" style="display: block; color: var(--c4); text-decoration: none; padding: 0.25rem 0; transition: color 0.2s;" onmouseover="this.style.color='var(--f2)'" onmouseout="this.style.color='var(--c4)'">
         ← Back to {{ doc_home_label }}
       </a>
-      <div class="border-t border-slate-800 my-4"></div>
+      <div style="border-top: 1px solid var(--c3); margin: 1rem 0;"></div>
 
       {% set current_path = current_path | default(value="") %}
 
       <!-- Getting Started -->
-      <div class="mb-4">
-        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Getting Started</div>
+      <div style="margin-bottom: 1rem;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--a1); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Getting Started</div>
         {% set quickstart = "/guide/quickstart/" %}
         {% set verify = "/guide/install-verify/" %}
         {% set overview = "/guide/overview/" %}
-        <a href="{{ get_url(path=quickstart) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(quickstart) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Quickstart (5 min)</a>
-        <a href="{{ get_url(path=verify) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(verify) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Verify Installation</a>
-        <a href="{{ get_url(path=overview) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(overview) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Overview</a>
-        <a href="{{ config.extra.repo_url }}/tree/main/examples" class="block text-sm text-slate-400 hover:text-orange-500 transition-colors py-1">Examples</a>
+        <a href="{{ get_url(path=quickstart) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(quickstart) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(quickstart) %}var(--f2){% else %}var(--c4){% endif %}'">Quickstart (5 min)</a>
+        <a href="{{ get_url(path=verify) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(verify) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(verify) %}var(--f2){% else %}var(--c4){% endif %}'">Verify Installation</a>
+        <a href="{{ get_url(path=overview) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(overview) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(overview) %}var(--f2){% else %}var(--c4){% endif %}'">Overview</a>
+        <a href="{{ config.extra.repo_url }}/tree/main/examples" style="display: block; font-size: 0.875rem; color: var(--c4); text-decoration: none; transition: color 0.2s; padding: 0.25rem 0;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">Examples</a>
       </div>
 
       <!-- Analysis Section -->
-      <div class="mb-4">
-        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Analysis</div>
+      <div style="margin-bottom: 1rem;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--a1); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Analysis</div>
         {% set pf = "/guide/pf/" %}
         {% set opf = "/guide/opf/" %}
         {% set ts = "/guide/ts/" %}
         {% set se = "/guide/se/" %}
         {% set reliability = "/guide/reliability/" %}
         {% set graph = "/reference/graph/" %}
-        <a href="{{ get_url(path=pf) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(pf) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Power Flow</a>
-        <a href="{{ get_url(path=opf) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(opf) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Optimal Power Flow</a>
-        <a href="{{ get_url(path=ts) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(ts) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Time Series</a>
-        <a href="{{ get_url(path=se) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(se) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">State Estimation</a>
-        <a href="{{ get_url(path=reliability) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(reliability) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Reliability</a>
-        <a href="{{ get_url(path=graph) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(graph) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Graph Analysis</a>
+        <a href="{{ get_url(path=pf) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(pf) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(pf) %}var(--f2){% else %}var(--c4){% endif %}'">Power Flow</a>
+        <a href="{{ get_url(path=opf) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(opf) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(opf) %}var(--f2){% else %}var(--c4){% endif %}'">Optimal Power Flow</a>
+        <a href="{{ get_url(path=ts) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(ts) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(ts) %}var(--f2){% else %}var(--c4){% endif %}'">Time Series</a>
+        <a href="{{ get_url(path=se) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(se) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(se) %}var(--f2){% else %}var(--c4){% endif %}'">State Estimation</a>
+        <a href="{{ get_url(path=reliability) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(reliability) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(reliability) %}var(--f2){% else %}var(--c4){% endif %}'">Reliability</a>
+        <a href="{{ get_url(path=graph) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(graph) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(graph) %}var(--f2){% else %}var(--c4){% endif %}'">Graph Analysis</a>
       </div>
 
       <!-- Domain -->
-      <div class="mb-4">
-        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Domain</div>
+      <div style="margin-bottom: 1rem;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--a1); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Domain</div>
         {% set adms = "/guide/adms/" %}
         {% set derms = "/guide/derms/" %}
         {% set dist = "/guide/dist/" %}
-        <a href="{{ get_url(path=adms) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(adms) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">ADMS</a>
-        <a href="{{ get_url(path=derms) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(derms) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">DERMS</a>
-        <a href="{{ get_url(path=dist) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(dist) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Distribution</a>
+        <a href="{{ get_url(path=adms) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(adms) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(adms) %}var(--f2){% else %}var(--c4){% endif %}'">ADMS</a>
+        <a href="{{ get_url(path=derms) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(derms) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(derms) %}var(--f2){% else %}var(--c4){% endif %}'">DERMS</a>
+        <a href="{{ get_url(path=dist) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(dist) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(dist) %}var(--f2){% else %}var(--c4){% endif %}'">Distribution</a>
       </div>
 
       <!-- Integration -->
-      <div class="mb-4">
-        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Integration</div>
+      <div style="margin-bottom: 1rem;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--a1); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Integration</div>
         {% set mcp = "/internals/mcp-onboarding/" %}
         {% set datasets = "/guide/datasets/" %}
         {% set cicd = "/internals/ci-cd/" %}
         {% set features = "/internals/feature-matrix/" %}
-        <a href="{{ get_url(path=mcp) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(mcp) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">MCP Server</a>
-        <a href="{{ get_url(path=datasets) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(datasets) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Datasets</a>
-        <a href="{{ get_url(path=cicd) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(cicd) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">CI/CD</a>
-        <a href="{{ get_url(path=features) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(features) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Features</a>
+        <a href="{{ get_url(path=mcp) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(mcp) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(mcp) %}var(--f2){% else %}var(--c4){% endif %}'">MCP Server</a>
+        <a href="{{ get_url(path=datasets) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(datasets) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(datasets) %}var(--f2){% else %}var(--c4){% endif %}'">Datasets</a>
+        <a href="{{ get_url(path=cicd) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(cicd) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(cicd) %}var(--f2){% else %}var(--c4){% endif %}'">CI/CD</a>
+        <a href="{{ get_url(path=features) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(features) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(features) %}var(--f2){% else %}var(--c4){% endif %}'">Features</a>
       </div>
 
       <!-- Tools & Resources -->
-      <div class="mb-4">
-        <div class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Tools & Resources</div>
+      <div style="margin-bottom: 1rem;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--a1); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Tools & Resources</div>
         {% set builder = "/command-builder/" %}
         {% set faq = "/faq/" %}
         {% set blog = "/blog/" %}
-        <a href="{{ get_url(path=builder) }}" class="block text-sm py-1 transition-colors flex items-center gap-1 {% if current_path is starting_with(builder) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">
-          <span class="text-xs">🔧</span>
+        <a href="{{ get_url(path=builder) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; display: flex; align-items: center; gap: 0.25rem; {% if current_path is starting_with(builder) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(builder) %}var(--f2){% else %}var(--c4){% endif %}'">
+          <span style="font-size: 0.75rem;">🔧</span>
           <span>Command Builder</span>
         </a>
-        <a href="{{ get_url(path=faq) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(faq) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">FAQ</a>
-        <a href="{{ get_url(path=blog) }}" class="block text-sm py-1 transition-colors {% if current_path is starting_with(blog) %}text-white font-semibold{% else %}text-slate-400 hover:text-orange-500{% endif %}">Blog</a>
+        <a href="{{ get_url(path=faq) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(faq) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(faq) %}var(--f2){% else %}var(--c4){% endif %}'">FAQ</a>
+        <a href="{{ get_url(path=blog) }}" style="display: block; font-size: 0.875rem; padding: 0.25rem 0; text-decoration: none; transition: color 0.2s; {% if current_path is starting_with(blog) %}color: var(--f2); font-weight: 600;{% else %}color: var(--c4);{% endif %}" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='{% if current_path is starting_with(blog) %}var(--f2){% else %}var(--c4){% endif %}'">Blog</a>
       </div>
     </nav>
 
-    <div class="border-t border-slate-800 mt-6 pt-6">
+    <div style="border-top: 1px solid var(--c3); margin-top: 1.5rem; padding-top: 1.5rem;">
       <a href="{{ config.extra.repo_url }}/tree/main/docs"
-         class="block text-xs text-slate-500 hover:text-orange-500 transition-colors">
+         style="display: block; font-size: 0.75rem; color: var(--c4); text-decoration: none; transition: color 0.2s;"
+         onmouseover="this.style.color='var(--a1)'"
+         onmouseout="this.style.color='var(--c4)'">
         View on GitHub →
       </a>
     </div>

@@ -6,40 +6,70 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="{{ config.description }}" />
 
-  <!-- Abridge Theme CSS (provides --c1, --f1, --a1, etc. variables) -->
-  <link rel="stylesheet" href="{{ get_url(path='/abridge.css') | safe }}" />
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <!-- Tailwind via CDN for layout utilities -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Configure Tailwind to work with Abridge's theme
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
-          colors: {
-            // Map to Abridge CSS variables
-            'theme-bg': 'var(--c1)',
-            'theme-bg-alt': 'var(--c2)',
-            'theme-border': 'var(--c3)',
-            'theme-muted': 'var(--c4)',
-            'theme-text': 'var(--f1)',
-            'theme-heading': 'var(--f2)',
-            'theme-accent': 'var(--a1)',
-            'theme-accent-hover': 'var(--a2)',
-            'theme-success': 'var(--cg)',
-            'theme-error': 'var(--cr)',
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           }
         }
       }
     }
   </script>
+
+  <!-- Unified Theme System: CSS Variables for light/dark -->
   <style>
-    /* Use Abridge theme variables throughout */
+    /* Light theme (default) */
+    :root {
+      --c1: #ffffff;           /* Primary background */
+      --c2: #f8fafc;           /* Secondary background */
+      --c3: #e2e8f0;           /* Borders */
+      --c4: #64748b;           /* Muted text */
+      --f1: #1e293b;           /* Primary text */
+      --f2: #0f172a;           /* Heading text */
+      --a1: #ea580c;           /* Accent color (orange-600) */
+      --a2: #c2410c;           /* Accent hover */
+      --cg: #16a34a;           /* Success green */
+      --cr: #dc2626;           /* Error red */
+      --grid-color: #cbd5e1;
+      --selection-bg: rgba(234, 88, 12, 0.2);
+    }
+
+    /* Dark theme */
+    [data-theme="dark"], .dark {
+      --c1: #020617;           /* slate-950 */
+      --c2: #0f172a;           /* slate-900 */
+      --c3: #1e293b;           /* slate-800 */
+      --c4: #94a3b8;           /* slate-400 */
+      --f1: #e2e8f0;           /* slate-200 */
+      --f2: #ffffff;           /* white */
+      --a1: #fb923c;           /* orange-400 */
+      --a2: #fdba74;           /* orange-300 */
+      --cg: #4ade80;           /* green-400 */
+      --cr: #f87171;           /* red-400 */
+      --grid-color: #334155;
+      --selection-bg: rgba(251, 146, 60, 0.3);
+    }
+
+    html { scroll-behavior: smooth; }
+
     body {
       background-color: var(--c1);
       color: var(--f1);
+      font-family: 'Inter', system-ui, sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
+
+    ::selection { background: var(--selection-bg); }
 
     /* Terminal always stays dark for contrast */
     .terminal-block {
@@ -64,14 +94,56 @@
       transform: translateY(-2px);
       box-shadow: 0 8px 30px -10px var(--a1);
     }
+
+    /* Theme toggle button styling */
+    .theme-toggle {
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 0.375rem;
+      background: transparent;
+      border: 1px solid var(--c3);
+      color: var(--c4);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+    }
+    .theme-toggle:hover {
+      color: var(--a1);
+      border-color: var(--a1);
+    }
+    .theme-toggle svg { width: 1.25rem; height: 1.25rem; }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+    /* Background grid - theme-aware */
+    .bg-grid {
+      background-image: linear-gradient(var(--grid-color) 1px, transparent 1px),
+                        linear-gradient(to right, var(--grid-color) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
   </style>
+
+  <!-- Theme initialization (before render to prevent flash) -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+      if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
 </head>
 <body class="min-h-screen font-sans overflow-x-hidden" style="background:var(--c1);color:var(--f1);">
 
-  <!-- Background Grid Effect (subtle) -->
-  <div class="fixed inset-0 z-0 opacity-[0.03] pointer-events-none"
-       style="background-image:linear-gradient(var(--c3) 1px, transparent 1px), linear-gradient(to right, var(--c3) 1px, transparent 1px);background-size:40px 40px;">
-  </div>
+  <!-- Background Grid Effect (subtle, theme-aware) -->
+  <div class="fixed inset-0 z-0 opacity-20 pointer-events-none bg-grid"></div>
 
   <!-- Navigation -->
   {% include "partials/header.html" %}
@@ -859,6 +931,17 @@
       </div>
     </div>
   </footer>
+
+  <!-- Theme toggle script -->
+  <script>
+    function toggleTheme() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const newTheme = isDark ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+    }
+    window.toggleTheme = toggleTheme;
+  </script>
 
   <!-- Simple JS for interactivity -->
   <script src="{{ get_url(path='/main.js') }}"></script>
