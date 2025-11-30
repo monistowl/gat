@@ -1,0 +1,24 @@
+/* src/config_cbc.h.in. */
+
+#ifndef __CONFIG_CBC_H__
+#define __CONFIG_CBC_H__
+
+/* Library Visibility Attribute */
+#undef CBCLIB_EXPORT
+
+/* Version number of project */
+#undef CBC_VERSION
+
+/* Major Version number of project */
+#undef CBC_VERSION_MAJOR
+
+/* Minor Version number of project */
+#undef CBC_VERSION_MINOR
+
+/* Release Version number of project */
+#undef CBC_VERSION_RELEASE
+
+/* Define to 1 if Nauty is available. */
+#undef CBC_HAS_NAUTY
+
+#endif

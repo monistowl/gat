@@ -1,0 +1,158 @@
+# Copyright (C) 2006 International Business Machines and others.
+# All Rights Reserved.
+# This file is distributed under the Eclipse Public License.
+
+
+##########################################################################
+#    You can modify this example makefile to fit for your own program.   #
+#    Usually, you only need to change CHANGEME entries below.            #
+##########################################################################
+
+# CHANGEME
+# To compile other examples, either change the following line, or add the
+# argument DRIVER=filename_without_extension to make, e.g.,
+# `make DRIVER=hello'
+
+DRIVER = driver
+
+# CHANGEME
+# This should be the name of your executable; change if you want a name
+# that's different from the file name.
+
+EXE = $(DRIVER)@EXEEXT@
+
+# CHANGEME
+# OBJS should include all object files necessary to build your program. For
+# the examples, only one file is needed for each example. You will probably
+# have more as your code grows.
+
+OBJS =  $(DRIVER).@OBJEXT@
+
+# extra object files that are required by some examples (we just link them into each one)
+EXTRAOBJS = \
+	CbcCompareUser.@OBJEXT@ \
+	CbcSolver2.@OBJEXT@ \
+	CbcSolver3.@OBJEXT@ \
+	CbcSolverLongThin.@OBJEXT@ \
+	ClpQuadInterface.@OBJEXT@ \
+	CbcBranchFollow2.@OBJEXT@ \
+	CbcBranchUser.@OBJEXT@ \
+	CbcBranchLink.@OBJEXT@
+
+# CHANGEME
+# Additional libraries. The examples require only the COIN-OR libraries specified
+# as LIBS below. You may need more.
+# E.g., for driver2, put -lOsiCbc here
+
+ADDLIBS =
+
+# CHANGEME
+# Additional flags for compilation (e.g., include flags). As for libraries,
+# the examples require only COIN-OR include files, specified as part of CXXFLAGS
+# below.
+
+ADDINCFLAGS =
+
+# CHANGEME
+# Directory to the sources for the (example) problem definition files. VPATH
+# is used if you are building in a different directory than the source. This
+# can be handy for various reasons; if none occur to you, don't worry about
+# it.
+
+SRCDIR = @srcdir@
+VPATH = @srcdir@
+
+##########################################################################
+#  Usually, you don't have to change anything below.  Note that if you   #
+#  change certain compiler options, you might have to recompile the      #
+#  package.                                                              #
+##########################################################################
+
+# C++ Compiler command
+CXX = @CXX@
+
+# C++ Compiler options
+CXXFLAGS = @CXXFLAGS@
+
+# C Compiler command
+CC = @CC@
+
+# C Compiler options
+CFLAGS = @CFLAGS@
+
+# Sample data directory
+@COIN_HAS_SAMPLE_TRUE@CXXFLAGS += -DSAMPLEDIR=\"`$(CYGPATH_W) @SAMPLE_DATA@`\"
+@COIN_HAS_SAMPLE_TRUE@CFLAGS += -DSAMPLEDIR=\"`$(CYGPATH_W) @SAMPLE_DATA@`\"
+
+# Netlib data directory
+@COIN_HAS_MIPLIB3_TRUE@CXXFLAGS += -DMIPLIB3DIR=\"`$(CYGPATH_W) @MIPLIB3_DATA@`\"
+
+# additional C++ Compiler options for linking
+CXXLINKFLAGS = @RPATH_FLAGS@
+
+# Include directories
+@COIN_HAS_PKGCONFIG_TRUE@INCL = `PKG_CONFIG_PATH=@COIN_PKG_CONFIG_PATH@ @PKG_CONFIG@ --cflags cbc`
+@COIN_HAS_PKGCONFIG_FALSE@INCL = -I@includedir@/coin-or
+INCL += $(ADDINCFLAGS)
+
+# Linker flags
+@COIN_HAS_PKGCONFIG_TRUE@LIBS = `PKG_CONFIG_PATH=@COIN_PKG_CONFIG_PATH@ @PKG_CONFIG@ --libs osi-cbc cbc cgl osi-clp clp osi coinutils`
+@COIN_HAS_PKGCONFIG_FALSE@LIBS = -L@libdir@ -lOsiCbc -lCbcSolver -lCbc -lCgl -lOsi -lOsiClp -lClp -lCoinUtils
+LIBS += $(ADDLIBS)
+
+# The following is necessary under cygwin, if native compilers are used
+CYGPATH_W = @CYGPATH_W@
+
+# get some directories, so we can expand @libdir@ and @includedir@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+
+# Here we list all possible generated objects or executables to delete them
+CLEANFILES = $(EXTRAOBJS) \
+	allCuts.@OBJEXT@ allCuts@EXEEXT@ \
+	barrier.@OBJEXT@ barrier@EXEEXT@ \
+	cbc_driverC_sos.@OBJEXT@ cbc_driverC_sos@EXEEXT@ \
+	crew.@OBJEXT@ crew@EXEEXT@ \
+	driver.@OBJEXT@ driver@EXEEXT@ \
+	driver2.@OBJEXT@ driver2@EXEEXT@ \
+	driver3.@OBJEXT@ driver3@EXEEXT@ \
+	driver4.@OBJEXT@ driver4@EXEEXT@ \
+	fast0507b.@OBJEXT@ fast0507b@EXEEXT@ \
+	fast0507.@OBJEXT@ fast0507@EXEEXT@ \
+	gear.@OBJEXT@ gear@EXEEXT@ \
+	hotstart.@OBJEXT@ hotstart@EXEEXT@ \
+	interrupt.@OBJEXT@ interrupt@EXEEXT@ \
+	link.@OBJEXT@ link@EXEEXT@ \
+	longthin.@OBJEXT@ longthin@EXEEXT@ \
+	lotsize.@OBJEXT@ lotsize@EXEEXT@ \
+	minimum.@OBJEXT@ minimum@EXEEXT@ \
+	modify.@OBJEXT@ modify@EXEEXT@ \
+	nway.@OBJEXT@ nway@EXEEXT@ \
+	qmip.@OBJEXT@ qmip@EXEEXT@ \
+	qmip2.@OBJEXT@ qmip2@EXEEXT@ \
+	repeat.@OBJEXT@ repeat@EXEEXT@ \
+	sample1.@OBJEXT@ sample1@EXEEXT@ \
+	sample2.@OBJEXT@ sample2@EXEEXT@ \
+	sample3.@OBJEXT@ sample3@EXEEXT@ \
+	sample4.@OBJEXT@ sample4@EXEEXT@ \
+	sample5.@OBJEXT@ sample5@EXEEXT@ \
+	simpleBAB.@OBJEXT@ simpleBAB@EXEEXT@ \
+	sos.@OBJEXT@ sos@EXEEXT@ \
+	sudoku.@OBJEXT@ sudoku@EXEEXT@
+
+all: $(EXE)
+
+.SUFFIXES: .cpp .c .@OBJEXT@
+
+$(EXE): $(OBJS) $(EXTRAOBJS)
+	$(CXX) $(CXXLINKFLAGS) $(CXXFLAGS) -o $@ $^ $(LIBS)
+
+clean:
+	rm -rf $(CLEANFILES) $(OBJS) $(EXTRAOBJS)
+
+.cpp.@OBJEXT@:
+	$(CXX) $(CXXFLAGS) $(INCL) -c -o $@ `test -f '$<' || echo '$(SRCDIR)/'`$<
+
+.c.@OBJEXT@:
+	$(CC) $(CFLAGS) $(INCL) -c -o $@ `test -f '$<' || echo '$(SRCDIR)/'`$<
+

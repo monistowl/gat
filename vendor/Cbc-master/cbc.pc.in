@@ -1,0 +1,15 @@
+@COIN_RELOCATABLE_FALSE@prefix=@prefix@
+@COIN_RELOCATABLE_TRUE@prefix=${pcfiledir}/../..
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@/coin-or
+
+Name: @PACKAGE_NAME@
+Description: COIN-OR Branch and Cut
+URL: @PACKAGE_URL@
+Version: @PACKAGE_VERSION@
+Cflags: -I${includedir}
+@COIN_STATIC_BUILD_FALSE@Libs: -L${libdir} -lCbc
+@COIN_STATIC_BUILD_FALSE@Requires.private: @CBCLIB_PCFILES@
+@COIN_STATIC_BUILD_TRUE@Libs: -L${libdir} -lCbc @CBCLIB_LFLAGS_NOPC@
+@COIN_STATIC_BUILD_TRUE@Requires: @CBCLIB_PCFILES@

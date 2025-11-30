@@ -54,4 +54,3 @@ test_data/**/tmp/
 
 # Tool artifacts
 .playwright-mcp/
-vendor/

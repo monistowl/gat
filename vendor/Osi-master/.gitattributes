@@ -1,0 +1,13 @@
+* text=auto !eol
+*.sh text eol=lf
+install-sh text eol=lf
+config.sub text eol=lf
+config.guess text eol=lf
+missing text eol=lf
+decomp text eol=lf
+configure text eol=lf
+*.ac text eol=lf
+*.am text eol=lf
+*.in text eol=lf
+Makefile text eol=lf
+*.bat eol=crlf
