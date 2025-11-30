@@ -484,6 +484,7 @@ jobs:
             liblapack-dev \
             libbz2-dev \
             zlib1g-dev \
+            libreadline-dev \
             pkg-config
 
       - name: Install dependencies (macOS)
