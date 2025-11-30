@@ -9,6 +9,7 @@ use std::path::Path;
 
 /// A single benchmark result row from CSV
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct BenchmarkRow {
     pub case_name: String,
     pub load_time_ms: f64,

@@ -21,6 +21,7 @@ pub enum StatusChange {
 
 /// Comparison result for a single case
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CaseComparison {
     pub case_name: String,
     pub status_change: StatusChange,
@@ -148,7 +149,7 @@ pub fn compare_benchmarks(
 
 /// Format comparison as a pretty table
 pub fn format_comparison_table(
-    comparisons: &[CaseComparison],
+    _comparisons: &[CaseComparison],
     stats: &ComparisonStats,
     before_name: &str,
     after_name: &str,

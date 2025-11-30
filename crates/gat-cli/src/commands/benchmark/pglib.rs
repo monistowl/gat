@@ -300,6 +300,7 @@ fn discover_matpower_files(dir: &Path) -> Result<Vec<(String, std::path::PathBuf
     Ok(cases)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn benchmark_pglib_case(
     case_name: &str,
     path: &Path,
