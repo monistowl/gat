@@ -243,11 +243,11 @@ mod opf_solver_require_native {
         assert_eq!(dc_solver.method(), OpfMethod::DcOpf);
     }
 
-    /// Test that requiring native IPOPT without the feature fails.
+    /// Test that requiring native IPOPT without native solver features fails.
     ///
-    /// When native-dispatch feature is NOT enabled, require_native(true) should
-    /// cause AC-OPF to fail with a helpful error message.
-    #[cfg(not(feature = "native-dispatch"))]
+    /// When neither `native-dispatch` nor `solver-ipopt` features are enabled,
+    /// require_native(true) should cause AC-OPF to fail with a helpful error message.
+    #[cfg(all(not(feature = "native-dispatch"), not(feature = "solver-ipopt")))]
     #[test]
     fn test_require_native_without_feature_fails() {
         let network = create_test_network();
