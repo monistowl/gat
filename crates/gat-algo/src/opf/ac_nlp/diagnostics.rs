@@ -200,6 +200,7 @@ mod tests {
     fn test_branch_flow_symmetry() {
         // Simple branch with no tap or shift
         let branch = BranchData {
+            name: "test_branch".to_string(),
             from_idx: 0,
             to_idx: 1,
             r: 0.01,
@@ -208,6 +209,7 @@ mod tests {
             rate_mva: 100.0,
             tap: 1.0,
             shift: 0.0,
+            angle_diff_max: 0.0, // no limit
         };
 
         // With equal voltages and zero angle difference, flows should be equal and opposite
