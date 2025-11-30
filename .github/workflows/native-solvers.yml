@@ -115,10 +115,29 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libblas-dev \
+            liblapack-dev \
+            pkg-config
+
+      - name: Cache vendored build
+        uses: actions/cache@v4
+        with:
+          path: vendor/local
+          key: coinor-xtask-${{ runner.os }}-${{ hashFiles('vendor/*.zip', 'vendor/*.tar.gz', 'scripts/build-*.sh') }}
+
       - name: Cache cargo builds
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: native-solvers
+
+      - name: Build IPOPT from vendored sources
+        run: ./scripts/build-ipopt.sh
 
       - name: Build xtask
         run: cargo build -p xtask --release
@@ -128,6 +147,9 @@ jobs:
 
       - name: Build and install gat-ipopt via xtask
         run: cargo xtask solver build ipopt --install
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
 
       - name: Verify installation
         run: |
@@ -141,6 +163,8 @@ jobs:
 
           echo "=== Testing binary startup ==="
           timeout 2 ~/.gat/solvers/gat-ipopt --version || true
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
 
       - name: Test gat-cli sees installed solver
         run: |
@@ -150,6 +174,8 @@ jobs:
           # Verify ipopt shows as [installed]
           grep -q "\[installed\]" solver-list.txt || (echo "FAIL: IPOPT not showing as installed" && exit 1)
           echo "SUCCESS: IPOPT properly registered"
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
 
   # Job 4: Test solver dispatch logic and native-dispatch integration
   solver-dispatch:
@@ -394,27 +420,38 @@ jobs:
         with:
           shared-key: vendored-build
 
-      - name: Build COIN-OR from vendored sources (xtask)
-        run: |
-          echo "=== Building CLP/CBC from vendored sources ==="
-          cargo xtask build-solvers --cbc
+      - name: Cache vendored build
+        uses: actions/cache@v4
+        with:
+          path: vendor/local
+          key: coinor-vendored-${{ runner.os }}-${{ hashFiles('vendor/*.zip', 'vendor/*.tar.gz', 'scripts/build-*.sh') }}
+
+      - name: Build CLP from vendored sources
+        run: ./scripts/build-clp.sh
+
+      - name: Build CBC from vendored sources
+        run: ./scripts/build-cbc.sh
 
       - name: Verify built libraries
         run: |
           echo "=== Checking built libraries ==="
-          ls -la target/coinor/lib/
-          test -f target/coinor/lib/libCoinUtils.a
-          test -f target/coinor/lib/libOsi.a
-          test -f target/coinor/lib/libClp.a
-          test -f target/coinor/lib/libCgl.a
-          test -f target/coinor/lib/libCbc.a
+          ls -la vendor/local/lib/
+          test -f vendor/local/lib/libCoinUtils.a
+          test -f vendor/local/lib/libOsi.a
+          test -f vendor/local/lib/libClp.a
+          test -f vendor/local/lib/libCgl.a
+          test -f vendor/local/lib/libCbc.a
           echo "SUCCESS: All COIN-OR libraries built"
 
       - name: Build gat-clp against vendored libraries
         run: cargo build -p gat-clp --release
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
 
       - name: Build gat-cbc against vendored libraries
         run: cargo build -p gat-cbc --release
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
 
       - name: Verify solver binaries
         run: |
