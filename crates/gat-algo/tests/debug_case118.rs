@@ -35,13 +35,11 @@ fn load_pglib_case(case_name: &str) -> gat_core::Network {
         .join("case.m");
 
     if !case_path.exists() {
-        panic!(
-            "Case file not found: {}",
-            case_path.display()
-        );
+        panic!("Case file not found: {}", case_path.display());
     }
 
-    let result = parse_matpower(case_path.to_str().unwrap()).expect("Failed to parse MATPOWER file");
+    let result =
+        parse_matpower(case_path.to_str().unwrap()).expect("Failed to parse MATPOWER file");
     result.network
 }
 
@@ -409,7 +407,10 @@ fn debug_generator_mapping() {
         if !multi_gen_buses.is_empty() {
             println!("\nBuses with multiple generators:");
             for (bus_idx, &count) in &multi_gen_buses {
-                println!("  {} (idx {}): {} generators", problem.buses[*bus_idx].name, bus_idx, count);
+                println!(
+                    "  {} (idx {}): {} generators",
+                    problem.buses[*bus_idx].name, bus_idx, count
+                );
             }
         }
     }
@@ -441,8 +442,14 @@ fn test_case118_convergence() {
     match solver.solve(&network) {
         Ok(solution) => {
             println!("\nAC-OPF CONVERGED!");
-            println!("  Objective:  ${:.2}/hr (reference: ${:.2})", solution.objective_value, reference_obj);
-            println!("  Obj gap:    {:.2}%", (solution.objective_value - reference_obj) / reference_obj * 100.0);
+            println!(
+                "  Objective:  ${:.2}/hr (reference: ${:.2})",
+                solution.objective_value, reference_obj
+            );
+            println!(
+                "  Obj gap:    {:.2}%",
+                (solution.objective_value - reference_obj) / reference_obj * 100.0
+            );
             println!("  Iterations: {}", solution.iterations);
             println!("  Time:       {:.2}ms", solution.solve_time_ms);
 
@@ -455,7 +462,9 @@ fn test_case118_convergence() {
             assert!(
                 obj_gap < 0.01,
                 "Objective ${:.2} should be within 1% of reference ${:.2} (gap: {:.2}%)",
-                solution.objective_value, reference_obj, obj_gap * 100.0
+                solution.objective_value,
+                reference_obj,
+                obj_gap * 100.0
             );
         }
         Err(e) => {
@@ -491,8 +500,14 @@ fn test_case14_convergence() {
     match solver.solve(&network) {
         Ok(solution) => {
             println!("\nAC-OPF CONVERGED!");
-            println!("  Objective:  ${:.2}/hr (reference: ${:.2})", solution.objective_value, reference_obj);
-            println!("  Obj gap:    {:.2}%", (solution.objective_value - reference_obj) / reference_obj * 100.0);
+            println!(
+                "  Objective:  ${:.2}/hr (reference: ${:.2})",
+                solution.objective_value, reference_obj
+            );
+            println!(
+                "  Obj gap:    {:.2}%",
+                (solution.objective_value - reference_obj) / reference_obj * 100.0
+            );
             println!("  Iterations: {}", solution.iterations);
             println!("  Time:       {:.2}ms", solution.solve_time_ms);
 
@@ -505,7 +520,9 @@ fn test_case14_convergence() {
             assert!(
                 obj_gap < 0.01,
                 "Objective ${:.2} should be within 1% of reference ${:.2} (gap: {:.2}%)",
-                solution.objective_value, reference_obj, obj_gap * 100.0
+                solution.objective_value,
+                reference_obj,
+                obj_gap * 100.0
             );
         }
         Err(e) => {
@@ -523,10 +540,7 @@ fn debug_constraint_verification() {
     println!("  CONSTRAINT VALUE VERIFICATION");
     println!("============================================================");
 
-    for case_name in &[
-        "pglib_opf_case14_ieee",
-        "pglib_opf_case118_ieee",
-    ] {
+    for case_name in &["pglib_opf_case14_ieee", "pglib_opf_case118_ieee"] {
         let network = load_pglib_case(case_name);
         let problem = AcOpfProblem::from_network(&network).expect("Failed to build AC-OPF problem");
 
@@ -541,7 +555,10 @@ fn debug_constraint_verification() {
         let analysis = analyze_constraints(&problem, &x0);
 
         println!("Comparing problem.equality_constraints() vs manual computation:");
-        println!("{:<8} {:>15} {:>15} {:>10}", "Bus", "g (problem)", "manual P", "diff");
+        println!(
+            "{:<8} {:>15} {:>15} {:>10}",
+            "Bus", "g (problem)", "manual P", "diff"
+        );
 
         let mut max_diff = 0.0f64;
         for i in 0..problem.n_bus.min(10) {
@@ -582,7 +599,10 @@ fn test_case118_penalty_method() {
     println!("  Buses:       {}", problem.n_bus);
     println!("  Generators:  {}", problem.n_gen);
     println!("  Branches:    {}", problem.n_branch);
-    println!("  Thermal lim: {}", problem.n_thermal_constrained_branches());
+    println!(
+        "  Thermal lim: {}",
+        problem.n_thermal_constrained_branches()
+    );
     println!("  Variables:   {}", problem.n_var);
 
     // Try penalty method solver
@@ -635,7 +655,10 @@ fn debug_ybus_validation() {
 
     // Print some off-diagonal entries
     println!("\n=== OFF-DIAGONAL ENTRIES (First 20) ===");
-    println!("{:<5} {:<5} {:>12} {:>12}  (G_ij + jB_ij)", "From", "To", "G_ij", "B_ij");
+    println!(
+        "{:<5} {:<5} {:>12} {:>12}  (G_ij + jB_ij)",
+        "From", "To", "G_ij", "B_ij"
+    );
     let mut count = 0;
     for i in 0..problem.n_bus.min(14) {
         for j in 0..problem.n_bus.min(14) {
@@ -644,19 +667,28 @@ fn debug_ybus_validation() {
                 if y.re.abs() > 1e-10 || y.im.abs() > 1e-10 {
                     println!("{:<5} {:<5} {:>12.6} {:>12.6}", i, j, y.re, y.im);
                     count += 1;
-                    if count >= 20 { break; }
+                    if count >= 20 {
+                        break;
+                    }
                 }
             }
         }
-        if count >= 20 { break; }
+        if count >= 20 {
+            break;
+        }
     }
 
     // Check some specific bus data
     println!("\n=== BUS DATA ===");
-    println!("{:<5} {:<15} {:>8} {:>8} {:>8} {:>8}", "Idx", "Name", "P_load", "Q_load", "gs_pu", "bs_pu");
+    println!(
+        "{:<5} {:<15} {:>8} {:>8} {:>8} {:>8}",
+        "Idx", "Name", "P_load", "Q_load", "gs_pu", "bs_pu"
+    );
     for (i, bus) in problem.buses.iter().enumerate().take(14) {
-        println!("{:<5} {:<15} {:>8.2} {:>8.2} {:>8.4} {:>8.4}",
-            i, bus.name, bus.p_load, bus.q_load, bus.gs_pu, bus.bs_pu);
+        println!(
+            "{:<5} {:<15} {:>8.2} {:>8.2} {:>8.4} {:>8.4}",
+            i, bus.name, bus.p_load, bus.q_load, bus.gs_pu, bus.bs_pu
+        );
     }
 
     // Compute total Y-bus row sums (should be small for valid Y-bus)
@@ -697,7 +729,11 @@ fn test_jacobian_finite_difference() {
         // Get sparsity pattern
         let (rows, cols) = jacobian_sparsity(&problem);
         let nnz = rows.len();
-        println!("Jacobian size: {} constraints x {} variables", 2 * problem.n_bus + 1, n_var);
+        println!(
+            "Jacobian size: {} constraints x {} variables",
+            2 * problem.n_bus + 1,
+            n_var
+        );
         println!("Non-zeros: {}", nnz);
 
         // Compute analytical Jacobian
@@ -709,7 +745,8 @@ fn test_jacobian_finite_difference() {
         let n_con = g0.len();
 
         // Build dense numerical Jacobian for comparison
-        let mut jac_numerical_map: std::collections::HashMap<(usize, usize), f64> = std::collections::HashMap::new();
+        let mut jac_numerical_map: std::collections::HashMap<(usize, usize), f64> =
+            std::collections::HashMap::new();
 
         for j in 0..n_var {
             let mut x_plus = x0.clone();
@@ -770,15 +807,21 @@ fn test_jacobian_finite_difference() {
         println!("\nJacobian verification summary:");
         println!("  Max absolute error: {:.2e}", max_abs_error);
         println!("  Max relative error: {:.2e}", max_rel_error);
-        println!("  Entries with >1e-4 abs error and >1% rel error: {}", n_large_errors);
-        println!("  Worst entry: row={}, col={}, analytical={:.6e}, numerical={:.6e}",
-            worst_entry.0, worst_entry.1, worst_entry.2, worst_entry.3);
+        println!(
+            "  Entries with >1e-4 abs error and >1% rel error: {}",
+            n_large_errors
+        );
+        println!(
+            "  Worst entry: row={}, col={}, analytical={:.6e}, numerical={:.6e}",
+            worst_entry.0, worst_entry.1, worst_entry.2, worst_entry.3
+        );
 
         // The Jacobian should match to at least 1e-4 absolute tolerance
         assert!(
             max_abs_error < 1e-3,
             "Jacobian error too large for {}: max_abs_error={:.2e}",
-            case_name, max_abs_error
+            case_name,
+            max_abs_error
         );
     }
 }
@@ -806,7 +849,10 @@ fn test_case118_without_thermal_constraints() {
     println!("  Buses:       {}", problem.n_bus);
     println!("  Generators:  {}", problem.n_gen);
     println!("  Branches:    {}", problem.n_branch);
-    println!("  Thermal lim: {} (disabled)", problem.n_thermal_constrained_branches());
+    println!(
+        "  Thermal lim: {} (disabled)",
+        problem.n_thermal_constrained_branches()
+    );
     println!("  Variables:   {}", problem.n_var);
 
     // Set IPOPT_PRINT_LEVEL=5 for verbose output
@@ -825,7 +871,9 @@ fn test_case118_without_thermal_constraints() {
         }
         Err(e) => {
             println!("\nIPOPT FAILED (without thermal constraints): {:?}", e);
-            println!("This indicates the issue is in power balance constraints, not thermal limits.");
+            println!(
+                "This indicates the issue is in power balance constraints, not thermal limits."
+            );
         }
     }
 }
@@ -850,10 +898,13 @@ fn diagnose_thermal_violations() {
         branch.rate_mva = 0.0;
     }
 
-    let solution = solve_with_ipopt(&problem, Some(500), Some(1e-6))
-        .expect("Should converge without thermal");
+    let solution =
+        solve_with_ipopt(&problem, Some(500), Some(1e-6)).expect("Should converge without thermal");
 
-    println!("\nUnconstrained solution: ${:.2}/hr", solution.objective_value);
+    println!(
+        "\nUnconstrained solution: ${:.2}/hr",
+        solution.objective_value
+    );
 
     // Restore thermal limits and evaluate constraint violations
     for (i, branch) in problem.branches.iter_mut().enumerate() {
@@ -865,11 +916,20 @@ fn diagnose_thermal_violations() {
 
     // Debug: print some solution values
     println!("\nSolution check:");
-    println!("  bus_voltage_mag entries: {}", solution.bus_voltage_mag.len());
-    println!("  bus_voltage_ang entries: {}", solution.bus_voltage_ang.len());
+    println!(
+        "  bus_voltage_mag entries: {}",
+        solution.bus_voltage_mag.len()
+    );
+    println!(
+        "  bus_voltage_ang entries: {}",
+        solution.bus_voltage_ang.len()
+    );
     if let Some(sample_bus) = problem.buses.first() {
         println!("  Sample bus name: {}", sample_bus.name);
-        println!("  Sample V from solution: {:?}", solution.bus_voltage_mag.get(&sample_bus.name));
+        println!(
+            "  Sample V from solution: {:?}",
+            solution.bus_voltage_mag.get(&sample_bus.name)
+        );
     }
 
     // Copy voltages from solution
@@ -902,18 +962,23 @@ fn diagnose_thermal_violations() {
     // Debug: check voltage values in x
     println!("\nVoltage values in x:");
     for i in 0..5.min(problem.n_bus) {
-        println!("  Bus {} ({}): V={:.4}, θ={:.4}",
-                 i, &problem.buses[i].name,
-                 x[problem.v_offset + i],
-                 x[problem.theta_offset + i]);
+        println!(
+            "  Bus {} ({}): V={:.4}, θ={:.4}",
+            i,
+            &problem.buses[i].name,
+            x[problem.v_offset + i],
+            x[problem.theta_offset + i]
+        );
     }
 
     // Evaluate thermal constraints
     let thermal = problem.thermal_constraints(&x);
 
     println!("\nThermal constraint violations (positive = violated):");
-    println!("{:<8} {:<8} {:<8} {:>12} {:>12} {:>10}",
-             "Branch", "From", "To", "S_flow (MVA)", "S_max (MVA)", "Violation");
+    println!(
+        "{:<8} {:<8} {:<8} {:>12} {:>12} {:>10}",
+        "Branch", "From", "To", "S_flow (MVA)", "S_max (MVA)", "Violation"
+    );
     println!("{}", "-".repeat(70));
 
     let mut n_violated = 0;
@@ -943,13 +1008,23 @@ fn diagnose_thermal_violations() {
         if violation_from > 0.1 || violation_to > 0.1 {
             n_violated += 1;
             max_violation = max_violation.max(violation_from).max(violation_to);
-            println!("{:<8} {:<8} {:<8} {:>12.2} {:>12.2} {:>10.2}",
-                     i,
-                     problem.buses[branch.from_idx].name.split('_').last().unwrap_or("?"),
-                     problem.buses[branch.to_idx].name.split('_').last().unwrap_or("?"),
-                     s_from.max(s_to),
-                     s_max,
-                     violation_from.max(violation_to));
+            println!(
+                "{:<8} {:<8} {:<8} {:>12.2} {:>12.2} {:>10.2}",
+                i,
+                problem.buses[branch.from_idx]
+                    .name
+                    .split('_')
+                    .last()
+                    .unwrap_or("?"),
+                problem.buses[branch.to_idx]
+                    .name
+                    .split('_')
+                    .last()
+                    .unwrap_or("?"),
+                s_from.max(s_to),
+                s_max,
+                violation_from.max(violation_to)
+            );
         }
 
         branch_idx += 1;
@@ -984,7 +1059,10 @@ fn test_case14_penalty_method() {
     println!("  Buses:       {}", problem.n_bus);
     println!("  Generators:  {}", problem.n_gen);
     println!("  Branches:    {}", problem.n_branch);
-    println!("  Thermal lim: {}", problem.n_thermal_constrained_branches());
+    println!(
+        "  Thermal lim: {}",
+        problem.n_thermal_constrained_branches()
+    );
     println!("  Variables:   {}", problem.n_var);
 
     // Try penalty method solver

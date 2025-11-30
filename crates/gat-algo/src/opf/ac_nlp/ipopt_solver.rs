@@ -405,9 +405,9 @@ impl IpoptConfig {
     /// angles, and dispatch), not the IPOPT warm-start heuristics.
     pub fn warm_start_from_socp() -> Self {
         Self {
-            max_iter: 500,           // More iterations - SOCP point may need more work
+            max_iter: 500, // More iterations - SOCP point may need more work
             tol: 1e-6,
-            warm_start: false,       // IMPORTANT: Don't use IPOPT warm-start options
+            warm_start: false, // IMPORTANT: Don't use IPOPT warm-start options
             warm_start_bound_push: 1e-6,
             warm_start_bound_frac: 1e-6,
             warm_start_slack_bound_push: 1e-6,
@@ -428,9 +428,9 @@ impl IpoptConfig {
     /// and dispatch), not the IPOPT warm-start heuristics.
     pub fn warm_start_from_dc() -> Self {
         Self {
-            max_iter: 200,           // Fewer iterations needed with exact Hessian
+            max_iter: 200, // Fewer iterations needed with exact Hessian
             tol: 1e-6,
-            warm_start: false,       // IMPORTANT: Don't use IPOPT warm-start options
+            warm_start: false, // IMPORTANT: Don't use IPOPT warm-start options
             warm_start_bound_push: 1e-6,
             warm_start_bound_frac: 1e-6,
             warm_start_slack_bound_push: 1e-6,
@@ -455,15 +455,16 @@ impl IpoptConfig {
 /// # Returns
 /// Initial point vector for IPOPT.
 #[cfg(feature = "solver-ipopt")]
-pub fn warm_start_from_socp(
-    warm_start: &SocpWarmStart,
-    problem: &AcOpfProblem,
-) -> Vec<f64> {
+pub fn warm_start_from_socp(warm_start: &SocpWarmStart, problem: &AcOpfProblem) -> Vec<f64> {
     let mut x = vec![0.0; problem.n_var];
 
     // Voltage magnitudes (SOCP stores in p.u., IPOPT expects p.u.)
     for (i, bus) in problem.buses.iter().enumerate() {
-        let vm = warm_start.bus_voltage_mag.get(&bus.name).copied().unwrap_or(1.0);
+        let vm = warm_start
+            .bus_voltage_mag
+            .get(&bus.name)
+            .copied()
+            .unwrap_or(1.0);
         // Clamp to bounds for numerical safety
         let vm_clamped = vm.max(bus.v_min).min(bus.v_max);
         x[problem.v_offset + i] = vm_clamped;
@@ -471,17 +472,26 @@ pub fn warm_start_from_socp(
 
     // Voltage angles (SOCP stores in degrees, IPOPT expects radians)
     for (i, bus) in problem.buses.iter().enumerate() {
-        let va_deg = warm_start.bus_voltage_angle.get(&bus.name).copied().unwrap_or(0.0);
+        let va_deg = warm_start
+            .bus_voltage_angle
+            .get(&bus.name)
+            .copied()
+            .unwrap_or(0.0);
         let va_rad = va_deg.to_radians();
         // Clamp to bounds
-        let va_clamped = va_rad.max(-std::f64::consts::FRAC_PI_2)
-                               .min(std::f64::consts::FRAC_PI_2);
+        let va_clamped = va_rad
+            .max(-std::f64::consts::FRAC_PI_2)
+            .min(std::f64::consts::FRAC_PI_2);
         x[problem.theta_offset + i] = va_clamped;
     }
 
     // Generator real power (SOCP stores in MW, IPOPT expects p.u.)
     for (i, gen) in problem.generators.iter().enumerate() {
-        let pg_mw = warm_start.generator_p.get(&gen.name).copied().unwrap_or(0.0);
+        let pg_mw = warm_start
+            .generator_p
+            .get(&gen.name)
+            .copied()
+            .unwrap_or(0.0);
         let pg_pu = pg_mw / problem.base_mva;
         // Clamp to bounds
         let pg_min = gen.pmin_mw / problem.base_mva;
@@ -492,7 +502,11 @@ pub fn warm_start_from_socp(
 
     // Generator reactive power (SOCP stores in MVAr, IPOPT expects p.u.)
     for (i, gen) in problem.generators.iter().enumerate() {
-        let qg_mvar = warm_start.generator_q.get(&gen.name).copied().unwrap_or(0.0);
+        let qg_mvar = warm_start
+            .generator_q
+            .get(&gen.name)
+            .copied()
+            .unwrap_or(0.0);
         let qg_pu = qg_mvar / problem.base_mva;
         // Clamp to bounds
         let qg_min = gen.qmin_mvar / problem.base_mva;
@@ -548,7 +562,11 @@ pub fn warm_start_from_dc(warm_start: &DcWarmStart, problem: &AcOpfProblem) -> V
 
     // Generator real power: from DC solution (MW → p.u.)
     for (i, gen) in problem.generators.iter().enumerate() {
-        let pg_mw = warm_start.generator_p.get(&gen.name).copied().unwrap_or(0.0);
+        let pg_mw = warm_start
+            .generator_p
+            .get(&gen.name)
+            .copied()
+            .unwrap_or(0.0);
         let pg_pu = pg_mw / problem.base_mva;
         // Clamp to bounds
         let pg_min = gen.pmin_mw / problem.base_mva;
@@ -619,7 +637,10 @@ pub fn solve_with_dc_warm_start(
         solver.set_option("warm_start_init_point", "yes");
         solver.set_option("warm_start_bound_push", config.warm_start_bound_push);
         solver.set_option("warm_start_bound_frac", config.warm_start_bound_frac);
-        solver.set_option("warm_start_slack_bound_push", config.warm_start_slack_bound_push);
+        solver.set_option(
+            "warm_start_slack_bound_push",
+            config.warm_start_slack_bound_push,
+        );
     }
 
     // Hessian approximation
@@ -710,7 +731,10 @@ pub fn solve_with_socp_warm_start(
         solver.set_option("warm_start_init_point", "yes");
         solver.set_option("warm_start_bound_push", config.warm_start_bound_push);
         solver.set_option("warm_start_bound_frac", config.warm_start_bound_frac);
-        solver.set_option("warm_start_slack_bound_push", config.warm_start_slack_bound_push);
+        solver.set_option(
+            "warm_start_slack_bound_push",
+            config.warm_start_slack_bound_push,
+        );
     }
 
     // Hessian approximation
@@ -775,7 +799,9 @@ fn extract_solution(problem: &AcOpfProblem, x: &[f64]) -> Result<OpfSolution, Op
     // Extract bus voltages
     for (i, bus) in problem.buses.iter().enumerate() {
         solution.bus_voltage_mag.insert(bus.name.clone(), v[i]);
-        solution.bus_voltage_ang.insert(bus.name.clone(), theta[i].to_degrees());
+        solution
+            .bus_voltage_ang
+            .insert(bus.name.clone(), theta[i].to_degrees());
     }
 
     // Estimate LMP

@@ -135,14 +135,11 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
 
                 // Solve using selected solver
                 let solution = match solver.as_str() {
-                    "lbfgs" => {
-                        solve_ac_opf(&problem, *max_iter as usize, *tol).context("solving AC-OPF with L-BFGS")?
-                    }
+                    "lbfgs" => solve_ac_opf(&problem, *max_iter as usize, *tol)
+                        .context("solving AC-OPF with L-BFGS")?,
                     #[cfg(feature = "solver-ipopt")]
-                    "ipopt" => {
-                        solve_with_ipopt(&problem, Some(*max_iter as usize), Some(*tol))
-                            .context("solving AC-OPF with IPOPT")?
-                    }
+                    "ipopt" => solve_with_ipopt(&problem, Some(*max_iter as usize), Some(*tol))
+                        .context("solving AC-OPF with IPOPT")?,
                     #[cfg(not(feature = "solver-ipopt"))]
                     "ipopt" => {
                         bail!("IPOPT solver requested but gat-cli was not compiled with solver-ipopt feature. \

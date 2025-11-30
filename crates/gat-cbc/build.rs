@@ -17,14 +17,19 @@ fn main() {
 
     // Check for pre-built libraries first (from `cargo xtask build-solvers`)
     if let Some(artifacts) = gat_coinor_build::find_prebuilt(&prebuilt_dir) {
-        println!("cargo:warning=Using pre-built CBC from {}", prebuilt_dir.display());
+        println!(
+            "cargo:warning=Using pre-built CBC from {}",
+            prebuilt_dir.display()
+        );
 
         // Check that CBC is actually built
         if artifacts.libraries.iter().any(|l| l == "Cbc") {
             emit_link_flags(&artifacts);
             return;
         }
-        println!("cargo:warning=Pre-built libraries found but missing CBC, building from source...");
+        println!(
+            "cargo:warning=Pre-built libraries found but missing CBC, building from source..."
+        );
     }
 
     // Fallback: build from vendored sources
@@ -44,7 +49,10 @@ fn main() {
 }
 
 fn emit_link_flags(artifacts: &gat_coinor_build::BuildArtifacts) {
-    println!("cargo:rustc-link-search=native={}", artifacts.lib_dir.display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        artifacts.lib_dir.display()
+    );
 
     // Link in reverse dependency order (Cbc depends on Cgl depends on Clp depends on Osi depends on CoinUtils)
     println!("cargo:rustc-link-lib=static=Cbc");

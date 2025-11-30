@@ -611,7 +611,10 @@ fn build_coinor_solvers(clp_only: bool, cbc_only: bool, clean: bool) -> Result<(
     if !clean {
         if let Some(artifacts) = gat_coinor_build::find_prebuilt(&target_coinor) {
             println!();
-            println!("Found pre-built COIN-OR libraries at {}", target_coinor.display());
+            println!(
+                "Found pre-built COIN-OR libraries at {}",
+                target_coinor.display()
+            );
             println!("Libraries: {:?}", artifacts.libraries);
             println!();
             println!("To rebuild, run: cargo xtask build-solvers --clean");
@@ -659,7 +662,10 @@ fn build_coinor_solvers(clp_only: bool, cbc_only: bool, clean: bool) -> Result<(
     }
     println!();
     println!("To use in build.rs, link with:");
-    println!("  cargo:rustc-link-search=native={}", artifacts.lib_dir.display());
+    println!(
+        "  cargo:rustc-link-search=native={}",
+        artifacts.lib_dir.display()
+    );
     for lib in &artifacts.libraries {
         println!("  cargo:rustc-link-lib=static={}", lib);
     }

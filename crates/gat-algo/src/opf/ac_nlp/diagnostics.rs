@@ -27,7 +27,13 @@ pub struct JacobianVerification {
 }
 
 /// Branch flow from "from" bus.
-fn branch_flow_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+fn branch_flow_from(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> (f64, f64) {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -120,7 +126,8 @@ pub fn analyze_thermal_violations(
         let max_flow = s_from.max(s_to);
         let violation = max_flow - branch.rate_mva;
 
-        if violation > 0.01 {  // > 0.01 MVA threshold
+        if violation > 0.01 {
+            // > 0.01 MVA threshold
             violations.push(ThermalViolation {
                 branch_idx: idx,
                 from_bus: problem.buses[i].name.clone(),
@@ -149,7 +156,12 @@ pub fn print_thermal_summary(violations: &[ThermalViolation]) {
         for (i, v) in violations.iter().take(10).enumerate() {
             println!(
                 "  {}. {} -> {}: {:.1}/{:.1} MVA (violation: {:.1} MVA)",
-                i + 1, v.from_bus, v.to_bus, v.s_from_mva.max(v.s_to_mva), v.rate_mva, v.violation_mva
+                i + 1,
+                v.from_bus,
+                v.to_bus,
+                v.s_from_mva.max(v.s_to_mva),
+                v.rate_mva,
+                v.violation_mva
             );
         }
         if violations.len() > 10 {

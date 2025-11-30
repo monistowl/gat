@@ -286,8 +286,8 @@ fn extract_component(config: &CoinorBuildConfig, component: Component) -> Result
 
     println!("cargo:warning=Extracting {}...", component.zip_name());
 
-    let file =
-        fs::File::open(&zip_path).with_context(|| format!("Failed to open {}", zip_path.display()))?;
+    let file = fs::File::open(&zip_path)
+        .with_context(|| format!("Failed to open {}", zip_path.display()))?;
 
     let mut archive = zip::ZipArchive::new(file)
         .with_context(|| format!("Failed to read ZIP: {}", zip_path.display()))?;
@@ -325,8 +325,8 @@ fn build_component(
 
     // Ensure OUT_DIR is set (cc crate requires it)
     // When called from xtask, we set it to our build dir
-    let out_dir = std::env::var("OUT_DIR")
-        .unwrap_or_else(|_| config.build_dir.to_string_lossy().to_string());
+    let out_dir =
+        std::env::var("OUT_DIR").unwrap_or_else(|_| config.build_dir.to_string_lossy().to_string());
     std::env::set_var("OUT_DIR", &out_dir);
 
     // Also set TARGET and HOST for cc crate if not set
@@ -353,7 +353,7 @@ fn build_component(
         .out_dir(lib_dir)
         // Include paths for this component and dependencies
         .include(include_dir)
-        .include(include_dir.join("coin"))  // Standard COIN-OR include path
+        .include(include_dir.join("coin")) // Standard COIN-OR include path
         .include(src_dir.join("src"))
         // Standard COIN-OR defines
         .define("HAVE_CMATH", None)
@@ -503,9 +503,7 @@ fn find_sources(component: Component, src_dir: &Path) -> Result<Vec<PathBuf>> {
 
                     // Skip ABC (Advanced Branch and Cut) files - optional feature
                     // These require special configuration that we don't support
-                    if filename.starts_with("Abc")
-                        || filename.starts_with("CoinAbc")
-                    {
+                    if filename.starts_with("Abc") || filename.starts_with("CoinAbc") {
                         continue;
                     }
 
@@ -525,7 +523,7 @@ fn find_sources(component: Component, src_dir: &Path) -> Result<Vec<PathBuf>> {
                             || filename.starts_with("OsiCbc")
                             || filename.starts_with("unitTest")
                             || filename.starts_with("CbcMip")  // CbcMipStartIO needs config
-                            || filename.contains("Sos");       // Some SOS files have issues
+                            || filename.contains("Sos"); // Some SOS files have issues
                         if skip {
                             continue;
                         }
@@ -548,7 +546,8 @@ fn find_sources(component: Component, src_dir: &Path) -> Result<Vec<PathBuf>> {
                         || filename_lower.contains("ufl")    // University of Florida sparse
                         || filename_lower.contains("taucs")  // TAUCS solver
                         || filename_lower.contains("cholmod")// CHOLMOD from SuiteSparse
-                        || filename_lower.contains("pardiso")// Intel Pardiso solver
+                        || filename_lower.contains("pardiso")
+                    // Intel Pardiso solver
                     {
                         continue;
                     }

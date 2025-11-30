@@ -65,7 +65,10 @@ impl SolverPreference {
             "none" | "" => Ok(SolverPreference::None),
             "prefer" => Ok(SolverPreference::Prefer),
             "require" => Ok(SolverPreference::Require),
-            _ => Err(anyhow::anyhow!("Invalid solver preference '{}': use none, prefer, or require", s)),
+            _ => Err(anyhow::anyhow!(
+                "Invalid solver preference '{}': use none, prefer, or require",
+                s
+            )),
         }
     }
 }
@@ -350,7 +353,9 @@ fn benchmark_opfdata_sample(
         .with_method(method)
         .with_max_iterations(max_iter as usize)
         .with_tolerance(tol)
-        .prefer_native(solver_pref == SolverPreference::Prefer || solver_pref == SolverPreference::Require)
+        .prefer_native(
+            solver_pref == SolverPreference::Prefer || solver_pref == SolverPreference::Require,
+        )
         .require_native(solver_pref == SolverPreference::Require);
 
     let solve_start = Instant::now();

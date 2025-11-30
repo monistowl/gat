@@ -225,7 +225,11 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
                 }
             })
             .ok_or_else(|| {
-                anyhow::anyhow!("Branch {} references unknown to bus {}", i, problem.branch_to[i])
+                anyhow::anyhow!(
+                    "Branch {} references unknown to bus {}",
+                    i,
+                    problem.branch_to[i]
+                )
             })?;
 
         temp_network.graph.add_edge(
@@ -291,7 +295,11 @@ fn solve_with_ipopt(problem: &ProblemBatch) -> Result<SolutionBatch> {
         }
 
         let _bus_idx = *bus_map.get(&problem.gen_bus_id[i]).ok_or_else(|| {
-            anyhow::anyhow!("Generator {} references unknown bus {}", i, problem.gen_bus_id[i])
+            anyhow::anyhow!(
+                "Generator {} references unknown bus {}",
+                i,
+                problem.gen_bus_id[i]
+            )
         })?;
 
         // Build cost model from coefficients

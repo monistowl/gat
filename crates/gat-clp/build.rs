@@ -23,7 +23,10 @@ fn main() {
         if let Some(artifacts) = gat_coinor_build::find_prebuilt(check_dir) {
             // Check that CLP is actually built
             if artifacts.libraries.iter().any(|l| l == "Clp") {
-                println!("cargo:warning=Using pre-built CLP from {}", check_dir.display());
+                println!(
+                    "cargo:warning=Using pre-built CLP from {}",
+                    check_dir.display()
+                );
                 emit_link_flags(&artifacts);
                 return;
             }
@@ -47,7 +50,10 @@ fn main() {
 }
 
 fn emit_link_flags(artifacts: &gat_coinor_build::BuildArtifacts) {
-    println!("cargo:rustc-link-search=native={}", artifacts.lib_dir.display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        artifacts.lib_dir.display()
+    );
 
     // Link in reverse dependency order (Clp depends on Osi depends on CoinUtils)
     println!("cargo:rustc-link-lib=static=Clp");

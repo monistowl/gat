@@ -1689,10 +1689,10 @@ pub struct SocpSolverConfig {
 impl Default for SocpSolverConfig {
     fn default() -> Self {
         Self {
-            max_iter: 100,      // Reduced from 200
-            tol_feas: 1e-6,     // Relaxed from 1e-8
-            tol_gap: 1e-6,      // Relaxed from 1e-8
-            equilibrate: true,  // Helps with ill-conditioned networks
+            max_iter: 100,     // Reduced from 200
+            tol_feas: 1e-6,    // Relaxed from 1e-8
+            tol_gap: 1e-6,     // Relaxed from 1e-8
+            equilibrate: true, // Helps with ill-conditioned networks
             verbose: false,
         }
     }
@@ -1912,31 +1912,91 @@ pub fn solve_with_config(
     // Voltage bounds
     for (i, bus) in buses.iter().enumerate() {
         let v_var = var_v_start + i;
-        push_leq(&[(v_var, -1.0)], -(bus.v_min * bus.v_min), &mut rows, &mut rhs, &mut cones);
-        push_leq(&[(v_var, 1.0)], bus.v_max * bus.v_max, &mut rows, &mut rhs, &mut cones);
+        push_leq(
+            &[(v_var, -1.0)],
+            -(bus.v_min * bus.v_min),
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
+        push_leq(
+            &[(v_var, 1.0)],
+            bus.v_max * bus.v_max,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
     }
 
     // Reference bus
     push_leq(&[(var_v_start, 1.0)], 1.05, &mut rows, &mut rhs, &mut cones);
-    push_leq(&[(var_v_start, -1.0)], -0.95, &mut rows, &mut rhs, &mut cones);
-    push_eq(&[(var_theta_start, 1.0)], 0.0, &mut rows, &mut rhs, &mut cones);
+    push_leq(
+        &[(var_v_start, -1.0)],
+        -0.95,
+        &mut rows,
+        &mut rhs,
+        &mut cones,
+    );
+    push_eq(
+        &[(var_theta_start, 1.0)],
+        0.0,
+        &mut rows,
+        &mut rhs,
+        &mut cones,
+    );
 
     // Angle bounds
     for i in 1..n_bus {
         let theta_var = var_theta_start + i;
-        push_leq(&[(theta_var, 1.0)], std::f64::consts::FRAC_PI_2, &mut rows, &mut rhs, &mut cones);
-        push_leq(&[(theta_var, -1.0)], std::f64::consts::FRAC_PI_2, &mut rows, &mut rhs, &mut cones);
+        push_leq(
+            &[(theta_var, 1.0)],
+            std::f64::consts::FRAC_PI_2,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
+        push_leq(
+            &[(theta_var, -1.0)],
+            std::f64::consts::FRAC_PI_2,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
     }
 
     // Generator limits
     for (i, gen) in generators.iter().enumerate() {
         let p_var = var_pgen_start + i;
-        push_leq(&[(p_var, 1.0)], gen.pmax_mw / BASE_MVA, &mut rows, &mut rhs, &mut cones);
-        push_leq(&[(p_var, -1.0)], -gen.pmin_mw / BASE_MVA, &mut rows, &mut rhs, &mut cones);
+        push_leq(
+            &[(p_var, 1.0)],
+            gen.pmax_mw / BASE_MVA,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
+        push_leq(
+            &[(p_var, -1.0)],
+            -gen.pmin_mw / BASE_MVA,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
 
         let q_var = var_qgen_start + i;
-        push_leq(&[(q_var, 1.0)], gen.qmax_mvar / BASE_MVA, &mut rows, &mut rhs, &mut cones);
-        push_leq(&[(q_var, -1.0)], -gen.qmin_mvar / BASE_MVA, &mut rows, &mut rhs, &mut cones);
+        push_leq(
+            &[(q_var, 1.0)],
+            gen.qmax_mvar / BASE_MVA,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
+        push_leq(
+            &[(q_var, -1.0)],
+            -gen.qmin_mvar / BASE_MVA,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
     }
 
     // Branch thermal limits
@@ -1944,7 +2004,13 @@ pub fn solve_with_config(
         let l_var = var_l_start + i;
         if let Some(smax) = br.s_max_mva {
             let smax_pu = smax / BASE_MVA;
-            push_leq(&[(l_var, 1.0)], smax_pu * smax_pu, &mut rows, &mut rhs, &mut cones);
+            push_leq(
+                &[(l_var, 1.0)],
+                smax_pu * smax_pu,
+                &mut rows,
+                &mut rhs,
+                &mut cones,
+            );
         }
         push_leq(&[(l_var, -1.0)], 0.0, &mut rows, &mut rhs, &mut cones);
     }
@@ -1994,8 +2060,20 @@ pub fn solve_with_config(
             }
         }
 
-        push_eq(&coeffs_p, p_load / BASE_MVA, &mut rows, &mut rhs, &mut cones);
-        push_eq(&coeffs_q, q_load / BASE_MVA, &mut rows, &mut rhs, &mut cones);
+        push_eq(
+            &coeffs_p,
+            p_load / BASE_MVA,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
+        push_eq(
+            &coeffs_q,
+            q_load / BASE_MVA,
+            &mut rows,
+            &mut rhs,
+            &mut cones,
+        );
     }
 
     // Voltage drop equations
@@ -2019,7 +2097,13 @@ pub fn solve_with_config(
             theta_coeffs.push((var_theta_start + from, -1.0));
             theta_coeffs.push((var_pflow_start + i, br.x / br.tap_ratio));
             theta_coeffs.push((var_qflow_start + i, -br.r / br.tap_ratio));
-            push_eq(&theta_coeffs, -br.phase_shift_rad, &mut rows, &mut rhs, &mut cones);
+            push_eq(
+                &theta_coeffs,
+                -br.phase_shift_rad,
+                &mut rows,
+                &mut rhs,
+                &mut cones,
+            );
         }
     }
 
@@ -2077,16 +2161,18 @@ pub fn solve_with_config(
         .build()
         .map_err(|e| OpfError::NumericalIssue(format!("Clarabel settings error: {:?}", e)))?;
 
-    let mut solver = clarabel::solver::DefaultSolver::new(&p_mat, &obj, &a_mat, &rhs, &cones, settings)
-        .map_err(|e| OpfError::NumericalIssue(format!("Clarabel initialization failed: {:?}", e)))?;
+    let mut solver =
+        clarabel::solver::DefaultSolver::new(&p_mat, &obj, &a_mat, &rhs, &cones, settings)
+            .map_err(|e| {
+                OpfError::NumericalIssue(format!("Clarabel initialization failed: {:?}", e))
+            })?;
 
     solver.solve();
 
     let sol = solver.solution;
     if !matches!(
         sol.status,
-        clarabel::solver::SolverStatus::Solved
-            | clarabel::solver::SolverStatus::AlmostSolved
+        clarabel::solver::SolverStatus::Solved | clarabel::solver::SolverStatus::AlmostSolved
     ) {
         return Err(OpfError::NumericalIssue(format!(
             "Clarabel returned status {:?}",
@@ -2126,7 +2212,9 @@ pub fn solve_with_config(
         let v_mag = v_sq.max(0.0).sqrt();
         let theta_rad = x[var_theta_start + idx];
         result.bus_voltage_mag.insert(bus.name.clone(), v_mag);
-        result.bus_voltage_ang.insert(bus.name.clone(), theta_rad.to_degrees());
+        result
+            .bus_voltage_ang
+            .insert(bus.name.clone(), theta_rad.to_degrees());
     }
 
     // Branch flows and losses
@@ -2193,9 +2281,9 @@ impl VariableBounds {
         n_bus: usize,
         n_gen: usize,
         n_branch: usize,
-        v_limits: &[(f64, f64)],      // (v_min, v_max) per bus
-        pg_limits: &[(f64, f64)],     // (pmin, pmax) per gen in p.u.
-        qg_limits: &[(f64, f64)],     // (qmin, qmax) per gen in p.u.
+        v_limits: &[(f64, f64)],        // (v_min, v_max) per bus
+        pg_limits: &[(f64, f64)],       // (pmin, pmax) per gen in p.u.
+        qg_limits: &[(f64, f64)],       // (qmin, qmax) per gen in p.u.
         thermal_limits: &[Option<f64>], // S_max per branch in p.u.
     ) -> Self {
         // Voltage bounds (squared)
@@ -2254,8 +2342,10 @@ impl VariableBounds {
     pub fn angle_diff_bounds(&self, from_idx: usize, to_idx: usize) -> (f64, f64) {
         let theta_diff_min = self.theta_lower[from_idx] - self.theta_upper[to_idx];
         let theta_diff_max = self.theta_upper[from_idx] - self.theta_lower[to_idx];
-        (theta_diff_min.max(-std::f64::consts::FRAC_PI_2),
-         theta_diff_max.min(std::f64::consts::FRAC_PI_2))
+        (
+            theta_diff_min.max(-std::f64::consts::FRAC_PI_2),
+            theta_diff_max.min(std::f64::consts::FRAC_PI_2),
+        )
     }
 }
 

@@ -372,8 +372,16 @@ pub fn compute_opf_violations_from_solution(
         // Only branches (not transformers) have thermal limits in our model
         if let Edge::Branch(branch) = edge {
             let branch_name = branch.name.clone();
-            let p_flow = solution.branch_p_flow.get(&branch_name).copied().unwrap_or(0.0);
-            let q_flow = solution.branch_q_flow.get(&branch_name).copied().unwrap_or(0.0);
+            let p_flow = solution
+                .branch_p_flow
+                .get(&branch_name)
+                .copied()
+                .unwrap_or(0.0);
+            let q_flow = solution
+                .branch_q_flow
+                .get(&branch_name)
+                .copied()
+                .unwrap_or(0.0);
             let s_flow = (p_flow.powi(2) + q_flow.powi(2)).sqrt();
 
             // Get thermal limit (prefer s_max_mva, fall back to rating_a_mva)

@@ -56,14 +56,14 @@ mod clp_ffi {
             model: *mut Clp_Simplex,
             num_cols: c_int,
             num_rows: c_int,
-            start: *const c_int,      // Column starts (CCS format)
-            index: *const c_int,      // Row indices
-            value: *const c_double,   // Non-zero values
-            col_lb: *const c_double,  // Column lower bounds
-            col_ub: *const c_double,  // Column upper bounds
-            obj: *const c_double,     // Objective coefficients
-            row_lb: *const c_double,  // Row lower bounds
-            row_ub: *const c_double,  // Row upper bounds
+            start: *const c_int,     // Column starts (CCS format)
+            index: *const c_int,     // Row indices
+            value: *const c_double,  // Non-zero values
+            col_lb: *const c_double, // Column lower bounds
+            col_ub: *const c_double, // Column upper bounds
+            obj: *const c_double,    // Objective coefficients
+            row_lb: *const c_double, // Row lower bounds
+            row_ub: *const c_double, // Row upper bounds
         );
 
         // Solving
@@ -239,7 +239,10 @@ fn solve_with_clp(problem: &ProblemBatch) -> Result<SolutionBatch> {
 
         let x = problem.branch_x[k];
         if x.abs() < 1e-12 {
-            warn!("Branch {} has near-zero reactance, skipping", problem.branch_id[k]);
+            warn!(
+                "Branch {} has near-zero reactance, skipping",
+                problem.branch_id[k]
+            );
             continue;
         }
         let b = 1.0 / x; // susceptance
@@ -409,7 +412,11 @@ fn solve_with_clp(problem: &ProblemBatch) -> Result<SolutionBatch> {
         };
         let pmax = if g < problem.gen_p_max.len() {
             let p = problem.gen_p_max[g];
-            if p.is_finite() { p } else { 1e6 }
+            if p.is_finite() {
+                p
+            } else {
+                1e6
+            }
         } else {
             1e6
         };
@@ -491,7 +498,10 @@ fn solve_with_clp(problem: &ProblemBatch) -> Result<SolutionBatch> {
 
     debug!("Variable bounds: col_lb={:?}, col_ub={:?}", col_lb, col_ub);
     debug!("Objective coeffs: {:?}", obj);
-    debug!("Constraint bounds: row_lb={:?}, row_ub={:?}", row_lb, row_ub);
+    debug!(
+        "Constraint bounds: row_lb={:?}, row_ub={:?}",
+        row_lb, row_ub
+    );
 
     // === Solve with CLP ===
     unsafe {

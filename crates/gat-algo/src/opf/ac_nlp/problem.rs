@@ -909,7 +909,14 @@ impl AcOpfProblem {
     /// # Returns
     ///
     /// Tuple `(P_ij, Q_ij)` - real and reactive power flow in per-unit
-    pub fn branch_flow_from(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+    pub fn branch_flow_from(
+        &self,
+        branch: &BranchData,
+        vi: f64,
+        vj: f64,
+        theta_i: f64,
+        theta_j: f64,
+    ) -> (f64, f64) {
         // Compute series admittance g + jb = 1/(r + jx)
         let z_sq = branch.r * branch.r + branch.x * branch.x;
         let g = branch.r / z_sq;
@@ -950,7 +957,14 @@ impl AcOpfProblem {
     /// # Returns
     ///
     /// Tuple `(P_ji, Q_ji)` - real and reactive power flow in per-unit
-    pub fn branch_flow_to(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+    pub fn branch_flow_to(
+        &self,
+        branch: &BranchData,
+        vi: f64,
+        vj: f64,
+        theta_i: f64,
+        theta_j: f64,
+    ) -> (f64, f64) {
         // Compute series admittance
         let z_sq = branch.r * branch.r + branch.x * branch.x;
         let g = branch.r / z_sq;
@@ -983,13 +997,27 @@ impl AcOpfProblem {
     /// S²_ij = P²_ij + Q²_ij
     ///
     /// Used for thermal limit constraints: S²_ij ≤ S²_max
-    pub fn branch_flow_sq_from(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> f64 {
+    pub fn branch_flow_sq_from(
+        &self,
+        branch: &BranchData,
+        vi: f64,
+        vj: f64,
+        theta_i: f64,
+        theta_j: f64,
+    ) -> f64 {
         let (p, q) = self.branch_flow_from(branch, vi, vj, theta_i, theta_j);
         p * p + q * q
     }
 
     /// Compute squared apparent power flow on branch (to side) in per-unit².
-    pub fn branch_flow_sq_to(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> f64 {
+    pub fn branch_flow_sq_to(
+        &self,
+        branch: &BranchData,
+        vi: f64,
+        vj: f64,
+        theta_i: f64,
+        theta_j: f64,
+    ) -> f64 {
         let (p, q) = self.branch_flow_to(branch, vi, vj, theta_i, theta_j);
         p * p + q * q
     }

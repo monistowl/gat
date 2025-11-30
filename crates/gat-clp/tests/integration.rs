@@ -6,8 +6,8 @@
 use gat_solver_common::ipc::{read_solution_v2, write_problem_v2};
 use gat_solver_common::problem::{ProblemBatch, ProblemType};
 use gat_solver_common::solution::SolutionStatus;
-use std::process::{Command, Stdio};
 use std::io::Write;
+use std::process::{Command, Stdio};
 
 /// Find the gat-clp binary in the target directory.
 fn find_binary() -> std::path::PathBuf {
@@ -68,22 +68,37 @@ fn test_clp_empty_problem() {
     // Write problem to stdin
     {
         let stdin = child.stdin.as_mut().expect("Failed to get stdin");
-        stdin.write_all(&problem_bytes).expect("Failed to write problem");
+        stdin
+            .write_all(&problem_bytes)
+            .expect("Failed to write problem");
     }
 
     // Wait for completion
-    let output = child.wait_with_output().expect("Failed to wait for gat-clp");
+    let output = child
+        .wait_with_output()
+        .expect("Failed to wait for gat-clp");
 
     // Check exit code
-    assert!(output.status.success(), "gat-clp failed with status {:?}\nstderr: {}",
-            output.status, String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "gat-clp failed with status {:?}\nstderr: {}",
+        output.status,
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     // Read solution
     let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse solution");
 
     // Verify solution
-    assert_eq!(solution.status, SolutionStatus::Optimal, "Expected optimal solution");
-    assert!((solution.objective - 0.0).abs() < 1e-6, "Expected zero objective for empty problem");
+    assert_eq!(
+        solution.status,
+        SolutionStatus::Optimal,
+        "Expected optimal solution"
+    );
+    assert!(
+        (solution.objective - 0.0).abs() < 1e-6,
+        "Expected zero objective for empty problem"
+    );
 }
 
 #[test]
@@ -111,7 +126,7 @@ fn test_clp_simple_dispatch() {
     problem.gen_q_min = vec![-100.0];
     problem.gen_q_max = vec![100.0];
     problem.gen_cost_c0 = vec![0.0];
-    problem.gen_cost_c1 = vec![10.0];  // $10/MWh
+    problem.gen_cost_c1 = vec![10.0]; // $10/MWh
     problem.gen_cost_c2 = vec![0.0];
 
     // Serialize
@@ -135,8 +150,11 @@ fn test_clp_simple_dispatch() {
 
     eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
-    assert!(output.status.success(), "gat-clp failed: {}",
-            String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "gat-clp failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse solution");
 
@@ -147,12 +165,18 @@ fn test_clp_simple_dispatch() {
 
     // Generator must produce 100 MW to meet load (power balance constraint)
     let gen_p = solution.gen_p[0];
-    assert!((gen_p - 100.0).abs() < 1e-4,
-            "Expected gen_p = 100.0 (to meet load), got {}", gen_p);
+    assert!(
+        (gen_p - 100.0).abs() < 1e-4,
+        "Expected gen_p = 100.0 (to meet load), got {}",
+        gen_p
+    );
 
     // Objective should be 100 * 10 = 1000
-    assert!((solution.objective - 1000.0).abs() < 1e-4,
-            "Expected objective = 1000.0, got {}", solution.objective);
+    assert!(
+        (solution.objective - 1000.0).abs() < 1e-4,
+        "Expected objective = 1000.0, got {}",
+        solution.objective
+    );
 }
 
 #[test]
@@ -182,7 +206,7 @@ fn test_clp_multiple_generators() {
     problem.gen_q_min = vec![-50.0, -50.0];
     problem.gen_q_max = vec![50.0, 50.0];
     problem.gen_cost_c0 = vec![0.0, 0.0];
-    problem.gen_cost_c1 = vec![20.0, 10.0];  // Gen 2 is cheaper
+    problem.gen_cost_c1 = vec![20.0, 10.0]; // Gen 2 is cheaper
     problem.gen_cost_c2 = vec![0.0, 0.0];
 
     // Serialize
@@ -212,14 +236,23 @@ fn test_clp_multiple_generators() {
     assert_eq!(solution.gen_p.len(), 2);
 
     // Both generators should be at 0 MW (minimum)
-    assert!((solution.gen_p[0] - 0.0).abs() < 1e-4,
-            "Gen 1 should be at min, got {}", solution.gen_p[0]);
-    assert!((solution.gen_p[1] - 0.0).abs() < 1e-4,
-            "Gen 2 should be at min, got {}", solution.gen_p[1]);
+    assert!(
+        (solution.gen_p[0] - 0.0).abs() < 1e-4,
+        "Gen 1 should be at min, got {}",
+        solution.gen_p[0]
+    );
+    assert!(
+        (solution.gen_p[1] - 0.0).abs() < 1e-4,
+        "Gen 2 should be at min, got {}",
+        solution.gen_p[1]
+    );
 
     // Objective should be 0
-    assert!((solution.objective - 0.0).abs() < 1e-4,
-            "Expected objective = 0, got {}", solution.objective);
+    assert!(
+        (solution.objective - 0.0).abs() < 1e-4,
+        "Expected objective = 0, got {}",
+        solution.objective
+    );
 }
 
 #[test]
@@ -245,9 +278,9 @@ fn test_clp_infeasible_problem() {
     problem.bus_id = vec![1, 2];
     problem.bus_v_min = vec![0.95, 0.95];
     problem.bus_v_max = vec![1.05, 1.05];
-    problem.bus_p_load = vec![0.0, 150.0];  // 150 MW load at bus 2
+    problem.bus_p_load = vec![0.0, 150.0]; // 150 MW load at bus 2
     problem.bus_q_load = vec![0.0, 0.0];
-    problem.bus_type = vec![3, 1];  // Bus 1 is slack
+    problem.bus_type = vec![3, 1]; // Bus 1 is slack
     problem.bus_v_mag = vec![1.0, 1.0];
     problem.bus_v_ang = vec![0.0, 0.0];
 
@@ -285,18 +318,26 @@ fn test_clp_infeasible_problem() {
     let output = child.wait_with_output().expect("Failed to wait");
 
     // The current implementation will succeed because it doesn't check power balance
-    assert!(output.status.success(),
-            "Solver should complete (status={:?})", output.status);
+    assert!(
+        output.status.success(),
+        "Solver should complete (status={:?})",
+        output.status
+    );
 
     let solution = read_solution_v2(&output.stdout[..]).expect("Failed to parse");
 
     // Current behavior: returns Optimal with generators at minimum
     // Future behavior: should return Infeasible
-    eprintln!("Infeasible test: status={:?}, objective={}",
-              solution.status, solution.objective);
+    eprintln!(
+        "Infeasible test: status={:?}, objective={}",
+        solution.status, solution.objective
+    );
 
     // For now, just verify it completes and returns a valid solution structure
-    assert!(solution.gen_p.len() == 2, "Should have 2 generators in solution");
+    assert!(
+        solution.gen_p.len() == 2,
+        "Should have 2 generators in solution"
+    );
 }
 
 #[test]
@@ -319,9 +360,9 @@ fn test_clp_multi_gen_economic_dispatch() {
     problem.bus_id = vec![1];
     problem.bus_v_min = vec![0.95];
     problem.bus_v_max = vec![1.05];
-    problem.bus_p_load = vec![100.0];  // 100 MW load requires power balance
+    problem.bus_p_load = vec![100.0]; // 100 MW load requires power balance
     problem.bus_q_load = vec![0.0];
-    problem.bus_type = vec![3];  // Slack bus
+    problem.bus_type = vec![3]; // Slack bus
     problem.bus_v_mag = vec![1.0];
     problem.bus_v_ang = vec![0.0];
 
@@ -330,12 +371,12 @@ fn test_clp_multi_gen_economic_dispatch() {
     // Gen 2: 0-80 MW, $15/MWh (cheaper but limited capacity)
     problem.gen_id = vec![1, 2];
     problem.gen_bus_id = vec![1, 1];
-    problem.gen_p_min = vec![20.0, 0.0];  // Gen 1 must-run, Gen 2 flexible
+    problem.gen_p_min = vec![20.0, 0.0]; // Gen 1 must-run, Gen 2 flexible
     problem.gen_p_max = vec![100.0, 80.0];
     problem.gen_q_min = vec![-50.0, -40.0];
     problem.gen_q_max = vec![50.0, 40.0];
     problem.gen_cost_c0 = vec![0.0, 0.0];
-    problem.gen_cost_c1 = vec![25.0, 15.0];  // Gen 2 is cheaper
+    problem.gen_cost_c1 = vec![25.0, 15.0]; // Gen 2 is cheaper
     problem.gen_cost_c2 = vec![0.0, 0.0];
 
     // Serialize
@@ -365,17 +406,27 @@ fn test_clp_multi_gen_economic_dispatch() {
 
     // Economic dispatch: use cheap gen2 first (80 MW max), then expensive gen1 (20 MW)
     // Gen 1 should be at 20 MW (its minimum, expensive)
-    assert!((solution.gen_p[0] - 20.0).abs() < 1e-4,
-            "Gen 1 should be at minimum (20 MW), got {}", solution.gen_p[0]);
+    assert!(
+        (solution.gen_p[0] - 20.0).abs() < 1e-4,
+        "Gen 1 should be at minimum (20 MW), got {}",
+        solution.gen_p[0]
+    );
 
     // Gen 2 should be at 80 MW (maxed out, cheaper)
-    assert!((solution.gen_p[1] - 80.0).abs() < 1e-4,
-            "Gen 2 should be at max (80 MW), got {}", solution.gen_p[1]);
+    assert!(
+        (solution.gen_p[1] - 80.0).abs() < 1e-4,
+        "Gen 2 should be at max (80 MW), got {}",
+        solution.gen_p[1]
+    );
 
     // Objective = 25*20 + 15*80 = 500 + 1200 = 1700
     let expected_objective = 25.0 * 20.0 + 15.0 * 80.0;
-    assert!((solution.objective - expected_objective).abs() < 1e-3,
-            "Expected objective = {}, got {}", expected_objective, solution.objective);
+    assert!(
+        (solution.objective - expected_objective).abs() < 1e-3,
+        "Expected objective = {}, got {}",
+        expected_objective,
+        solution.objective
+    );
 }
 
 #[test]
@@ -394,7 +445,7 @@ fn test_clp_all_generators_at_max() {
     problem.bus_id = vec![1];
     problem.bus_v_min = vec![0.95];
     problem.bus_v_max = vec![1.05];
-    problem.bus_p_load = vec![100.0];  // Load forces gen to max
+    problem.bus_p_load = vec![100.0]; // Load forces gen to max
     problem.bus_q_load = vec![0.0];
     problem.bus_type = vec![3];
     problem.bus_v_mag = vec![1.0];
@@ -437,16 +488,22 @@ fn test_clp_all_generators_at_max() {
     assert_eq!(solution.gen_p.len(), 1);
 
     // Generator must produce 100 MW to meet load (at upper bound)
-    assert!((solution.gen_p[0] - 100.0).abs() < 1e-4,
-            "Gen should be at max (100 MW) to meet load, got {}", solution.gen_p[0]);
+    assert!(
+        (solution.gen_p[0] - 100.0).abs() < 1e-4,
+        "Gen should be at max (100 MW) to meet load, got {}",
+        solution.gen_p[0]
+    );
 
     // Verify solution respects bounds
     assert!(solution.gen_p[0] >= 10.0 - 1e-6, "Gen below lower bound");
     assert!(solution.gen_p[0] <= 100.0 + 1e-6, "Gen above upper bound");
 
     // Objective should be: 10 * 100 = 1000
-    assert!((solution.objective - 1000.0).abs() < 1e-3,
-            "Expected objective = 1000, got {}", solution.objective);
+    assert!(
+        (solution.objective - 1000.0).abs() < 1e-3,
+        "Expected objective = 1000, got {}",
+        solution.objective
+    );
 }
 
 #[test]
@@ -464,7 +521,7 @@ fn test_clp_zero_capacity_generator() {
     problem.bus_id = vec![1];
     problem.bus_v_min = vec![0.95];
     problem.bus_v_max = vec![1.05];
-    problem.bus_p_load = vec![50.0];  // Must match fixed gen output
+    problem.bus_p_load = vec![50.0]; // Must match fixed gen output
     problem.bus_q_load = vec![0.0];
     problem.bus_type = vec![3];
     problem.bus_v_mag = vec![1.0];
@@ -474,10 +531,10 @@ fn test_clp_zero_capacity_generator() {
     problem.gen_id = vec![1];
     problem.gen_bus_id = vec![1];
     problem.gen_p_min = vec![50.0];
-    problem.gen_p_max = vec![50.0];  // Same as min: fixed output
+    problem.gen_p_max = vec![50.0]; // Same as min: fixed output
     problem.gen_q_min = vec![-25.0];
     problem.gen_q_max = vec![25.0];
-    problem.gen_cost_c0 = vec![100.0];  // Not used by current implementation
+    problem.gen_cost_c0 = vec![100.0]; // Not used by current implementation
     problem.gen_cost_c1 = vec![20.0];
     problem.gen_cost_c2 = vec![0.0];
 
@@ -507,11 +564,18 @@ fn test_clp_zero_capacity_generator() {
     assert_eq!(solution.gen_p.len(), 1);
 
     // Generator should be exactly at 50 MW (the only feasible point)
-    assert!((solution.gen_p[0] - 50.0).abs() < 1e-6,
-            "Fixed gen should be at 50 MW, got {}", solution.gen_p[0]);
+    assert!(
+        (solution.gen_p[0] - 50.0).abs() < 1e-6,
+        "Fixed gen should be at 50 MW, got {}",
+        solution.gen_p[0]
+    );
 
     // Objective = 20*50 = 1000 (c0 not used by current implementation)
     let expected_objective = 20.0 * 50.0;
-    assert!((solution.objective - expected_objective).abs() < 1e-3,
-            "Expected objective = {}, got {}", expected_objective, solution.objective);
+    assert!(
+        (solution.objective - expected_objective).abs() < 1e-3,
+        "Expected objective = {}, got {}",
+        expected_objective,
+        solution.objective
+    );
 }

@@ -380,8 +380,10 @@ pub fn jacobian_values(problem: &AcOpfProblem, x: &[f64]) -> Vec<f64> {
         // From side: h = P²_ij + Q²_ij - S²_max
         {
             let (p, q) = branch_flow_from(branch, vi, vj, theta_i, theta_j);
-            let (dp_dvi, dp_dvj, dp_dti, dp_dtj) = branch_flow_from_grad_p(branch, vi, vj, theta_i, theta_j);
-            let (dq_dvi, dq_dvj, dq_dti, dq_dtj) = branch_flow_from_grad_q(branch, vi, vj, theta_i, theta_j);
+            let (dp_dvi, dp_dvj, dp_dti, dp_dtj) =
+                branch_flow_from_grad_p(branch, vi, vj, theta_i, theta_j);
+            let (dq_dvi, dq_dvj, dq_dti, dq_dtj) =
+                branch_flow_from_grad_q(branch, vi, vj, theta_i, theta_j);
 
             // ∂h/∂Vi = 2P·∂P/∂Vi + 2Q·∂Q/∂Vi
             vals.push(2.0 * p * dp_dvi + 2.0 * q * dq_dvi);
@@ -396,8 +398,10 @@ pub fn jacobian_values(problem: &AcOpfProblem, x: &[f64]) -> Vec<f64> {
         // To side: h = P²_ji + Q²_ji - S²_max
         {
             let (p, q) = branch_flow_to(branch, vi, vj, theta_i, theta_j);
-            let (dp_dvi, dp_dvj, dp_dti, dp_dtj) = branch_flow_to_grad_p(branch, vi, vj, theta_i, theta_j);
-            let (dq_dvi, dq_dvj, dq_dti, dq_dtj) = branch_flow_to_grad_q(branch, vi, vj, theta_i, theta_j);
+            let (dp_dvi, dp_dvj, dp_dti, dp_dtj) =
+                branch_flow_to_grad_p(branch, vi, vj, theta_i, theta_j);
+            let (dq_dvi, dq_dvj, dq_dti, dq_dtj) =
+                branch_flow_to_grad_q(branch, vi, vj, theta_i, theta_j);
 
             // ∂h/∂Vi = 2P·∂P/∂Vi + 2Q·∂Q/∂Vi
             vals.push(2.0 * p * dp_dvi + 2.0 * q * dq_dvi);
@@ -418,7 +422,13 @@ pub fn jacobian_values(problem: &AcOpfProblem, x: &[f64]) -> Vec<f64> {
 // ============================================================================
 
 /// Compute branch power flow (from side).
-fn branch_flow_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+fn branch_flow_from(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> (f64, f64) {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -465,7 +475,13 @@ fn branch_flow_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: 
 }
 
 /// Gradient of P_ij (from side) w.r.t. (Vi, Vj, θi, θj).
-fn branch_flow_from_grad_p(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64, f64, f64) {
+fn branch_flow_from_grad_p(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> (f64, f64, f64, f64) {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -495,7 +511,13 @@ fn branch_flow_from_grad_p(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, 
 }
 
 /// Gradient of Q_ij (from side) w.r.t. (Vi, Vj, θi, θj).
-fn branch_flow_from_grad_q(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64, f64, f64) {
+fn branch_flow_from_grad_q(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> (f64, f64, f64, f64) {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -527,7 +549,13 @@ fn branch_flow_from_grad_q(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, 
 }
 
 /// Gradient of P_ji (to side) w.r.t. (Vi, Vj, θi, θj).
-fn branch_flow_to_grad_p(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64, f64, f64) {
+fn branch_flow_to_grad_p(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> (f64, f64, f64, f64) {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -557,7 +585,13 @@ fn branch_flow_to_grad_p(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, th
 }
 
 /// Gradient of Q_ji (to side) w.r.t. (Vi, Vj, θi, θj).
-fn branch_flow_to_grad_q(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64, f64, f64) {
+fn branch_flow_to_grad_q(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> (f64, f64, f64, f64) {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;

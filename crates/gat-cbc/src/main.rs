@@ -55,14 +55,14 @@ mod cbc_ffi {
             model: *mut Cbc_Model,
             num_cols: c_int,
             num_rows: c_int,
-            start: *const c_int,      // Column starts (CCS format)
-            index: *const c_int,      // Row indices
-            value: *const c_double,   // Non-zero values
-            col_lb: *const c_double,  // Column lower bounds
-            col_ub: *const c_double,  // Column upper bounds
-            obj: *const c_double,     // Objective coefficients
-            row_lb: *const c_double,  // Row lower bounds
-            row_ub: *const c_double,  // Row upper bounds
+            start: *const c_int,     // Column starts (CCS format)
+            index: *const c_int,     // Row indices
+            value: *const c_double,  // Non-zero values
+            col_lb: *const c_double, // Column lower bounds
+            col_ub: *const c_double, // Column upper bounds
+            obj: *const c_double,    // Objective coefficients
+            row_lb: *const c_double, // Row lower bounds
+            row_ub: *const c_double, // Row upper bounds
         );
 
         // Integer variables
@@ -228,17 +228,26 @@ fn solve_with_cbc(problem: &ProblemBatch) -> Result<SolutionBatch> {
         let num_rows = 0i32; // No constraints for this simple formulation
 
         // Column bounds (generator limits)
-        let col_lb: Vec<f64> = problem.gen_p_min.iter().copied()
+        let col_lb: Vec<f64> = problem
+            .gen_p_min
+            .iter()
+            .copied()
             .chain(std::iter::repeat(0.0))
             .take(n_gens)
             .collect();
-        let col_ub: Vec<f64> = problem.gen_p_max.iter().copied()
+        let col_ub: Vec<f64> = problem
+            .gen_p_max
+            .iter()
+            .copied()
             .chain(std::iter::repeat(f64::INFINITY))
             .take(n_gens)
             .collect();
 
         // Objective: linear cost c1 * P_g
-        let obj: Vec<f64> = problem.gen_cost_c1.iter().copied()
+        let obj: Vec<f64> = problem
+            .gen_cost_c1
+            .iter()
+            .copied()
             .chain(std::iter::repeat(1.0))
             .take(n_gens)
             .collect();

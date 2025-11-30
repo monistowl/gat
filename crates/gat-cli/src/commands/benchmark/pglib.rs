@@ -54,7 +54,10 @@ impl SolverPreference {
             "none" | "" => Ok(SolverPreference::None),
             "prefer" => Ok(SolverPreference::Prefer),
             "require" => Ok(SolverPreference::Require),
-            _ => Err(anyhow!("Invalid solver preference '{}': use none, prefer, or require", s)),
+            _ => Err(anyhow!(
+                "Invalid solver preference '{}': use none, prefer, or require",
+                s
+            )),
         }
     }
 }
@@ -117,7 +120,12 @@ pub fn handle(
         SolverPreference::Prefer => " (prefer IPOPT)",
         SolverPreference::Require => " (require IPOPT)",
     };
-    eprintln!("Using OPF method: {}{}{}", config.method, if enhanced { " (enhanced)" } else { "" }, solver_info);
+    eprintln!(
+        "Using OPF method: {}{}{}",
+        config.method,
+        if enhanced { " (enhanced)" } else { "" },
+        solver_info
+    );
     run_benchmark(&config)
 }
 
@@ -177,7 +185,16 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     let results: Vec<PglibBenchmarkResult> = matpower_files
         .par_iter()
         .filter_map(|(case_name, path)| {
-            match benchmark_pglib_case(case_name, path, &baseline_map, method, tol, max_iter, enhanced, solver_pref) {
+            match benchmark_pglib_case(
+                case_name,
+                path,
+                &baseline_map,
+                method,
+                tol,
+                max_iter,
+                enhanced,
+                solver_pref,
+            ) {
                 Ok(result) => Some(result),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", case_name, e);
@@ -316,7 +333,9 @@ fn benchmark_pglib_case(
         .with_max_iterations(max_iter as usize)
         .with_tolerance(tol)
         .enhanced_socp(enhanced)
-        .prefer_native(solver_pref == SolverPreference::Prefer || solver_pref == SolverPreference::Require)
+        .prefer_native(
+            solver_pref == SolverPreference::Prefer || solver_pref == SolverPreference::Require,
+        )
         .require_native(solver_pref == SolverPreference::Require);
 
     let solve_start = Instant::now();

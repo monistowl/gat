@@ -85,19 +85,19 @@ pub fn compute_stats(rows: &[BenchmarkRow]) -> BenchmarkStats {
         .iter()
         .filter(|r| r.baseline_objective > 0.0)
         .collect();
-    let (avg_objective_gap_rel, max_objective_gap_rel, worst_gap_case) = if !with_baseline.is_empty()
-    {
-        let sum: f64 = with_baseline.iter().map(|r| r.objective_gap_rel).sum();
-        let avg = sum / with_baseline.len() as f64;
-        let (max, worst) = with_baseline
-            .iter()
-            .map(|r| (r.objective_gap_rel, r.case_name.clone()))
-            .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
-            .unwrap_or((0.0, String::new()));
-        (avg, max, worst)
-    } else {
-        (0.0, 0.0, String::new())
-    };
+    let (avg_objective_gap_rel, max_objective_gap_rel, worst_gap_case) =
+        if !with_baseline.is_empty() {
+            let sum: f64 = with_baseline.iter().map(|r| r.objective_gap_rel).sum();
+            let avg = sum / with_baseline.len() as f64;
+            let (max, worst) = with_baseline
+                .iter()
+                .map(|r| (r.objective_gap_rel, r.case_name.clone()))
+                .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap())
+                .unwrap_or((0.0, String::new()));
+            (avg, max, worst)
+        } else {
+            (0.0, 0.0, String::new())
+        };
 
     BenchmarkStats {
         total_cases,
@@ -117,9 +117,15 @@ pub fn format_summary_table(rows: &[BenchmarkRow], stats: &BenchmarkStats) -> St
     let mut output = String::new();
 
     // Header
-    output.push_str("╭──────────────────────────────────────────────────────────────────────────────╮\n");
-    output.push_str("│ Benchmark Summary                                                            │\n");
-    output.push_str("├──────────────────────────────────────────────────────────────────────────────┤\n");
+    output.push_str(
+        "╭──────────────────────────────────────────────────────────────────────────────╮\n",
+    );
+    output.push_str(
+        "│ Benchmark Summary                                                            │\n",
+    );
+    output.push_str(
+        "├──────────────────────────────────────────────────────────────────────────────┤\n",
+    );
     output.push_str(&format!(
         "│ Pass Rate: {}/{} ({:.1}%)                                                      │\n",
         stats.converged_cases,
@@ -138,15 +144,25 @@ pub fn format_summary_table(rows: &[BenchmarkRow], stats: &BenchmarkStats) -> St
             stats.worst_gap_case
         ));
     }
-    output.push_str("├──────────────────────────────────────────────────────────────────────────────┤\n");
+    output.push_str(
+        "├──────────────────────────────────────────────────────────────────────────────┤\n",
+    );
 
     // Table header
-    output.push_str("│ Case                  │ Status │ Time(ms) │ Gap(%) │ Vm Viol │ Branch Viol  │\n");
-    output.push_str("├───────────────────────┼────────┼──────────┼────────┼─────────┼──────────────┤\n");
+    output.push_str(
+        "│ Case                  │ Status │ Time(ms) │ Gap(%) │ Vm Viol │ Branch Viol  │\n",
+    );
+    output.push_str(
+        "├───────────────────────┼────────┼──────────┼────────┼─────────┼──────────────┤\n",
+    );
 
     // Rows
     for row in rows {
-        let status = if row.converged { "  ✓   " } else { "  ✗   " };
+        let status = if row.converged {
+            "  ✓   "
+        } else {
+            "  ✗   "
+        };
         let time_str = if row.converged {
             format!("{:8.1}", row.solve_time_ms)
         } else {
@@ -181,7 +197,9 @@ pub fn format_summary_table(rows: &[BenchmarkRow], stats: &BenchmarkStats) -> St
         ));
     }
 
-    output.push_str("╰──────────────────────────────────────────────────────────────────────────────╯\n");
+    output.push_str(
+        "╰──────────────────────────────────────────────────────────────────────────────╯\n",
+    );
     output
 }
 

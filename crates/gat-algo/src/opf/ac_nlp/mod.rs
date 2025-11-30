@@ -211,4 +211,4 @@ pub use ipopt_solver::{
 };
 
 #[cfg(feature = "solver-ipopt")]
-pub use jacobian::{jacobian_sparsity, jacobian_values, jacobian_nnz};
+pub use jacobian::{jacobian_nnz, jacobian_sparsity, jacobian_values};

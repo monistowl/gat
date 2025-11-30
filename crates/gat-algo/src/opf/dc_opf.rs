@@ -573,7 +573,11 @@ pub fn compute_loss_factors(
     // Compute losses on each branch and distribute to buses
     for branch in &branches {
         // Get flow on this branch
-        let flow = solution.branch_p_flow.get(&branch.name).copied().unwrap_or(0.0);
+        let flow = solution
+            .branch_p_flow
+            .get(&branch.name)
+            .copied()
+            .unwrap_or(0.0);
 
         // Compute branch loss using DC approximation
         // P_loss = r × (P / x)² where P is in MW, r and x are in p.u.
@@ -581,8 +585,10 @@ pub fn compute_loss_factors(
         let base_mva = 100.0;
         let flow_pu = flow / base_mva;
         let current_sq = (flow_pu / branch.susceptance.abs()).powi(2); // |I|² ≈ (P/b)²
-        let branch_loss = branch.susceptance.abs().recip().powi(2) *
-            (1.0 / branch.susceptance.abs()) * flow_pu.powi(2) * base_mva;
+        let branch_loss = branch.susceptance.abs().recip().powi(2)
+            * (1.0 / branch.susceptance.abs())
+            * flow_pu.powi(2)
+            * base_mva;
 
         // Simpler formula: loss = r × flow² / x² (in MW when flow is in MW)
         // Using r = 1/b and x = 1/b for a lossless DC model, but we need actual r
@@ -599,11 +605,13 @@ pub fn compute_loss_factors(
         let marginal_loss_factor = 2.0 * r_approx * (flow / base_mva) / x.powi(2);
 
         // Find bus names
-        let from_bus_name = buses.iter()
+        let from_bus_name = buses
+            .iter()
             .find(|b| b.id == branch.from_bus)
             .map(|b| b.name.clone())
             .unwrap_or_default();
-        let to_bus_name = buses.iter()
+        let to_bus_name = buses
+            .iter()
             .find(|b| b.id == branch.to_bus)
             .map(|b| b.name.clone())
             .unwrap_or_default();
@@ -673,12 +681,17 @@ fn solve_with_loss_factors(
 
     for gen in &generators {
         let pmin = gen.pmin_mw.max(0.0);
-        let pmax = if gen.pmax_mw.is_finite() { gen.pmax_mw } else { 1e6 };
+        let pmax = if gen.pmax_mw.is_finite() {
+            gen.pmax_mw
+        } else {
+            1e6
+        };
         let p_var = vars.add(variable().min(pmin).max(pmax));
         gen_vars.push((gen.name.clone(), gen.bus_id, p_var));
 
         // Get loss factor for this generator's bus
-        let bus_name = buses.iter()
+        let bus_name = buses
+            .iter()
             .find(|b| b.id == gen.bus_id)
             .map(|b| b.name.clone())
             .unwrap_or_default();
@@ -690,7 +703,8 @@ fn solve_with_loss_factors(
         cost_terms.push(c1_adjusted * p_var);
     }
 
-    let cost_expr = cost_terms.into_iter()
+    let cost_expr = cost_terms
+        .into_iter()
         .fold(Expression::from(0.0), |acc, term| acc + term);
 
     // Bus angle variables
@@ -713,7 +727,9 @@ fn solve_with_loss_factors(
     let mut bus_gen_expr: HashMap<usize, Expression> = HashMap::new();
     for (_, bus_id, p_var) in &gen_vars {
         let bus_idx = *bus_map.get(bus_id).expect("gen bus in map");
-        bus_gen_expr.entry(bus_idx).or_insert_with(|| Expression::from(0.0));
+        bus_gen_expr
+            .entry(bus_idx)
+            .or_insert_with(|| Expression::from(0.0));
         *bus_gen_expr.get_mut(&bus_idx).unwrap() += *p_var;
     }
 
@@ -722,7 +738,8 @@ fn solve_with_loss_factors(
     for bus in &buses {
         let i = bus.index;
 
-        let gen_at_bus = bus_gen_expr.get(&i)
+        let gen_at_bus = bus_gen_expr
+            .get(&i)
             .cloned()
             .unwrap_or_else(|| Expression::from(0.0));
         let load_at_bus = loads.get(&bus.id).copied().unwrap_or(0.0);
@@ -742,7 +759,8 @@ fn solve_with_loss_factors(
         problem = problem.with(constraint!(net_injection - flow_expr == 0.0));
     }
 
-    let solution = problem.solve()
+    let solution = problem
+        .solve()
         .map_err(|e| OpfError::NumericalIssue(format!("LP solver failed: {:?}", e)))?;
 
     // Extract results
@@ -775,7 +793,10 @@ fn solve_with_loss_factors(
         let theta = if bus.index == ref_bus_idx {
             0.0
         } else {
-            theta_vars.get(&bus.index).map(|v| solution.value(*v)).unwrap_or(0.0)
+            theta_vars
+                .get(&bus.index)
+                .map(|v| solution.value(*v))
+                .unwrap_or(0.0)
         };
         result.bus_voltage_ang.insert(bus.name.clone(), theta);
         result.bus_voltage_mag.insert(bus.name.clone(), 1.0);
@@ -786,10 +807,22 @@ fn solve_with_loss_factors(
         let i = *bus_map.get(&branch.from_bus).expect("from_bus");
         let j = *bus_map.get(&branch.to_bus).expect("to_bus");
 
-        let theta_i = if i == ref_bus_idx { 0.0 }
-            else { theta_vars.get(&i).map(|v| solution.value(*v)).unwrap_or(0.0) };
-        let theta_j = if j == ref_bus_idx { 0.0 }
-            else { theta_vars.get(&j).map(|v| solution.value(*v)).unwrap_or(0.0) };
+        let theta_i = if i == ref_bus_idx {
+            0.0
+        } else {
+            theta_vars
+                .get(&i)
+                .map(|v| solution.value(*v))
+                .unwrap_or(0.0)
+        };
+        let theta_j = if j == ref_bus_idx {
+            0.0
+        } else {
+            theta_vars
+                .get(&j)
+                .map(|v| solution.value(*v))
+                .unwrap_or(0.0)
+        };
 
         let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift_rad);
         result.branch_p_flow.insert(branch.name.clone(), flow);
@@ -838,7 +871,8 @@ pub fn solve_with_losses(
         solution = solve_with_loss_factors(network, &loss_factors, max_iterations, tolerance)?;
 
         // Check convergence (objective change < 0.1%)
-        let obj_change = (solution.objective_value - prev_objective).abs() / prev_objective.max(1.0);
+        let obj_change =
+            (solution.objective_value - prev_objective).abs() / prev_objective.max(1.0);
         if obj_change < 0.001 {
             solution.iterations = iter + 1;
             break;

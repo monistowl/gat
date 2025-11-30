@@ -420,8 +420,17 @@ fn compute_thermal_hessian(
 
                 // Add contributions to Hessian blocks
                 add_thermal_hessian_contributions(
-                    lambda_from, p, q, &dp, &dq, &d2p, &d2q,
-                    i, j, n_bus, vals,
+                    lambda_from,
+                    p,
+                    q,
+                    &dp,
+                    &dq,
+                    &d2p,
+                    &d2q,
+                    i,
+                    j,
+                    n_bus,
+                    vals,
                 );
             }
         }
@@ -439,8 +448,7 @@ fn compute_thermal_hessian(
                 let d2q = branch_hess_q_to(branch, vi, vj, theta_i, theta_j);
 
                 add_thermal_hessian_contributions(
-                    lambda_to, p, q, &dp, &dq, &d2p, &d2q,
-                    i, j, n_bus, vals,
+                    lambda_to, p, q, &dp, &dq, &d2p, &d2q, i, j, n_bus, vals,
                 );
             }
         }
@@ -457,7 +465,7 @@ fn add_thermal_hessian_contributions(
     lambda: f64,
     p: f64,
     q: f64,
-    dp: &[f64; 4],  // [dvi, dvj, dti, dtj]
+    dp: &[f64; 4], // [dvi, dvj, dti, dtj]
     dq: &[f64; 4],
     d2p: &[f64; 10], // Lower triangular: [vi_vi, vj_vi, vj_vj, ti_vi, ti_vj, ti_ti, tj_vi, tj_vj, tj_ti, tj_tj]
     d2q: &[f64; 10],
@@ -478,7 +486,16 @@ fn add_thermal_hessian_contributions(
     // Hessian entry indices (lower triangular within the 4 variables)
     // (0,0), (1,0), (1,1), (2,0), (2,1), (2,2), (3,0), (3,1), (3,2), (3,3)
     let hess_pairs = [
-        (0, 0), (1, 0), (1, 1), (2, 0), (2, 1), (2, 2), (3, 0), (3, 1), (3, 2), (3, 3),
+        (0, 0),
+        (1, 0),
+        (1, 1),
+        (2, 0),
+        (2, 1),
+        (2, 2),
+        (3, 0),
+        (3, 1),
+        (3, 2),
+        (3, 3),
     ];
 
     for (k, &(r, c)) in hess_pairs.iter().enumerate() {
@@ -533,7 +550,13 @@ fn add_thermal_hessian_contributions(
 // ============================================================================
 
 /// Branch flow (from side) - same as jacobian.rs
-fn branch_flow_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+fn branch_flow_from(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> (f64, f64) {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -566,7 +589,13 @@ fn branch_flow_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: 
 }
 
 /// Gradient of P (from side): [∂P/∂Vi, ∂P/∂Vj, ∂P/∂θi, ∂P/∂θj]
-fn branch_grad_p_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> [f64; 4] {
+fn branch_grad_p_from(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> [f64; 4] {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -585,7 +614,13 @@ fn branch_grad_p_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta
 }
 
 /// Gradient of Q (from side)
-fn branch_grad_q_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> [f64; 4] {
+fn branch_grad_q_from(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> [f64; 4] {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -644,7 +679,13 @@ fn branch_grad_q_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j
 /// Hessian of P (from side) - lower triangular
 /// Returns [∂²P/∂Vi², ∂²P/∂Vj∂Vi, ∂²P/∂Vj², ∂²P/∂θi∂Vi, ∂²P/∂θi∂Vj, ∂²P/∂θi²,
 ///          ∂²P/∂θj∂Vi, ∂²P/∂θj∂Vj, ∂²P/∂θj∂θi, ∂²P/∂θj²]
-fn branch_hess_p_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> [f64; 10] {
+fn branch_hess_p_from(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> [f64; 10] {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -686,12 +727,20 @@ fn branch_hess_p_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta
     // ∂²P/∂θj² = (Vi·Vj/a)·(g·cos + b·sin)
     let d2p_tj_tj = (vi * vj / a) * (g * cos_d + b * sin_d);
 
-    [d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti,
-     d2p_tj_vi, d2p_tj_vj, d2p_tj_ti, d2p_tj_tj]
+    [
+        d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi, d2p_tj_vj,
+        d2p_tj_ti, d2p_tj_tj,
+    ]
 }
 
 /// Hessian of Q (from side) - lower triangular
-fn branch_hess_q_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> [f64; 10] {
+fn branch_hess_q_from(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> [f64; 10] {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -734,12 +783,20 @@ fn branch_hess_q_from(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta
     // ∂²Q/∂θj² = -(Vi·Vj/a)·(g·sin - b·cos) = (Vi·Vj/a)·(b·cos - g·sin)
     let d2q_tj_tj = (vi * vj / a) * (b * cos_d - g * sin_d);
 
-    [d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti,
-     d2q_tj_vi, d2q_tj_vj, d2q_tj_ti, d2q_tj_tj]
+    [
+        d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi, d2q_tj_vj,
+        d2q_tj_ti, d2q_tj_tj,
+    ]
 }
 
 /// Hessian of P (to side) - lower triangular
-fn branch_hess_p_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> [f64; 10] {
+fn branch_hess_p_to(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> [f64; 10] {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -780,12 +837,20 @@ fn branch_hess_p_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j
     // ∂²P/∂θj² = (Vi·Vj/a)·(g·cos + b·sin)
     let d2p_tj_tj = (vi * vj / a) * (g * cos_d + b * sin_d);
 
-    [d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti,
-     d2p_tj_vi, d2p_tj_vj, d2p_tj_ti, d2p_tj_tj]
+    [
+        d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi, d2p_tj_vj,
+        d2p_tj_ti, d2p_tj_tj,
+    ]
 }
 
 /// Hessian of Q (to side) - lower triangular
-fn branch_hess_q_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> [f64; 10] {
+fn branch_hess_q_to(
+    branch: &BranchData,
+    vi: f64,
+    vj: f64,
+    theta_i: f64,
+    theta_j: f64,
+) -> [f64; 10] {
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -827,8 +892,10 @@ fn branch_hess_q_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j
     // ∂²Q/∂θj² = (Vi·Vj/a)·(b·cos - g·sin)
     let d2q_tj_tj = (vi * vj / a) * (b * cos_d - g * sin_d);
 
-    [d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti,
-     d2q_tj_vi, d2q_tj_vj, d2q_tj_ti, d2q_tj_tj]
+    [
+        d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi, d2q_tj_vj,
+        d2q_tj_ti, d2q_tj_tj,
+    ]
 }
 
 // ============================================================================

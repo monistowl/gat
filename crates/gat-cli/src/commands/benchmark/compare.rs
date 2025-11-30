@@ -155,7 +155,9 @@ pub fn format_comparison_table(
 ) -> String {
     let mut output = String::new();
 
-    output.push_str("╭─────────────────────────────────────────────────────────────────────────────╮\n");
+    output.push_str(
+        "╭─────────────────────────────────────────────────────────────────────────────╮\n",
+    );
     output.push_str(&format!(
         "│ Benchmark Comparison: {} → {}",
         truncate(before_name, 25),
@@ -163,7 +165,9 @@ pub fn format_comparison_table(
     ));
     output.push_str(&" ".repeat(77 - 26 - before_name.len().min(25) - after_name.len().min(25)));
     output.push_str("│\n");
-    output.push_str("├─────────────────────────────────────────────────────────────────────────────┤\n");
+    output.push_str(
+        "├─────────────────────────────────────────────────────────────────────────────┤\n",
+    );
 
     // Pass rate change
     output.push_str(&format!(
@@ -175,17 +179,27 @@ pub fn format_comparison_table(
 
     // Status changes
     if !stats.cases_now_passing.is_empty() {
-        output.push_str("│ Status Changes:                                                             │\n");
+        output.push_str(
+            "│ Status Changes:                                                             │\n",
+        );
         for case in &stats.cases_now_passing {
-            output.push_str(&format!("│   ✗→✓  {} (now converges!)                         │\n", truncate(case, 40)));
+            output.push_str(&format!(
+                "│   ✗→✓  {} (now converges!)                         │\n",
+                truncate(case, 40)
+            ));
         }
     }
     if !stats.cases_now_failing.is_empty() {
         if stats.cases_now_passing.is_empty() {
-            output.push_str("│ Status Changes:                                                             │\n");
+            output.push_str(
+                "│ Status Changes:                                                             │\n",
+            );
         }
         for case in &stats.cases_now_failing {
-            output.push_str(&format!("│   ✓→✗  {} (regression!)                            │\n", truncate(case, 40)));
+            output.push_str(&format!(
+                "│   ✓→✗  {} (regression!)                            │\n",
+                truncate(case, 40)
+            ));
         }
     }
 
@@ -198,7 +212,9 @@ pub fn format_comparison_table(
         ));
     }
 
-    output.push_str("╰─────────────────────────────────────────────────────────────────────────────╯\n");
+    output.push_str(
+        "╰─────────────────────────────────────────────────────────────────────────────╯\n",
+    );
     output
 }
 
@@ -273,7 +289,10 @@ mod tests {
         assert_eq!(stats.cases_now_passing, vec!["case14"]);
         assert!(stats.cases_now_failing.is_empty());
 
-        let case14 = comparisons.iter().find(|c| c.case_name == "case14").unwrap();
+        let case14 = comparisons
+            .iter()
+            .find(|c| c.case_name == "case14")
+            .unwrap();
         assert_eq!(case14.status_change, StatusChange::NowPasses);
     }
 
@@ -299,7 +318,10 @@ mod tests {
 
         let (comparisons, stats) = compare_benchmarks(&before, &after);
 
-        let case14 = comparisons.iter().find(|c| c.case_name == "case14").unwrap();
+        let case14 = comparisons
+            .iter()
+            .find(|c| c.case_name == "case14")
+            .unwrap();
         assert!((case14.solve_time_delta_ms.unwrap() - (-20.0)).abs() < 0.1);
         assert!((case14.solve_time_delta_pct.unwrap() - (-20.0)).abs() < 0.1);
 

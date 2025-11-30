@@ -207,7 +207,8 @@ impl OpfSolver {
                             // Check if this is a convergence failure that might benefit
                             // from a better initial point
                             let error_msg = format!("{:?}", flat_error);
-                            let is_convergence_failure = error_msg.contains("MaximumIterationsExceeded")
+                            let is_convergence_failure = error_msg
+                                .contains("MaximumIterationsExceeded")
                                 || error_msg.contains("InfeasibleProblemDetected")
                                 || error_msg.contains("RestorationFailed");
 
@@ -223,7 +224,9 @@ impl OpfSolver {
                             //
                             // Note: DC ignores voltage magnitudes and reactive power,
                             // so we use flat values (V=1.0, Qg=0) for those variables.
-                            if let Ok(dc_solution) = dc_opf::solve(network, self.max_iterations, self.tolerance) {
+                            if let Ok(dc_solution) =
+                                dc_opf::solve(network, self.max_iterations, self.tolerance)
+                            {
                                 let dc_warm: DcWarmStart = (&dc_solution).into();
 
                                 // Configure IPOPT for DC warm-start - more iterations since
@@ -232,11 +235,9 @@ impl OpfSolver {
                                 dc_config.max_iter = 500;
                                 dc_config.print_level = 0; // Quiet for fallback
 
-                                if let Ok(solution) = ac_nlp::solve_with_dc_warm_start(
-                                    &problem,
-                                    &dc_warm,
-                                    &dc_config,
-                                ) {
+                                if let Ok(solution) =
+                                    ac_nlp::solve_with_dc_warm_start(&problem, &dc_warm, &dc_config)
+                                {
                                     return Ok(solution);
                                 }
                                 // DC warm-start failed, try SOCP next
@@ -246,11 +247,8 @@ impl OpfSolver {
                             // SOCP provides V, θ, Pg, Qg but the relaxation allows
                             // constraint slack that may accumulate in larger networks.
                             // Still worth trying as it may work for some cases.
-                            let socp_solution = socp::solve(
-                                network,
-                                self.max_iterations,
-                                self.tolerance,
-                            )?;
+                            let socp_solution =
+                                socp::solve(network, self.max_iterations, self.tolerance)?;
 
                             let socp_warm: SocpWarmStart = (&socp_solution).into();
 
@@ -260,7 +258,11 @@ impl OpfSolver {
                             ipopt_config.print_level = 0; // Quiet for fallback
 
                             // Retry with SOCP warm-start
-                            match ac_nlp::solve_with_socp_warm_start(&problem, &socp_warm, &ipopt_config) {
+                            match ac_nlp::solve_with_socp_warm_start(
+                                &problem,
+                                &socp_warm,
+                                &ipopt_config,
+                            ) {
                                 Ok(solution) => return Ok(solution),
                                 Err(_) => {
                                     // Both DC and SOCP warm-starts failed, return flat error
@@ -298,10 +300,7 @@ impl OpfSolver {
                             ));
                         }
                         // IPOPT is available, dispatch to it
-                        return native_dispatch::solve_ac_opf_native(
-                            network,
-                            self.timeout_seconds,
-                        );
+                        return native_dispatch::solve_ac_opf_native(network, self.timeout_seconds);
                     }
                 }
 
@@ -437,7 +436,12 @@ pub fn solve_cascaded(
         let bus_order: Vec<String> = problem.buses.iter().map(|b| b.name.clone()).collect();
         let gen_order: Vec<String> = problem.generators.iter().map(|g| g.name.clone()).collect();
         let initial_point = socp_warm.to_vec(&bus_order, &gen_order);
-        ac_nlp::solve_ac_opf_warm_start(&problem, initial_point, config.max_iterations, config.tolerance)?
+        ac_nlp::solve_ac_opf_warm_start(
+            &problem,
+            initial_point,
+            config.max_iterations,
+            config.tolerance,
+        )?
     };
 
     result.ac_solution = Some(ac_solution.clone());
@@ -476,4 +480,3 @@ impl Default for CascadedConfig {
         }
     }
 }
-

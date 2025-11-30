@@ -107,14 +107,8 @@ fn test_network_to_problem_conversion() {
     assert_eq!(problem.bus_type[1], 1, "Second bus should be PQ");
 
     // Verify load was aggregated to bus
-    assert_eq!(
-        problem.bus_p_load[0], 0.0,
-        "Bus 0 should have no load"
-    );
-    assert_eq!(
-        problem.bus_p_load[1], 50.0,
-        "Bus 1 should have 50 MW load"
-    );
+    assert_eq!(problem.bus_p_load[0], 0.0, "Bus 0 should have no load");
+    assert_eq!(problem.bus_p_load[1], 50.0, "Bus 1 should have 50 MW load");
 
     // Verify generator data
     assert_eq!(problem.gen_id[0], 0);
@@ -180,16 +174,8 @@ fn test_solution_to_opf_conversion() {
         Some(&0.98),
         "Bus2 voltage magnitude"
     );
-    assert_eq!(
-        opf_solution.bus_lmp.get("bus1"),
-        Some(&10.0),
-        "Bus1 LMP"
-    );
-    assert_eq!(
-        opf_solution.bus_lmp.get("bus2"),
-        Some(&11.0),
-        "Bus2 LMP"
-    );
+    assert_eq!(opf_solution.bus_lmp.get("bus1"), Some(&10.0), "Bus1 LMP");
+    assert_eq!(opf_solution.bus_lmp.get("bus2"), Some(&11.0), "Bus2 LMP");
 
     // Check generator results
     assert_eq!(
