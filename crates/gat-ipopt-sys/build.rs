@@ -15,7 +15,7 @@
 //! - Ubuntu: sudo apt install coinor-libipopt-dev
 //! - macOS: brew install ipopt
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn main() {
@@ -49,7 +49,7 @@ fn main() {
 }
 
 /// Try to link against vendor/local pre-built IPOPT.
-fn try_vendor_local(vendor_local: &PathBuf) -> bool {
+fn try_vendor_local(vendor_local: &Path) -> bool {
     let lib_dir = vendor_local.join("lib");
     let include_dir = vendor_local.join("include/coin-or");
 
@@ -94,7 +94,7 @@ fn try_vendor_local(vendor_local: &PathBuf) -> bool {
 }
 
 /// Emit additional link flags for static IPOPT build.
-fn emit_static_deps(lib_dir: &PathBuf) {
+fn emit_static_deps(lib_dir: &Path) {
     // IPOPT depends on MUMPS for sparse linear algebra
     if lib_dir.join("libcoinmumps.a").exists() {
         println!("cargo:rustc-link-lib=static=coinmumps");
