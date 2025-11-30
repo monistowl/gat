@@ -12,7 +12,7 @@ transparent = true
 
 ```bash
 # Install using the modular installer
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.5.0/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/main/scripts/install-modular.sh | bash
 export PATH="$HOME/.gat/bin:$PATH"
 
 # Import a MATPOWER case and run power flow
