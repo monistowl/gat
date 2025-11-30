@@ -186,31 +186,32 @@ GAT is organized as a Rust workspace with modular crates following the principle
 
 \begin{figure}[H]
 \centering
+\resizebox{0.9\textwidth}{!}{%
 \begin{tikzpicture}[
-    crate/.style={rectangle, draw, rounded corners, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\small\ttfamily},
+    crate/.style={rectangle, draw, rounded corners, minimum width=2.2cm, minimum height=0.8cm, align=center, font=\small\ttfamily},
     dep/.style={->, >=stealth, thick}
 ]
     % Core layer
     \node[crate, fill=blue!20] (core) at (0,0) {gat-core};
 
     % IO layer
-    \node[crate, fill=green!20] (io) at (-3,-1.5) {gat-io};
+    \node[crate, fill=green!20] (io) at (-2.5,-1.5) {gat-io};
 
     % Algorithm layer
     \node[crate, fill=orange!20] (algo) at (0,-1.5) {gat-algo};
 
     % Solver backends
-    \node[crate, fill=yellow!20] (ipopt) at (-4,-3) {gat-ipopt};
-    \node[crate, fill=yellow!20] (cbc) at (-2,-3) {gat-cbc};
-    \node[crate, fill=yellow!20] (clp) at (0,-3) {gat-clp};
+    \node[crate, fill=yellow!20] (ipopt) at (-3.5,-3) {gat-ipopt};
+    \node[crate, fill=yellow!20] (cbc) at (-1.5,-3) {gat-cbc};
+    \node[crate, fill=yellow!20] (clp) at (0.5,-3) {gat-clp};
 
     % Application layer
-    \node[crate, fill=red!20] (cli) at (3,-1.5) {gat-cli};
-    \node[crate, fill=red!20] (tui) at (5,-1.5) {gat-tui};
+    \node[crate, fill=red!20] (cli) at (2.5,-1.5) {gat-cli};
+    \node[crate, fill=red!20] (tui) at (4.5,-1.5) {gat-tui};
 
     % Specialized
-    \node[crate, fill=purple!20] (ts) at (2,-3) {gat-ts};
-    \node[crate, fill=purple!20] (dist) at (4,-3) {gat-dist};
+    \node[crate, fill=purple!20] (ts) at (2.5,-3) {gat-ts};
+    \node[crate, fill=purple!20] (dist) at (4.5,-3) {gat-dist};
 
     % Dependencies
     \draw[dep] (io) -- (core);
@@ -223,7 +224,8 @@ GAT is organized as a Rust workspace with modular crates following the principle
     \draw[dep] (clp) -- (algo);
     \draw[dep] (ts) -- (algo);
     \draw[dep] (dist) -- (algo);
-\end{tikzpicture}
+\end{tikzpicture}%
+}
 \caption{GAT crate dependency graph. Core types flow upward; solver backends are optional features.}
 \label{fig:crate_arch}
 \end{figure}
@@ -753,9 +755,10 @@ GAT provides four OPF methods with increasing fidelity and computational cost:
 
 \begin{figure}[H]
 \centering
+\resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[
-    node distance=1.8cm,
-    box/.style={rectangle, draw, rounded corners, minimum width=3.5cm, minimum height=1.2cm, align=center},
+    node distance=1.5cm,
+    box/.style={rectangle, draw, rounded corners, minimum width=3cm, minimum height=1.2cm, align=center},
     arrow/.style={->, >=stealth, thick}
 ]
     \node[box, fill=green!20] (ed) {Economic Dispatch\\Merit Order\\$O(n \log n)$};
@@ -771,7 +774,8 @@ GAT provides four OPF methods with increasing fidelity and computational cost:
     \node[below=0.5cm of dc, font=\small, align=center] {$\sim$3-5\% gap\\$<$100 ms};
     \node[below=0.5cm of socp, font=\small, align=center] {$\sim$1-3\% gap\\$<$10 s};
     \node[below=0.5cm of ac, font=\small, align=center] {$<$0.01\% gap\\$<$60 s};
-\end{tikzpicture}
+\end{tikzpicture}%
+}
 \caption{Solver hierarchy with typical accuracy and timing (118-bus system)}
 \end{figure}
 
