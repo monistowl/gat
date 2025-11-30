@@ -341,9 +341,9 @@ jobs:
 
             # Check for critical IPOPT files
             EXPECTED_FILES=(
-              "Ipopt/src/Common/IpTypes.hpp"
-              "Ipopt/src/Interfaces/IpTNLP.hpp"
-              "CMakeLists.txt"
+              "src/Common/IpTypes.hpp"
+              "src/Interfaces/IpTNLP.hpp"
+              "configure"
             )
 
             for f in "${EXPECTED_FILES[@]}"; do
