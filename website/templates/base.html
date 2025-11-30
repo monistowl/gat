@@ -409,6 +409,8 @@
 
   <!-- Grid Widget: Load Cytoscape only when widgets are present -->
   <script>
+    // Expose base URL for JavaScript to use (handles subdirectory deployments)
+    window.GAT_BASE_URL = '{{ config.base_url | safe }}';
     (function() {
       if (document.querySelector('.grid-widget')) {
         // Load Cytoscape from CDN
@@ -417,7 +419,7 @@
         cyScript.onload = function() {
           // Then load grid-widget.js
           const widgetScript = document.createElement('script');
-          widgetScript.src = '/js/grid-widget.js';
+          widgetScript.src = '{{ get_url(path="js/grid-widget.js") | safe }}';
           document.body.appendChild(widgetScript);
         };
         document.body.appendChild(cyScript);

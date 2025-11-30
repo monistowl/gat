@@ -1042,8 +1042,9 @@ async function initWidget(container) {
   container.appendChild(cyContainer);
 
   try {
-    // Fetch network data
-    const response = await fetch(`/examples/${networkName}.json`);
+    // Fetch network data (use base URL for subdirectory deployments)
+    const baseUrl = (window.GAT_BASE_URL || '').replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/examples/${networkName}.json`);
     if (!response.ok) {
       throw new Error(`Network "${networkName}" not found`);
     }
