@@ -1,16 +1,68 @@
 +++
 title = "Optimal Power Flow"
-description = "Optimal Power Flow (OPF)"
+description = "Complete guide to GAT's four-tier OPF solver hierarchy"
 weight = 11
 +++
 
 # Optimal Power Flow (OPF)
 
-This reference describes the OPF solver architecture, solution methods, and CLI commands.
+GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-millisecond economic dispatch to production-grade nonlinear optimization. Each tier offers a different accuracy/speed tradeoff, letting you choose the right tool for each task.
+
+> **Validated Performance**: GAT's SOCP solver achieves 100% convergence across all 67 PGLib-OPF benchmark cases.
+> See the [complete benchmark results](/internals/benchmarks/) for details.
+
+## Choosing the Right Solver
+
+```
+                    Speed vs. Accuracy Tradeoff
+
+  Fast  ──────────────────────────────────────────►  Accurate
+
+  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+  │     ED      │   │   DC-OPF    │   │    SOCP     │   │   AC-OPF    │
+  │   < 1ms     │   │   ~10ms     │   │   ~100ms    │   │    ~1s      │
+  │  No network │   │  LP approx  │   │ Convex relax│   │  Full NLP   │
+  └─────────────┘   └─────────────┘   └─────────────┘   └─────────────┘
+       │                  │                  │                  │
+       ▼                  ▼                  ▼                  ▼
+  Feasibility      N-1 screening       Production        Final
+  checks           Planning studies    dispatch          validation
+```
+
+### Quick Reference
+
+| Tier | Command | Speed | Accuracy | Best For |
+|------|---------|-------|----------|----------|
+| 1 | `gat opf ed` | < 1ms | ~20% gap | Feasibility checks, generation scheduling |
+| 2 | `gat opf dc` | ~10ms | ~3-5% gap | N-1 screening, transmission planning |
+| 3 | `gat opf socp` | ~100ms | ~1-3% gap | Production dispatch, voltage-aware |
+| 4 | `gat opf ac` | ~1s | < 0.01% gap | Final validation, full physics |
+
+### Decision Tree
+
+**Use Economic Dispatch when:**
+- You need instant results (< 1ms)
+- Network constraints don't matter yet
+- Quick "can we meet demand?" checks
+
+**Use DC-OPF when:**
+- You're screening thousands of contingencies
+- Planning studies where speed matters
+- Real power flows are sufficient
+
+**Use SOCP when:**
+- You need voltage information
+- Production dispatch decisions
+- Tight bounds on generation cost
+
+**Use AC-OPF when:**
+- Final operational validation
+- Full physics accuracy required
+- Regulatory compliance
 
 ## Architecture Overview (v0.5.0)
 
-GAT provides a unified `OpfSolver` supporting multiple solution methods with varying accuracy/speed tradeoffs:
+GAT provides a unified `OpfSolver` supporting multiple solution methods:
 
 | Method | Accuracy | Speed | Status | Use Case |
 |--------|----------|-------|--------|----------|
@@ -20,7 +72,7 @@ GAT provides a unified `OpfSolver` supporting multiple solution methods with var
 | `AcOpf` (L-BFGS) | ~2-3% gap | Moderate | ✅ Implemented | Pure Rust deployment |
 | `AcOpf` (IPOPT) | **<0.01% gap** | Fast | ✅ **Validated** | High-fidelity analysis |
 
-### IPOPT Benchmark Results (v0.5.0)
+### Benchmark Results
 
 The IPOPT backend with analytical Jacobian and Hessian achieves exact agreement with PGLib reference values:
 
@@ -29,7 +81,18 @@ The IPOPT backend with analytical Jacobian and Hessian achieves exact agreement 
 | case14_ieee | $2,178.08/hr | $2,178.10/hr | **-0.00%** |
 | case118_ieee | $97,213.61/hr | $97,214.00/hr | **-0.00%** |
 
-### What's new in 0.5.0
+The SOCP solver has been validated against all 67 PGLib-OPF cases:
+
+| Metric | Value |
+|--------|-------|
+| Cases Tested | 67 |
+| Convergence Rate | 100% |
+| Largest System | 78,484 buses |
+| Median Objective Gap | < 1% |
+
+→ [View complete benchmark results](/internals/benchmarks/)
+
+### What's New in 0.5.0
 
 - **Full nonlinear AC-OPF** passes 65/68 PGLib benchmark cases with median 2.9% objective gap.
 - **Multi-period dispatch** with generator ramp constraints for day-ahead scheduling.
@@ -293,67 +356,91 @@ impl CostModel {
 
 ## CLI Commands
 
-GAT provides three OPF commands with different accuracy/speed tradeoffs:
+GAT provides four OPF commands matching the solver hierarchy:
 
-| Command | Description | Accuracy | Speed |
-|---------|-------------|----------|-------|
-| `opf dc` | DC optimal power flow (LP) | ~3-5% gap | Fastest |
-| `opf ac` | Fast-decoupled linear approximation | ~5-10% gap | Fast |
-| `opf ac-nlp` | Full nonlinear AC-OPF (penalty L-BFGS) | <1% gap | Slowest |
+```bash
+# Tier 1: Economic Dispatch (< 1ms)
+gat opf ed grid.arrow --out dispatch.parquet
 
-### DC OPF (`gat opf dc`)
+# Tier 2: DC-OPF (~10ms for 118-bus)
+gat opf dc grid.arrow --out flows.parquet
 
-Solves a linear dispatch problem with generator costs, limits, and demand.
+# Tier 3: SOCP Relaxation (~100ms for 118-bus)
+gat opf socp grid.arrow --out solution.parquet
+
+# Tier 4: AC-OPF (~1s for 118-bus)
+gat opf ac grid.arrow --out optimal.parquet
+```
+
+### Economic Dispatch (`gat opf ed`)
+
+Merit-order dispatch ignoring network constraints. Fastest option for "can we meet demand?" checks.
+
+```bash
+gat opf ed grid.arrow --out dispatch.parquet
+```
+
+**Output:** Generator dispatch (P) ordered by marginal cost.
+
+### DC-OPF (`gat opf dc`)
+
+Linear approximation with B-matrix flow constraints. Standard for transmission planning.
 
 ```bash
 gat opf dc grid.arrow \
-  --cost test_data/opf/costs.csv \
-  --limits test_data/opf/limits.csv \
   --out results/dc-opf.parquet \
-  [--branch-limits test_data/opf/branch_limits.csv] \
-  [--piecewise test_data/opf/piecewise.csv]
+  [--branch-limits limits.csv]
 ```
 
-#### Inputs
+**Features:**
+- Real power flow on branches
+- Generator cost minimization
+- Optional branch flow limits
+- LMP extraction from duals
 
-* `--cost` (required): CSV with `bus_id,marginal_cost`. Missing rows default to `1.0`.
-* `--limits` (required): CSV with `bus_id,pmin,pmax,demand`. Defines dispatch bounds and local load.
-* `--branch-limits` (optional): CSV with `branch_id,flow_limit`. Rejects solutions violating limits.
-* `--piecewise` (optional): CSV with `bus_id,start,end,slope` for piecewise linear costs.
+**Output:** Branch flows, generator dispatch, bus LMPs.
 
-#### Output
+### SOCP Relaxation (`gat opf socp`)
 
-* `--out` writes a Parquet table with `branch_id`, `from_bus`, `to_bus`, and `flow_mw`.
+Second-order cone relaxation with voltage magnitude modeling. Production-ready for most applications.
 
-### AC Power Flow (`gat opf ac`)
+```bash
+gat opf socp grid.arrow \
+  --out results/socp.parquet \
+  [--tol 1e-6]
+```
 
-Runs a fast-decoupled linear approximation for quick AC power flow solutions. This is **not** full nonlinear OPF — it's a linearized approximation useful for screening and quick estimates.
+**Features:**
+- Squared voltage/current variables
+- Quadratic generator costs
+- Transformer tap ratios and phase shifters
+- Thermal limits (apparent power)
+- LMP extraction from duals
+
+**Backend:** Clarabel (pure Rust, no external dependencies)
+
+**Output:** Branch flows, voltages, generator dispatch, LMPs.
+
+### AC-OPF (`gat opf ac`)
+
+Full nonlinear AC-OPF with polar formulation. Maximum accuracy for final validation.
 
 ```bash
 gat opf ac grid.arrow \
-  --out results/ac-pf.parquet \
-  [--tol 1e-6] \
-  [--max-iter 20]
-```
-
-* `--tol`: convergence tolerance (default `1e-6`).
-* `--max-iter`: maximum iterations (default `20`).
-
-### Full AC-OPF (`gat opf ac-nlp`)
-
-Runs the full nonlinear AC optimal power flow using penalty method + L-BFGS optimizer. This minimizes total generation cost subject to power balance equations, voltage bounds, generator limits, and thermal limits.
-
-```bash
-gat opf ac-nlp grid.arrow \
-  --out results/ac-opf.json \
+  --out results/ac-opf.parquet \
   [--tol 1e-4] \
   [--max-iter 200] \
-  [--warm-start flat]
+  [--warm-start socp]
 ```
 
-* `--tol`: convergence tolerance (default `1e-4`).
-* `--max-iter`: maximum iterations (default `200`).
-* `--warm-start`: initialization strategy — `flat` (1.0 p.u. voltages), `dc` (DC solution), or `socp` (SOCP relaxation). Default is `flat`.
+**Options:**
+- `--tol`: convergence tolerance (default `1e-4`)
+- `--max-iter`: maximum iterations (default `200`)
+- `--warm-start`: initialization — `flat`, `dc`, or `socp` (recommended)
+
+**Backend:** IPOPT with analytical Jacobian and Hessian (if installed), otherwise L-BFGS
+
+**Output:** Full voltage profile (V, θ), generator P/Q, branch flows, losses, LMPs.
 
 ## Test Fixtures
 
@@ -366,7 +453,8 @@ gat opf ac-nlp grid.arrow \
 
 ## Related Documentation
 
-* Power flow: [Power Flow Guide](/guide/pf/)
-* State estimation: [State Estimation Guide](/guide/se/)
-* Benchmarking: [Benchmarking Guide](/guide/benchmark/)
-* Reliability: [Reliability Guide](/guide/reliability/)
+* **Benchmarks**: [Complete PGLib-OPF validation results](/internals/benchmarks/) — 67 cases, 100% convergence
+* **Power Flow**: [Power Flow Guide](/guide/pf/)
+* **State Estimation**: [State Estimation Guide](/guide/se/)
+* **Reliability**: [Reliability Guide](/guide/reliability/)
+* **Solver Architecture**: [Native Solver Plugin System](/internals/solver-architecture/)
