@@ -6,70 +6,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="{{ config.description }}" />
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Abridge Theme CSS (provides --c1, --f1, --a1, etc. variables) -->
+  <link rel="stylesheet" href="{{ get_url(path='/abridge.css') | safe }}" />
 
   <!-- Tailwind via CDN for layout utilities -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
+    // Configure Tailwind to work with Abridge's theme
     tailwind.config = {
+      darkMode: 'class',
       theme: {
         extend: {
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
+          colors: {
+            // Map to Abridge CSS variables
+            'theme-bg': 'var(--c1)',
+            'theme-bg-alt': 'var(--c2)',
+            'theme-border': 'var(--c3)',
+            'theme-muted': 'var(--c4)',
+            'theme-text': 'var(--f1)',
+            'theme-heading': 'var(--f2)',
+            'theme-accent': 'var(--a1)',
+            'theme-accent-hover': 'var(--a2)',
+            'theme-success': 'var(--cg)',
+            'theme-error': 'var(--cr)',
           }
         }
       }
     }
   </script>
-
-  <!-- Unified Theme System: CSS Variables for light/dark -->
   <style>
-    /* Light theme (default) */
-    :root {
-      --c1: #ffffff;           /* Primary background */
-      --c2: #f8fafc;           /* Secondary background */
-      --c3: #e2e8f0;           /* Borders */
-      --c4: #64748b;           /* Muted text */
-      --f1: #1e293b;           /* Primary text */
-      --f2: #0f172a;           /* Heading text */
-      --a1: #ea580c;           /* Accent color (orange-600) */
-      --a2: #c2410c;           /* Accent hover */
-      --cg: #16a34a;           /* Success green */
-      --cr: #dc2626;           /* Error red */
-      --grid-color: #cbd5e1;
-      --selection-bg: rgba(234, 88, 12, 0.2);
-    }
-
-    /* Dark theme */
-    [data-theme="dark"], .dark {
-      --c1: #020617;           /* slate-950 */
-      --c2: #0f172a;           /* slate-900 */
-      --c3: #1e293b;           /* slate-800 */
-      --c4: #94a3b8;           /* slate-400 */
-      --f1: #e2e8f0;           /* slate-200 */
-      --f2: #ffffff;           /* white */
-      --a1: #fb923c;           /* orange-400 */
-      --a2: #fdba74;           /* orange-300 */
-      --cg: #4ade80;           /* green-400 */
-      --cr: #f87171;           /* red-400 */
-      --grid-color: #334155;
-      --selection-bg: rgba(251, 146, 60, 0.3);
-    }
-
-    html { scroll-behavior: smooth; }
-
+    /* Use Abridge theme variables throughout */
     body {
       background-color: var(--c1);
       color: var(--f1);
-      font-family: 'Inter', system-ui, sans-serif;
-      transition: background-color 0.3s ease, color 0.3s ease;
     }
-
-    ::selection { background: var(--selection-bg); }
 
     /* Terminal always stays dark for contrast */
     .terminal-block {
@@ -94,56 +64,14 @@
       transform: translateY(-2px);
       box-shadow: 0 8px 30px -10px var(--a1);
     }
-
-    /* Theme toggle button styling */
-    .theme-toggle {
-      cursor: pointer;
-      padding: 0.5rem;
-      border-radius: 0.375rem;
-      background: transparent;
-      border: 1px solid var(--c3);
-      color: var(--c4);
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 2.25rem;
-      height: 2.25rem;
-    }
-    .theme-toggle:hover {
-      color: var(--a1);
-      border-color: var(--a1);
-    }
-    .theme-toggle svg { width: 1.25rem; height: 1.25rem; }
-    .theme-toggle .icon-sun { display: none; }
-    .theme-toggle .icon-moon { display: block; }
-    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
-    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
-
-    /* Background grid - theme-aware */
-    .bg-grid {
-      background-image: linear-gradient(var(--grid-color) 1px, transparent 1px),
-                        linear-gradient(to right, var(--grid-color) 1px, transparent 1px);
-      background-size: 40px 40px;
-    }
   </style>
-
-  <!-- Theme initialization (before render to prevent flash) -->
-  <script>
-    (function() {
-      const savedTheme = localStorage.getItem('theme');
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-      if (theme === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
-    })();
-  </script>
 </head>
 <body class="min-h-screen font-sans overflow-x-hidden" style="background:var(--c1);color:var(--f1);">
 
-  <!-- Background Grid Effect (subtle, theme-aware) -->
-  <div class="fixed inset-0 z-0 opacity-20 pointer-events-none bg-grid"></div>
+  <!-- Background Grid Effect (subtle) -->
+  <div class="fixed inset-0 z-0 opacity-[0.03] pointer-events-none"
+       style="background-image:linear-gradient(var(--c3) 1px, transparent 1px), linear-gradient(to right, var(--c3) 1px, transparent 1px);background-size:40px 40px;">
+  </div>
 
   <!-- Navigation -->
   {% include "partials/header.html" %}
@@ -413,169 +341,6 @@
           <p class="leading-relaxed text-sm" style="color:var(--f1);opacity:0.8;">
             Academic use is free forever. Contributions shape the future of open grid tooling. Documentation that actually exists.
           </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Solver Pipeline Section -->
-  <section id="solvers" class="relative z-10 py-24 px-6" style="background:var(--c2);">
-    <div class="max-w-7xl mx-auto">
-      <div class="text-center mb-16">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono mb-4"
-             style="background:color-mix(in srgb, var(--cg) 15%, transparent);border:1px solid color-mix(in srgb, var(--cg) 30%, transparent);color:var(--cg);">
-          Validated against PGLib-OPF
-        </div>
-        <h2 class="text-4xl font-bold mb-4" style="color:var(--f2);">Four-Tier Solver Hierarchy</h2>
-        <p class="text-lg max-w-2xl mx-auto" style="color:var(--f1);opacity:0.7;">
-          From fast approximations to full AC nonlinear optimization. Pick the right tool for the job.
-        </p>
-      </div>
-
-      <!-- Solver Tiers Visual -->
-      <div class="grid md:grid-cols-4 gap-6 mb-16">
-        <!-- Tier 1: Economic Dispatch -->
-        <div class="p-6 rounded-xl relative overflow-hidden group" style="background:var(--c1);border:1px solid var(--c3);">
-          <div class="absolute top-0 left-0 w-full h-1" style="background:linear-gradient(90deg, var(--cg), transparent);"></div>
-          <div class="text-xs font-mono uppercase tracking-wider mb-2" style="color:var(--cg);">Tier 1</div>
-          <h3 class="text-xl font-bold mb-2" style="color:var(--f2);">Economic Dispatch</h3>
-          <p class="text-sm mb-4" style="color:var(--f1);opacity:0.7;">Merit-order stacking. Ignores network constraints. Microseconds.</p>
-          <div class="font-mono text-xs p-2 rounded" style="background:var(--c2);color:var(--a1);">
-            gat opf ed grid.arrow
-          </div>
-          <div class="mt-4 flex items-center gap-2 text-xs" style="color:var(--cg);">
-            <span class="w-2 h-2 rounded-full" style="background:var(--cg);"></span>
-            <span>&lt;1ms</span>
-          </div>
-        </div>
-
-        <!-- Tier 2: DC-OPF -->
-        <div class="p-6 rounded-xl relative overflow-hidden group" style="background:var(--c1);border:1px solid var(--c3);">
-          <div class="absolute top-0 left-0 w-full h-1" style="background:linear-gradient(90deg, var(--a1), transparent);"></div>
-          <div class="text-xs font-mono uppercase tracking-wider mb-2" style="color:var(--a1);">Tier 2</div>
-          <h3 class="text-xl font-bold mb-2" style="color:var(--f2);">DC-OPF</h3>
-          <p class="text-sm mb-4" style="color:var(--f1);opacity:0.7;">Linear approximation. Real power only. Fast N-1 screening.</p>
-          <div class="font-mono text-xs p-2 rounded" style="background:var(--c2);color:var(--a1);">
-            gat opf dc grid.arrow
-          </div>
-          <div class="mt-4 flex items-center gap-2 text-xs" style="color:var(--a1);">
-            <span class="w-2 h-2 rounded-full" style="background:var(--a1);"></span>
-            <span>~10ms</span>
-          </div>
-        </div>
-
-        <!-- Tier 3: SOCP -->
-        <div class="p-6 rounded-xl relative overflow-hidden group" style="background:var(--c1);border:1px solid var(--c3);">
-          <div class="absolute top-0 left-0 w-full h-1" style="background:linear-gradient(90deg, #f6ad55, transparent);"></div>
-          <div class="text-xs font-mono uppercase tracking-wider mb-2" style="color:#f6ad55;">Tier 3</div>
-          <h3 class="text-xl font-bold mb-2" style="color:var(--f2);">SOCP Relaxation</h3>
-          <p class="text-sm mb-4" style="color:var(--f1);opacity:0.7;">Convex relaxation with voltage. Provable bounds. Production-ready.</p>
-          <div class="font-mono text-xs p-2 rounded" style="background:var(--c2);color:var(--a1);">
-            gat opf socp grid.arrow
-          </div>
-          <div class="mt-4 flex items-center gap-2 text-xs" style="color:#f6ad55;">
-            <span class="w-2 h-2 rounded-full" style="background:#f6ad55;"></span>
-            <span>~100ms</span>
-          </div>
-        </div>
-
-        <!-- Tier 4: AC-OPF -->
-        <div class="p-6 rounded-xl relative overflow-hidden group" style="background:var(--c1);border:1px solid var(--c3);">
-          <div class="absolute top-0 left-0 w-full h-1" style="background:linear-gradient(90deg, var(--cr), transparent);"></div>
-          <div class="text-xs font-mono uppercase tracking-wider mb-2" style="color:var(--cr);">Tier 4</div>
-          <h3 class="text-xl font-bold mb-2" style="color:var(--f2);">AC-OPF (NLP)</h3>
-          <p class="text-sm mb-4" style="color:var(--f1);opacity:0.7;">Full nonlinear. IPOPT backend. Analytical Jacobian/Hessian.</p>
-          <div class="font-mono text-xs p-2 rounded" style="background:var(--c2);color:var(--a1);">
-            gat opf ac grid.arrow
-          </div>
-          <div class="mt-4 flex items-center gap-2 text-xs" style="color:var(--cr);">
-            <span class="w-2 h-2 rounded-full" style="background:var(--cr);"></span>
-            <span>~1s</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Benchmark Results -->
-      <div class="rounded-2xl p-8" style="background:var(--c1);border:1px solid var(--c3);">
-        <div class="flex items-center justify-between mb-8 flex-wrap gap-4">
-          <div>
-            <h3 class="text-2xl font-bold mb-2" style="color:var(--f2);">PGLib-OPF Benchmark Results</h3>
-            <p class="text-sm" style="color:var(--f1);opacity:0.7;">SOCP solver validated against 67 standard test cases</p>
-          </div>
-          <a href="{{ get_url(path='/internals/benchmarks/') }}" class="px-4 py-2 rounded-lg text-sm font-medium"
-             style="background:var(--a1);color:white;">
-            View Full Results →
-          </a>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr style="border-bottom:1px solid var(--c3);">
-                <th class="text-left py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Case</th>
-                <th class="text-right py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Buses</th>
-                <th class="text-right py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Solve Time</th>
-                <th class="text-right py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Obj Gap</th>
-                <th class="text-center py-3 px-4 font-mono text-xs uppercase" style="color:var(--f1);opacity:0.6;">Status</th>
-              </tr>
-            </thead>
-            <tbody style="color:var(--f1);">
-              <tr style="border-bottom:1px solid var(--c3);">
-                <td class="py-3 px-4 font-mono">case14_ieee</td>
-                <td class="py-3 px-4 text-right">14</td>
-                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">15ms</td>
-                <td class="py-3 px-4 text-right font-mono">0.52%</td>
-                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--c3);">
-                <td class="py-3 px-4 font-mono">case118_ieee</td>
-                <td class="py-3 px-4 text-right">118</td>
-                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">157ms</td>
-                <td class="py-3 px-4 text-right font-mono">1.51%</td>
-                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--c3);">
-                <td class="py-3 px-4 font-mono">case2736sp_k</td>
-                <td class="py-3 px-4 text-right">2,736</td>
-                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">6.5s</td>
-                <td class="py-3 px-4 text-right font-mono">0.03%</td>
-                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
-              </tr>
-              <tr style="border-bottom:1px solid var(--c3);">
-                <td class="py-3 px-4 font-mono">case9241_pegase</td>
-                <td class="py-3 px-4 text-right">9,241</td>
-                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">77s</td>
-                <td class="py-3 px-4 text-right font-mono">3.27%</td>
-                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
-              </tr>
-              <tr>
-                <td class="py-3 px-4 font-mono">case78484_epigrids</td>
-                <td class="py-3 px-4 text-right font-bold" style="color:var(--a1);">78,484</td>
-                <td class="py-3 px-4 text-right font-mono" style="color:var(--cg);">8.3min</td>
-                <td class="py-3 px-4 text-right font-mono">0.96%</td>
-                <td class="py-3 px-4 text-center"><span class="px-2 py-1 rounded text-xs" style="background:color-mix(in srgb, var(--cg) 20%, transparent);color:var(--cg);">✓ Converged</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="mt-6 pt-6 flex flex-wrap gap-6 justify-center" style="border-top:1px solid var(--c3);">
-          <div class="text-center">
-            <div class="text-3xl font-bold" style="color:var(--a1);">67</div>
-            <div class="text-xs font-mono uppercase" style="color:var(--f1);opacity:0.6;">Cases Tested</div>
-          </div>
-          <div class="text-center">
-            <div class="text-3xl font-bold" style="color:var(--cg);">100%</div>
-            <div class="text-xs font-mono uppercase" style="color:var(--f1);opacity:0.6;">Convergence</div>
-          </div>
-          <div class="text-center">
-            <div class="text-3xl font-bold" style="color:var(--f2);">78k</div>
-            <div class="text-xs font-mono uppercase" style="color:var(--f1);opacity:0.6;">Max Buses</div>
-          </div>
-          <div class="text-center">
-            <div class="text-3xl font-bold" style="color:var(--f2);">&lt;1%</div>
-            <div class="text-xs font-mono uppercase" style="color:var(--f1);opacity:0.6;">Median Gap</div>
-          </div>
         </div>
       </div>
     </div>
@@ -931,17 +696,6 @@
       </div>
     </div>
   </footer>
-
-  <!-- Theme toggle script -->
-  <script>
-    function toggleTheme() {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const newTheme = isDark ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-    }
-    window.toggleTheme = toggleTheme;
-  </script>
 
   <!-- Simple JS for interactivity -->
   <script src="{{ get_url(path='/main.js') }}"></script>
