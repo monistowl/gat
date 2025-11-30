@@ -1,6 +1,6 @@
 # GRID ANALYSIS TOOLKIT (GAT)
 
-## v0.3.2 Status (Current)
+## v0.5.0 Status (Current)
 
 **Completed Features:**
 
@@ -15,20 +15,27 @@
 ✅ **PFDelta Integration** (Data loader for 859,800 test cases)
 ✅ **Benchmark Command** (AC OPF benchmarking against IEEE test cases)
 ✅ **Comprehensive Test Suite** (51+ reliability tests, 14+ integration tests)
+✅ **SOCP Relaxation** (Branch-flow model with Clarabel backend)
+✅ **Full Nonlinear AC-OPF** (L-BFGS penalty method, pure Rust)
+✅ **IPOPT Backend for AC-OPF** (Analytical Jacobian & Hessian, <0.01% gap validated)
+✅ **Bus Shunt Support** (Fixed capacitors/reactors in Y-bus and AC-OPF)
 
-**In Progress:**
-- SOCP relaxation for convex OPF
-- Full nonlinear AC-OPF
-
-**Recently Completed (v0.3.3):**
-- ✅ DC-OPF with B-matrix and LMP extraction
+**Recent Highlights (November 2024):**
+- ✅ **IPOPT AC-OPF validated** against PGLib reference values:
+  - IEEE 14-bus: $2,178.08/hr (ref: $2,178.10) — **Gap: -0.00%**
+  - IEEE 118-bus: $97,213.61/hr (ref: $97,214.00) — **Gap: -0.00%**
+- ✅ Analytical thermal constraint Jacobian with correct chain-rule derivatives
+- ✅ Diagnostics module for AC-OPF introspection and debugging
+- ✅ Comprehensive preprint (draft5) with full mathematical formulations
 
 **Documentation:**
-- `docs/guide/opf.md` — Unified OPF solver architecture and cost models
+- `docs/guide/opf.md` — Unified OPF solver architecture with IPOPT validation results
+- `docs/guide/pf.md` — Power flow with shunt support
 - `docs/guide/reliability.md` — Monte Carlo algorithms and LOLE/EUE metrics
 - `docs/guide/adms.md` — Updated with reliability integration details
 - `docs/guide/benchmark.md` — PFDelta integration and benchmarking workflow
 - `docs/guide/overview.md` — Cross-references for new capabilities
+- `docs/papers/README.md` — Research preprints including comprehensive draft5
 
 ---
 

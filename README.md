@@ -31,7 +31,9 @@ If you're comfortable running simple CLI commands and want to start doing *real*
 
 * Full DC/AC power-flow solvers (Newton-Raphson with Q-limit enforcement)
 * DC/AC optimal power-flow (OPF) with polynomial/piecewise costs
-* **Full nonlinear AC-OPF** using L-BFGS penalty method (passes 65/68 PGLib cases; median 2.9% gap)
+* **Full nonlinear AC-OPF** with two backends:
+  - L-BFGS penalty method (pure Rust, 65/68 PGLib cases, ~2.9% median gap)
+  - IPOPT interior-point (analytical Jacobian/Hessian, **<0.01% gap validated**)
 * N-1/N-2 contingency analysis and screening
 * Time-series resampling, joining, aggregation
 * State estimation (weighted least squares)

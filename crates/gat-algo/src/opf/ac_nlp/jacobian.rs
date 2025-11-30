@@ -546,11 +546,12 @@ fn branch_flow_to_grad_p(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, th
     // ∂P/∂Vj = 2Vj·g - (Vi/a)·(g·cos + b·sin)
     let dp_dvj = 2.0 * vj * g - (vi / a) * (g * cos_diff + b * sin_diff);
 
-    // ∂P/∂θi = (Vi·Vj/a)·(g·sin - b·cos)  (note: ∂θ_diff/∂θi = -1)
-    let dp_dti = (vi * vj / a) * (g * sin_diff - b * cos_diff);
+    // For θ_diff = θj - θi + shift: ∂θ_diff/∂θi = -1, ∂θ_diff/∂θj = +1
+    // ∂P/∂θi = ∂P/∂θ_diff · ∂θ_diff/∂θi = (Vi·Vj/a)·(g·sin - b·cos) · (-1)
+    let dp_dti = -(vi * vj / a) * (g * sin_diff - b * cos_diff);
 
-    // ∂P/∂θj = -(Vi·Vj/a)·(g·sin - b·cos)  (note: ∂θ_diff/∂θj = 1)
-    let dp_dtj = -(vi * vj / a) * (g * sin_diff - b * cos_diff);
+    // ∂P/∂θj = ∂P/∂θ_diff · ∂θ_diff/∂θj = (Vi·Vj/a)·(g·sin - b·cos) · (+1)
+    let dp_dtj = (vi * vj / a) * (g * sin_diff - b * cos_diff);
 
     (dp_dvi, dp_dvj, dp_dti, dp_dtj)
 }
@@ -577,10 +578,11 @@ fn branch_flow_to_grad_q(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, th
     // ∂Q/∂Vj = -2Vj·(b + bc/2) - (Vi/a)·(g·sin - b·cos)
     let dq_dvj = -2.0 * vj * (b + bc_half) - (vi / a) * (g * sin_diff - b * cos_diff);
 
-    // ∂Q/∂θi = (Vi·Vj/a)·(g·cos + b·sin)  (note: ∂θ_diff/∂θi = -1)
+    // For θ_diff = θj - θi + shift: ∂θ_diff/∂θi = -1, ∂θ_diff/∂θj = +1
+    // ∂Q/∂θi = ∂Q/∂θ_diff · (-1) = -(Vi·Vj/a)·(g·cos + b·sin) · (-1) = (Vi·Vj/a)·(g·cos + b·sin)
     let dq_dti = (vi * vj / a) * (g * cos_diff + b * sin_diff);
 
-    // ∂Q/∂θj = -(Vi·Vj/a)·(g·cos + b·sin)  (note: ∂θ_diff/∂θj = 1)
+    // ∂Q/∂θj = ∂Q/∂θ_diff · (+1) = -(Vi·Vj/a)·(g·cos + b·sin)
     let dq_dtj = -(vi * vj / a) * (g * cos_diff + b * sin_diff);
 
     (dq_dvi, dq_dvj, dq_dti, dq_dtj)
