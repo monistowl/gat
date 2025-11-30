@@ -80,6 +80,12 @@ fn try_system_cbc() -> bool {
         }
     }
 
+    // Link C++ standard library (COIN-OR is written in C++)
+    #[cfg(target_os = "linux")]
+    println!("cargo:rustc-link-lib=stdc++");
+    #[cfg(target_os = "macos")]
+    println!("cargo:rustc-link-lib=c++");
+
     true
 }
 

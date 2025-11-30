@@ -74,7 +74,11 @@ build_metis() {
     mv metis-4.0.? metis-4.0
 
     # Configure and build
-    ./configure --prefix="$PREFIX" --disable-shared
+    # Note: Metis 4.0.3 is ancient C code with implicit function declarations
+    # Modern Clang (especially on macOS) treats these as errors by default.
+    # We add -Wno-error=implicit-function-declaration to allow the build.
+    ./configure --prefix="$PREFIX" --disable-shared \
+        CFLAGS="-O3 -Wno-error=implicit-function-declaration"
     make -j"$JOBS"
     make install
 
