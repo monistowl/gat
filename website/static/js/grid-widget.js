@@ -20,13 +20,15 @@ const CYTOSCAPE_STYLE = [
       'label': 'data(label)',
       'text-valign': 'center',
       'text-halign': 'center',
-      'font-size': '12px',
+      'font-size': '11px',
       'font-weight': 'bold',
       'color': '#ffffff',
       'text-outline-color': 'data(color)',
       'text-outline-width': 2,
-      'width': 40,
-      'height': 40,
+      'text-wrap': 'wrap',
+      'text-max-width': '60px',
+      'width': 50,
+      'height': 50,
       'background-color': 'data(color)',
       'shape': 'data(shape)',
       'border-width': 2,
@@ -39,8 +41,8 @@ const CYTOSCAPE_STYLE = [
     style: {
       'border-width': 4,
       'border-color': '#fbbf24',
-      'width': 50,
-      'height': 50
+      'width': 60,
+      'height': 60
     }
   },
   // Selected node

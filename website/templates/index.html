@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="{{ config.description }}" />
 
-  <!-- Abridge Theme CSS (provides --c1, --f1, --a1, etc. variables) -->
-  <link rel="stylesheet" href="{{ get_url(path='/abridge.css') | safe }}" />
+  <!-- Note: We define our own theme CSS variables below instead of using abridge.css
+       to ensure consistent theming with inner pages (base.html) -->
 
   <!-- Tailwind via CDN for layout utilities -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -35,10 +35,50 @@
     }
   </script>
   <style>
-    /* Use Abridge theme variables throughout */
+    /* Theme System: CSS Variables that match base.html exactly for consistency */
+    /* Light theme (default) */
+    :root {
+      --c1: #ffffff;           /* Primary background */
+      --c2: #f8fafc;           /* Secondary background (cards, code) */
+      --c3: #e2e8f0;           /* Borders */
+      --c4: #64748b;           /* Muted text */
+      --f1: #1e293b;           /* Primary text */
+      --f2: #0f172a;           /* Heading text */
+      --a1: #ea580c;           /* Accent color (orange-600) */
+      --a1-hover: #c2410c;     /* Accent hover (orange-700) */
+      --a2: #f97316;           /* Secondary accent (orange-500) */
+      --code-bg: #f1f5f9;      /* Code block background */
+      --code-text: #c2410c;    /* Inline code text */
+      --grid-color: #cbd5e1;   /* Background grid */
+      --selection-bg: rgba(234, 88, 12, 0.2);
+    }
+
+    /* Dark theme */
+    [data-theme="dark"], .dark, html.switch {
+      --c1: #020617;           /* slate-950 */
+      --c2: #0f172a;           /* slate-900 */
+      --c3: #1e293b;           /* slate-800 */
+      --c4: #94a3b8;           /* slate-400 */
+      --f1: #e2e8f0;           /* slate-200 */
+      --f2: #ffffff;           /* white */
+      --a1: #fb923c;           /* orange-400 */
+      --a1-hover: #fdba74;     /* orange-300 */
+      --a2: #f97316;           /* Secondary accent (orange-500) */
+      --code-bg: #0f172a;      /* slate-900 */
+      --code-text: #fb923c;    /* orange-400 */
+      --grid-color: #334155;   /* slate-700 */
+      --selection-bg: rgba(251, 146, 60, 0.3);
+    }
+
+    /* Use theme variables throughout */
     body {
       background-color: var(--c1);
       color: var(--f1);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    ::selection {
+      background: var(--selection-bg);
     }
 
     /* Terminal always stays dark for contrast */
@@ -65,6 +105,23 @@
       box-shadow: 0 8px 30px -10px var(--a1);
     }
   </style>
+  <!-- Theme initialization script (runs before page render to prevent flash) -->
+  <script>
+    (function() {
+      // Support both 'theme' key (from base.html) and 'switch' class (from Abridge)
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+      // Apply dark theme if saved as 'dark' or 'switch', or if system prefers dark
+      if (savedTheme === 'dark' || savedTheme === 'switch') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.classList.add('switch');
+      } else if (!savedTheme && prefersDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.classList.add('switch');
+      }
+    })();
+  </script>
 </head>
 <body class="min-h-screen font-sans overflow-x-hidden max-w-full" style="background:var(--c1);color:var(--f1);">
 

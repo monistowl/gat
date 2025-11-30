@@ -260,6 +260,9 @@
 {% endblock extra_head %}
 
 {% block content %}
+<div class="relative z-10">
+  {% include "partials/header.html" %}
+
 <section class="container mx-auto px-4 py-8">
   <div class="exp-hero mb-8">
     <div class="flex items-center gap-3 mb-3">
@@ -642,4 +645,7 @@
   updatePreview();
 })();
 </script>
+
+  {% include "partials/footer.html" %}
+</div>
 {% endblock content %}

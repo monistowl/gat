@@ -12,33 +12,33 @@
     {% include "partials/sidebar.html" %}
 
     <main class="lg:col-span-9 xl:col-span-9">
-      <article class="bg-slate-900/20 border border-slate-800 rounded-lg p-8 lg:p-12">
-        <div class="flex items-center justify-between text-sm text-slate-500 mb-6">
+      <article style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3); border-radius: 0.5rem;" class="p-8 lg:p-12">
+        <div class="flex items-center justify-between text-sm mb-6" style="color: var(--c4);">
           <div>
-            <a href="{{ get_url(path='/') }}" class="hover:text-orange-500 transition-colors">Home</a>
+            <a href="{{ get_url(path='/') }}" style="color: var(--c4); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">Home</a>
             <span class="mx-2">/</span>
-            <a href="{{ get_url(path='/docs/') }}" class="hover:text-orange-500 transition-colors">Docs</a>
+            <a href="{{ get_url(path='/docs/') }}" style="color: var(--c4); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">Docs</a>
             {% if section.ancestors %}
               {% for ancestor in section.ancestors %}
                 {% set ancestor_section = get_section(path=ancestor) %}
                 <span class="mx-2">/</span>
-                <a href="{{ ancestor_section.permalink }}" class="hover:text-orange-500 transition-colors">{{ ancestor_section.title }}</a>
+                <a href="{{ ancestor_section.permalink }}" style="color: var(--c4); text-decoration: none; transition: color 0.2s;" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">{{ ancestor_section.title }}</a>
               {% endfor %}
             {% endif %}
             <span class="mx-2">/</span>
-            <span class="text-white">{{ section.title }}</span>
+            <span style="color: var(--f2);">{{ section.title }}</span>
           </div>
         </div>
 
-        <header class="mb-8 border-b border-slate-800 pb-6">
-          <h1 class="text-4xl font-bold text-white mb-3">{{ section.title }}</h1>
+        <header class="mb-8 pb-6" style="border-bottom: 1px solid var(--c3);">
+          <h1 class="text-4xl font-bold mb-3" style="color: var(--f2);">{{ section.title }}</h1>
           {% if section.description %}
-          <p class="text-lg text-slate-400">{{ section.description }}</p>
+          <p class="text-lg" style="color: var(--c4);">{{ section.description }}</p>
           {% endif %}
         </header>
 
         {% if section.content %}
-        <div class="prose prose-invert prose-orange max-w-none mb-10">
+        <div class="prose max-w-none mb-10">
           {{ section.content | safe }}
         </div>
         {% endif %}
@@ -46,10 +46,10 @@
         {% if section.pages %}
         <section class="space-y-4">
           {% for page in section.pages %}
-          <a href="{{ page.permalink | safe }}" class="block bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
-            <h3 class="text-lg font-bold text-white mb-2">{{ page.title }}</h3>
+          <a href="{{ page.permalink | safe }}" class="block p-6 rounded-xl transition-all" style="background: color-mix(in srgb, var(--c2) 40%, transparent); border: 1px solid var(--c3); text-decoration: none;" onmouseover="this.style.borderColor='color-mix(in srgb, var(--a1) 50%, transparent)'" onmouseout="this.style.borderColor='var(--c3)'">
+            <h3 class="text-lg font-bold mb-2" style="color: var(--f2);">{{ page.title }}</h3>
             {% if page.description %}
-            <p class="text-slate-400 text-sm">{{ page.description }}</p>
+            <p class="text-sm" style="color: var(--c4);">{{ page.description }}</p>
             {% endif %}
           </a>
           {% endfor %}
@@ -58,12 +58,12 @@
 
         {% if section.subsections %}
         <section class="mt-12 space-y-4">
-          <h2 class="text-2xl font-bold text-white mb-6">Subsections</h2>
+          <h2 class="text-2xl font-bold mb-6" style="color: var(--f2);">Subsections</h2>
           {% for subsection in section.subsections %}
-          <a href="{{ subsection.permalink | safe }}" class="block bg-slate-900/40 border border-slate-800 p-6 rounded-xl hover:border-orange-500/50 transition-all">
-            <h3 class="text-lg font-bold text-white mb-2">{{ subsection.title }}</h3>
+          <a href="{{ subsection.permalink | safe }}" class="block p-6 rounded-xl transition-all" style="background: color-mix(in srgb, var(--c2) 40%, transparent); border: 1px solid var(--c3); text-decoration: none;" onmouseover="this.style.borderColor='color-mix(in srgb, var(--a1) 50%, transparent)'" onmouseout="this.style.borderColor='var(--c3)'">
+            <h3 class="text-lg font-bold mb-2" style="color: var(--f2);">{{ subsection.title }}</h3>
             {% if subsection.description %}
-            <p class="text-slate-400 text-sm">{{ subsection.description }}</p>
+            <p class="text-sm" style="color: var(--c4);">{{ subsection.description }}</p>
             {% endif %}
           </a>
           {% endfor %}

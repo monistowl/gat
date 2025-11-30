@@ -8,6 +8,8 @@ weight = 11
 
 GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-millisecond economic dispatch to production-grade nonlinear optimization. Each tier offers a different accuracy/speed tradeoff, letting you choose the right tool for each task.
 
+<div class="grid-widget" data-network="ieee14" data-height="420" data-flow="true" data-lmp="true" data-legend="true" data-caption="Interactive: Click ⚡ to see power flow direction and loading. Click $ to visualize Locational Marginal Prices (LMPs) from OPF results."></div>
+
 > **Validated Performance**: GAT's SOCP solver achieves 100% convergence across all 67 PGLib-OPF benchmark cases.
 > See the [complete benchmark results](/internals/benchmarks/) for details.
 

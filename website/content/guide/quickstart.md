@@ -15,6 +15,8 @@ next_steps = [
 
 This guide will get you from zero to running power flow analysis in 5 minutes. No prerequisites required.
 
+<div class="grid-widget" data-network="three-bus" data-height="320" data-flow="true" data-voltage="true" data-legend="true" data-caption="Interactive: This is what power flow calculates. Click ⚡ to see power flows, V to see voltage profile."></div>
+
 ## 1. Installation (1 minute)
 
 Install GAT using the modular installer:
