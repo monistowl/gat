@@ -1,0 +1,235 @@
+/**
+ * Grid Widget Styles
+ * Styling for Cytoscape.js power system topology widgets
+ */
+
+/* Main widget container */
+.grid-widget {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  background-color: var(--bg-secondary, #f8fafc);
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+
+/* Dark mode support */
+[data-theme="dark"] .grid-widget,
+.dark .grid-widget {
+  background-color: #1e293b;
+  border-color: #334155;
+}
+
+/* Cytoscape canvas container */
+.grid-widget-canvas {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Widget title */
+.grid-widget-title {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 4px 8px;
+  border-radius: 4px;
+  z-index: 10;
+}
+
+[data-theme="dark"] .grid-widget-title,
+.dark .grid-widget-title {
+  background-color: rgba(30, 41, 59, 0.9);
+  color: #94a3b8;
+}
+
+/* Widget caption */
+.grid-widget-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 0.75rem;
+  font-style: italic;
+  color: var(--text-secondary, #64748b);
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 6px 12px;
+  text-align: center;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  z-index: 10;
+}
+
+[data-theme="dark"] .grid-widget-caption,
+.dark .grid-widget-caption {
+  background-color: rgba(30, 41, 59, 0.95);
+  color: #94a3b8;
+  border-top-color: #334155;
+}
+
+/* When caption is present, controls need to move up */
+.grid-widget:has(.grid-widget-caption) .grid-widget-controls {
+  bottom: 38px;
+}
+
+/* Info panel (appears on node/edge click) */
+.grid-widget-info {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  max-width: 220px;
+  padding: 12px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  z-index: 20;
+}
+
+[data-theme="dark"] .grid-widget-info,
+.dark .grid-widget-info {
+  background-color: rgba(30, 41, 59, 0.95);
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.grid-widget-info strong {
+  color: var(--text-primary, #1e293b);
+}
+
+[data-theme="dark"] .grid-widget-info strong,
+.dark .grid-widget-info strong {
+  color: #f1f5f9;
+}
+
+/* Bus type badges */
+.bus-type-slack {
+  background-color: #22c55e;
+  color: white;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.bus-type-pv {
+  background-color: #ef4444;
+  color: white;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.bus-type-pq {
+  background-color: #3b82f6;
+  color: white;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Error state */
+.grid-widget-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+  color: #ef4444;
+  text-align: center;
+  padding: 2rem;
+}
+
+.grid-widget-error .error-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.grid-widget-error .error-message {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #64748b);
+}
+
+/* Zoom controls */
+.grid-widget-controls {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 15;
+}
+
+.grid-widget-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary, #334155);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.grid-widget-btn:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.grid-widget-btn:active {
+  transform: scale(0.95);
+}
+
+[data-theme="dark"] .grid-widget-btn,
+.dark .grid-widget-btn {
+  background-color: rgba(30, 41, 59, 0.95);
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .grid-widget-btn:hover,
+.dark .grid-widget-btn:hover {
+  background-color: #334155;
+  border-color: #64748b;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .grid-widget {
+    min-height: 250px;
+  }
+
+  .grid-widget-info {
+    max-width: 180px;
+    font-size: 0.75rem;
+    padding: 8px;
+  }
+
+  .grid-widget-controls {
+    bottom: 40px; /* Move up to avoid caption */
+  }
+
+  .grid-widget-btn {
+    width: 32px;
+    height: 32px;
+  }
+}

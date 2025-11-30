@@ -364,6 +364,9 @@
     })();
   </script>
 
+  <!-- Grid Widget styles (lightweight, always loaded) -->
+  <link rel="stylesheet" href="/css/grid-widget.css">
+
   {% block extra_head %}{% endblock extra_head %}
 </head>
 <body>
@@ -402,6 +405,24 @@
         });
       }
     });
+  </script>
+
+  <!-- Grid Widget: Load Cytoscape only when widgets are present -->
+  <script>
+    (function() {
+      if (document.querySelector('.grid-widget')) {
+        // Load Cytoscape from CDN
+        const cyScript = document.createElement('script');
+        cyScript.src = 'https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js';
+        cyScript.onload = function() {
+          // Then load grid-widget.js
+          const widgetScript = document.createElement('script');
+          widgetScript.src = '/js/grid-widget.js';
+          document.body.appendChild(widgetScript);
+        };
+        document.body.appendChild(cyScript);
+      }
+    })();
   </script>
 
 </body>

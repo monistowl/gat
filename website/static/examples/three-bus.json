@@ -1,0 +1,74 @@
+{
+  "name": "Three-Bus System",
+  "description": "Classic example demonstrating bus types and Y-bus construction",
+  "buses": [
+    {
+      "id": 1,
+      "name": "Slack",
+      "type": "slack",
+      "v_base": 138,
+      "v_mag": 1.0,
+      "v_ang": 0
+    },
+    {
+      "id": 2,
+      "name": "Gen 2",
+      "type": "pv",
+      "v_base": 138,
+      "v_mag": 1.02
+    },
+    {
+      "id": 3,
+      "name": "Load",
+      "type": "pq",
+      "v_base": 138
+    }
+  ],
+  "branches": [
+    {
+      "from": 1,
+      "to": 2,
+      "r": 0.01,
+      "x": 0.1,
+      "b": 0.02,
+      "rating": 100
+    },
+    {
+      "from": 1,
+      "to": 3,
+      "r": 0.02,
+      "x": 0.15,
+      "b": 0.03,
+      "rating": 80
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "r": 0.015,
+      "x": 0.12,
+      "b": 0.025,
+      "rating": 80
+    }
+  ],
+  "generators": [
+    {
+      "bus": 1,
+      "p": 0,
+      "q": 0,
+      "is_slack": true
+    },
+    {
+      "bus": 2,
+      "p": 50,
+      "q_min": -30,
+      "q_max": 50
+    }
+  ],
+  "loads": [
+    {
+      "bus": 3,
+      "p": 100,
+      "q": 40
+    }
+  ]
+}
