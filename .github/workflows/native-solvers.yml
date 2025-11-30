@@ -488,6 +488,15 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc lapack pkg-config || true
+          # Homebrew's GCC installs gfortran as gfortran-14 (or similar version)
+          # The configure scripts look for 'gfortran', so we create a symlink
+          GCC_VERSION=$(brew list --versions gcc | grep -oE '[0-9]+' | head -1)
+          if [ -n "$GCC_VERSION" ] && [ -f "$(brew --prefix)/bin/gfortran-$GCC_VERSION" ]; then
+            sudo ln -sf "$(brew --prefix)/bin/gfortran-$GCC_VERSION" /usr/local/bin/gfortran
+            echo "Created gfortran symlink pointing to gfortran-$GCC_VERSION"
+          fi
+          # Verify gfortran is available
+          which gfortran && gfortran --version || echo "Warning: gfortran not found"
 
       - name: Cache vendored build
         uses: actions/cache@v4
