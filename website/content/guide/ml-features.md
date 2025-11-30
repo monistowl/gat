@@ -131,6 +131,6 @@ import lightgbm as lgb
 
 ## Related Commands
 
-- [Batch Analysis](/guide/batch/) — Run scenarios for training data
-- [Reliability](/guide/reliability/) — Generate reliability metrics
-- [Geo Features](/guide/geo/) — Spatial feature aggregation
+- [Batch Analysis](@/guide/batch.md) — Run scenarios for training data
+- [Reliability](@/guide/reliability.md) — Generate reliability metrics
+- [Geo Features](@/guide/geo.md) — Spatial feature aggregation

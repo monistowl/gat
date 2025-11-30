@@ -394,6 +394,6 @@ degrees = radians × 180/π
 
 ## See Also
 
-- [Glossary](/reference/glossary/) — Term definitions
-- [Power Flow Theory](/reference/power-flow/) — Equations using these conventions
-- [Arrow Schema](/guide/arrow-schema/) — How GAT stores these values
+- [Glossary](@/reference/glossary.md) — Term definitions
+- [Power Flow Theory](@/reference/power-flow.md) — Equations using these conventions
+- [Arrow Schema](@/guide/arrow-schema.md) — How GAT stores these values

@@ -282,7 +282,7 @@ Options:
 
 ## See Also
 
-- [Power Flow Theory](/reference/power-flow/) — The analysis run for each contingency
-- [OPF Formulations](/reference/opf-formulations/) — Security-constrained optimization
-- [Reliability Theory](/reference/reliability-theory/) — Probabilistic adequacy assessment
-- [Glossary](/reference/glossary/) — N-1, LODF, PTDF definitions
+- [Power Flow Theory](@/reference/power-flow.md) — The analysis run for each contingency
+- [OPF Formulations](@/reference/opf-formulations.md) — Security-constrained optimization
+- [Reliability Theory](@/reference/reliability-theory.md) — Probabilistic adequacy assessment
+- [Glossary](@/reference/glossary.md) — N-1, LODF, PTDF definitions

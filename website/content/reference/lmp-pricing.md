@@ -242,7 +242,7 @@ In real markets, LMPs show characteristic patterns:
 
 ## See Also
 
-- [OPF Formulations](/reference/opf-formulations/) — The optimization that produces LMPs
-- [Contingency Analysis](/reference/contingency-analysis/) — Security constraints affect LMPs
-- [Power Flow Theory](/reference/power-flow/) — Physical basis for losses and flows
-- [Glossary](/reference/glossary/) — PTDF, congestion, marginal cost definitions
+- [OPF Formulations](@/reference/opf-formulations.md) — The optimization that produces LMPs
+- [Contingency Analysis](@/reference/contingency-analysis.md) — Security constraints affect LMPs
+- [Power Flow Theory](@/reference/power-flow.md) — Physical basis for losses and flows
+- [Glossary](@/reference/glossary.md) — PTDF, congestion, marginal cost definitions

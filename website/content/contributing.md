@@ -243,7 +243,7 @@ This means:
 - You retain copyright to your contributions
 - You grant GAT permission to use your contributions
 
-See [License & Terms](/license/) for details.
+See [License & Terms](@/license.md) for details.
 
 ## Getting Help
 
@@ -251,7 +251,7 @@ Stuck? Need guidance?
 
 - **Discussions:** [Ask questions](https://github.com/monistowl/gat/discussions)
 - **Issues:** [Report problems](https://github.com/monistowl/gat/issues)
-- **Documentation:** [Read the docs](/docs/)
+- **Documentation:** [Read the docs](@/guide/_index.md)
 - **Examples:** [Check examples](https://github.com/monistowl/gat/tree/main/examples)
 
 ## Recognition

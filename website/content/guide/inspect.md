@@ -184,7 +184,7 @@ gat opf dc grid.arrow --out results.parquet
 
 ## Related Commands
 
-- [Power Flow](/guide/pf/) — Run power flow analysis
-- [OPF](/guide/opf/) — Optimal power flow
-- [Convert](/guide/convert/) — Convert between formats
-- [Import](/guide/datasets/) — Import network data
+- [Power Flow](@/guide/pf.md) — Run power flow analysis
+- [OPF](@/guide/opf.md) — Optimal power flow
+- [Convert](@/guide/convert.md) — Convert between formats
+- [Import](@/guide/datasets.md) — Import network data

@@ -266,7 +266,7 @@ You can inspect the Y-bus with `gat inspect --ybus`.
 
 ## See Also
 
-- [Impedance & Admittance](/reference/impedance-admittance/) — Branch parameters
-- [Power Flow Theory](/reference/power-flow/) — Using Y-bus in power flow
-- [Bus Types](/reference/bus-types/) — How buses are classified
-- [Newton-Raphson Method](/reference/newton-raphson/) — Solving the power flow equations
+- [Impedance & Admittance](@/reference/impedance-admittance.md) — Branch parameters
+- [Power Flow Theory](@/reference/power-flow.md) — Using Y-bus in power flow
+- [Bus Types](@/reference/bus-types.md) — How buses are classified
+- [Newton-Raphson Method](@/reference/newton-raphson.md) — Solving the power flow equations

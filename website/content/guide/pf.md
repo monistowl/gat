@@ -69,6 +69,6 @@ Shunts are modeled as constant-admittance injections:
 
 ## Related Commands
 
-- [OPF](/guide/opf/) — Optimal power flow analysis
-- [Inspect](/guide/inspect/) — Network inspection and validation
-- [Batch](/guide/batch/) — Multi-scenario power flow
+- [OPF](@/guide/opf.md) — Optimal power flow analysis
+- [Inspect](@/guide/inspect.md) — Network inspection and validation
+- [Batch](@/guide/batch.md) — Multi-scenario power flow

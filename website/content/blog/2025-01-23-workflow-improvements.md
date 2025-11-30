@@ -48,10 +48,10 @@ We've optimized our GitHub Actions workflows to skip unnecessary Rust builds whe
 
 The website now includes comprehensive content pages:
 
-- **[About](/gat/about/)** - Project background and philosophy
-- **[License & Terms](/gat/license/)** - Clear licensing information
-- **[Contributing](/gat/contributing/)** - Development workflow guide
-- **[Security](/gat/security/)** - Security policies and features
+- **[About](@/about.md)** - Project background and philosophy
+- **[License & Terms](@/license.md)** - Clear licensing information
+- **[Contributing](@/contributing.md)** - Development workflow guide
+- **[Security](@/security.md)** - Security policies and features
 
 Plus, the site now deploys only from the `main` branch, making it clear which deployment is production.
 
@@ -66,7 +66,7 @@ We're continuing to improve the documentation and examples. Stay tuned for:
 
 ## Get Involved
 
-Want to contribute? Check out our [Contributing Guide](/gat/contributing/) or open an issue on [GitHub](https://github.com/monistowl/gat/issues).
+Want to contribute? Check out our [Contributing Guide](@/contributing.md) or open an issue on [GitHub](https://github.com/monistowl/gat/issues).
 
 {% callout(type="info") %}
 **Subscribe to updates:** We now have an RSS feed! Add `/gat/rss.xml` to your feed reader.

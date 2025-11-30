@@ -292,7 +292,7 @@ The result includes:
 
 ## See Also
 
-- [Power Flow Theory](/reference/power-flow/) — The equations being solved
-- [Bus Types](/reference/bus-types/) — How buses affect the Jacobian structure
-- [Y-Bus Matrix](/reference/ybus-matrix/) — Network data used in calculations
-- [OPF Formulations](/reference/opf-formulations/) — Extending power flow to optimization
+- [Power Flow Theory](@/reference/power-flow.md) — The equations being solved
+- [Bus Types](@/reference/bus-types.md) — How buses affect the Jacobian structure
+- [Y-Bus Matrix](@/reference/ybus-matrix.md) — Network data used in calculations
+- [OPF Formulations](@/reference/opf-formulations.md) — Extending power flow to optimization

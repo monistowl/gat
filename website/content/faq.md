@@ -41,7 +41,7 @@ The per-unit (p.u.) system normalizes all quantities to dimensionless ratios aro
 2. **Simplified calculations**: Transformer turns ratios disappear; ideal transformers become 1:1
 3. **Quick sanity checks**: Normal voltages are ~1.0 p.u., abnormal values stand out immediately
 
-See [Units & Conventions](/reference/units-conventions/) for the full derivation.
+See [Units & Conventions](@/reference/units-conventions.md) for the full derivation.
 
 ### What's the difference between real power (P) and reactive power (Q)?
 
@@ -129,7 +129,7 @@ Times vary by:
 - **Tolerance** — Tighter tolerances take longer
 - **Convergence** — Ill-conditioned grids need more iterations
 
-See [Benchmarks](/guide/benchmark/) for detailed comparisons.
+See [Benchmarks](@/guide/benchmark.md) for detailed comparisons.
 
 ### How does GAT compare to MATPOWER?
 
@@ -173,7 +173,7 @@ For production systems at scale, you may need:
 - Custom solver tuning
 - Commercial solver options (Gurobi, MOSEK)
 
-See [Scaling](/internals/scaling/) for large-system guidance.
+See [Scaling](@/internals/scaling.md) for large-system guidance.
 
 ### Which solver should I use?
 
@@ -259,7 +259,7 @@ duckdb :memory: "SELECT * FROM read_parquet('results.parquet')"
 
 **C/C++/Rust:** Use Arrow C Data Interface
 
-See [Integration Guide](/guide/overview/#data-architecture) for details.
+See [Integration Guide](@/guide/overview.md) for details.
 
 ## Usage & Workflow
 
@@ -333,7 +333,7 @@ gat runs describe manifest.toml
 gat runs resume manifest.toml
 ```
 
-See [Manifests](/internals/cli-architecture/#manifest-driven-workflows) for more.
+See [Manifests](@/internals/cli-architecture.md) for more.
 
 ### Can I parallelize analysis across multiple machines?
 
@@ -353,7 +353,7 @@ For cloud distribution:
 - Use MCP Server for agent-based distribution
 - Wrap GAT in containers (Docker) for orchestration
 
-See [Scaling](/internals/scaling/) for distributed patterns.
+See [Scaling](@/internals/scaling.md) for distributed patterns.
 
 ## Installation & Setup
 
@@ -371,7 +371,7 @@ This downloads pre-built binaries, which is much faster than building from sourc
 
 ### What if the modular installer fails?
 
-See [Installation Troubleshooting](/guide/install-verify/#troubleshooting) for:
+See [Installation Troubleshooting](@/guide/install-verify.md#troubleshooting) for:
 - Network issues
 - Missing `jq` dependency
 - Permission problems
@@ -418,7 +418,7 @@ If you have system CBC installed, GAT will use it; otherwise, it uses the bundle
 - Domain-specific workflows (ADMS, DERMS, VVO)
 - Graph analysis (islands, cycles, meshing)
 
-See [Feature Matrix](/internals/feature-matrix/) for the full list.
+See [Feature Matrix](@/internals/feature-matrix.md) for the full list.
 
 ### Does GAT support renewable energy?
 
@@ -428,7 +428,7 @@ Yes:
 - Flexibility constraints (ramp limits, min-up/down)
 - Renewable energy scenarios
 
-See [Time Series Guide](/guide/ts/) for examples.
+See [Time Series Guide](@/guide/ts.md) for examples.
 
 ### Can GAT handle distribution networks?
 
@@ -438,7 +438,7 @@ Yes, specifically. Domain-specific features include:
 - **VVO** — Volt-VAR Optimization
 - **FLISR** — Fault Location, Isolation, Service Restoration
 
-See [ADMS Guide](/guide/adms/) and [DERMS Guide](/guide/derms/).
+See [ADMS Guide](@/guide/adms.md) and [DERMS Guide](@/guide/derms.md).
 
 ### Does GAT support market clearing / LMP?
 
@@ -447,7 +447,7 @@ Yes. GAT can compute:
 - **Congestion rents** and **loss recovery**
 - **Binding constraints** and **shadow prices**
 
-See [OPF Guide](/guide/opf/#locational-marginal-prices) for examples.
+See [OPF Guide](@/guide/opf.md) for examples.
 
 ## Getting Help
 
@@ -455,7 +455,7 @@ See [OPF Guide](/guide/opf/#locational-marginal-prices) for examples.
 
 - **Discussions:** [Ask anything](https://github.com/monistowl/gat/discussions) — best for questions
 - **Issues:** [Report bugs](https://github.com/monistowl/gat/issues) — for bugs and feature requests
-- **Documentation:** [Full docs](/docs/) — for detailed guides
+- **Documentation:** [Full docs](@/guide/_index.md) — for detailed guides
 
 ### How do I report a bug?
 
@@ -514,7 +514,7 @@ Good question! To debug:
 5. **Parallelize manually** — Run independent analyses in parallel
 6. **Reduce network size** — Pre-process to remove unrelated areas
 
-See [Scaling Guide](/internals/scaling/) for benchmarked optimizations.
+See [Scaling Guide](@/internals/scaling.md) for benchmarked optimizations.
 
 ### Does GAT use all my CPU cores?
 

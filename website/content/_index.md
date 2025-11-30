@@ -29,12 +29,12 @@ gat pf dc grid.arrow --out flows.parquet
 
 ## Documentation
 
-- **[User Guide](/guide/)** — Getting started and CLI usage
-- **[Developer Internals](/internals/)** — Architecture for contributors
-- **[Reference & Theory](/reference/)** — Algorithms and power systems background
+- **[User Guide](@/guide/_index.md)** — Getting started and CLI usage
+- **[Developer Internals](@/internals/_index.md)** — Architecture for contributors
+- **[Reference & Theory](@/reference/_index.md)** — Algorithms and power systems background
 
 ## Get Involved
 
 - **[GitHub](https://github.com/monistowl/gat)** — Source code and issues
 - **[Contributing](@/contributing.md)** — How to contribute
-- **[Blog](/blog/)** — Development updates
+- **[Blog](@/blog/_index.md)** — Development updates

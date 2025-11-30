@@ -160,7 +160,7 @@ If $S_{\text{base}} = 100$ MVA, then:
 - 30 MVAR = 0.3 p.u. reactive power
 - $\mathbf{S} = 0.5 + j0.3$ p.u.
 
-See [Units & Conventions](/reference/units-conventions/) for details.
+See [Units & Conventions](@/reference/units-conventions.md) for details.
 
 ---
 
@@ -170,7 +170,7 @@ The power flow equations express complex power balance at each bus:
 
 $$S_i = V_i \sum_{k=1}^{n} Y_{ik}^* V_k^*$$
 
-This expands to the real and reactive power equations you'll see in [Power Flow Theory](/reference/power-flow/):
+This expands to the real and reactive power equations you'll see in [Power Flow Theory](@/reference/power-flow.md):
 
 $$P_i = \sum_{k=1}^{n} |V_i||V_k|(G_{ik}\cos\theta_{ik} + B_{ik}\sin\theta_{ik})$$
 
@@ -192,7 +192,7 @@ where $\theta_{ik} = \theta_i - \theta_k$ is the angle difference between buses.
 
 ## See Also
 
-- [Power Flow Theory](/reference/power-flow/) — How complex power flows through networks
-- [Units & Conventions](/reference/units-conventions/) — Per-unit system
-- [Impedance & Admittance](/reference/impedance-admittance/) — Circuit parameters affecting power flow
-- [Glossary](/reference/glossary/) — Quick definitions
+- [Power Flow Theory](@/reference/power-flow.md) — How complex power flows through networks
+- [Units & Conventions](@/reference/units-conventions.md) — Per-unit system
+- [Impedance & Admittance](@/reference/impedance-admittance.md) — Circuit parameters affecting power flow
+- [Glossary](@/reference/glossary.md) — Quick definitions

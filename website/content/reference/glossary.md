@@ -16,28 +16,28 @@ A comprehensive glossary of terms used in power systems analysis and throughout 
 Electric current that periodically reverses direction. Power grids use AC because it can be easily transformed to different voltage levels. In North America, AC alternates at 60 Hz; in Europe, 50 Hz.
 
 ### AC Power Flow
-Analysis that solves the full nonlinear power flow equations, accounting for both real power (P) and reactive power (Q), voltage magnitudes and angles. More accurate than DC power flow but computationally harder. See [Power Flow Guide](/guide/pf/).
+Analysis that solves the full nonlinear power flow equations, accounting for both real power (P) and reactive power (Q), voltage magnitudes and angles. More accurate than DC power flow but computationally harder. See [Power Flow Guide](@/guide/pf.md).
 
 ### Active Power
 See [Real Power](#real-power-p).
 
 ### Admittance (Y)
-The inverse of impedance. Measures how easily current flows through a circuit element. Complex quantity: Y = G + jB, where G is conductance and B is susceptance. Units: Siemens (S). See [Impedance & Admittance](/reference/impedance-admittance/).
+The inverse of impedance. Measures how easily current flows through a circuit element. Complex quantity: Y = G + jB, where G is conductance and B is susceptance. Units: Siemens (S). See [Impedance & Admittance](@/reference/impedance-admittance.md).
 
 ### ADMS (Advanced Distribution Management System)
-Software platform that integrates SCADA, outage management, and distribution automation. GAT's `gat-adms` crate provides FLISR and VVO algorithms. See [ADMS Guide](/guide/adms/).
+Software platform that integrates SCADA, outage management, and distribution automation. GAT's `gat-adms` crate provides FLISR and VVO algorithms. See [ADMS Guide](@/guide/adms.md).
 
 ### Angle
 Voltage angle (θ) at a bus, measured in radians or degrees relative to a reference bus. Angle differences drive real power flow: larger Δθ means more MW flowing.
 
 ### Apparent Power (S)
-The magnitude of complex power: S = √(P² + Q²). Measured in volt-amperes (VA) or megavolt-amperes (MVA). Determines equipment sizing because conductors must carry both real and reactive current. See [Complex Power](/reference/complex-power/).
+The magnitude of complex power: S = √(P² + Q²). Measured in volt-amperes (VA) or megavolt-amperes (MVA). Determines equipment sizing because conductors must carry both real and reactive current. See [Complex Power](@/reference/complex-power.md).
 
 ### Area
 A geographic or administrative region of the power grid, often corresponding to a utility or balancing authority. Multi-area analysis considers power transfers between areas via tie-lines (corridors).
 
 ### Arrow (Apache Arrow)
-Columnar in-memory data format used by GAT for high-performance data interchange. GAT stores networks as Arrow directory datasets with separate tables for buses, branches, generators, and loads. See [Arrow Schema](/guide/arrow-schema/).
+Columnar in-memory data format used by GAT for high-performance data interchange. GAT stores networks as Arrow directory datasets with separate tables for buses, branches, generators, and loads. See [Arrow Schema](@/guide/arrow-schema.md).
 
 ---
 
@@ -70,7 +70,7 @@ Classification determining which quantities are known vs. solved:
 - **PV (Type 2)**: P and V fixed; Q and θ solved
 - **PQ (Type 1)**: P and Q fixed; V and θ solved
 
-See [Bus Types](/reference/bus-types/) for a detailed explanation.
+See [Bus Types](@/reference/bus-types.md) for a detailed explanation.
 
 ---
 
@@ -101,7 +101,7 @@ Physical wire carrying current. Conductor properties (resistance, ampacity) dete
 When power flow on a branch approaches or exceeds its thermal limit. Congestion creates price separation (different LMPs) between buses.
 
 ### Contingency
-A hypothetical failure event (e.g., loss of a generator or transmission line). Contingency analysis tests whether the system can survive such events. See [N-1](#n-1-criterion) and [Contingency Analysis](/reference/contingency-analysis/).
+A hypothetical failure event (e.g., loss of a generator or transmission line). Contingency analysis tests whether the system can survive such events. See [N-1](#n-1-criterion) and [Contingency Analysis](@/reference/contingency-analysis.md).
 
 ### Convergence
 When an iterative solver reaches a solution within acceptable tolerance. Power flow typically converges in 3-10 Newton-Raphson iterations. Non-convergence may indicate an infeasible operating point.
@@ -132,7 +132,7 @@ Electrical load that must be served. May be fixed (inelastic) or price-responsiv
 Small-scale generation or storage connected at distribution level: rooftop solar, batteries, EVs, demand response. Managed by DERMS.
 
 ### DERMS (Distributed Energy Resource Management System)
-Software coordinating DER dispatch, aggregation, and grid services. See [DERMS Guide](/guide/derms/).
+Software coordinating DER dispatch, aggregation, and grid services. See [DERMS Guide](@/guide/derms.md).
 
 ### Dispatch
 The real-time allocation of generation to meet demand. Economic dispatch minimizes cost; security-constrained dispatch also respects transmission limits.
@@ -173,7 +173,7 @@ A power flow or OPF solution is feasible if all constraints are satisfied: power
 Initial guess for iterative solvers: V = 1.0 p.u., θ = 0 for all buses. Simple but may cause convergence issues for stressed systems. GAT's AC-OPF uses flat start by default.
 
 ### FLISR (Fault Location, Isolation, Service Restoration)
-Distribution automation sequence: locate fault, isolate faulted section, restore service to unaffected customers via alternate feeds. See [ADMS Guide](/guide/adms/).
+Distribution automation sequence: locate fault, isolate faulted section, restore service to unaffected customers via alternate feeds. See [ADMS Guide](@/guide/adms.md).
 
 ### Flow Limit
 See [Thermal Limit](#thermal-limit).
@@ -195,7 +195,7 @@ Conversion of primary energy to electricity. Types: thermal (coal, gas, nuclear)
 A machine converting mechanical or chemical energy to electricity. Characterized by capacity limits (Pmin, Pmax, Qmin, Qmax), cost curve, and voltage setpoint. GAT stores generators in `generators.arrow`.
 
 ### Graph
-Mathematical representation of network topology. Buses are nodes; branches are edges. GAT uses petgraph for graph algorithms. See [Graph Reference](/reference/graph/).
+Mathematical representation of network topology. Buses are nodes; branches are edges. GAT uses petgraph for graph algorithms. See [Graph Reference](@/reference/graph.md).
 
 ### Grid
 The interconnected network of generation, transmission, and distribution facilities delivering electricity.
@@ -221,7 +221,7 @@ DC transmission for long distances or asynchronous interconnections. Modeled as 
 Standard benchmark networks: IEEE 14, 30, 57, 118, 300 bus systems. Used for algorithm validation. GAT includes these in `test_data/`.
 
 ### Impedance (Z)
-Opposition to current flow. Complex quantity: Z = R + jX, where R is resistance and X is reactance. Units: ohms (Ω). See [Impedance & Admittance](/reference/impedance-admittance/).
+Opposition to current flow. Complex quantity: Z = R + jX, where R is resistance and X is reactance. Units: ohms (Ω). See [Impedance & Admittance](@/reference/impedance-admittance.md).
 
 ### Injection
 Net power entering the network at a bus: P_inj = P_gen - P_load. Positive injection means generation exceeds local load.
@@ -240,7 +240,7 @@ A connected component of the network graph. Synchronous islands must each have a
 ## J
 
 ### Jacobian
-Matrix of partial derivatives relating power injections to voltages and angles. Used in Newton-Raphson power flow. For n buses: 2n × 2n matrix with blocks ∂P/∂θ, ∂P/∂V, ∂Q/∂θ, ∂Q/∂V. See [Newton-Raphson Method](/reference/newton-raphson/).
+Matrix of partial derivatives relating power injections to voltages and angles. Used in Newton-Raphson power flow. For n buses: 2n × 2n matrix with blocks ∂P/∂θ, ∂P/∂V, ∂Q/∂θ, ∂Q/∂V. See [Newton-Raphson Method](@/reference/newton-raphson.md).
 
 ---
 
@@ -266,7 +266,7 @@ Quasi-Newton optimization algorithm using limited Hessian history. GAT's default
 A transmission or distribution conductor connecting buses. Characterized by R, X, and B (line charging). Distinguished from transformers by tap ratio = 1.0.
 
 ### LMP (Locational Marginal Price)
-The marginal cost of serving one additional MW at a specific bus. Includes energy, losses, and congestion components. Units: $/MWh. Key output of OPF for electricity markets. See [LMP Pricing](/reference/lmp-pricing/).
+The marginal cost of serving one additional MW at a specific bus. Includes energy, losses, and congestion components. Units: $/MWh. Key output of OPF for electricity markets. See [LMP Pricing](@/reference/lmp-pricing.md).
 
 ### Load
 Electrical demand at a bus. May be constant power (P, Q fixed), constant current, or constant impedance. GAT stores loads in `loads.arrow`.
@@ -275,7 +275,7 @@ Electrical demand at a bus. May be constant power (P, Q fixed), constant current
 See [Power Flow](#power-flow).
 
 ### LOLE (Loss of Load Expectation)
-Reliability metric: expected hours per year when load exceeds available generation. Planning standard: often LOLE ≤ 0.1 days/year (2.4 hours/year). See [Reliability Guide](/guide/reliability/).
+Reliability metric: expected hours per year when load exceeds available generation. Planning standard: often LOLE ≤ 0.1 days/year (2.4 hours/year). See [Reliability Guide](@/guide/reliability.md).
 
 ### LODF (Line Outage Distribution Factor)
 Sensitivity: if line k trips, how does flow redistribute to line l? Used for contingency screening without re-solving power flow.
@@ -291,10 +291,10 @@ Power dissipated in transmission (I²R losses). DC power flow ignores losses; AC
 GAT's metadata file (`manifest.json`) in Arrow directories, storing source info, checksums, and conversion provenance.
 
 ### MATPOWER
-MATLAB-based power system simulation package. GAT imports MATPOWER `.m` case files. See [Convert Guide](/guide/convert/).
+MATLAB-based power system simulation package. GAT imports MATPOWER `.m` case files. See [Convert Guide](@/guide/convert.md).
 
 ### Monte Carlo
-Probabilistic simulation sampling random scenarios (generator outages, load variations). Used for reliability assessment. See [Reliability Guide](/guide/reliability/).
+Probabilistic simulation sampling random scenarios (generator outages, load variations). Used for reliability assessment. See [Reliability Guide](@/guide/reliability.md).
 
 ### MVA (Megavolt-Ampere)
 Apparent power unit: 1 MVA = 1,000 kVA = 1,000,000 VA. Standard for transmission equipment ratings.
@@ -310,13 +310,13 @@ Real power unit: 1 MW = 1,000 kW = 1,000,000 W. Standard for generation capacity
 ## N
 
 ### N-1 Criterion
-Security standard requiring the system to survive any single contingency (one generator or line outage) without overloads or voltage violations. Foundation of transmission planning. See [Contingency Analysis](/reference/contingency-analysis/).
+Security standard requiring the system to survive any single contingency (one generator or line outage) without overloads or voltage violations. Foundation of transmission planning. See [Contingency Analysis](@/reference/contingency-analysis.md).
 
 ### N-2
 Security criterion for two simultaneous contingencies. Required for critical facilities.
 
 ### Newton-Raphson
-Iterative algorithm for nonlinear equations. Power flow uses Newton-Raphson: xₖ₊₁ = xₖ - J⁻¹·f(xₖ). Quadratic convergence near solution. See [Newton-Raphson Method](/reference/newton-raphson/).
+Iterative algorithm for nonlinear equations. Power flow uses Newton-Raphson: xₖ₊₁ = xₖ - J⁻¹·f(xₖ). Quadratic convergence near solution. See [Newton-Raphson Method](@/reference/newton-raphson.md).
 
 ### Node
 See [Bus](#bus).
@@ -332,7 +332,7 @@ Optimization with nonlinear objective or constraints. AC-OPF is an NLP due to po
 A system is observable if available measurements uniquely determine the state. State estimation requires observability; additional pseudo-measurements may be needed.
 
 ### OPF (Optimal Power Flow)
-Optimization minimizing generation cost (or losses) subject to power flow equations, generator limits, voltage limits, and thermal limits. Variants: DC-OPF, SOCP, AC-OPF. See [OPF Guide](/guide/opf/).
+Optimization minimizing generation cost (or losses) subject to power flow equations, generator limits, voltage limits, and thermal limits. Variants: DC-OPF, SOCP, AC-OPF. See [OPF Guide](@/guide/opf.md).
 
 ### Outage
 Planned or forced disconnection of equipment. Outage scenarios are inputs to reliability and contingency analysis.
@@ -342,7 +342,7 @@ Planned or forced disconnection of equipment. Outage scenarios are inputs to rel
 ## P
 
 ### PandaPower
-Python library for power system analysis. GAT imports pandapower networks via JSON format. See [Convert Guide](/guide/convert/).
+Python library for power system analysis. GAT imports pandapower networks via JSON format. See [Convert Guide](@/guide/convert.md).
 
 ### Penalty Method
 Optimization technique converting constrained problems to unconstrained by adding penalty terms for constraint violations. GAT's L-BFGS solver uses quadratic penalty.
@@ -351,7 +351,7 @@ Optimization technique converting constrained problems to unconstrained by addin
 Normalized units dividing actual values by base values. Simplifies calculations across voltage levels. V_pu = V_actual / V_base. Typical: V ≈ 1.0 p.u., Z << 1.0 p.u.
 
 ### PGLib (Power Grid Library)
-IEEE PES benchmark library with realistic OPF test cases. GAT benchmarks against PGLib-OPF. See [Benchmarking Guide](/guide/benchmark/).
+IEEE PES benchmark library with realistic OPF test cases. GAT benchmarks against PGLib-OPF. See [Benchmarking Guide](@/guide/benchmark.md).
 
 ### Phase Angle
 See [Angle](#angle).
@@ -363,7 +363,7 @@ Transformer with adjustable phase shift for power flow control. Creates asymmetr
 Representing complex voltage as magnitude and angle: V∠θ. GAT's AC-OPF uses polar formulation.
 
 ### Power Factor
-Ratio of real to apparent power: pf = P/S = cos(φ). Unity power factor (pf = 1) means no reactive power. Lagging pf indicates inductive load. See [Complex Power](/reference/complex-power/).
+Ratio of real to apparent power: pf = P/S = cos(φ). Unity power factor (pf = 1) means no reactive power. Lagging pf indicates inductive load. See [Complex Power](@/reference/complex-power.md).
 
 ### Power Flow
 Analysis computing steady-state voltages and flows given generation and load. Solves nonlinear algebraic equations (AC) or linear approximation (DC). Foundation of all grid analysis.
@@ -375,10 +375,10 @@ Siemens PTI power system simulator. Industry-standard format for transmission pl
 Sensitivity: 1 MW injection at bus i, withdrawal at bus j → flow change on each line. Linear for DC power flow. Used for transfer limits and congestion analysis.
 
 ### PV Bus
-Generator bus with specified real power P and voltage magnitude V. Reactive power Q and angle θ are solved. See [Bus Types](/reference/bus-types/).
+Generator bus with specified real power P and voltage magnitude V. Reactive power Q and angle θ are solved. See [Bus Types](@/reference/bus-types.md).
 
 ### PQ Bus
-Load bus with specified real power P and reactive power Q. Voltage magnitude V and angle θ are solved. See [Bus Types](/reference/bus-types/).
+Load bus with specified real power P and reactive power Q. Voltage magnitude V and angle θ are solved. See [Bus Types](@/reference/bus-types.md).
 
 ---
 
@@ -401,16 +401,16 @@ Maximum continuous operating limit. Thermal rating limits branch flow; generator
 Imaginary part of impedance, representing energy storage in magnetic fields (inductors) or electric fields (capacitors). X = ωL for inductors, X = -1/(ωC) for capacitors.
 
 ### Reactive Power (Q)
-Power oscillating between source and load due to phase difference between voltage and current. Measured in VAR (volt-ampere reactive). Essential for voltage control but does not perform useful work. See [Complex Power](/reference/complex-power/).
+Power oscillating between source and load due to phase difference between voltage and current. Measured in VAR (volt-ampere reactive). Essential for voltage control but does not perform useful work. See [Complex Power](@/reference/complex-power.md).
 
 ### Real Power (P)
-Power doing useful work, measured in watts (W). Also called active power. P = V·I·cos(φ). See [Complex Power](/reference/complex-power/).
+Power doing useful work, measured in watts (W). Also called active power. P = V·I·cos(φ). See [Complex Power](@/reference/complex-power.md).
 
 ### Reference Bus
 See [Slack Bus](#slack-bus).
 
 ### Reliability
-Ability of the power system to deliver electricity to customers. Measured by indices like LOLE, EUE, SAIDI. See [Reliability Guide](/guide/reliability/).
+Ability of the power system to deliver electricity to customers. Measured by indices like LOLE, EUE, SAIDI. See [Reliability Guide](@/guide/reliability.md).
 
 ### Reserve
 Generation capacity held back for contingencies. Types: spinning reserve (online, synchronized), non-spinning reserve (offline, quick-start).
@@ -435,13 +435,13 @@ Ability to withstand disturbances without cascading failures. Security-constrain
 Element connected between bus and ground. Shunt capacitors inject reactive power; shunt reactors absorb it. Modeled as admittance to ground.
 
 ### Slack Bus
-Reference bus with fixed voltage angle (θ = 0) that absorbs power imbalance. Every synchronous island needs exactly one slack bus. Also supplies/absorbs losses. See [Bus Types](/reference/bus-types/).
+Reference bus with fixed voltage angle (θ = 0) that absorbs power imbalance. Every synchronous island needs exactly one slack bus. Also supplies/absorbs losses. See [Bus Types](@/reference/bus-types.md).
 
 ### SOCP (Second-Order Cone Program)
-Convex optimization with conic constraints. SOCP relaxation of OPF provides lower bounds and often tight solutions for radial networks. See [OPF Guide](/guide/opf/).
+Convex optimization with conic constraints. SOCP relaxation of OPF provides lower bounds and often tight solutions for radial networks. See [OPF Guide](@/guide/opf.md).
 
 ### State Estimation
-Determining system state (voltage magnitudes and angles) from redundant measurements. Filters measurement noise and detects bad data. See [State Estimation Guide](/guide/se/).
+Determining system state (voltage magnitudes and angles) from redundant measurements. Filters measurement noise and detects bad data. See [State Estimation Guide](@/guide/se.md).
 
 ### Steady State
 Operating condition where all quantities are constant (or periodic at system frequency). Power flow analyzes steady state; dynamic simulation analyzes transients.
@@ -531,7 +531,7 @@ See [Reactance](#reactance-x).
 ## Y
 
 ### Y-Bus (Admittance Matrix)
-Sparse matrix Y where Y_ij = -y_ij (off-diagonal) and Y_ii = Σy + shunts (diagonal). Fundamental to power flow: I = Y·V. GAT builds Y-bus in `ybus.rs`. See [Y-Bus Matrix](/reference/ybus-matrix/).
+Sparse matrix Y where Y_ij = -y_ij (off-diagonal) and Y_ii = Σy + shunts (diagonal). Fundamental to power flow: I = Y·V. GAT builds Y-bus in `ybus.rs`. See [Y-Bus Matrix](@/reference/ybus-matrix.md).
 
 ---
 
@@ -547,7 +547,7 @@ Subregion within an area for loss calculation or pricing. Zonal pricing aggregat
 
 ## See Also
 
-- [Power Flow Guide](/guide/pf/) — Practical power flow analysis
-- [OPF Guide](/guide/opf/) — Optimal power flow methods
-- [Arrow Schema](/guide/arrow-schema/) — GAT data format
-- [Reference Index](/reference/) — Theory and algorithms
+- [Power Flow Guide](@/guide/pf.md) — Practical power flow analysis
+- [OPF Guide](@/guide/opf.md) — Optimal power flow methods
+- [Arrow Schema](@/guide/arrow-schema.md) — GAT data format
+- [Reference Index](@/reference/_index.md) — Theory and algorithms

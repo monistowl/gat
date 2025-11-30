@@ -149,6 +149,6 @@ This enables questions like:
 
 ## Related Commands
 
-- [OPF](/guide/opf/) — Optimal power flow analysis
-- [Batch Analysis](/guide/batch/) — Multi-scenario analysis
-- [Reliability](/guide/reliability/) — Reliability metrics
+- [OPF](@/guide/opf.md) — Optimal power flow analysis
+- [Batch Analysis](@/guide/batch.md) — Multi-scenario analysis
+- [Reliability](@/guide/reliability.md) — Reliability metrics

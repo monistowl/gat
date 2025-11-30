@@ -394,6 +394,6 @@ P_i = Σⱼ B_ij · θ_ij = Σⱼ B_ij · (θ_i - θ_j)
 
 ### GAT Documentation
 
-- [Power Flow Guide](/guide/pf/) — Practical usage
-- [OPF Guide](/guide/opf/) — Optimization with power flow constraints
-- [Glossary](/reference/glossary/) — Term definitions
+- [Power Flow Guide](@/guide/pf.md) — Practical usage
+- [OPF Guide](@/guide/opf.md) — Optimization with power flow constraints
+- [Glossary](@/reference/glossary.md) — Term definitions

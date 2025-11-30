@@ -173,7 +173,7 @@ GAT is licensed under the **PolyForm Shield License 1.0.0**:
 - 💼 **Commercial licensing** available for SaaS, consulting, and competitive use
 - 🔓 **Source-available** for transparency and verification
 
-See our [License & Terms](/license/) page for complete details.
+See our [License & Terms](@/license.md) page for complete details.
 
 ## Roadmap
 
@@ -191,7 +191,7 @@ See our [project roadmap](https://github.com/monistowl/gat/blob/main/docs/ROADMA
 - **GitHub:** [github.com/monistowl/gat](https://github.com/monistowl/gat)
 - **Issues:** [Report bugs, request features](https://github.com/monistowl/gat/issues)
 - **Discussions:** [Community Q&A](https://github.com/monistowl/gat/discussions)
-- **Documentation:** [Full docs](/docs/)
+- **Documentation:** [Full docs](@/guide/_index.md)
 
 ## Contact
 

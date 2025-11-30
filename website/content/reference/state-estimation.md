@@ -481,6 +481,6 @@ $\mathbf{S}$ is the **residual sensitivity matrix**.
 
 ### GAT Documentation
 
-- [State Estimation Guide](/guide/se/) — Practical usage
-- [Power Flow Theory](/reference/power-flow/) — Related equations
-- [Glossary](/reference/glossary/) — Term definitions
+- [State Estimation Guide](@/guide/se.md) — Practical usage
+- [Power Flow Theory](@/reference/power-flow.md) — Related equations
+- [Glossary](@/reference/glossary.md) — Term definitions

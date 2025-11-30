@@ -491,6 +491,6 @@ This is the discrete convolution of $p_1$ and $p_2$.
 
 ### GAT Documentation
 
-- [Reliability Guide](/guide/reliability/) — Practical usage
-- [Analytics Reference](/reference/analytics/) — Reliability metrics in GAT
-- [Glossary](/reference/glossary/) — Term definitions
+- [Reliability Guide](@/guide/reliability.md) — Practical usage
+- [Analytics Reference](@/reference/analytics.md) — Reliability metrics in GAT
+- [Glossary](@/reference/glossary.md) — Term definitions

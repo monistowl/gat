@@ -205,7 +205,7 @@ View dependencies: `cargo tree` in the repository
 
 For general security questions:
 - [Open a discussion](https://github.com/monistowl/gat/discussions)
-- [Check documentation](/docs/)
+- [Check documentation](@/guide/_index.md)
 
 For vulnerability reports:
 - Use [Security Advisories](https://github.com/monistowl/gat/security/advisories)

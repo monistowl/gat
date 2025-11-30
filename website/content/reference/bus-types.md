@@ -247,7 +247,7 @@ Remember: positive injection means generation, negative means consumption.
 
 ## See Also
 
-- [Power Flow Theory](/reference/power-flow/) — The equations solved for each bus type
-- [Newton-Raphson Method](/reference/newton-raphson/) — How the solver handles bus types
-- [Y-Bus Matrix](/reference/ybus-matrix/) — Network representation used in power flow
-- [Glossary](/reference/glossary/) — Quick definitions
+- [Power Flow Theory](@/reference/power-flow.md) — The equations solved for each bus type
+- [Newton-Raphson Method](@/reference/newton-raphson.md) — How the solver handles bus types
+- [Y-Bus Matrix](@/reference/ybus-matrix.md) — Network representation used in power flow
+- [Glossary](@/reference/glossary.md) — Quick definitions

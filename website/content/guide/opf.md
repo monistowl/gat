@@ -11,7 +11,7 @@ GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-m
 <div class="grid-widget" data-network="ieee14" data-height="420" data-flow="true" data-lmp="true" data-legend="true" data-caption="Interactive: Click ⚡ to see power flow direction and loading. Click $ to visualize Locational Marginal Prices (LMPs) from OPF results."></div>
 
 > **Validated Performance**: GAT's SOCP solver achieves 100% convergence across all 67 PGLib-OPF benchmark cases.
-> See the [complete benchmark results](/internals/benchmarks/) for details.
+> See the [complete benchmark results](@/internals/benchmarks.md) for details.
 
 ## Choosing the Right Solver
 
@@ -92,7 +92,7 @@ The SOCP solver has been validated against all 67 PGLib-OPF cases:
 | Largest System | 78,484 buses |
 | Median Objective Gap | < 1% |
 
-→ [View complete benchmark results](/internals/benchmarks/)
+→ [View complete benchmark results](@/internals/benchmarks.md)
 
 ### What's New in 0.5.0
 
@@ -455,8 +455,8 @@ gat opf ac grid.arrow \
 
 ## Related Documentation
 
-* **Benchmarks**: [Complete PGLib-OPF validation results](/internals/benchmarks/) — 67 cases, 100% convergence
-* **Power Flow**: [Power Flow Guide](/guide/pf/)
-* **State Estimation**: [State Estimation Guide](/guide/se/)
-* **Reliability**: [Reliability Guide](/guide/reliability/)
-* **Solver Architecture**: [Native Solver Plugin System](/internals/solver-architecture/)
+* **Benchmarks**: [Complete PGLib-OPF validation results](@/internals/benchmarks.md) — 67 cases, 100% convergence
+* **Power Flow**: [Power Flow Guide](@/guide/pf.md)
+* **State Estimation**: [State Estimation Guide](@/guide/se.md)
+* **Reliability**: [Reliability Guide](@/guide/reliability.md)
+* **Solver Architecture**: [Native Solver Plugin System](@/internals/solver-architecture.md)

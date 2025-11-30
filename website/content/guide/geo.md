@@ -168,6 +168,6 @@ Polygons must have:
 
 ## Related Commands
 
-- [ML Features](/guide/ml-features/) — Feature extraction for ML
-- [Reliability](/guide/reliability/) — Reliability metrics
-- [Time Series](/guide/ts/) — Time-series analysis
+- [ML Features](@/guide/ml-features.md) — Feature extraction for ML
+- [Reliability](@/guide/reliability.md) — Reliability metrics
+- [Time Series](@/guide/ts.md) — Time-series analysis

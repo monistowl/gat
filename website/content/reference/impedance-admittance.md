@@ -179,7 +179,7 @@ Transformers also have a **tap ratio** $t$ (turns ratio):
 
 $$\frac{V_1}{V_2} = t$$
 
-Tap changers adjust voltage ±10% in discrete steps. Off-nominal taps affect the admittance matrix — see [Y-Bus Matrix](/reference/ybus-matrix/).
+Tap changers adjust voltage ±10% in discrete steps. Off-nominal taps affect the admittance matrix — see [Y-Bus Matrix](@/reference/ybus-matrix.md).
 
 ---
 
@@ -201,7 +201,7 @@ A line with $Z = 11.9 + j119$ $\Omega$ becomes $Z_{\text{p.u.}} = 0.01 + j0.1$ p
 
 **Advantage**: Per-unit values are similar across voltage levels, making it easy to spot unusual values.
 
-See [Units & Conventions](/reference/units-conventions/) for details.
+See [Units & Conventions](@/reference/units-conventions.md) for details.
 
 ---
 
@@ -230,7 +230,7 @@ See [Units & Conventions](/reference/units-conventions/) for details.
 
 ## See Also
 
-- [Y-Bus Matrix](/reference/ybus-matrix/) — Building the network admittance matrix
-- [Power Flow Theory](/reference/power-flow/) — How impedance affects power flow
-- [Complex Power](/reference/complex-power/) — Power flowing through impedances
-- [Units & Conventions](/reference/units-conventions/) — Per-unit system
+- [Y-Bus Matrix](@/reference/ybus-matrix.md) — Building the network admittance matrix
+- [Power Flow Theory](@/reference/power-flow.md) — How impedance affects power flow
+- [Complex Power](@/reference/complex-power.md) — Power flowing through impedances
+- [Units & Conventions](@/reference/units-conventions.md) — Per-unit system

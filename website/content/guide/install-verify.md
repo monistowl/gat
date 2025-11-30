@@ -142,15 +142,15 @@ bash install.sh
 
 Once verified, you're ready to:
 
-1. **Learn the basics** → [Quickstart Guide](/guide/quickstart/)
-2. **Explore power flow analysis** → [Power Flow Analysis](/guide/pf/)
-3. **Run optimization** → [Optimal Power Flow](/guide/opf/)
-4. **Build commands interactively** → [Command Builder](/command-builder/)
+1. **Learn the basics** → [Quickstart Guide](@/guide/quickstart.md)
+2. **Explore power flow analysis** → [Power Flow Analysis](@/guide/pf.md)
+3. **Run optimization** → [Optimal Power Flow](@/guide/opf.md)
+4. **Build commands interactively** → [Command Builder](@/command-builder.md)
 
 ## Getting Help
 
 If something doesn't work:
 
 1. Check the [FAQ](@/faq.md) for common issues
-2. Review the [Quickstart Guide](/guide/quickstart/) for step-by-step examples
+2. Review the [Quickstart Guide](@/guide/quickstart.md) for step-by-step examples
 3. Open an issue on [GitHub](https://github.com/monistowl/gat/issues)

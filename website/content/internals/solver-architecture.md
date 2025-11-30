@@ -359,6 +359,6 @@ cat ~/.gat/logs/ipopt.log
 
 ## Related Documentation
 
-- [OPF Guide](/guide/opf/) — Choosing the right solver tier
-- [Benchmarks](/internals/benchmarks/) — Complete PGLib validation results
-- [Building from Source](/guide/install-verify/) — Compiling with native solver support
+- [OPF Guide](@/guide/opf.md) — Choosing the right solver tier
+- [Benchmarks](@/internals/benchmarks.md) — Complete PGLib validation results
+- [Building from Source](@/guide/install-verify.md) — Compiling with native solver support

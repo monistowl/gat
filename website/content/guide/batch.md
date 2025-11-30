@@ -173,7 +173,7 @@ python train_gnn.py --features features/
 
 ## Related Commands
 
-- [Power Flow](/guide/pf/) — Single power flow analysis
-- [OPF](/guide/opf/) — Single OPF analysis
-- [Reliability](/guide/reliability/) — Reliability metrics
-- [ML Features](/guide/ml-features/) — Feature extraction
+- [Power Flow](@/guide/pf.md) — Single power flow analysis
+- [OPF](@/guide/opf.md) — Single OPF analysis
+- [Reliability](@/guide/reliability.md) — Reliability metrics
+- [ML Features](@/guide/ml-features.md) — Feature extraction

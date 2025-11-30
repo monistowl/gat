@@ -471,6 +471,6 @@ Typical speedup: 2-5x fewer iterations.
 
 ### GAT Documentation
 
-- [OPF Guide](/guide/opf/) — Practical usage
-- [Power Flow Theory](/reference/power-flow/) — Underlying equations
-- [Glossary](/reference/glossary/) — Term definitions
+- [OPF Guide](@/guide/opf.md) — Practical usage
+- [Power Flow Theory](@/reference/power-flow.md) — Underlying equations
+- [Glossary](@/reference/glossary.md) — Term definitions

@@ -48,7 +48,7 @@ gat --version
 
 You should see: `gat-cli 0.5.0`
 
-> **Troubleshooting?** See [Installation Troubleshooting](/guide/install-verify/#troubleshooting) for common issues.
+> **Troubleshooting?** See [Installation Troubleshooting](@/guide/install-verify.md#troubleshooting) for common issues.
 
 ## 2. Understand the Basics (1 minute)
 
@@ -111,7 +111,7 @@ To convert from MATPOWER format and run analysis:
 # Step 1: Import MATPOWER case to Arrow format
 gat import matpower --m test_data/matpower/ieee14.case -o grid.arrow
 
-If you start from a non-MATPOWER source (CIM, PSS/E, PandaPower), use `gat convert format` to auto-detect the format, convert via Arrow, and keep the same downstream commands. See [Convert guide](/guide/convert/) for examples.
+If you start from a non-MATPOWER source (CIM, PSS/E, PandaPower), use `gat convert format` to auto-detect the format, convert via Arrow, and keep the same downstream commands. See [Convert guide](@/guide/convert.md) for examples.
 
 # Step 2: Run DC power flow
 gat pf dc grid.arrow --out flows_dc.parquet
@@ -180,28 +180,28 @@ parquet-tools show flows_dc.parquet
 Now that you've run your first analysis, explore these topics:
 
 ### 📚 Learn More About Power Flow
-- [Power Flow Guide](/guide/pf/) — Deep dive into DC vs AC power flow
-- [Solver Selection](/guide/pf/#solver-selection) — When to use each solver
+- [Power Flow Guide](@/guide/pf.md) — Deep dive into DC vs AC power flow
+- [Solver Selection](@/guide/pf.md) — When to use each solver
 
 ### 🎯 Try Other Analyses
-- [Optimal Power Flow (OPF)](/guide/opf/) — Economic dispatch
+- [Optimal Power Flow (OPF)](@/guide/opf.md) — Economic dispatch
 - [N-1 Contingency Analysis](/guide/dist/#n-1-screening) — What happens if a line fails?
-- [State Estimation](/guide/se/) — Infer grid state from measurements
+- [State Estimation](@/guide/se.md) — Infer grid state from measurements
 
 ### 💻 Build Automation Workflows
-- [Command-Line Interface](/guide/overview/#cli-architecture) — Automate analysis pipelines
-- [Time Series](/guide/ts/) — Run multi-period analysis
-- [Manifests](/internals/cli-architecture/#manifest-driven-workflows) — Batch processing
+- [Command-Line Interface](@/internals/cli-architecture.md) — Automate analysis pipelines
+- [Time Series](@/guide/ts.md) — Run multi-period analysis
+- [Manifests](@/internals/cli-architecture.md) — Batch processing
 
 ### 📊 Visualize Results
-- [TUI Dashboard](/internals/gat-tui/) — Interactive terminal dashboard
+- [TUI Dashboard](@/internals/gat-tui.md) — Interactive terminal dashboard
   ```bash
   gat-tui  # Explore results in a fancy dashboard
   ```
 
 ### 🤖 Integrate with Other Tools
-- [MCP Server](/internals/mcp-onboarding/) — AI agent integration
-- [Agent Integration](/guide/overview/#agent-integration) — Use GAT with Claude, ChatGPT, etc.
+- [MCP Server](@/internals/mcp-onboarding.md) — AI agent integration
+- [Agent Integration](@/guide/overview.md) — Use GAT with Claude, ChatGPT, etc.
 
 ## Common Tasks
 
@@ -279,7 +279,7 @@ gat pf dc test_data/matpower/ieee14.arrow --out flows.parquet
 ✅ Examined results in Parquet format
 ✅ Understood basic power systems concepts
 
-You're ready to explore deeper! Pick a topic from [Next Steps](#6-next-steps) or check the full [Documentation](/docs/).
+You're ready to explore deeper! Pick a topic from [Next Steps](#6-next-steps) or check the full [Documentation](@/guide/_index.md).
 
 ## Get Help
 
