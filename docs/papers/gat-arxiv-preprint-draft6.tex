@@ -54,14 +54,14 @@
   \texttt{https://github.com/monistowl/gat}
 }
 
-\date{November 2024 --- Draft 6 (Expanded)}
+\date{November 2024}
 
 \begin{document}
 
 \maketitle
 
 \begin{abstract}
-We present the Grid Analysis Toolkit (GAT), an open-source command-line toolkit for power system analysis implemented in Rust. This comprehensive technical reference documents GAT's complete solver hierarchy for optimal power flow (OPF)---from sub-millisecond economic dispatch through DC-OPF, SOCP relaxation, and full nonlinear AC-OPF with IPOPT---alongside state estimation, N-k contingency analysis, and time-series dispatch. We detail the framework's design decisions rooted in Rust's type system and memory safety guarantees, the challenges of parsing heterogeneous power system datasets (MATPOWER, PSS/E, CIM, pandapower), and the mathematical foundations underlying each analysis module. Extensive benchmarks against PGLib-OPF demonstrate convergence to reference objective values within 0.01\% for standard IEEE test cases. This paper targets doctoral-level power systems engineers and provides complete mathematical formulations, algorithmic pseudocode, implementation insights, and numerical considerations for reproducibility.
+We present the Grid Analysis Toolkit (GAT), an open-source command-line toolkit for power system analysis implemented in Rust. This comprehensive technical reference documents GAT's complete solver hierarchy for optimal power flow (OPF)---from sub-millisecond economic dispatch through DC-OPF, SOCP relaxation, and full nonlinear AC-OPF with IPOPT---alongside state estimation, N-k contingency analysis, and time-series dispatch. We detail the framework's design decisions rooted in Rust's type system and memory safety guarantees, the challenges of parsing heterogeneous power system datasets (MATPOWER, PSS/E, CIM, pandapower), and the mathematical foundations underlying each analysis module. Extensive benchmarks against PGLib-OPF demonstrate convergence to reference objective values within 0.01\% for standard IEEE test cases. We provide complete mathematical formulations, algorithmic pseudocode, implementation insights, and numerical considerations for reproducibility.
 \end{abstract}
 
 \tableofcontents
@@ -904,7 +904,7 @@ For thermal constraint $h = P^2 + Q^2 - S_{\max}^2 \leq 0$:
 \frac{\partial h}{\partial x_k} = 2P \frac{\partial P}{\partial x_k} + 2Q \frac{\partial Q}{\partial x_k}
 \end{equation}
 
-\textbf{Critical bug fix (November 2024):} The to-side thermal constraint requires careful application of the chain rule for $\theta_{\text{diff}} = \theta_j - \theta_i + \phi$:
+\textbf{Implementation note:} The to-side thermal constraint requires careful application of the chain rule for $\theta_{\text{diff}} = \theta_j - \theta_i + \phi$:
 
 \begin{align}
 \frac{\partial h^{\text{to}}}{\partial \theta_i} &= 2P^{\text{to}} \cdot \left(-\frac{\partial P^{\text{to}}}{\partial \theta_{\text{diff}}}\right) + 2Q^{\text{to}} \cdot \left(-\frac{\partial Q^{\text{to}}}{\partial \theta_{\text{diff}}}\right) \\
