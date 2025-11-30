@@ -155,9 +155,17 @@ build_ipopt() {
     fi
 
     local IPOPT_DIR="$VENDOR/Ipopt-stable-3.14"
+    local IPOPT_ZIP="$VENDOR/Ipopt-stable-3.14.zip"
+
+    # Extract IPOPT if needed
     if [ ! -d "$IPOPT_DIR" ]; then
-        echo "ERROR: IPOPT source not found at $IPOPT_DIR"
-        exit 1
+        if [ ! -f "$IPOPT_ZIP" ]; then
+            echo "ERROR: IPOPT source archive not found at $IPOPT_ZIP"
+            exit 1
+        fi
+        echo "Extracting IPOPT source..."
+        cd "$VENDOR"
+        unzip -q "$IPOPT_ZIP"
     fi
 
     cd "$IPOPT_DIR"

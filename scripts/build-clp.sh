@@ -142,7 +142,8 @@ build_clp() {
         return 0
     fi
 
-    # Clp is already extracted
+    extract_if_needed "Clp-master"
+
     cd "$VENDOR/Clp-master"
 
     # Clean any previous build

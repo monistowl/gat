@@ -107,7 +107,8 @@ build_cbc() {
         return 0
     fi
 
-    # Cbc is already extracted
+    extract_if_needed "Cbc-master"
+
     cd "$VENDOR/Cbc-master"
 
     # Clean any previous build
