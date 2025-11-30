@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}404 — {{ config.title }}{% endblock title %}
+{% block description %}Page not found{% endblock description %}
+
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center px-4">
+  <div class="text-center max-w-2xl">
+
+    <!-- The Poem -->
+    <div class="mb-12 font-serif text-lg md:text-xl leading-relaxed text-[var(--f1)] space-y-6">
+      <p class="italic">
+        Thunder muttered over circuits,<br>
+        <span class="ml-4">shadows pooled upon the floor;</span><br>
+        Through the hush of failing servers<br>
+        <span class="ml-4">crept a tapping, faint yet sure.</span>
+      </p>
+
+      <p class="italic">
+        From the void a voice descended—<br>
+        <span class="ml-4">cold, unbidden, unattended—</span><br>
+        Like a verdict never mended:
+      </p>
+
+      <p class="text-[var(--c4)] italic">
+        <em>What you seek lies not in store…</em><br>
+        <span class="ml-8">only silence:</span>
+      </p>
+    </div>
+
+    <!-- The Number -->
+    <div class="relative mb-12">
+      <span class="text-8xl md:text-9xl font-mono font-bold text-[var(--a1)] opacity-90 tracking-tight">
+        404
+      </span>
+      <div class="absolute inset-0 text-8xl md:text-9xl font-mono font-bold text-[var(--a1)] opacity-20 blur-xl">
+        404
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="space-y-4">
+      <p class="text-[var(--c4)] text-sm">
+        The page you sought has vanished into the grid.
+      </p>
+      <div class="flex flex-wrap justify-center gap-4">
+        <a href="{{ config.base_url | safe }}/"
+           class="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--a1)] text-white rounded-lg hover:bg-[var(--a1-hover)] transition-colors font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+          </svg>
+          Return Home
+        </a>
+        <a href="{{ config.base_url | safe }}/guide/"
+           class="inline-flex items-center gap-2 px-5 py-2.5 border border-[var(--c3)] text-[var(--f1)] rounded-lg hover:border-[var(--a1)] hover:text-[var(--a1)] transition-colors font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+          </svg>
+          Browse Guides
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock content %}
