@@ -36,10 +36,16 @@ default = [
     "polars-ipc",
 ]
 
-all-solvers = ["solver-clarabel", "solver-highs", "solver-ipopt"]
+# Pure-Rust solvers only (no native FFI dependencies)
+all-solvers = ["solver-clarabel", "solver-highs"]
+# All solvers including IPOPT FFI (requires libipopt.so at runtime)
+all-solvers-native = ["all-solvers", "solver-ipopt"]
 native-dispatch = ["gat-solver-common", "dirs"]
 all-polars = ["polars-lazy", "polars-parquet", "polars-ipc"]
+# Full feature set without native FFI dependencies (CI-safe)
 full = ["all-solvers", "all-polars"]
+# Full feature set WITH native FFI (requires IPOPT at runtime)
+full-native = ["all-solvers-native", "all-polars"]
 
 solver-clarabel = ["good_lp/clarabel"]
 solver-highs = ["good_lp/highs"]

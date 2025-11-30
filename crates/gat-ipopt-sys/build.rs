@@ -67,10 +67,7 @@ fn try_vendor_local(vendor_local: &Path) -> bool {
         return false;
     }
 
-    println!(
-        "cargo:warning=Using IPOPT from {}",
-        vendor_local.display()
-    );
+    println!("cargo:warning=Using IPOPT from {}", vendor_local.display());
 
     // Emit linker flags
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
@@ -80,10 +77,7 @@ fn try_vendor_local(vendor_local: &Path) -> bool {
         println!("cargo:rustc-link-lib=ipopt");
         // Set rpath for finding shared library at runtime
         // Note: -rpath takes a directory, not a file
-        println!(
-            "cargo:rustc-link-arg=-Wl,-rpath,{}",
-            lib_dir.display()
-        );
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
     } else {
         println!("cargo:rustc-link-lib=static=ipopt");
         // Static linking needs all dependencies

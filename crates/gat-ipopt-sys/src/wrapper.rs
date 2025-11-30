@@ -212,7 +212,9 @@ impl From<ApplicationReturnStatus> for SolveStatus {
     fn from(status: ApplicationReturnStatus) -> Self {
         match status {
             ApplicationReturnStatus::SolveSucceeded => SolveStatus::SolveSucceeded,
-            ApplicationReturnStatus::SolvedToAcceptableLevel => SolveStatus::SolvedToAcceptableLevel,
+            ApplicationReturnStatus::SolvedToAcceptableLevel => {
+                SolveStatus::SolvedToAcceptableLevel
+            }
             ApplicationReturnStatus::InfeasibleProblemDetected => {
                 SolveStatus::InfeasibleProblemDetected
             }
@@ -238,7 +240,9 @@ impl From<ApplicationReturnStatus> for SolveStatus {
             ApplicationReturnStatus::InvalidOption => SolveStatus::InvalidOption,
             ApplicationReturnStatus::InvalidNumberDetected => SolveStatus::InvalidNumberDetected,
             ApplicationReturnStatus::UnrecoverableException => SolveStatus::UnrecoverableException,
-            ApplicationReturnStatus::NonIpoptExceptionThrown => SolveStatus::NonIpoptExceptionThrown,
+            ApplicationReturnStatus::NonIpoptExceptionThrown => {
+                SolveStatus::NonIpoptExceptionThrown
+            }
             ApplicationReturnStatus::InsufficientMemory => SolveStatus::InsufficientMemory,
             ApplicationReturnStatus::InternalError => SolveStatus::InternalError,
         }
