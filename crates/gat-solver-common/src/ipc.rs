@@ -830,8 +830,8 @@ pub fn read_problem_v2<R: Read>(mut reader: R) -> SolverResult<ProblemBatch> {
 
         // Parse IPC stream
         let cursor = Cursor::new(buf);
-        let stream_reader = StreamReader::try_new(cursor, None)?;
-        for batch_result in stream_reader {
+        let mut stream_reader = StreamReader::try_new(cursor, None)?;
+        if let Some(batch_result) = stream_reader.next() {
             return Ok(batch_result?);
         }
         Err(crate::error::SolverError::Ipc(
@@ -1131,8 +1131,8 @@ pub fn read_solution_v2<R: Read>(mut reader: R) -> SolverResult<SolutionBatch> {
         reader.read_exact(&mut buf)?;
 
         let cursor = Cursor::new(buf);
-        let stream_reader = StreamReader::try_new(cursor, None)?;
-        for batch_result in stream_reader {
+        let mut stream_reader = StreamReader::try_new(cursor, None)?;
+        if let Some(batch_result) = stream_reader.next() {
             return Ok(batch_result?);
         }
         Err(crate::error::SolverError::Ipc(
