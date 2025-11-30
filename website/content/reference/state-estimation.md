@@ -27,13 +27,11 @@ SE produces the **best estimate** of system state given imperfect information.
 
 The **state** of an N-bus power system is defined by 2N-1 variables:
 
-```
-x = [θ₂, θ₃, ..., θₙ, V₁, V₂, ..., Vₙ]
-```
+$$\mathbf{x} = [\theta_2, \theta_3, \ldots, \theta_n, V_1, V_2, \ldots, V_n]$$
 
 where:
-- θᵢ = voltage angle at bus i (θ₁ = 0, reference)
-- Vᵢ = voltage magnitude at bus i
+- $\theta_i$ = voltage angle at bus i ($\theta_1 = 0$, reference)
+- $V_i$ = voltage magnitude at bus i
 
 **Note**: The slack bus angle is fixed at 0, leaving 2N-1 unknowns.
 
@@ -45,38 +43,34 @@ where:
 
 | Measurement | Symbol | Formula |
 |-------------|--------|---------|
-| Bus voltage magnitude | Vᵢ | Vᵢ |
-| Real power injection | Pᵢ | Σⱼ VᵢVⱼ(Gᵢⱼcos θᵢⱼ + Bᵢⱼsin θᵢⱼ) |
-| Reactive power injection | Qᵢ | Σⱼ VᵢVⱼ(Gᵢⱼsin θᵢⱼ - Bᵢⱼcos θᵢⱼ) |
-| Real power flow | Pᵢⱼ | Vᵢ²Gᵢⱼ - VᵢVⱼ(Gᵢⱼcos θᵢⱼ + Bᵢⱼsin θᵢⱼ) |
-| Reactive power flow | Qᵢⱼ | -Vᵢ²Bᵢⱼ - VᵢVⱼ(Gᵢⱼsin θᵢⱼ - Bᵢⱼcos θᵢⱼ) |
+| Bus voltage magnitude | $V_i$ | $V_i$ |
+| Real power injection | $P_i$ | $\sum_j V_i V_j (G_{ij} \cos\theta_{ij} + B_{ij} \sin\theta_{ij})$ |
+| Reactive power injection | $Q_i$ | $\sum_j V_i V_j (G_{ij} \sin\theta_{ij} - B_{ij} \cos\theta_{ij})$ |
+| Real power flow | $P_{ij}$ | $V_i^2 G_{ij} - V_i V_j (G_{ij} \cos\theta_{ij} + B_{ij} \sin\theta_{ij})$ |
+| Reactive power flow | $Q_{ij}$ | $-V_i^2 B_{ij} - V_i V_j (G_{ij} \sin\theta_{ij} - B_{ij} \cos\theta_{ij})$ |
 
-where θᵢⱼ = θᵢ - θⱼ.
+where $\theta_{ij} = \theta_i - \theta_j$.
 
 ### Measurement Equation
 
-Each measurement zₘ relates to the state through:
+Each measurement $z_m$ relates to the state through:
 
-```
-zₘ = hₘ(x) + εₘ
-```
+$$z_m = h_m(\mathbf{x}) + \epsilon_m$$
 
 where:
-- hₘ(x) = true value as function of state
-- εₘ = measurement error (assumed Gaussian)
+- $h_m(\mathbf{x})$ = true value as function of state
+- $\epsilon_m$ = measurement error (assumed Gaussian)
 
 ### Error Model
 
 Measurement errors are assumed:
 - **Independent**: Errors on different measurements are uncorrelated
-- **Gaussian**: εₘ ~ N(0, σₘ²)
-- **Known variance**: σₘ² comes from meter accuracy specifications
+- **Gaussian**: $\epsilon_m \sim N(0, \sigma_m^2)$
+- **Known variance**: $\sigma_m^2$ comes from meter accuracy specifications
 
 The measurement **weight** is the inverse variance:
 
-```
-wₘ = 1/σₘ²
-```
+$$w_m = \frac{1}{\sigma_m^2}$$
 
 High-accuracy meters have large weights (more trusted).
 
@@ -86,69 +80,57 @@ High-accuracy meters have large weights (more trusted).
 
 ### Problem Formulation
 
-Find the state x that minimizes the weighted sum of squared residuals:
+Find the state $\mathbf{x}$ that minimizes the weighted sum of squared residuals:
 
-```
-minimize J(x) = Σₘ wₘ · (zₘ - hₘ(x))²
-```
+$$\min J(\mathbf{x}) = \sum_m w_m \cdot (z_m - h_m(\mathbf{x}))^2$$
 
 Or in matrix form:
 
-```
-minimize J(x) = [z - h(x)]ᵀ W [z - h(x)]
-```
+$$\min J(\mathbf{x}) = [\mathbf{z} - \mathbf{h}(\mathbf{x})]^\top \mathbf{W} [\mathbf{z} - \mathbf{h}(\mathbf{x})]$$
 
 where:
-- z = measurement vector (m × 1)
-- h(x) = measurement function vector (m × 1)
-- W = diagonal weight matrix (m × m)
-- x = state vector (n × 1, where n = 2N-1)
+- $\mathbf{z}$ = measurement vector (m × 1)
+- $\mathbf{h}(\mathbf{x})$ = measurement function vector (m × 1)
+- $\mathbf{W}$ = diagonal weight matrix (m × m)
+- $\mathbf{x}$ = state vector (n × 1, where n = 2N-1)
 
 ### Necessary Condition
 
 At the minimum, the gradient is zero:
 
-```
-∇J(x) = -2Hᵀ W [z - h(x)] = 0
-```
+$$\nabla J(\mathbf{x}) = -2\mathbf{H}^\top \mathbf{W} [\mathbf{z} - \mathbf{h}(\mathbf{x})] = 0$$
 
-where H = ∂h/∂x is the Jacobian matrix (m × n).
+where $\mathbf{H} = \partial\mathbf{h}/\partial\mathbf{x}$ is the Jacobian matrix (m × n).
 
 ### Normal Equations
 
-Linearizing h(x) around the current estimate x⁽ᵏ⁾:
+Linearizing $\mathbf{h}(\mathbf{x})$ around the current estimate $\mathbf{x}^{(k)}$:
 
-```
-h(x) ≈ h(x⁽ᵏ⁾) + H · Δx
-```
+$$\mathbf{h}(\mathbf{x}) \approx \mathbf{h}(\mathbf{x}^{(k)}) + \mathbf{H} \cdot \Delta\mathbf{x}$$
 
 The **normal equations** are:
 
-```
-[Hᵀ W H] Δx = Hᵀ W [z - h(x⁽ᵏ⁾)]
-```
+$$[\mathbf{H}^\top \mathbf{W} \mathbf{H}] \Delta\mathbf{x} = \mathbf{H}^\top \mathbf{W} [\mathbf{z} - \mathbf{h}(\mathbf{x}^{(k)})]$$
 
 Or more compactly:
 
-```
-G · Δx = Hᵀ W r
-```
+$$\mathbf{G} \cdot \Delta\mathbf{x} = \mathbf{H}^\top \mathbf{W} \mathbf{r}$$
 
 where:
-- G = HᵀWH is the **gain matrix** (n × n)
-- r = z - h(x) is the **residual vector**
+- $\mathbf{G} = \mathbf{H}^\top\mathbf{W}\mathbf{H}$ is the **gain matrix** (n × n)
+- $\mathbf{r} = \mathbf{z} - \mathbf{h}(\mathbf{x})$ is the **residual vector**
 
 ### Iterative Solution
 
 **Gauss-Newton Algorithm:**
 
-1. Initialize: x⁽⁰⁾ = flat start (V = 1.0, θ = 0)
-2. Compute residuals: r⁽ᵏ⁾ = z - h(x⁽ᵏ⁾)
-3. Compute Jacobian: H⁽ᵏ⁾ = ∂h/∂x at x⁽ᵏ⁾
-4. Form gain matrix: G⁽ᵏ⁾ = H⁽ᵏ⁾ᵀ W H⁽ᵏ⁾
-5. Solve: G⁽ᵏ⁾ Δx = H⁽ᵏ⁾ᵀ W r⁽ᵏ⁾
-6. Update: x⁽ᵏ⁺¹⁾ = x⁽ᵏ⁾ + Δx
-7. Check convergence: |Δx| < tolerance?
+1. Initialize: $\mathbf{x}^{(0)}$ = flat start (V = 1.0, θ = 0)
+2. Compute residuals: $\mathbf{r}^{(k)} = \mathbf{z} - \mathbf{h}(\mathbf{x}^{(k)})$
+3. Compute Jacobian: $\mathbf{H}^{(k)} = \partial\mathbf{h}/\partial\mathbf{x}$ at $\mathbf{x}^{(k)}$
+4. Form gain matrix: $\mathbf{G}^{(k)} = {\mathbf{H}^{(k)}}^\top \mathbf{W} \mathbf{H}^{(k)}$
+5. Solve: $\mathbf{G}^{(k)} \Delta\mathbf{x} = {\mathbf{H}^{(k)}}^\top \mathbf{W} \mathbf{r}^{(k)}$
+6. Update: $\mathbf{x}^{(k+1)} = \mathbf{x}^{(k)} + \Delta\mathbf{x}$
+7. Check convergence: $|\Delta\mathbf{x}| < \text{tolerance}$?
 8. If not converged, go to step 2
 
 **Convergence**: Typically 3-5 iterations for well-conditioned systems.
@@ -159,42 +141,41 @@ where:
 
 ### Structure
 
-The Jacobian H has the form:
+The Jacobian $\mathbf{H}$ has the form:
 
-```
-        ∂h/∂θ   ∂h/∂V
-H =   [  H_θ  |  H_V  ]
-```
+$$\mathbf{H} = \begin{bmatrix} \mathbf{H}_\theta & \mathbf{H}_V \end{bmatrix} = \begin{bmatrix} \frac{\partial\mathbf{h}}{\partial\boldsymbol{\theta}} & \frac{\partial\mathbf{h}}{\partial\mathbf{V}} \end{bmatrix}$$
 
 ### Partial Derivatives
 
 For power injection measurements:
 
-**Real power injection Pᵢ:**
-```
-∂Pᵢ/∂θⱼ = VᵢVⱼ(Gᵢⱼsin θᵢⱼ - Bᵢⱼcos θᵢⱼ)     for j ≠ i
-∂Pᵢ/∂θᵢ = -Qᵢ - Vᵢ²Bᵢᵢ
+**Real power injection $P_i$:**
 
-∂Pᵢ/∂Vⱼ = Vᵢ(Gᵢⱼcos θᵢⱼ + Bᵢⱼsin θᵢⱼ)       for j ≠ i
-∂Pᵢ/∂Vᵢ = Pᵢ/Vᵢ + VᵢGᵢᵢ
-```
+$$\frac{\partial P_i}{\partial \theta_j} = V_i V_j (G_{ij} \sin\theta_{ij} - B_{ij} \cos\theta_{ij}) \quad \text{for } j \neq i$$
 
-**Reactive power injection Qᵢ:**
-```
-∂Qᵢ/∂θⱼ = -VᵢVⱼ(Gᵢⱼcos θᵢⱼ + Bᵢⱼsin θᵢⱼ)    for j ≠ i
-∂Qᵢ/∂θᵢ = Pᵢ - Vᵢ²Gᵢᵢ
+$$\frac{\partial P_i}{\partial \theta_i} = -Q_i - V_i^2 B_{ii}$$
 
-∂Qᵢ/∂Vⱼ = Vᵢ(Gᵢⱼsin θᵢⱼ - Bᵢⱼcos θᵢⱼ)       for j ≠ i
-∂Qᵢ/∂Vᵢ = Qᵢ/Vᵢ - VᵢBᵢᵢ
-```
+$$\frac{\partial P_i}{\partial V_j} = V_i (G_{ij} \cos\theta_{ij} + B_{ij} \sin\theta_{ij}) \quad \text{for } j \neq i$$
+
+$$\frac{\partial P_i}{\partial V_i} = \frac{P_i}{V_i} + V_i G_{ii}$$
+
+**Reactive power injection $Q_i$:**
+
+$$\frac{\partial Q_i}{\partial \theta_j} = -V_i V_j (G_{ij} \cos\theta_{ij} + B_{ij} \sin\theta_{ij}) \quad \text{for } j \neq i$$
+
+$$\frac{\partial Q_i}{\partial \theta_i} = P_i - V_i^2 G_{ii}$$
+
+$$\frac{\partial Q_i}{\partial V_j} = V_i (G_{ij} \sin\theta_{ij} - B_{ij} \cos\theta_{ij}) \quad \text{for } j \neq i$$
+
+$$\frac{\partial Q_i}{\partial V_i} = \frac{Q_i}{V_i} - V_i B_{ii}$$
 
 ### Sparsity
 
-H is sparse because:
+$\mathbf{H}$ is sparse because:
 - Power injections only depend on neighboring buses
 - Branch flows only depend on terminal buses
 
-The gain matrix G = HᵀWH inherits sparsity from the network topology.
+The gain matrix $\mathbf{G} = \mathbf{H}^\top\mathbf{W}\mathbf{H}$ inherits sparsity from the network topology.
 
 ---
 
@@ -204,7 +185,7 @@ The gain matrix G = HᵀWH inherits sparsity from the network topology.
 
 A system is **observable** if the state can be uniquely determined from available measurements.
 
-**Mathematically**: The system is observable if rank(H) = n (number of state variables).
+**Mathematically**: The system is observable if $\text{rank}(\mathbf{H}) = n$ (number of state variables).
 
 ### Observability Conditions
 
@@ -249,21 +230,17 @@ These have large variances (low weights) to not override real measurements.
 
 After SE converges, compute the objective function:
 
-```
-J(x̂) = Σₘ wₘ · rₘ²
-```
+$$J(\hat{\mathbf{x}}) = \sum_m w_m \cdot r_m^2$$
 
 Under the null hypothesis (no bad data), J follows a chi-squared distribution:
 
-```
-J ~ χ²(m - n)
-```
+$$J \sim \chi^2(m - n)$$
 
-where m - n = degrees of freedom (redundancy).
+where $m - n$ = degrees of freedom (redundancy).
 
-**Test**: If J > χ²_{α}(m-n), reject null hypothesis → bad data present.
+**Test**: If $J > \chi^2_\alpha(m-n)$, reject null hypothesis → bad data present.
 
-Typical threshold: α = 0.01 (99% confidence).
+Typical threshold: $\alpha = 0.01$ (99% confidence).
 
 **Limitation**: Detects that bad data exists, but not which measurement is bad.
 
@@ -271,22 +248,19 @@ Typical threshold: α = 0.01 (99% confidence).
 
 To identify the bad measurement, compute **normalized residuals**:
 
-```
-rₘᴺ = rₘ / √(Ωₘₘ)
-```
+$$r_m^N = \frac{r_m}{\sqrt{\Omega_{mm}}}$$
 
-where Ωₘₘ is the residual covariance.
+where $\Omega_{mm}$ is the residual covariance.
 
 **Residual covariance:**
-```
-Ω = R - H G⁻¹ Hᵀ
-```
 
-where R = W⁻¹ is the measurement covariance.
+$$\boldsymbol{\Omega} = \mathbf{R} - \mathbf{H} \mathbf{G}^{-1} \mathbf{H}^\top$$
 
-**Test**: The measurement with largest |rₘᴺ| is most likely bad.
+where $\mathbf{R} = \mathbf{W}^{-1}$ is the measurement covariance.
 
-**Threshold**: If max|rₘᴺ| > 3.0, remove that measurement and re-estimate.
+**Test**: The measurement with largest $|r_m^N|$ is most likely bad.
+
+**Threshold**: If $\max|r_m^N| > 3.0$, remove that measurement and re-estimate.
 
 ### Bad Data Processing Algorithm
 
@@ -306,25 +280,22 @@ where R = W⁻¹ is the measurement covariance.
 
 ### Structure
 
-The gain matrix G = HᵀWH has properties:
+The gain matrix $\mathbf{G} = \mathbf{H}^\top\mathbf{W}\mathbf{H}$ has properties:
 
-1. **Symmetric**: G = Gᵀ
-2. **Positive semi-definite**: xᵀGx ≥ 0
-3. **Positive definite if observable**: xᵀGx > 0 for x ≠ 0
-4. **Sparse**: Same sparsity pattern as YᵀY
+1. **Symmetric**: $\mathbf{G} = \mathbf{G}^\top$
+2. **Positive semi-definite**: $\mathbf{x}^\top\mathbf{G}\mathbf{x} \geq 0$
+3. **Positive definite if observable**: $\mathbf{x}^\top\mathbf{G}\mathbf{x} > 0$ for $\mathbf{x} \neq 0$
+4. **Sparse**: Same sparsity pattern as $\mathbf{Y}^\top\mathbf{Y}$
 
 ### Factorization
 
 Solve the normal equations by sparse LU or Cholesky factorization:
 
-```
-G = LDLᵀ     (sparse LDLT)
-```
+$$\mathbf{G} = \mathbf{L}\mathbf{D}\mathbf{L}^\top \quad \text{(sparse LDLT)}$$
 
 Then:
-```
-Δx = (LDLᵀ)⁻¹ Hᵀ W r
-```
+
+$$\Delta\mathbf{x} = (\mathbf{L}\mathbf{D}\mathbf{L}^\top)^{-1} \mathbf{H}^\top \mathbf{W} \mathbf{r}$$
 
 ### Conditioning
 
@@ -354,14 +325,12 @@ Like decoupled power flow, SE can be split into:
 ### Decoupled Formulation
 
 **P-θ subproblem:**
-```
-[H_P,θ]ᵀ W_P [H_P,θ] Δθ = [H_P,θ]ᵀ W_P r_P
-```
+
+$$\mathbf{H}_{P,\theta}^\top \mathbf{W}_P \mathbf{H}_{P,\theta} \Delta\boldsymbol{\theta} = \mathbf{H}_{P,\theta}^\top \mathbf{W}_P \mathbf{r}_P$$
 
 **Q-V subproblem:**
-```
-[H_Q,V]ᵀ W_Q [H_Q,V] ΔV = [H_Q,V]ᵀ W_Q r_Q
-```
+
+$$\mathbf{H}_{Q,V}^\top \mathbf{W}_Q \mathbf{H}_{Q,V} \Delta\mathbf{V} = \mathbf{H}_{Q,V}^\top \mathbf{W}_Q \mathbf{r}_Q$$
 
 **Advantage**: Smaller matrices, faster factorization.
 
@@ -466,19 +435,15 @@ Topology errors (wrong breaker status) cause:
 
 For Gaussian errors, WLS is the **maximum likelihood estimator**:
 
-```
-p(z|x) ∝ exp(-½ [z-h(x)]ᵀ W [z-h(x)])
-```
+$$p(\mathbf{z}|\mathbf{x}) \propto \exp\left(-\frac{1}{2} [\mathbf{z}-\mathbf{h}(\mathbf{x})]^\top \mathbf{W} [\mathbf{z}-\mathbf{h}(\mathbf{x})]\right)$$
 
-Maximizing p(z|x) is equivalent to minimizing J(x).
+Maximizing $p(\mathbf{z}|\mathbf{x})$ is equivalent to minimizing $J(\mathbf{x})$.
 
 ### Cramer-Rao Bound
 
 The covariance of the WLS estimate is bounded by:
 
-```
-Cov(x̂) ≥ (HᵀWH)⁻¹ = G⁻¹
-```
+$$\text{Cov}(\hat{\mathbf{x}}) \geq (\mathbf{H}^\top\mathbf{W}\mathbf{H})^{-1} = \mathbf{G}^{-1}$$
 
 This is achieved when errors are truly Gaussian.
 
@@ -486,17 +451,15 @@ This is achieved when errors are truly Gaussian.
 
 The **weighted residual vector** is:
 
-```
-r̃ = W^(1/2) r = W^(1/2) [z - h(x̂)]
-```
+$$\tilde{\mathbf{r}} = \mathbf{W}^{1/2} \mathbf{r} = \mathbf{W}^{1/2} [\mathbf{z} - \mathbf{h}(\hat{\mathbf{x}})]$$
 
 For correct model and no bad data:
-```
-E[r̃] = 0
-Cov(r̃) = S = I - W^(1/2) H G⁻¹ Hᵀ W^(1/2)
-```
 
-S is the **residual sensitivity matrix**.
+$$E[\tilde{\mathbf{r}}] = 0$$
+
+$$\text{Cov}(\tilde{\mathbf{r}}) = \mathbf{S} = \mathbf{I} - \mathbf{W}^{1/2} \mathbf{H} \mathbf{G}^{-1} \mathbf{H}^\top \mathbf{W}^{1/2}$$
+
+$\mathbf{S}$ is the **residual sensitivity matrix**.
 
 ---
 

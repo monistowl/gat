@@ -67,13 +67,11 @@ Typical values:
 
 The expected number of hours (or days) per year when load exceeds available capacity:
 
-```
-LOLE = Σᵢ pᵢ · tᵢ
-```
+$$\text{LOLE} = \sum_i p_i \cdot t_i$$
 
 where:
-- pᵢ = probability of capacity state i
-- tᵢ = duration of load loss in state i (hours)
+- $p_i$ = probability of capacity state i
+- $t_i$ = duration of load loss in state i (hours)
 
 **Planning standard**: LOLE ≤ 0.1 days/year (2.4 hours/year) is common in North America.
 
@@ -83,26 +81,21 @@ where:
 
 The probability that load exceeds capacity at any given time:
 
-```
-LOLP = Σᵢ pᵢ    (for all states where capacity < demand)
-```
+$$\text{LOLP} = \sum_i p_i \quad \text{(for all states where capacity < demand)}$$
 
 Related to LOLE:
-```
-LOLE = LOLP × 8760 hours/year
-```
+
+$$\text{LOLE} = \text{LOLP} \times 8760 \text{ hours/year}$$
 
 ### EUE/ENS — Expected Unserved Energy
 
 The expected energy (MWh) not delivered per year:
 
-```
-EUE = Σᵢ pᵢ · (Dᵢ - Cᵢ) · tᵢ    (for states where Cᵢ < Dᵢ)
-```
+$$\text{EUE} = \sum_i p_i \cdot (D_i - C_i) \cdot t_i \quad \text{(for states where } C_i < D_i\text{)}$$
 
 where:
-- Dᵢ = demand in state i
-- Cᵢ = available capacity in state i
+- $D_i$ = demand in state i
+- $C_i$ = available capacity in state i
 
 **Interpretation**: Average annual energy shortfall. More meaningful than LOLE for economic analysis.
 
@@ -110,18 +103,15 @@ where:
 
 Same as LOLE but explicitly in hours:
 
-```
-LOLH = Σᵢ pᵢ · (hours in state i with LOL)
-```
+$$\text{LOLH} = \sum_i p_i \cdot (\text{hours in state } i \text{ with LOL})$$
 
 ### Normalized Indices
 
 For comparing systems of different sizes:
 
-```
-LOLE/peak = LOLE / Peak Demand
-EUE% = EUE / Annual Energy Demand × 100%
-```
+$$\text{LOLE/peak} = \frac{\text{LOLE}}{\text{Peak Demand}}$$
+
+$$\text{EUE\\%} = \frac{\text{EUE}}{\text{Annual Energy Demand}} \times 100\\%$$
 
 ---
 
@@ -144,13 +134,11 @@ For small systems, enumerate all capacity states:
 
 For larger systems, build COPT incrementally using **convolution**:
 
-Starting with capacity probability distribution p(C), add unit k with capacity cₖ and FOR qₖ:
+Starting with capacity probability distribution $p(C)$, add unit k with capacity $c_k$ and FOR $q_k$:
 
-```
-p_new(C) = (1-qₖ)·p_old(C-cₖ) + qₖ·p_old(C)
-```
+$$p_{\text{new}}(C) = (1-q_k) \cdot p_{\text{old}}(C-c_k) + q_k \cdot p_{\text{old}}(C)$$
 
-This builds up the distribution one unit at a time without enumerating 2ⁿ states.
+This builds up the distribution one unit at a time without enumerating $2^n$ states.
 
 ### Load Duration Curve
 
@@ -172,19 +160,15 @@ Load varies throughout the year. The **Load Duration Curve (LDC)** shows load ra
 
 For each capacity state, find hours where demand exceeds capacity:
 
-```
-LOLE = Σᵢ pᵢ · H(Cᵢ)
-```
+$$\text{LOLE} = \sum_i p_i \cdot H(C_i)$$
 
-where H(C) = hours on LDC where load > C.
+where $H(C)$ = hours on LDC where load > C.
 
 ### EUE Calculation
 
-```
-EUE = Σᵢ pᵢ · E(Cᵢ)
-```
+$$\text{EUE} = \sum_i p_i \cdot E(C_i)$$
 
-where E(C) = area under LDC above capacity level C (MWh).
+where $E(C)$ = area under LDC above capacity level C (MWh).
 
 ---
 
@@ -236,11 +220,9 @@ Samples independent hourly snapshots:
 
 ### Convergence
 
-Standard error decreases as 1/√N:
+Standard error decreases as $1/\sqrt{N}$:
 
-```
-SE(LOLE) ≈ σ / √N
-```
+$$\text{SE}(\text{LOLE}) \approx \frac{\sigma}{\sqrt{N}}$$
 
 For 1% relative error with LOLE ≈ 2.4 hours:
 - Need ~10,000 samples
@@ -284,9 +266,7 @@ Each area has its own LOLE, affected by:
 - Import capability from neighbors
 - Neighbor's adequacy (can they export?)
 
-```
-LOLE_A = f(local capacity, import limit, availability of imports)
-```
+$$\text{LOLE}_A = f(\text{local capacity, import limit, availability of imports})$$
 
 ### Coordinated Assessment
 
@@ -323,10 +303,7 @@ ELCC measures the capacity value of variable resources.
 
 **ELCC** = Additional load the system can serve at the same reliability level when a resource is added.
 
-```
-ELCC(resource) = Load_with_resource - Load_without_resource
-                 (at constant LOLE)
-```
+$$\text{ELCC}(\text{resource}) = \text{Load}\_{\text{with resource}} - \text{Load}\_{\text{without resource}} \quad \text{(at constant LOLE)}$$
 
 ### Calculation Method
 
@@ -337,9 +314,7 @@ ELCC(resource) = Load_with_resource - Load_without_resource
 
 ### Capacity Credit
 
-```
-Capacity Credit = ELCC / Nameplate Capacity × 100%
-```
+$$\text{Capacity Credit} = \frac{\text{ELCC}}{\text{Nameplate Capacity}} \times 100\%$$
 
 Typical values:
 - Thermal units: 90-95%
@@ -364,9 +339,7 @@ For distribution systems serving end customers:
 
 Average outage duration per customer:
 
-```
-SAIDI = Σ(Customer Interruption Durations) / Total Customers
-```
+$$\text{SAIDI} = \frac{\sum(\text{Customer Interruption Durations})}{\text{Total Customers}}$$
 
 Units: minutes or hours per customer per year.
 
@@ -374,9 +347,7 @@ Units: minutes or hours per customer per year.
 
 Average number of outages per customer:
 
-```
-SAIFI = Σ(Customer Interruptions) / Total Customers
-```
+$$\text{SAIFI} = \frac{\sum(\text{Customer Interruptions})}{\text{Total Customers}}$$
 
 Units: interruptions per customer per year.
 
@@ -384,9 +355,7 @@ Units: interruptions per customer per year.
 
 Average duration of an interruption:
 
-```
-CAIDI = SAIDI / SAIFI = Σ(Durations) / Σ(Interruptions)
-```
+$$\text{CAIDI} = \frac{\text{SAIDI}}{\text{SAIFI}} = \frac{\sum(\text{Durations})}{\sum(\text{Interruptions})}$$
 
 Units: minutes or hours per interruption.
 
@@ -394,9 +363,7 @@ Units: minutes or hours per interruption.
 
 Average interruption frequency for affected customers:
 
-```
-CAIFI = Σ(Interruptions) / Customers Affected
-```
+$$\text{CAIFI} = \frac{\sum(\text{Interruptions})}{\text{Customers Affected}}$$
 
 ---
 
@@ -470,21 +437,17 @@ GAT uses non-sequential Monte Carlo with parallel scenario evaluation.
 
 Time to failure follows exponential distribution:
 
-```
-P(failure before time t) = 1 - e^(-λt)
-```
+$$P(\text{failure before time } t) = 1 - e^{-\lambda t}$$
 
-where λ = failure rate (failures/hour).
+where $\lambda$ = failure rate (failures/hour).
 
 Mean time to failure:
-```
-MTTF = 1/λ
-```
+
+$$\text{MTTF} = \frac{1}{\lambda}$$
 
 FOR relationship:
-```
-FOR = MTTR / (MTTF + MTTR)
-```
+
+$$\text{FOR} = \frac{\text{MTTR}}{\text{MTTF} + \text{MTTR}}$$
 
 where MTTR = mean time to repair.
 
@@ -493,24 +456,22 @@ where MTTR = mean time to repair.
 States: Up (1), Down (0)
 
 Transition rates:
-- λ: failure rate (Up → Down)
-- μ: repair rate (Down → Up)
+- $\lambda$: failure rate (Up → Down)
+- $\mu$: repair rate (Down → Up)
 
 Steady-state probabilities:
-```
-P(Up) = μ / (λ + μ)
-P(Down) = λ / (λ + μ) = FOR
-```
+
+$$P(\text{Up}) = \frac{\mu}{\lambda + \mu}$$
+
+$$P(\text{Down}) = \frac{\lambda}{\lambda + \mu} = \text{FOR}$$
 
 ### Convolution Formula Derivation
 
-If C₁ has distribution p₁(c) and C₂ has distribution p₂(c), the sum C = C₁ + C₂ has:
+If $C_1$ has distribution $p_1(c)$ and $C_2$ has distribution $p_2(c)$, the sum $C = C_1 + C_2$ has:
 
-```
-p(c) = Σₓ p₁(x) · p₂(c - x)
-```
+$$p(c) = \sum_x p_1(x) \cdot p_2(c - x)$$
 
-This is the discrete convolution of p₁ and p₂.
+This is the discrete convolution of $p_1$ and $p_2$.
 
 ---
 
