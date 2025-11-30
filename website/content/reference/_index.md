@@ -82,4 +82,4 @@ Key references for implemented algorithms:
 
 ## FAQ
 
-See the **[FAQ](/faq/)** for common questions about power systems analysis and GAT usage.
+See the **[FAQ](@/faq.md)** for common questions about power systems analysis and GAT usage.

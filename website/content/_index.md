@@ -36,5 +36,5 @@ gat pf dc grid.arrow --out flows.parquet
 ## Get Involved
 
 - **[GitHub](https://github.com/monistowl/gat)** — Source code and issues
-- **[Contributing](/contributing/)** — How to contribute
+- **[Contributing](@/contributing.md)** — How to contribute
 - **[Blog](/blog/)** — Development updates

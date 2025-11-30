@@ -31,7 +31,7 @@ GAT is organized as a Cargo workspace with focused crates:
 
 ## Contributing
 
-- **[Contributing Guide](/contributing/)** — How to contribute
+- **[Contributing Guide](@/contributing.md)** — How to contribute
 - **[CI/CD Pipeline](ci-cd/)** — Build, test, and release process
 - **[Documentation Workflow](doc-workflow/)** — How docs are built
 

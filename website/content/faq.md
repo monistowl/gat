@@ -391,7 +391,7 @@ cargo build -p gat-cli --release
 
 Binary will be at `target/release/gat-cli`.
 
-See [Contributing Guide](/contributing/) for development setup.
+See [Contributing Guide](@/contributing.md) for development setup.
 
 ### Do I need to compile the solvers?
 
@@ -469,7 +469,7 @@ See [OPF Guide](/guide/opf/#locational-marginal-prices) for examples.
 
 ### How can I contribute?
 
-See [Contributing Guide](/contributing/) for:
+See [Contributing Guide](@/contributing.md) for:
 - Code contributions
 - Documentation improvements
 - Bug reports and feature requests

@@ -4,6 +4,7 @@ description = "Release notes, tutorials, and updates from the GAT team"
 sort_by = "date"
 template = "blog.html"
 page_template = "blog-page.html"
+generate_feed = true
 +++
 
 # GAT Blog

@@ -102,7 +102,7 @@ We work with startups and enterprises to find licensing that fits your budget an
 
 **Yes!** Contributions are welcome and encouraged. By contributing, you agree that your contributions will be licensed under the same PolyForm Shield License.
 
-See our [Contributing Guide](/contributing/) for details.
+See our [Contributing Guide](@/contributing.md) for details.
 
 ### Can I fork GAT?
 

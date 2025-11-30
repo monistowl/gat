@@ -159,7 +159,7 @@ GAT is developed and maintained by **Tom Wilson** with contributions from the op
 
 ### Contributing
 
-We welcome contributions! See our [Contributing Guide](/contributing/) for details on:
+We welcome contributions! See our [Contributing Guide](@/contributing.md) for details on:
 - Code contributions
 - Documentation improvements
 - Bug reports and feature requests

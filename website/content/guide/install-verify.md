@@ -151,6 +151,6 @@ Once verified, you're ready to:
 
 If something doesn't work:
 
-1. Check the [FAQ](/faq/) for common issues
+1. Check the [FAQ](@/faq.md) for common issues
 2. Review the [Quickstart Guide](/guide/quickstart/) for step-by-step examples
 3. Open an issue on [GitHub](https://github.com/monistowl/gat/issues)
