@@ -435,6 +435,12 @@ function createZoomControls(cy, container, data, options = {}) {
     controls.appendChild(ybusBtn);
   }
 
+  // Add LMP toggle if enabled
+  if (options.showLmpToggle) {
+    const lmpBtn = createLmpToggle(cy, container, data);
+    controls.appendChild(lmpBtn);
+  }
+
   container.appendChild(controls);
 }
 
@@ -854,6 +860,122 @@ function createYbusPanel(container, data, cy) {
 }
 
 /**
+ * Apply LMP coloring to nodes - colors by price level
+ * Low prices = green, high prices = red
+ */
+function applyLmpColoring(cy, data) {
+  // Find min/max LMP values for scaling
+  let minLmp = Infinity, maxLmp = -Infinity;
+  data.buses.forEach(bus => {
+    if (bus.lmp !== undefined) {
+      minLmp = Math.min(minLmp, bus.lmp);
+      maxLmp = Math.max(maxLmp, bus.lmp);
+    }
+  });
+
+  // Default range if no LMP data
+  if (minLmp === Infinity) {
+    minLmp = 0;
+    maxLmp = 100;
+  }
+  const range = maxLmp - minLmp || 1;
+
+  cy.nodes().forEach(node => {
+    const busData = node.data('busData');
+    if (busData && busData.lmp !== undefined) {
+      // Normalize LMP to 0-1 range
+      const normalized = (busData.lmp - minLmp) / range;
+
+      // Color gradient: green (low) -> yellow (mid) -> red (high)
+      let color;
+      if (normalized < 0.33) {
+        color = '#22c55e'; // Green - low price
+      } else if (normalized < 0.66) {
+        color = '#eab308'; // Yellow - medium price
+      } else {
+        color = '#ef4444'; // Red - high price
+      }
+
+      node.style('background-color', color);
+      node.data('lmpColor', color);
+
+      // Update label to show price
+      const currentLabel = node.data('label');
+      const priceLabel = `$${busData.lmp}/MWh`;
+      if (!currentLabel.includes('$')) {
+        node.data('label', currentLabel + '\n' + priceLabel);
+      }
+    }
+  });
+
+  // Highlight congested branches
+  cy.edges().forEach(edge => {
+    const branch = edge.data('branchData');
+    if (branch && branch.congested) {
+      edge.style({
+        'line-color': '#ef4444',
+        'width': 5,
+        'line-style': 'solid'
+      });
+    }
+  });
+}
+
+/**
+ * Create LMP visualization toggle button
+ */
+function createLmpToggle(cy, container, data) {
+  const btn = document.createElement('button');
+  btn.className = 'grid-widget-btn grid-widget-lmp-btn';
+  btn.title = 'Toggle LMP price coloring';
+  btn.textContent = '$';
+
+  let lmpActive = false;
+  const originalColors = new Map();
+  const originalLabels = new Map();
+
+  // Store original colors and labels
+  cy.nodes().forEach(node => {
+    originalColors.set(node.id(), node.data('color'));
+    originalLabels.set(node.id(), node.data('label'));
+  });
+
+  btn.addEventListener('click', () => {
+    lmpActive = !lmpActive;
+    if (lmpActive) {
+      applyLmpColoring(cy, data);
+      btn.classList.add('active');
+    } else {
+      // Restore original colors and labels
+      cy.nodes().forEach(node => {
+        const originalColor = originalColors.get(node.id());
+        const originalLabel = originalLabels.get(node.id());
+        if (originalColor) {
+          node.style('background-color', originalColor);
+        }
+        if (originalLabel) {
+          node.data('label', originalLabel);
+        }
+      });
+      // Reset edge styles
+      cy.edges().forEach(edge => {
+        const branch = edge.data('branchData');
+        if (branch && branch.congested) {
+          edge.style({
+            'line-color': '#64748b',
+            'width': edge.data('width'),
+            'line-style': 'solid'
+          });
+        }
+      });
+      btn.classList.remove('active');
+    }
+  });
+
+  return btn;
+}
+
+/**
  * Create Y-bus toggle button
  */
 function createYbusToggle(cy, container, data) {
@@ -980,7 +1102,8 @@ async function initWidget(container) {
         showFlowToggle: container.dataset.flow === 'true',
         showVoltageToggle: container.dataset.voltage === 'true',
         showContingencyToggle: container.dataset.contingency === 'true',
-        showYbusToggle: container.dataset.ybus === 'true'
+        showYbusToggle: container.dataset.ybus === 'true',
+        showLmpToggle: container.dataset.lmp === 'true'
       });
     }
 

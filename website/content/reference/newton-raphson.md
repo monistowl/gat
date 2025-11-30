@@ -13,6 +13,8 @@ Understanding Newton-Raphson helps you:
 - Debug non-converging cases
 - Appreciate why power flow is "hard" computationally
 
+<div class="grid-widget" data-network="ieee14" data-height="400" data-voltage="true" data-flow="true" data-legend="true" data-caption="Interactive: A converged power flow solution. Click V to see voltage profile (green=nominal, yellow/red=deviation). Click ⚡ to see branch loading."></div>
+
 ---
 
 ## The Problem

@@ -10,6 +10,8 @@ In wholesale electricity markets, prices aren't uniform — they vary by locatio
 
 LMP is the economic signal that drives efficient generation dispatch, transmission investment, and demand response.
 
+<div class="grid-widget" data-network="lmp-example" data-height="380" data-lmp="true" data-flow="true" data-legend="true" data-caption="Interactive: Click $ to see LMP prices (green=low, red=high). Red branch shows congestion. Click ⚡ to see power flow."></div>
+
 ---
 
 ## Why Prices Differ by Location

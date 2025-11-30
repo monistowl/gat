@@ -36,6 +36,8 @@ These three form a right triangle — the **power triangle**:
 
 The angle $\theta$ is the **power factor angle** — the phase difference between voltage and current.
 
+<div class="grid-widget" data-network="ieee14" data-height="420" data-flow="true" data-voltage="true" data-legend="true" data-caption="Interactive: Click ⚡ to see power flow (P) through branches. Click V to see how voltage magnitudes vary across the network."></div>
+
 ---
 
 ## Real Power (P): The Useful Stuff

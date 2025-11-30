@@ -35,6 +35,8 @@ where:
 
 **Note**: The slack bus angle is fixed at 0, leaving 2N-1 unknowns.
 
+<div class="grid-widget" data-network="ieee14" data-height="420" data-voltage="true" data-flow="true" data-legend="true" data-caption="Interactive: State estimation determines the voltage (V button) and power flows (⚡ button) at each bus from noisy measurements."></div>
+
 ---
 
 ## Measurement Model

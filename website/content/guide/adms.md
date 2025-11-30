@@ -8,6 +8,8 @@ weight = 20
 
 ADMS tools coordinate reliability and efficiency on distribution networks through automated switching and voltage control.
 
+<div class="grid-widget" data-network="ring-network" data-height="380" data-contingency="true" data-flow="true" data-legend="true" data-caption="Interactive: A meshed network supporting FLISR. Click ✂ to enable contingency mode, then click branches to simulate faults. Click ⚡ to see power flow re-routing."></div>
+
 ## Key Concepts
 
 **FLISR** — Fault Location, Isolation, and Service Restoration

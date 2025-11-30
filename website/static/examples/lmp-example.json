@@ -1,0 +1,85 @@
+{
+  "name": "LMP Congestion Example",
+  "description": "Three-bus system demonstrating locational marginal pricing with congestion",
+  "buses": [
+    {
+      "id": 1,
+      "name": "Gen A",
+      "type": "slack",
+      "v_base": 230,
+      "v_mag": 1.0,
+      "v_ang": 0,
+      "lmp": 30,
+      "lmp_energy": 30,
+      "lmp_loss": 0,
+      "lmp_cong": 0
+    },
+    {
+      "id": 2,
+      "name": "Gen B",
+      "type": "pv",
+      "v_base": 230,
+      "v_mag": 1.0,
+      "lmp": 50,
+      "lmp_energy": 30,
+      "lmp_loss": 2,
+      "lmp_cong": 18
+    },
+    {
+      "id": 3,
+      "name": "Load",
+      "type": "pq",
+      "v_base": 230,
+      "lmp": 50,
+      "lmp_energy": 30,
+      "lmp_loss": 5,
+      "lmp_cong": 15
+    }
+  ],
+  "branches": [
+    {
+      "from": 1,
+      "to": 2,
+      "r": 0.005,
+      "x": 0.05,
+      "b": 0.01,
+      "rating": 100,
+      "flow": 100,
+      "congested": true
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "r": 0.008,
+      "x": 0.08,
+      "b": 0.015,
+      "rating": 150,
+      "flow": 50,
+      "congested": false
+    }
+  ],
+  "generators": [
+    {
+      "bus": 1,
+      "p": 100,
+      "q": 0,
+      "cost": 30,
+      "is_slack": true
+    },
+    {
+      "bus": 2,
+      "p": 50,
+      "q": 0,
+      "cost": 50,
+      "q_min": -50,
+      "q_max": 50
+    }
+  ],
+  "loads": [
+    {
+      "bus": 3,
+      "p": 150,
+      "q": 30
+    }
+  ]
+}

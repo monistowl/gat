@@ -8,6 +8,8 @@ weight = 3
 
 Every transmission line, transformer, and cable in the power grid is characterized by its **impedance** (how much it resists current) or equivalently its **admittance** (how easily current flows). These parameters determine how power flows through the network.
 
+<div class="grid-widget" data-network="three-bus" data-height="350" data-ybus="true" data-legend="true" data-caption="Interactive: Hover over branches to see Z = R + jX values. Click Y to view the computed admittance matrix."></div>
+
 ---
 
 ## Starting Simple: Resistance

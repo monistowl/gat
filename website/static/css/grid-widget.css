@@ -347,7 +347,8 @@
 .grid-widget-flow-btn,
 .grid-widget-voltage-btn,
 .grid-widget-contingency-btn,
-.grid-widget-ybus-btn {
+.grid-widget-ybus-btn,
+.grid-widget-lmp-btn {
   margin-top: 4px;
   border-top: 1px solid var(--border-color, #e2e8f0);
   padding-top: 4px;

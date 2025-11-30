@@ -8,6 +8,8 @@ weight = 22
 
 DIST tools analyze and optimize distribution networks: power flows, optimal dispatch, and hosting capacity for renewable energy.
 
+<div class="grid-widget" data-network="radial-feeder" data-height="380" data-flow="true" data-voltage="true" data-legend="true" data-caption="Interactive: A radial distribution feeder. Click ⚡ to see power flow from substation to loads. Click V to see voltage drop along the feeder."></div>
+
 ## Key Concepts
 
 **Distribution Network Modeling**
