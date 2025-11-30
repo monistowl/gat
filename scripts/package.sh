@@ -156,9 +156,10 @@ package_full() {
   if [[ -d "$ROOT_DIR/vendor/local/lib" ]]; then
     echo "Bundling shared libraries from vendor/local/lib..."
     # Copy all shared libraries, preserving symlinks
-    find "$ROOT_DIR/vendor/local/lib" -maxdepth 1 -name "*.so*" -exec cp -P {} "$dest/lib/" \;
+    # Linux uses .so*, macOS uses .dylib
+    find "$ROOT_DIR/vendor/local/lib" -maxdepth 1 \( -name "*.so*" -o -name "*.dylib" \) -exec cp -P {} "$dest/lib/" \;
     local lib_count
-    lib_count=$(find "$dest/lib" -name "*.so*" | wc -l)
+    lib_count=$(find "$dest/lib" \( -name "*.so*" -o -name "*.dylib" \) 2>/dev/null | wc -l)
     echo "Included $lib_count shared libraries"
   fi
 

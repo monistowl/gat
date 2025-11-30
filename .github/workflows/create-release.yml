@@ -35,12 +35,48 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y coinor-libcbc-dev jq libssl-dev pkg-config
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            jq \
+            libblas-dev \
+            libbz2-dev \
+            liblapack-dev \
+            libreadline-dev \
+            libssl-dev \
+            pkg-config \
+            zlib1g-dev
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install coinor-cbc jq openssl pkg-config || true
+          brew install gcc jq openssl pkg-config || true
+          # Homebrew gcc installs gfortran as gfortran-14
+          if command -v gfortran-14 &>/dev/null && ! command -v gfortran &>/dev/null; then
+            sudo ln -sf "$(which gfortran-14)" /usr/local/bin/gfortran
+          fi
+
+      - name: Build COIN-OR libraries from vendored sources
+        if: matrix.variant == 'full'
+        run: |
+          echo "=== Building COIN-OR solvers from vendor/ ==="
+          ./scripts/build-clp.sh
+          ./scripts/build-cbc.sh
+          ./scripts/build-ipopt.sh
+
+      - name: Build native solver binaries
+        if: matrix.variant == 'full'
+        run: |
+          echo "=== Building native solver wrappers ==="
+          # Set library path for linking
+          export PKG_CONFIG_PATH="$PWD/vendor/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export LD_LIBRARY_PATH="$PWD/vendor/local/lib:$LD_LIBRARY_PATH"
+
+          cargo build -p gat-ipopt --release
+          cargo build -p gat-cbc --release
+
+          echo "=== Built solver binaries ==="
+          ls -la target/release/gat-ipopt target/release/gat-cbc 2>/dev/null || true
 
       - name: Build ${{ matrix.variant }} variant
         run: |

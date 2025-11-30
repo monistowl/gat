@@ -147,9 +147,10 @@ install_from_dir() {
     if [[ -d "$lib_dir" ]]; then
       mkdir -p "$GAT_PREFIX/lib"
       # Copy all shared libraries, preserving symlinks
-      find "$lib_dir" -maxdepth 1 -name "*.so*" -exec cp -P {} "$GAT_PREFIX/lib/" \;
+      # Linux uses .so*, macOS uses .dylib
+      find "$lib_dir" -maxdepth 1 \( -name "*.so*" -o -name "*.dylib" \) -exec cp -P {} "$GAT_PREFIX/lib/" \;
       local lib_count
-      lib_count=$(find "$GAT_PREFIX/lib" -name "*.so*" 2>/dev/null | wc -l)
+      lib_count=$(find "$GAT_PREFIX/lib" \( -name "*.so*" -o -name "*.dylib" \) 2>/dev/null | wc -l)
       echo "Installed $lib_count shared libraries"
     fi
   fi
