@@ -1,0 +1,32 @@
+{
+  "name": "Ring Network",
+  "description": "Meshed ring topology demonstrating redundant paths for contingency analysis",
+  "buses": [
+    { "id": 1, "name": "Gen A", "type": "slack", "v_base": 138, "v_mag": 1.0, "v_ang": 0 },
+    { "id": 2, "name": "Gen B", "type": "pv", "v_base": 138, "v_mag": 1.02 },
+    { "id": 3, "name": "Load C", "type": "pq", "v_base": 138 },
+    { "id": 4, "name": "Load D", "type": "pq", "v_base": 138 },
+    { "id": 5, "name": "Load E", "type": "pq", "v_base": 138 },
+    { "id": 6, "name": "Load F", "type": "pq", "v_base": 138 }
+  ],
+  "branches": [
+    { "from": 1, "to": 2, "r": 0.01, "x": 0.08, "b": 0.02, "rating": 150 },
+    { "from": 2, "to": 3, "r": 0.012, "x": 0.09, "b": 0.018, "rating": 120 },
+    { "from": 3, "to": 4, "r": 0.015, "x": 0.10, "b": 0.02, "rating": 100 },
+    { "from": 4, "to": 5, "r": 0.014, "x": 0.095, "b": 0.019, "rating": 100 },
+    { "from": 5, "to": 6, "r": 0.013, "x": 0.088, "b": 0.017, "rating": 100 },
+    { "from": 6, "to": 1, "r": 0.011, "x": 0.082, "b": 0.016, "rating": 130 },
+    { "from": 1, "to": 4, "r": 0.018, "x": 0.12, "b": 0.024, "rating": 80 },
+    { "from": 2, "to": 5, "r": 0.02, "x": 0.13, "b": 0.026, "rating": 80 }
+  ],
+  "generators": [
+    { "bus": 1, "p": 0, "q": 0, "is_slack": true },
+    { "bus": 2, "p": 80, "q_min": -30, "q_max": 60 }
+  ],
+  "loads": [
+    { "bus": 3, "p": 40, "q": 15 },
+    { "bus": 4, "p": 50, "q": 20 },
+    { "bus": 5, "p": 35, "q": 12 },
+    { "bus": 6, "p": 45, "q": 18 }
+  ]
+}

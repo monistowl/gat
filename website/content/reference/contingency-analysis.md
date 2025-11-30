@@ -29,6 +29,8 @@ The August 2003 Northeast blackout — 55 million people without power — demon
 
 If you have $N$ components (lines, generators, transformers), you must be able to lose any one and still operate safely.
 
+<div class="grid-widget" data-network="ring-network" data-height="400" data-contingency="true" data-flow="true" data-legend="true" data-caption="Interactive: Click ✂ to enable contingency mode, then click branches to open/close them. Use ⚡ to see power flow."></div>
+
 ### What Counts as a "Credible Contingency"?
 
 Typically:

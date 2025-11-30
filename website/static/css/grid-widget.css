@@ -212,6 +212,266 @@
   border-color: #64748b;
 }
 
+/* Legend panel */
+.grid-widget-legend {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.7rem;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+[data-theme="dark"] .grid-widget-legend,
+.dark .grid-widget-legend {
+  background-color: rgba(30, 41, 59, 0.95);
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: help;
+}
+
+.legend-shape {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.legend-shape-slack {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.legend-shape-pv {
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+.legend-shape-pq {
+  border-radius: 50%;
+}
+
+.legend-label {
+  color: var(--text-secondary, #64748b);
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .legend-label,
+.dark .legend-label {
+  color: #94a3b8;
+}
+
+.legend-edge-line {
+  width: 20px;
+  height: 3px;
+  background-color: #64748b;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* When caption is present, legend needs to move up */
+.grid-widget:has(.grid-widget-caption) .grid-widget-legend {
+  bottom: 38px;
+}
+
+/* Hover tooltip */
+.grid-widget-tooltip {
+  position: absolute;
+  background-color: rgba(15, 23, 42, 0.95);
+  color: #f1f5f9;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  z-index: 25;
+  pointer-events: none;
+  max-width: 180px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.grid-widget-tooltip strong {
+  color: #ffffff;
+}
+
+/* Tooltip type badges */
+.tooltip-type {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.tooltip-type-slack {
+  background-color: #22c55e;
+}
+
+.tooltip-type-pv {
+  background-color: #ef4444;
+}
+
+.tooltip-type-pq {
+  background-color: #3b82f6;
+}
+
+/* Toggle button active state */
+.grid-widget-btn.active {
+  background-color: #3b82f6;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.grid-widget-btn.active:hover {
+  background-color: #2563eb;
+  border-color: #1d4ed8;
+}
+
+[data-theme="dark"] .grid-widget-btn.active,
+.dark .grid-widget-btn.active {
+  background-color: #3b82f6;
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+/* Flow and voltage toggle buttons */
+.grid-widget-flow-btn,
+.grid-widget-voltage-btn,
+.grid-widget-contingency-btn,
+.grid-widget-ybus-btn {
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  padding-top: 4px;
+}
+
+/* Contingency mode status indicator */
+.grid-widget-contingency-status {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(239, 68, 68, 0.9);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  z-index: 15;
+}
+
+/* Y-bus matrix panel */
+.grid-widget-ybus-panel {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background-color: rgba(255, 255, 255, 0.98);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  padding: 8px;
+  z-index: 20;
+  max-width: 90%;
+  max-height: 60%;
+  overflow: auto;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] .grid-widget-ybus-panel,
+.dark .grid-widget-ybus-panel {
+  background-color: rgba(30, 41, 59, 0.98);
+  border-color: #475569;
+}
+
+.ybus-header {
+  font-weight: 600;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  color: var(--text-primary, #1e293b);
+  text-align: center;
+}
+
+[data-theme="dark"] .ybus-header,
+.dark .ybus-header {
+  color: #f1f5f9;
+}
+
+.ybus-matrix {
+  border-collapse: collapse;
+  font-size: 0.65rem;
+  font-family: monospace;
+}
+
+.ybus-matrix th,
+.ybus-matrix td {
+  padding: 3px 5px;
+  text-align: center;
+  border: 1px solid var(--border-color, #e2e8f0);
+  min-width: 70px;
+}
+
+.ybus-matrix th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+}
+
+[data-theme="dark"] .ybus-matrix th,
+.dark .ybus-matrix th {
+  background-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ybus-matrix td,
+.dark .ybus-matrix td {
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.ybus-zero {
+  color: #94a3b8;
+}
+
+.ybus-diagonal {
+  background-color: #dbeafe;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .ybus-diagonal,
+.dark .ybus-diagonal {
+  background-color: #1e3a5f;
+}
+
+.ybus-offdiag {
+  color: #059669;
+}
+
+[data-theme="dark"] .ybus-offdiag,
+.dark .ybus-offdiag {
+  color: #34d399;
+}
+
+.ybus-clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.ybus-clickable:hover {
+  background-color: #fef3c7;
+}
+
+[data-theme="dark"] .ybus-clickable:hover,
+.dark .ybus-clickable:hover {
+  background-color: #78350f;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .grid-widget {
@@ -231,5 +491,10 @@
   .grid-widget-btn {
     width: 32px;
     height: 32px;
+  }
+
+  .grid-widget-legend {
+    font-size: 0.65rem;
+    padding: 6px 8px;
   }
 }

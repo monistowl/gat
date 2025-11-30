@@ -1,0 +1,32 @@
+{
+  "name": "Radial Distribution Feeder",
+  "description": "Simple radial feeder topology common in distribution systems",
+  "buses": [
+    { "id": 1, "name": "Substation", "type": "slack", "v_base": 12.47, "v_mag": 1.0, "v_ang": 0 },
+    { "id": 2, "name": "Node 2", "type": "pq", "v_base": 12.47 },
+    { "id": 3, "name": "Node 3", "type": "pq", "v_base": 12.47 },
+    { "id": 4, "name": "Node 4", "type": "pq", "v_base": 12.47 },
+    { "id": 5, "name": "Node 5", "type": "pq", "v_base": 12.47 },
+    { "id": 6, "name": "Lateral A", "type": "pq", "v_base": 12.47 },
+    { "id": 7, "name": "Lateral B", "type": "pq", "v_base": 12.47 }
+  ],
+  "branches": [
+    { "from": 1, "to": 2, "r": 0.01, "x": 0.02, "b": 0.0, "rating": 10 },
+    { "from": 2, "to": 3, "r": 0.015, "x": 0.025, "b": 0.0, "rating": 8 },
+    { "from": 3, "to": 4, "r": 0.02, "x": 0.03, "b": 0.0, "rating": 6 },
+    { "from": 4, "to": 5, "r": 0.025, "x": 0.035, "b": 0.0, "rating": 4 },
+    { "from": 2, "to": 6, "r": 0.018, "x": 0.028, "b": 0.0, "rating": 5 },
+    { "from": 3, "to": 7, "r": 0.022, "x": 0.032, "b": 0.0, "rating": 4 }
+  ],
+  "generators": [
+    { "bus": 1, "p": 0, "q": 0, "is_slack": true }
+  ],
+  "loads": [
+    { "bus": 2, "p": 0.5, "q": 0.2 },
+    { "bus": 3, "p": 0.8, "q": 0.3 },
+    { "bus": 4, "p": 0.6, "q": 0.25 },
+    { "bus": 5, "p": 0.4, "q": 0.15 },
+    { "bus": 6, "p": 0.7, "q": 0.28 },
+    { "bus": 7, "p": 0.5, "q": 0.2 }
+  ]
+}

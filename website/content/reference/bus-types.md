@@ -10,7 +10,7 @@ Every bus in a power flow study is classified as one of three types: **Slack**, 
 
 Understanding bus types is essential for setting up power flow cases correctly and interpreting results.
 
-<div class="grid-widget" data-network="three-bus" data-height="350" data-caption="Interactive: Click nodes to see bus properties. Green diamond = Slack, Red triangle = PV, Blue circle = PQ."></div>
+<div class="grid-widget" data-network="three-bus" data-height="350" data-legend="true" data-voltage="true" data-caption="Interactive: Hover over nodes for details. Use V button to see voltage profile."></div>
 
 ---
 
@@ -169,7 +169,7 @@ A large coal plant serving as slack bus:
 | **Controls** | Nothing | Voltage magnitude | Angle reference, power balance |
 | **Count** | Most buses | Generator buses | Exactly one per island |
 
-<div class="grid-widget" data-network="three-bus" data-height="280" data-highlight="1" data-caption="Slack bus (green) sets the angle reference and balances power"></div>
+<div class="grid-widget" data-network="three-bus" data-height="280" data-highlight="1" data-legend="true" data-caption="Slack bus (green) sets the angle reference and balances power"></div>
 
 ---
 

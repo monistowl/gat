@@ -1,0 +1,62 @@
+{
+  "name": "IEEE 14-Bus System",
+  "description": "Classic IEEE test case for power flow and contingency studies",
+  "buses": [
+    { "id": 1, "name": "Bus 1", "type": "slack", "v_base": 138, "v_mag": 1.06, "v_ang": 0 },
+    { "id": 2, "name": "Bus 2", "type": "pv", "v_base": 138, "v_mag": 1.045 },
+    { "id": 3, "name": "Bus 3", "type": "pv", "v_base": 138, "v_mag": 1.01 },
+    { "id": 4, "name": "Bus 4", "type": "pq", "v_base": 138 },
+    { "id": 5, "name": "Bus 5", "type": "pq", "v_base": 138 },
+    { "id": 6, "name": "Bus 6", "type": "pv", "v_base": 138, "v_mag": 1.07 },
+    { "id": 7, "name": "Bus 7", "type": "pq", "v_base": 138 },
+    { "id": 8, "name": "Bus 8", "type": "pv", "v_base": 138, "v_mag": 1.09 },
+    { "id": 9, "name": "Bus 9", "type": "pq", "v_base": 138 },
+    { "id": 10, "name": "Bus 10", "type": "pq", "v_base": 138 },
+    { "id": 11, "name": "Bus 11", "type": "pq", "v_base": 138 },
+    { "id": 12, "name": "Bus 12", "type": "pq", "v_base": 138 },
+    { "id": 13, "name": "Bus 13", "type": "pq", "v_base": 138 },
+    { "id": 14, "name": "Bus 14", "type": "pq", "v_base": 138 }
+  ],
+  "branches": [
+    { "from": 1, "to": 2, "r": 0.01938, "x": 0.05917, "b": 0.0528, "rating": 200 },
+    { "from": 1, "to": 5, "r": 0.05403, "x": 0.22304, "b": 0.0492, "rating": 150 },
+    { "from": 2, "to": 3, "r": 0.04699, "x": 0.19797, "b": 0.0438, "rating": 150 },
+    { "from": 2, "to": 4, "r": 0.05811, "x": 0.17632, "b": 0.034, "rating": 150 },
+    { "from": 2, "to": 5, "r": 0.05695, "x": 0.17388, "b": 0.0346, "rating": 150 },
+    { "from": 3, "to": 4, "r": 0.06701, "x": 0.17103, "b": 0.0128, "rating": 150 },
+    { "from": 4, "to": 5, "r": 0.01335, "x": 0.04211, "b": 0.0, "rating": 150 },
+    { "from": 4, "to": 7, "r": 0.0, "x": 0.20912, "b": 0.0, "rating": 100, "transformer": true, "tap": 0.978 },
+    { "from": 4, "to": 9, "r": 0.0, "x": 0.55618, "b": 0.0, "rating": 100, "transformer": true, "tap": 0.969 },
+    { "from": 5, "to": 6, "r": 0.0, "x": 0.25202, "b": 0.0, "rating": 100, "transformer": true, "tap": 0.932 },
+    { "from": 6, "to": 11, "r": 0.09498, "x": 0.19890, "b": 0.0, "rating": 80 },
+    { "from": 6, "to": 12, "r": 0.12291, "x": 0.25581, "b": 0.0, "rating": 80 },
+    { "from": 6, "to": 13, "r": 0.06615, "x": 0.13027, "b": 0.0, "rating": 80 },
+    { "from": 7, "to": 8, "r": 0.0, "x": 0.17615, "b": 0.0, "rating": 100 },
+    { "from": 7, "to": 9, "r": 0.11001, "x": 0.20640, "b": 0.0, "rating": 80 },
+    { "from": 9, "to": 10, "r": 0.03181, "x": 0.08450, "b": 0.0, "rating": 80 },
+    { "from": 9, "to": 14, "r": 0.12711, "x": 0.27038, "b": 0.0, "rating": 80 },
+    { "from": 10, "to": 11, "r": 0.08205, "x": 0.19207, "b": 0.0, "rating": 80 },
+    { "from": 12, "to": 13, "r": 0.22092, "x": 0.19988, "b": 0.0, "rating": 80 },
+    { "from": 13, "to": 14, "r": 0.17093, "x": 0.34802, "b": 0.0, "rating": 80 }
+  ],
+  "generators": [
+    { "bus": 1, "p": 232.4, "q": 0, "is_slack": true },
+    { "bus": 2, "p": 40, "q_min": -40, "q_max": 50 },
+    { "bus": 3, "p": 0, "q_min": 0, "q_max": 40 },
+    { "bus": 6, "p": 0, "q_min": -6, "q_max": 24 },
+    { "bus": 8, "p": 0, "q_min": -6, "q_max": 24 }
+  ],
+  "loads": [
+    { "bus": 2, "p": 21.7, "q": 12.7 },
+    { "bus": 3, "p": 94.2, "q": 19.0 },
+    { "bus": 4, "p": 47.8, "q": -3.9 },
+    { "bus": 5, "p": 7.6, "q": 1.6 },
+    { "bus": 6, "p": 11.2, "q": 7.5 },
+    { "bus": 9, "p": 29.5, "q": 16.6 },
+    { "bus": 10, "p": 9.0, "q": 5.8 },
+    { "bus": 11, "p": 3.5, "q": 1.8 },
+    { "bus": 12, "p": 6.1, "q": 1.6 },
+    { "bus": 13, "p": 13.5, "q": 5.8 },
+    { "bus": 14, "p": 14.9, "q": 5.0 }
+  ]
+}

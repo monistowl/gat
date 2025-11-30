@@ -33,6 +33,8 @@ $$\begin{pmatrix} I_1 \\ I_2 \\ I_3 \end{pmatrix} = \mathbf{Y} \cdot \begin{pmat
 
 The Y-bus matrix $\mathbf{Y}$ captures all branch admittances and how buses connect.
 
+<div class="grid-widget" data-network="three-bus" data-height="380" data-ybus="true" data-legend="true" data-caption="Interactive: Click 'Y' to view the computed Y-bus matrix. Hover matrix cells to highlight branches."></div>
+
 ---
 
 ## Building the Y-Bus

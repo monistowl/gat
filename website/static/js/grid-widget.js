@@ -232,14 +232,109 @@ function buildBranchInfoContent(branch) {
 }
 
 /**
+ * Build tooltip content for a bus node using safe DOM methods
+ */
+function buildBusTooltipContent(busData, busType) {
+  const fragment = document.createDocumentFragment();
+
+  const name = createTextElement('strong', busData.name || `Bus ${busData.id}`);
+  fragment.appendChild(name);
+  fragment.appendChild(document.createElement('br'));
+
+  const typeSpan = createTextElement('span', busType.toUpperCase(), `tooltip-type tooltip-type-${busType}`);
+  fragment.appendChild(typeSpan);
+
+  if (busData.v_mag !== undefined) {
+    fragment.appendChild(document.createElement('br'));
+    fragment.appendChild(createTextElement('span', `|V|: ${busData.v_mag} p.u.`));
+  }
+
+  return fragment;
+}
+
+/**
+ * Build tooltip content for a branch edge using safe DOM methods
+ */
+function buildBranchTooltipContent(branch) {
+  const fragment = document.createDocumentFragment();
+
+  fragment.appendChild(createTextElement('strong', `Branch ${branch.from}→${branch.to}`));
+  fragment.appendChild(document.createElement('br'));
+  fragment.appendChild(createTextElement('span', `Z: ${branch.r.toFixed(3)}+j${branch.x.toFixed(3)}`));
+  fragment.appendChild(document.createElement('br'));
+  fragment.appendChild(createTextElement('span', `Rating: ${branch.rating} MVA`));
+
+  return fragment;
+}
+
+/**
+ * Create and attach hover tooltip
+ */
+function createTooltip(cy, container) {
+  const tooltip = document.createElement('div');
+  tooltip.className = 'grid-widget-tooltip';
+  tooltip.style.display = 'none';
+  container.appendChild(tooltip);
+
+  let tooltipTimeout = null;
+
+  // Node hover
+  cy.on('mouseover', 'node', function(evt) {
+    const node = evt.target;
+    const busData = node.data('busData');
+    const busType = node.data('busType');
+
+    clearTimeout(tooltipTimeout);
+
+    tooltip.textContent = '';
+    tooltip.appendChild(buildBusTooltipContent(busData, busType));
+    tooltip.style.display = 'block';
+
+    const pos = evt.renderedPosition;
+    tooltip.style.left = (pos.x + 15) + 'px';
+    tooltip.style.top = (pos.y - 10) + 'px';
+  });
+
+  // Edge hover
+  cy.on('mouseover', 'edge', function(evt) {
+    const edge = evt.target;
+    const branch = edge.data('branchData');
+
+    clearTimeout(tooltipTimeout);
+
+    tooltip.textContent = '';
+    tooltip.appendChild(buildBranchTooltipContent(branch));
+    tooltip.style.display = 'block';
+
+    const pos = evt.renderedPosition;
+    tooltip.style.left = (pos.x + 15) + 'px';
+    tooltip.style.top = (pos.y - 10) + 'px';
+  });
+
+  // Hide tooltip on mouseout
+  cy.on('mouseout', 'node, edge', function() {
+    tooltipTimeout = setTimeout(() => {
+      tooltip.style.display = 'none';
+    }, 100);
+  });
+
+  return tooltip;
+}
+
+/**
  * Attach interaction handlers
  */
-function attachInteractions(cy, data, container) {
+function attachInteractions(cy, data, container, options = {}) {
   // Create info panel
   const infoPanel = document.createElement('div');
   infoPanel.className = 'grid-widget-info';
   infoPanel.style.display = 'none';
   container.appendChild(infoPanel);
+
+  // Add hover tooltips if enabled
+  if (options.tooltips !== false) {
+    createTooltip(cy, container);
+  }
 
   // Node click - show info
   cy.on('tap', 'node', function(evt) {
@@ -281,7 +376,7 @@ function attachInteractions(cy, data, container) {
 /**
  * Create zoom control buttons
  */
-function createZoomControls(cy, container) {
+function createZoomControls(cy, container, data, options = {}) {
   const controls = document.createElement('div');
   controls.className = 'grid-widget-controls';
 
@@ -315,6 +410,31 @@ function createZoomControls(cy, container) {
   controls.appendChild(zoomIn);
   controls.appendChild(zoomOut);
   controls.appendChild(fitBtn);
+
+  // Add flow toggle if enabled
+  if (options.showFlowToggle) {
+    const flowBtn = createFlowToggle(cy, container, data);
+    controls.appendChild(flowBtn);
+  }
+
+  // Add voltage toggle if enabled
+  if (options.showVoltageToggle) {
+    const voltageBtn = createVoltageToggle(cy, container);
+    controls.appendChild(voltageBtn);
+  }
+
+  // Add contingency toggle if enabled
+  if (options.showContingencyToggle) {
+    const contingencyBtn = createContingencyToggle(cy, container);
+    controls.appendChild(contingencyBtn);
+  }
+
+  // Add Y-bus toggle if enabled
+  if (options.showYbusToggle) {
+    const ybusBtn = createYbusToggle(cy, container, data);
+    controls.appendChild(ybusBtn);
+  }
+
   container.appendChild(controls);
 }
 
@@ -326,6 +446,440 @@ function highlightNodes(cy, nodeIds) {
   ids.forEach(id => {
     cy.$id(id).addClass('highlighted');
   });
+}
+
+/**
+ * Create legend panel showing bus types and edge meanings
+ */
+function createLegend(container, options = {}) {
+  const legend = document.createElement('div');
+  legend.className = 'grid-widget-legend';
+
+  // Bus type legend items
+  const busTypes = [
+    { type: 'slack', name: 'Slack (Reference)', desc: 'Sets angle ref, balances power' },
+    { type: 'pv', name: 'PV (Generator)', desc: 'Controls P and |V|' },
+    { type: 'pq', name: 'PQ (Load)', desc: 'Fixed P and Q demand' }
+  ];
+
+  busTypes.forEach(item => {
+    const style = BUS_STYLES[item.type];
+    const row = document.createElement('div');
+    row.className = 'legend-item';
+
+    // Create shape indicator
+    const shape = document.createElement('span');
+    shape.className = `legend-shape legend-shape-${item.type}`;
+    shape.style.backgroundColor = style.color;
+
+    // Create label
+    const label = document.createElement('span');
+    label.className = 'legend-label';
+    label.textContent = item.name;
+
+    row.appendChild(shape);
+    row.appendChild(label);
+
+    // Add tooltip with description
+    row.title = item.desc;
+
+    legend.appendChild(row);
+  });
+
+  // Add edge legend if requested
+  if (options.showEdges !== false) {
+    const edgeRow = document.createElement('div');
+    edgeRow.className = 'legend-item legend-edge-item';
+
+    const edgeLine = document.createElement('span');
+    edgeLine.className = 'legend-edge-line';
+
+    const edgeLabel = document.createElement('span');
+    edgeLabel.className = 'legend-label';
+    edgeLabel.textContent = 'Branch (R+jX)';
+
+    edgeRow.appendChild(edgeLine);
+    edgeRow.appendChild(edgeLabel);
+    edgeRow.title = 'Transmission line or transformer';
+
+    legend.appendChild(edgeRow);
+  }
+
+  container.appendChild(legend);
+  return legend;
+}
+
+/**
+ * Apply voltage profile coloring to nodes
+ * Colors nodes based on voltage magnitude (green=1.0, yellow=deviation, red=severe)
+ */
+function applyVoltageProfile(cy) {
+  cy.nodes().forEach(node => {
+    const busData = node.data('busData');
+    if (busData && busData.v_mag !== undefined) {
+      const vMag = busData.v_mag;
+      // Calculate color based on voltage deviation from 1.0 p.u.
+      const deviation = Math.abs(vMag - 1.0);
+      let color;
+      if (deviation < 0.02) {
+        color = '#22c55e'; // Green - nominal
+      } else if (deviation < 0.05) {
+        color = '#eab308'; // Yellow - slight deviation
+      } else if (deviation < 0.10) {
+        color = '#f97316'; // Orange - moderate deviation
+      } else {
+        color = '#ef4444'; // Red - severe deviation
+      }
+      node.style('background-color', color);
+      node.data('voltageColor', color);
+    }
+  });
+}
+
+/**
+ * Setup power flow animation on edges
+ * Shows animated particles flowing in the direction of power flow
+ */
+function setupFlowAnimation(cy, data) {
+  // Add flow direction and loading data to edges
+  cy.edges().forEach((edge, index) => {
+    const branch = edge.data('branchData');
+    if (branch) {
+      // Calculate loading percentage (simplified - uses rating)
+      const loading = branch.flow_mw !== undefined
+        ? Math.abs(branch.flow_mw) / branch.rating
+        : 0.5; // Default 50% if no flow data
+
+      // Color edge by loading
+      let lineColor;
+      if (loading < 0.5) {
+        lineColor = '#22c55e'; // Green - light loading
+      } else if (loading < 0.8) {
+        lineColor = '#eab308'; // Yellow - moderate loading
+      } else if (loading < 1.0) {
+        lineColor = '#f97316'; // Orange - heavy loading
+      } else {
+        lineColor = '#ef4444'; // Red - overloaded
+      }
+
+      edge.style('line-color', lineColor);
+      edge.data('loading', loading);
+      edge.data('loadingColor', lineColor);
+    }
+  });
+
+  // Add arrow markers to show flow direction
+  cy.style()
+    .selector('edge.flow-animated')
+    .style({
+      'target-arrow-shape': 'triangle',
+      'target-arrow-color': 'data(loadingColor)',
+      'arrow-scale': 0.8
+    })
+    .update();
+
+  // Mark edges for animation
+  cy.edges().addClass('flow-animated');
+}
+
+/**
+ * Create flow animation toggle button
+ */
+function createFlowToggle(cy, container, data) {
+  const btn = document.createElement('button');
+  btn.className = 'grid-widget-btn grid-widget-flow-btn';
+  btn.title = 'Toggle power flow animation';
+  btn.textContent = '⚡';
+
+  let flowActive = false;
+
+  btn.addEventListener('click', () => {
+    flowActive = !flowActive;
+    if (flowActive) {
+      setupFlowAnimation(cy, data);
+      btn.classList.add('active');
+    } else {
+      // Reset edge colors
+      cy.edges().removeClass('flow-animated');
+      cy.edges().style('line-color', '#64748b');
+      cy.edges().removeStyle('target-arrow-shape');
+      btn.classList.remove('active');
+    }
+  });
+
+  return btn;
+}
+
+/**
+ * Create voltage profile toggle button
+ */
+function createVoltageToggle(cy, container) {
+  const btn = document.createElement('button');
+  btn.className = 'grid-widget-btn grid-widget-voltage-btn';
+  btn.title = 'Toggle voltage profile coloring';
+  btn.textContent = 'V';
+
+  let voltageActive = false;
+  const originalColors = new Map();
+
+  // Store original colors
+  cy.nodes().forEach(node => {
+    originalColors.set(node.id(), node.data('color'));
+  });
+
+  btn.addEventListener('click', () => {
+    voltageActive = !voltageActive;
+    if (voltageActive) {
+      applyVoltageProfile(cy);
+      btn.classList.add('active');
+    } else {
+      // Restore original colors
+      cy.nodes().forEach(node => {
+        const originalColor = originalColors.get(node.id());
+        if (originalColor) {
+          node.style('background-color', originalColor);
+        }
+      });
+      btn.classList.remove('active');
+    }
+  });
+
+  return btn;
+}
+
+/**
+ * Create contingency mode toggle - allows clicking edges to "open" them
+ */
+function createContingencyToggle(cy, container) {
+  const btn = document.createElement('button');
+  btn.className = 'grid-widget-btn grid-widget-contingency-btn';
+  btn.title = 'Toggle contingency mode (click branches to open/close)';
+  btn.textContent = '✂';
+
+  let contingencyActive = false;
+  const openedEdges = new Set();
+
+  // Create status indicator
+  const statusDiv = document.createElement('div');
+  statusDiv.className = 'grid-widget-contingency-status';
+  statusDiv.style.display = 'none';
+  container.appendChild(statusDiv);
+
+  function updateStatus() {
+    if (openedEdges.size > 0) {
+      statusDiv.textContent = `${openedEdges.size} branch(es) open`;
+      statusDiv.style.display = 'block';
+    } else {
+      statusDiv.style.display = 'none';
+    }
+  }
+
+  // Edge click handler for contingency mode
+  const edgeClickHandler = function(evt) {
+    if (!contingencyActive) return;
+
+    const edge = evt.target;
+    const edgeId = edge.id();
+
+    if (openedEdges.has(edgeId)) {
+      // Close the branch (restore)
+      openedEdges.delete(edgeId);
+      edge.removeClass('branch-open');
+      edge.style({
+        'line-style': 'solid',
+        'opacity': 1
+      });
+    } else {
+      // Open the branch (simulate outage)
+      openedEdges.add(edgeId);
+      edge.addClass('branch-open');
+      edge.style({
+        'line-style': 'dashed',
+        'opacity': 0.3
+      });
+    }
+    updateStatus();
+  };
+
+  btn.addEventListener('click', () => {
+    contingencyActive = !contingencyActive;
+    if (contingencyActive) {
+      btn.classList.add('active');
+      cy.on('tap', 'edge', edgeClickHandler);
+      statusDiv.textContent = 'Click branches to simulate outages';
+      statusDiv.style.display = 'block';
+    } else {
+      btn.classList.remove('active');
+      cy.off('tap', 'edge', edgeClickHandler);
+      // Restore all edges
+      openedEdges.forEach(edgeId => {
+        const edge = cy.$id(edgeId);
+        edge.removeClass('branch-open');
+        edge.style({
+          'line-style': 'solid',
+          'opacity': 1
+        });
+      });
+      openedEdges.clear();
+      statusDiv.style.display = 'none';
+    }
+  });
+
+  return btn;
+}
+
+/**
+ * Build Y-bus matrix display from network data
+ */
+function buildYbusMatrix(data) {
+  const n = data.buses.length;
+  const busIdToIndex = new Map();
+  data.buses.forEach((bus, i) => {
+    busIdToIndex.set(bus.id, i);
+  });
+
+  // Initialize Y-bus as complex matrix (stored as [real, imag] pairs)
+  const ybus = Array(n).fill(null).map(() =>
+    Array(n).fill(null).map(() => [0, 0])
+  );
+
+  // Build Y-bus from branches
+  data.branches.forEach(branch => {
+    const i = busIdToIndex.get(branch.from);
+    const j = busIdToIndex.get(branch.to);
+
+    if (i === undefined || j === undefined) return;
+
+    // Calculate admittance y = 1/(r + jx) = (r - jx)/(r² + x²)
+    const r = branch.r;
+    const x = branch.x;
+    const denom = r * r + x * x;
+    const g = r / denom;  // conductance
+    const b = -x / denom; // susceptance
+
+    // Off-diagonal: Y_ij = -y_ij
+    ybus[i][j][0] -= g;
+    ybus[i][j][1] -= b;
+    ybus[j][i][0] -= g;
+    ybus[j][i][1] -= b;
+
+    // Diagonal: Y_ii += y_ij + shunt/2
+    const bShunt = branch.b / 2 || 0;
+    ybus[i][i][0] += g;
+    ybus[i][i][1] += b + bShunt;
+    ybus[j][j][0] += g;
+    ybus[j][j][1] += b + bShunt;
+  });
+
+  return { ybus, busIdToIndex, buses: data.buses };
+}
+
+/**
+ * Create Y-bus matrix visualization panel
+ */
+function createYbusPanel(container, data, cy) {
+  const panel = document.createElement('div');
+  panel.className = 'grid-widget-ybus-panel';
+
+  const header = createTextElement('div', 'Y-Bus Matrix', 'ybus-header');
+  panel.appendChild(header);
+
+  const { ybus, buses } = buildYbusMatrix(data);
+  const n = buses.length;
+
+  // Create matrix table
+  const table = document.createElement('table');
+  table.className = 'ybus-matrix';
+
+  // Header row with bus IDs
+  const headerRow = document.createElement('tr');
+  headerRow.appendChild(document.createElement('th')); // Empty corner cell
+  buses.forEach(bus => {
+    const th = createTextElement('th', bus.id.toString());
+    headerRow.appendChild(th);
+  });
+  table.appendChild(headerRow);
+
+  // Data rows
+  buses.forEach((rowBus, i) => {
+    const row = document.createElement('tr');
+
+    // Row header
+    const rowHeader = createTextElement('th', rowBus.id.toString());
+    row.appendChild(rowHeader);
+
+    // Matrix cells
+    buses.forEach((colBus, j) => {
+      const cell = document.createElement('td');
+      const [real, imag] = ybus[i][j];
+
+      if (Math.abs(real) < 0.0001 && Math.abs(imag) < 0.0001) {
+        cell.textContent = '0';
+        cell.className = 'ybus-zero';
+      } else {
+        const realStr = real.toFixed(2);
+        const imagStr = imag >= 0 ? `+j${imag.toFixed(2)}` : `-j${Math.abs(imag).toFixed(2)}`;
+        cell.textContent = `${realStr}${imagStr}`;
+        cell.className = i === j ? 'ybus-diagonal' : 'ybus-offdiag';
+      }
+
+      // Add hover interaction to highlight corresponding edge
+      if (i !== j && (Math.abs(real) > 0.0001 || Math.abs(imag) > 0.0001)) {
+        cell.classList.add('ybus-clickable');
+        cell.addEventListener('mouseenter', () => {
+          // Find and highlight the edge between these buses
+          cy.edges().forEach(edge => {
+            const branch = edge.data('branchData');
+            if ((branch.from === rowBus.id && branch.to === colBus.id) ||
+                (branch.from === colBus.id && branch.to === rowBus.id)) {
+              edge.addClass('highlighted');
+            }
+          });
+        });
+        cell.addEventListener('mouseleave', () => {
+          cy.edges().removeClass('highlighted');
+        });
+      }
+
+      row.appendChild(cell);
+    });
+
+    table.appendChild(row);
+  });
+
+  panel.appendChild(table);
+  container.appendChild(panel);
+
+  return panel;
+}
+
+/**
+ * Create Y-bus toggle button
+ */
+function createYbusToggle(cy, container, data) {
+  const btn = document.createElement('button');
+  btn.className = 'grid-widget-btn grid-widget-ybus-btn';
+  btn.title = 'Toggle Y-bus matrix display';
+  btn.textContent = 'Y';
+
+  let ybusPanel = null;
+  let ybusActive = false;
+
+  btn.addEventListener('click', () => {
+    ybusActive = !ybusActive;
+    if (ybusActive) {
+      btn.classList.add('active');
+      ybusPanel = createYbusPanel(container, data, cy);
+    } else {
+      btn.classList.remove('active');
+      if (ybusPanel) {
+        ybusPanel.remove();
+        ybusPanel = null;
+      }
+    }
+  });
+
+  return btn;
 }
 
 /**
@@ -415,17 +969,29 @@ async function initWidget(container) {
     });
     layout.run();
 
-    // Attach interactions
-    attachInteractions(cy, data, container);
+    // Attach interactions (with tooltips enabled by default)
+    attachInteractions(cy, data, container, {
+      tooltips: container.dataset.tooltips !== 'false'
+    });
 
     // Add zoom controls (unless disabled)
     if (container.dataset.controls !== 'false') {
-      createZoomControls(cy, container);
+      createZoomControls(cy, container, data, {
+        showFlowToggle: container.dataset.flow === 'true',
+        showVoltageToggle: container.dataset.voltage === 'true',
+        showContingencyToggle: container.dataset.contingency === 'true',
+        showYbusToggle: container.dataset.ybus === 'true'
+      });
     }
 
     // Apply highlights if specified
     if (container.dataset.highlight) {
       highlightNodes(cy, container.dataset.highlight);
+    }
+
+    // Add legend if requested (data-legend="true")
+    if (container.dataset.legend === 'true') {
+      createLegend(container, { showEdges: true });
     }
 
     // Add caption if specified

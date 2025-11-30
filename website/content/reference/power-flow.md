@@ -20,6 +20,8 @@ Every other grid analysis builds on power flow:
 
 Understanding power flow deeply is essential for interpreting results and debugging convergence issues.
 
+<div class="grid-widget" data-network="ieee14" data-height="450" data-flow="true" data-voltage="true" data-legend="true" data-caption="IEEE 14-Bus System: Use ⚡ to visualize power flow direction and loading. Use V to see voltage profile."></div>
+
 ---
 
 ## Physical Intuition
