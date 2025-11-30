@@ -1,37 +1,67 @@
-<!-- Unified Navigation Bar -->
-<nav class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-    <div class="flex items-center gap-8">
-      <a href="{{ get_url(path='/') }}" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-        <div class="w-8 h-8 bg-orange-600 rounded flex items-center justify-center font-bold text-white font-mono">
+<!-- Unified Navigation Bar - Theme-aware using Abridge CSS variables -->
+<nav style="border-bottom: 1px solid var(--c3); background: color-mix(in srgb, var(--c1) 92%, transparent); backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 50;">
+  <div style="max-width: 80rem; margin: 0 auto; padding: 0 1.5rem; height: 4rem; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 2rem;">
+      <a href="{{ get_url(path='/') }}" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; opacity: 1; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+        <div style="width: 2rem; height: 2rem; background: var(--a1); border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-family: monospace;">
           G
         </div>
-        <span class="font-bold text-xl tracking-tight">GAT</span>
+        <span style="font-weight: bold; font-size: 1.25rem; letter-spacing: -0.025em; color: var(--f2);">GAT</span>
       </a>
-      <div class="hidden md:flex items-center gap-6">
+      <div class="nav-links" style="display: flex; align-items: center; gap: 1.5rem;">
         {% set path = current_path | default(value="") %}
-        <a href="{{ get_url(path='/guide/') }}" class="text-sm transition-colors {% if path is starting_with('/guide') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/guide/') }}"
+           style="font-size: 0.875rem; text-decoration: none; transition: color 0.2s; {% if path is starting_with('/guide') %}color: var(--a1); font-weight: 500;{% else %}color: var(--c4);{% endif %}"
+           onmouseover="this.style.color='var(--a1)'"
+           onmouseout="this.style.color='{% if path is starting_with('/guide') %}var(--a1){% else %}var(--c4){% endif %}'">
           Guide
         </a>
-        <a href="{{ get_url(path='/internals/') }}" class="text-sm transition-colors {% if path is starting_with('/internals') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/internals/') }}"
+           style="font-size: 0.875rem; text-decoration: none; transition: color 0.2s; {% if path is starting_with('/internals') %}color: var(--a1); font-weight: 500;{% else %}color: var(--c4);{% endif %}"
+           onmouseover="this.style.color='var(--a1)'"
+           onmouseout="this.style.color='{% if path is starting_with('/internals') %}var(--a1){% else %}var(--c4){% endif %}'">
           Internals
         </a>
-        <a href="{{ get_url(path='/reference/') }}" class="text-sm transition-colors {% if path is starting_with('/reference') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/reference/') }}"
+           style="font-size: 0.875rem; text-decoration: none; transition: color 0.2s; {% if path is starting_with('/reference') %}color: var(--a1); font-weight: 500;{% else %}color: var(--c4);{% endif %}"
+           onmouseover="this.style.color='var(--a1)'"
+           onmouseout="this.style.color='{% if path is starting_with('/reference') %}var(--a1){% else %}var(--c4){% endif %}'">
           Reference
         </a>
-        <a href="{{ get_url(path='/blog/') }}" class="text-sm transition-colors {% if path is starting_with('/blog') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/blog/') }}"
+           style="font-size: 0.875rem; text-decoration: none; transition: color 0.2s; {% if path is starting_with('/blog') %}color: var(--a1); font-weight: 500;{% else %}color: var(--c4);{% endif %}"
+           onmouseover="this.style.color='var(--a1)'"
+           onmouseout="this.style.color='{% if path is starting_with('/blog') %}var(--a1){% else %}var(--c4){% endif %}'">
           Blog
         </a>
-        <a href="{{ get_url(path='/faq/') }}" class="text-sm transition-colors {% if path is starting_with('/faq') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/faq/') }}"
+           style="font-size: 0.875rem; text-decoration: none; transition: color 0.2s; {% if path is starting_with('/faq') %}color: var(--a1); font-weight: 500;{% else %}color: var(--c4);{% endif %}"
+           onmouseover="this.style.color='var(--a1)'"
+           onmouseout="this.style.color='{% if path is starting_with('/faq') %}var(--a1){% else %}var(--c4){% endif %}'">
           FAQ
         </a>
-        <a href="{{ get_url(path='/command-builder/') }}" class="text-sm transition-colors {% if path is starting_with('/command-builder') %}text-orange-500 font-medium{% else %}text-slate-400 hover:text-orange-500{% endif %}">
+        <a href="{{ get_url(path='/command-builder/') }}"
+           style="font-size: 0.875rem; text-decoration: none; transition: color 0.2s; {% if path is starting_with('/command-builder') %}color: var(--a1); font-weight: 500;{% else %}color: var(--c4);{% endif %}"
+           onmouseover="this.style.color='var(--a1)'"
+           onmouseout="this.style.color='{% if path is starting_with('/command-builder') %}var(--a1){% else %}var(--c4){% endif %}'">
           Builder
         </a>
       </div>
     </div>
-    <a href="{{ config.extra.repo_url }}" class="text-sm text-slate-400 hover:text-white transition-colors">
+    <a href="{{ config.extra.repo_url }}"
+       style="font-size: 0.875rem; color: var(--c4); text-decoration: none; transition: color 0.2s;"
+       onmouseover="this.style.color='var(--f1)'"
+       onmouseout="this.style.color='var(--c4)'">
       GitHub
     </a>
   </div>
 </nav>
+
+<style>
+  /* Hide nav links on mobile */
+  @media (max-width: 768px) {
+    .nav-links {
+      display: none !important;
+    }
+  }
+</style>
