@@ -7,7 +7,7 @@ use std::fs::File;
 use std::path::Path;
 use std::time::Instant;
 
-use gat_algo::validation::ObjectiveGap;
+use gat_algo::validation::{compute_opf_violations_from_solution, ObjectiveGap};
 use gat_algo::{OpfMethod, OpfSolver};
 use gat_io::importers::load_matpower_network;
 use std::str::FromStr;
@@ -31,6 +31,32 @@ struct PglibBenchmarkResult {
     baseline_objective: f64,
     objective_gap_abs: f64,
     objective_gap_rel: f64,
+    // Constraint violations
+    max_vm_violation_pu: f64,
+    max_gen_p_violation_mw: f64,
+    max_branch_flow_violation_mva: f64,
+}
+
+/// Native solver preference
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SolverPreference {
+    /// Use pure Rust solvers (L-BFGS for AC-OPF)
+    None,
+    /// Prefer native solvers if available (IPOPT), fall back to pure Rust
+    Prefer,
+    /// Require native solvers, fail if unavailable
+    Require,
+}
+
+impl SolverPreference {
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "none" | "" => Ok(SolverPreference::None),
+            "prefer" => Ok(SolverPreference::Prefer),
+            "require" => Ok(SolverPreference::Require),
+            _ => Err(anyhow!("Invalid solver preference '{}': use none, prefer, or require", s)),
+        }
+    }
 }
 
 /// Configuration for PGLib benchmark runs
@@ -45,6 +71,10 @@ struct BenchmarkConfig {
     method: OpfMethod,
     tol: f64,
     max_iter: u32,
+    /// Use enhanced SOCP with OBBT and QC envelopes
+    enhanced: bool,
+    /// Native solver preference for AC-OPF
+    solver_pref: SolverPreference,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -58,10 +88,15 @@ pub fn handle(
     method: &str,
     tol: f64,
     max_iter: u32,
+    enhanced: bool,
+    solver: &str,
 ) -> Result<()> {
     // Parse OPF method
     let opf_method = OpfMethod::from_str(method)
         .map_err(|e| anyhow!("Invalid OPF method '{}': {}", method, e))?;
+
+    // Parse solver preference
+    let solver_pref = SolverPreference::from_str(solver)?;
 
     let config = BenchmarkConfig {
         pglib_dir: pglib_dir.to_string(),
@@ -73,9 +108,16 @@ pub fn handle(
         method: opf_method,
         tol,
         max_iter,
+        enhanced,
+        solver_pref,
     };
 
-    eprintln!("Using OPF method: {}", config.method);
+    let solver_info = match solver_pref {
+        SolverPreference::None => "",
+        SolverPreference::Prefer => " (prefer IPOPT)",
+        SolverPreference::Require => " (require IPOPT)",
+    };
+    eprintln!("Using OPF method: {}{}{}", config.method, if enhanced { " (enhanced)" } else { "" }, solver_info);
     run_benchmark(&config)
 }
 
@@ -129,11 +171,13 @@ fn run_benchmark(config: &BenchmarkConfig) -> Result<()> {
     let tol = config.tol;
     let max_iter = config.max_iter;
     let method = config.method;
+    let enhanced = config.enhanced;
+    let solver_pref = config.solver_pref;
 
     let results: Vec<PglibBenchmarkResult> = matpower_files
         .par_iter()
         .filter_map(|(case_name, path)| {
-            match benchmark_pglib_case(case_name, path, &baseline_map, method, tol, max_iter) {
+            match benchmark_pglib_case(case_name, path, &baseline_map, method, tol, max_iter, enhanced, solver_pref) {
                 Ok(result) => Some(result),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", case_name, e);
@@ -246,6 +290,8 @@ fn benchmark_pglib_case(
     method: OpfMethod,
     tol: f64,
     max_iter: u32,
+    enhanced: bool,
+    solver_pref: SolverPreference,
 ) -> Result<PglibBenchmarkResult> {
     let load_start = Instant::now();
     let network = load_matpower_network(path)?;
@@ -264,11 +310,14 @@ fn benchmark_pglib_case(
     }
     let num_branches = network.graph.edge_count();
 
-    // Solve OPF using selected method
+    // Solve OPF using selected method with native solver preference
     let solver = OpfSolver::new()
         .with_method(method)
         .with_max_iterations(max_iter as usize)
-        .with_tolerance(tol);
+        .with_tolerance(tol)
+        .enhanced_socp(enhanced)
+        .prefer_native(solver_pref == SolverPreference::Prefer || solver_pref == SolverPreference::Require)
+        .require_native(solver_pref == SolverPreference::Require);
 
     let solve_start = Instant::now();
     let solution = solver
@@ -290,6 +339,9 @@ fn benchmark_pglib_case(
         ObjectiveGap::default()
     };
 
+    // Compute constraint violations
+    let violations = compute_opf_violations_from_solution(&network, &solution);
+
     Ok(PglibBenchmarkResult {
         case_name: case_name.to_string(),
         load_time_ms,
@@ -304,5 +356,8 @@ fn benchmark_pglib_case(
         baseline_objective,
         objective_gap_abs: gap.gap_abs,
         objective_gap_rel: gap.gap_rel,
+        max_vm_violation_pu: violations.max_vm_violation,
+        max_gen_p_violation_mw: violations.max_gen_p_violation,
+        max_branch_flow_violation_mva: violations.max_branch_flow_violation,
     })
 }

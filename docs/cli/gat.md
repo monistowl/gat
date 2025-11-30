@@ -93,6 +93,9 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli dataset public fetch`↴](#gat-cli-dataset-public-fetch)
 * [`gat-cli dataset eia`↴](#gat-cli-dataset-eia)
 * [`gat-cli dataset ember`↴](#gat-cli-dataset-ember)
+* [`gat-cli solver`↴](#gat-cli-solver)
+* [`gat-cli solver list`↴](#gat-cli-solver-list)
+* [`gat-cli solver uninstall`↴](#gat-cli-solver-uninstall)
 * [`gat-cli version`↴](#gat-cli-version)
 * [`gat-cli version sync`↴](#gat-cli-version-sync)
 
@@ -124,6 +127,7 @@ This document contains the help content for the `gat-cli` command-line program.
 * `benchmark` — Benchmarking suites for OPF/PF solvers
 * `runs` — Run management
 * `dataset` — Dataset adapters
+* `solver` — Native solver management (list, uninstall)
 * `version` — Release version helpers
 
 ###### **Options:**
@@ -1750,6 +1754,60 @@ Download carbon intensity and renewable data from Ember
 * `--start-date <START_DATE>` — Start date in YYYY-MM-DD format
 * `--end-date <END_DATE>` — End date in YYYY-MM-DD format
 * `-o`, `--output <OUTPUT>` — Output file path (supports .csv, .parquet)
+
+
+
+## `gat-cli solver`
+
+Native solver management
+
+Manage optional native solver backends (IPOPT, HiGHS, CBC) that provide higher performance for specific problem classes. Native solvers are optional — GAT always falls back to pure-Rust solvers (L-BFGS, Clarabel) when native solvers aren't installed.
+
+**Usage:** `gat-cli solver <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — List all solver backends (native and pure-Rust)
+* `uninstall` — Remove an installed native solver
+
+
+
+## `gat-cli solver list`
+
+List all available solver backends
+
+Shows both installed native solvers and always-available pure-Rust solvers. For each solver, displays the installation status, supported problem classes, and version information.
+
+**Usage:** `gat-cli solver list`
+
+**Example output:**
+```
+Installed native solvers:
+  ipopt v0.4.0 - Nonlinear Programming (AC-OPF)
+
+Available pure-Rust solvers (always included):
+  l-bfgs   - Nonlinear Programming (AC-OPF)
+  clarabel - SOCP, LP
+```
+
+
+
+## `gat-cli solver uninstall`
+
+Remove an installed native solver
+
+Removes the solver binary from `~/.gat/solvers/` and updates the solver registry.
+
+**Usage:** `gat-cli solver uninstall <SOLVER>`
+
+###### **Arguments:**
+
+* `<SOLVER>` — Solver name to uninstall (e.g., `ipopt`, `highs`, `cbc`)
+
+**Example:**
+```bash
+gat solver uninstall ipopt
+```
 
 
 

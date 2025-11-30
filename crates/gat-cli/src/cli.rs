@@ -101,6 +101,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: SeCommands,
     },
+    /// Native solver management (install, list, status)
+    Solver {
+        #[command(subcommand)]
+        command: SolverCommands,
+    },
     /// Visualization helpers
     #[cfg(feature = "viz")]
     Viz {
@@ -322,6 +327,17 @@ pub enum InspectCommands {
         #[arg(long)]
         pretty: bool,
     },
+    /// Analyze branch thermal limits to identify potential bottlenecks
+    Thermal {
+        /// Path to Arrow directory or importable file
+        input: String,
+        /// Only show branches with rating below this threshold (MVA)
+        #[arg(long)]
+        threshold: Option<f64>,
+        /// Output format (table or json)
+        #[arg(long, default_value = "table")]
+        format: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -516,6 +532,15 @@ pub enum BenchmarkCommands {
         /// Maximum AC solver iterations
         #[arg(long, default_value_t = 200)]
         max_iter: u32,
+        /// Use enhanced SOCP (OBBT + QC envelopes for tighter relaxation)
+        #[arg(long)]
+        enhanced: bool,
+        /// Native solver preference for AC-OPF: none, prefer, require
+        /// - none: use pure Rust L-BFGS (default)
+        /// - prefer: use IPOPT if available, fall back to L-BFGS
+        /// - require: require IPOPT, fail if unavailable
+        #[arg(long, default_value = "none")]
+        solver: String,
     },
     /// Run OPFData benchmark suite (GNN-format JSON)
     Opfdata {
@@ -549,6 +574,27 @@ pub enum BenchmarkCommands {
         /// Fail if any sample has import warnings (for CI quality gates)
         #[arg(long)]
         strict: bool,
+        /// Native solver preference for AC-OPF: none, prefer, require
+        /// - none: use pure Rust L-BFGS (default)
+        /// - prefer: use IPOPT if available, fall back to L-BFGS
+        /// - require: require IPOPT, fail if unavailable
+        #[arg(long, default_value = "none")]
+        solver: String,
+    },
+    /// Display summary statistics from a benchmark CSV
+    Summary {
+        /// Path to benchmark CSV file
+        #[arg(value_hint = ValueHint::FilePath)]
+        csv: String,
+    },
+    /// Compare two benchmark CSV files to show improvements/regressions
+    Compare {
+        /// Path to "before" benchmark CSV
+        #[arg(value_hint = ValueHint::FilePath)]
+        before: String,
+        /// Path to "after" benchmark CSV
+        #[arg(value_hint = ValueHint::FilePath)]
+        after: String,
     },
 }
 
@@ -1527,6 +1573,9 @@ pub enum OpfCommands {
         /// Threading hint (`auto` or integer)
         #[arg(long, default_value = "auto")]
         threads: String,
+        /// NLP solver to use: lbfgs (default), ipopt (requires solver-ipopt feature)
+        #[arg(long, default_value = "lbfgs")]
+        solver: String,
     },
 }
 
@@ -1558,6 +1607,27 @@ pub enum SeCommands {
         #[arg(long)]
         slack_bus: Option<usize>,
     },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SolverCommands {
+    /// List available and installed solvers
+    List,
+    /// Install a native solver plugin
+    Install {
+        /// Solver name (ipopt, highs, cbc, bonmin, couenne, symphony)
+        solver: String,
+        /// Force reinstall if already installed
+        #[arg(long)]
+        force: bool,
+    },
+    /// Uninstall a native solver plugin
+    Uninstall {
+        /// Solver name to uninstall
+        solver: String,
+    },
+    /// Show solver configuration status
+    Status,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum)]

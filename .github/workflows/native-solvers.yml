@@ -1,0 +1,384 @@
+name: Native Solvers CI
+
+# Tests the native solver plugin system:
+# - Builds wrapper crates (gat-ipopt, gat-highs, etc.)
+# - Tests solver registration and state management
+# - Verifies IPC protocol with mock problems
+# - Tests the xtask solver build/install flow
+
+on:
+  push:
+    branches: [ "main", "staging", "experimental" ]
+    paths:
+      - 'crates/gat-solver-common/**'
+      - 'crates/gat-ipopt/**'
+      - 'crates/gat-cli/src/install/**'
+      - 'crates/gat-cli/src/commands/solver.rs'
+      - 'crates/gat-algo/src/opf/dispatch.rs'
+      - 'crates/gat-algo/src/opf/mod.rs'
+      - 'xtask/**'
+      - 'vendor/**'
+      - '.github/workflows/native-solvers.yml'
+  pull_request:
+    branches: [ "main", "staging", "experimental" ]
+    paths:
+      - 'crates/gat-solver-common/**'
+      - 'crates/gat-ipopt/**'
+      - 'crates/gat-cli/src/install/**'
+      - 'crates/gat-cli/src/commands/solver.rs'
+      - 'crates/gat-algo/src/opf/dispatch.rs'
+      - 'crates/gat-algo/src/opf/mod.rs'
+      - 'xtask/**'
+      - 'vendor/**'
+      - '.github/workflows/native-solvers.yml'
+  workflow_dispatch:
+    inputs:
+      build_with_ipopt_sys:
+        description: 'Build with actual IPOPT library (requires libipopt-dev)'
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Job 1: Build and test wrapper crates (stub mode - no actual solver libs)
+  wrapper-crates:
+    name: Build solver wrapper crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: native-solvers
+
+      - name: Build gat-solver-common
+        run: cargo build -p gat-solver-common --release
+
+      - name: Test gat-solver-common
+        run: cargo test -p gat-solver-common --release
+
+      - name: Build gat-ipopt (stub mode)
+        run: cargo build -p gat-ipopt --release
+
+      - name: Test gat-ipopt (stub mode)
+        run: cargo test -p gat-ipopt --release
+
+      - name: Verify gat-ipopt binary exists
+        run: |
+          test -f target/release/gat-ipopt
+          ./target/release/gat-ipopt --version || true
+
+      - name: Upload gat-ipopt binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: gat-ipopt-stub
+          path: target/release/gat-ipopt
+          retention-days: 7
+
+  # Job 2: Test solver registration and state management
+  solver-state:
+    name: Test solver state management
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: native-solvers
+
+      - name: Test solver state module
+        run: |
+          cargo test -p gat-cli --features minimal -- solvers_state --nocapture
+
+      - name: Test solver CLI commands
+        run: |
+          cargo test -p gat-cli --features minimal -- solver --nocapture
+
+  # Job 3: Test xtask solver build/install flow
+  xtask-flow:
+    name: Test xtask solver workflow
+    runs-on: ubuntu-latest
+    needs: wrapper-crates
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: native-solvers
+
+      - name: Build xtask
+        run: cargo build -p xtask --release
+
+      - name: List available solvers
+        run: cargo xtask solver list
+
+      - name: Build and install gat-ipopt via xtask
+        run: cargo xtask solver build ipopt --install
+
+      - name: Verify installation
+        run: |
+          echo "=== Checking installed binary ==="
+          test -f ~/.gat/solvers/gat-ipopt
+          ls -la ~/.gat/solvers/
+
+          echo "=== Checking registration ==="
+          test -f ~/.gat/config/solvers.toml
+          cat ~/.gat/config/solvers.toml
+
+          echo "=== Testing binary startup ==="
+          timeout 2 ~/.gat/solvers/gat-ipopt --version || true
+
+      - name: Test gat-cli sees installed solver
+        run: |
+          cargo build -p gat-cli --release --features minimal
+          ./target/release/gat-cli solver list 2>&1 | tee solver-list.txt
+
+          # Verify ipopt shows as [installed]
+          grep -q "\[installed\]" solver-list.txt || (echo "FAIL: IPOPT not showing as installed" && exit 1)
+          echo "SUCCESS: IPOPT properly registered"
+
+  # Job 4: Test solver dispatch logic and native-dispatch integration
+  solver-dispatch:
+    name: Test solver dispatch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: native-solvers
+
+      - name: Run dispatch tests (base)
+        run: cargo test -p gat-algo solver_dispatch --release -- --nocapture
+
+      - name: Run dispatch tests with native-dispatch feature
+        run: cargo test -p gat-algo solver_dispatch --release --features native-dispatch -- --nocapture
+
+      - name: Run native-dispatch integration tests
+        run: |
+          # Run all tests in native_dispatch.rs (except ignored ones)
+          # Ignored tests require actual solver binaries to be built
+          cargo test -p gat-algo --release --features native-dispatch --test native_dispatch -- --nocapture
+
+  # Job 5: IPC protocol verification
+  ipc-protocol:
+    name: Test IPC protocol
+    runs-on: ubuntu-latest
+    needs: wrapper-crates
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: native-solvers
+
+      - name: Build gat-ipopt
+        run: cargo build -p gat-ipopt --release
+
+      - name: Test IPC handshake
+        run: |
+          # Start solver in background, capture startup message
+          timeout 3 ./target/release/gat-ipopt 2>&1 | head -5 || true
+
+      - name: Run IPC integration tests
+        run: cargo test -p gat-solver-common ipc --release -- --nocapture
+
+  # Job 6: Build with actual IPOPT (optional, requires libipopt-dev)
+  real-ipopt:
+    name: Build with real IPOPT
+    runs-on: ubuntu-latest
+    if: inputs.build_with_ipopt_sys == true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install IPOPT dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y coinor-libipopt-dev pkg-config
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: native-solvers-ipopt
+
+      - name: Build gat-ipopt with ipopt-sys
+        run: cargo build -p gat-ipopt --release --features ipopt-sys
+
+      - name: Test gat-ipopt with real IPOPT
+        run: cargo test -p gat-ipopt --release --features ipopt-sys
+
+      - name: Verify IPOPT is actually linked
+        run: |
+          ldd ./target/release/gat-ipopt | grep -i ipopt || echo "Warning: IPOPT not dynamically linked"
+          ./target/release/gat-ipopt --version 2>&1 || true
+
+      - name: Upload real gat-ipopt binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: gat-ipopt-real
+          path: target/release/gat-ipopt
+          retention-days: 7
+
+  # Job 7: Verify vendored packages integrity (optional - packages not in git)
+  # This job verifies COIN-OR source packages if they exist locally.
+  # In normal CI, vendor/ is gitignored so this job will skip gracefully.
+  vendored-packages:
+    name: Verify vendored packages
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Don't fail CI if vendor/ not present
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check critical vendored packages exist
+        run: |
+          echo "=== Checking critical vendored packages ==="
+
+          # Critical packages for native solver support
+          CRITICAL_PACKAGES=(
+            "Ipopt-stable-3.14.zip"
+            "HiGHS-master.zip"
+            "Cbc-master.zip"
+            "Clp-master.zip"
+            "CoinUtils-master.zip"
+            "Osi-master.zip"
+          )
+
+          MISSING=0
+          for pkg in "${CRITICAL_PACKAGES[@]}"; do
+            if [ -f "vendor/$pkg" ]; then
+              SIZE=$(stat -f%z "vendor/$pkg" 2>/dev/null || stat -c%s "vendor/$pkg")
+              echo "✓ $pkg (${SIZE} bytes)"
+            else
+              echo "✗ MISSING: $pkg"
+              MISSING=$((MISSING + 1))
+            fi
+          done
+
+          if [ $MISSING -gt 0 ]; then
+            echo "FAIL: $MISSING critical packages missing"
+            exit 1
+          fi
+
+          echo "SUCCESS: All critical packages present"
+
+      - name: Verify packages are valid zip archives
+        run: |
+          echo "=== Validating zip archive integrity ==="
+
+          # Test that critical packages can be unzipped
+          CRITICAL_PACKAGES=(
+            "Ipopt-stable-3.14.zip"
+            "HiGHS-master.zip"
+            "Cbc-master.zip"
+          )
+
+          for pkg in "${CRITICAL_PACKAGES[@]}"; do
+            echo "Testing $pkg..."
+            if unzip -t "vendor/$pkg" > /dev/null 2>&1; then
+              echo "✓ $pkg is a valid zip"
+            else
+              echo "✗ $pkg is corrupted or invalid"
+              exit 1
+            fi
+          done
+
+          echo "SUCCESS: All critical packages are valid archives"
+
+      - name: Extract and verify IPOPT structure
+        run: |
+          echo "=== Verifying IPOPT package structure ==="
+          mkdir -p /tmp/ipopt-test
+          unzip -q vendor/Ipopt-stable-3.14.zip -d /tmp/ipopt-test
+
+          # Check for expected IPOPT source files
+          if [ -d "/tmp/ipopt-test/Ipopt-stable-3.14" ]; then
+            echo "✓ IPOPT root directory found"
+
+            # Check for critical IPOPT files
+            EXPECTED_FILES=(
+              "Ipopt/src/Common/IpTypes.hpp"
+              "Ipopt/src/Interfaces/IpTNLP.hpp"
+              "CMakeLists.txt"
+            )
+
+            for f in "${EXPECTED_FILES[@]}"; do
+              if [ -f "/tmp/ipopt-test/Ipopt-stable-3.14/$f" ]; then
+                echo "✓ Found $f"
+              else
+                echo "✗ Missing $f"
+                exit 1
+              fi
+            done
+          else
+            echo "✗ IPOPT root directory not found"
+            ls /tmp/ipopt-test/
+            exit 1
+          fi
+
+          echo "SUCCESS: IPOPT package structure verified"
+
+  # Summary job
+  summary:
+    name: Native Solvers Summary
+    runs-on: ubuntu-latest
+    needs: [wrapper-crates, solver-state, xtask-flow, solver-dispatch, ipc-protocol, vendored-packages]
+    if: always()
+    steps:
+      - name: Check results
+        env:
+          WRAPPER_RESULT: ${{ needs.wrapper-crates.result }}
+          STATE_RESULT: ${{ needs.solver-state.result }}
+          XTASK_RESULT: ${{ needs.xtask-flow.result }}
+          DISPATCH_RESULT: ${{ needs.solver-dispatch.result }}
+          IPC_RESULT: ${{ needs.ipc-protocol.result }}
+          VENDOR_RESULT: ${{ needs.vendored-packages.result }}
+        run: |
+          echo "=== Native Solvers CI Summary ==="
+          echo "wrapper-crates: $WRAPPER_RESULT"
+          echo "solver-state: $STATE_RESULT"
+          echo "xtask-flow: $XTASK_RESULT"
+          echo "solver-dispatch: $DISPATCH_RESULT"
+          echo "ipc-protocol: $IPC_RESULT"
+          echo "vendored-packages: $VENDOR_RESULT (optional)"
+
+          # Core jobs must pass
+          if [ "$WRAPPER_RESULT" != "success" ] || \
+             [ "$STATE_RESULT" != "success" ] || \
+             [ "$XTASK_RESULT" != "success" ] || \
+             [ "$DISPATCH_RESULT" != "success" ] || \
+             [ "$IPC_RESULT" != "success" ]; then
+            echo "FAIL: One or more core jobs failed"
+            exit 1
+          fi
+
+          # vendored-packages is optional (vendor/ not in git)
+          if [ "$VENDOR_RESULT" != "success" ]; then
+            echo "NOTE: vendored-packages job failed/skipped (vendor/ not in git)"
+          fi
+
+          echo "SUCCESS: All core native solver tests passed"

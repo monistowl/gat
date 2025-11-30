@@ -173,7 +173,10 @@
 //! ```
 
 mod branch_flow;
+pub mod diagnostics;
 mod hessian;
+#[cfg(feature = "solver-ipopt")]
+mod jacobian;
 mod multiperiod;
 mod power_equations;
 mod problem;
@@ -202,4 +205,10 @@ pub use sparse_ybus::SparseYBus;
 pub use ybus::{YBus, YBusBuilder};
 
 #[cfg(feature = "solver-ipopt")]
-pub use ipopt_solver::solve_with_ipopt;
+pub use ipopt_solver::{
+    solve_with_dc_warm_start, solve_with_ipopt, solve_with_socp_warm_start, warm_start_from_dc,
+    warm_start_from_socp, IpoptAcOpfWarmStart, IpoptConfig,
+};
+
+#[cfg(feature = "solver-ipopt")]
+pub use jacobian::{jacobian_sparsity, jacobian_values, jacobian_nnz};

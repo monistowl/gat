@@ -255,6 +255,18 @@ pub struct BusData {
     /// Reactive power load at this bus (MVAr).
     /// Positive = inductive load (absorbs VARs).
     pub q_load: f64,
+
+    /// Bus shunt conductance (per-unit on system MVA base).
+    /// Represents fixed shunt loads that draw real power: P_shunt = gs_pu * V²
+    /// Typically zero, but can represent constant-impedance loads.
+    pub gs_pu: f64,
+
+    /// Bus shunt susceptance (per-unit on system MVA base).
+    /// Represents fixed reactive power compensation:
+    /// - bs_pu > 0: Capacitor bank (supplies VARs, raises voltage)
+    /// - bs_pu < 0: Reactor (absorbs VARs, lowers voltage)
+    /// Power contribution: Q_shunt = bs_pu * V² (injected at bus)
+    pub bs_pu: f64,
 }
 
 // ============================================================================
@@ -388,20 +400,26 @@ impl AcOpfProblem {
 
         let mut buses = Vec::new();
         let mut loads: HashMap<BusId, (f64, f64)> = HashMap::new();
+        let mut shunts: HashMap<BusId, (f64, f64)> = HashMap::new(); // (gs_pu, bs_pu)
         let mut bus_idx = 0;
 
         for node_idx in network.graph.node_indices() {
             match &network.graph[node_idx] {
                 Node::Bus(bus) => {
-                    // Create bus with default voltage limits (can be overridden)
+                    // Use actual voltage limits from case data, with sensible defaults
+                    // PGLib cases typically use 0.94-1.06 for IEEE cases
+                    let v_min = bus.vmin_pu.unwrap_or(0.9);
+                    let v_max = bus.vmax_pu.unwrap_or(1.1);
                     buses.push(BusData {
                         id: bus.id,
                         name: bus.name.clone(),
                         index: bus_idx,
-                        v_min: 0.9, // Typical minimum (could be 0.95 for tighter control)
-                        v_max: 1.1, // Typical maximum (could be 1.05)
+                        v_min,
+                        v_max,
                         p_load: 0.0,
                         q_load: 0.0,
+                        gs_pu: 0.0,
+                        bs_pu: 0.0,
                     });
                     bus_idx += 1;
                 }
@@ -412,6 +430,16 @@ impl AcOpfProblem {
                     entry.0 += load.active_power_mw;
                     entry.1 += load.reactive_power_mvar;
                 }
+                Node::Shunt(shunt) => {
+                    // Accumulate shunts at each bus (there may be multiple)
+                    // Shunts represent fixed reactive power compensation:
+                    // - gs_pu: conductance (draws real power)
+                    // - bs_pu > 0: capacitor bank (supplies VARs)
+                    // - bs_pu < 0: reactor (absorbs VARs)
+                    let entry = shunts.entry(shunt.bus).or_insert((0.0, 0.0));
+                    entry.0 += shunt.gs_pu;
+                    entry.1 += shunt.bs_pu;
+                }
                 _ => {}
             }
         }
@@ -421,6 +449,14 @@ impl AcOpfProblem {
             if let Some((p, q)) = loads.get(&bus.id) {
                 bus.p_load = *p;
                 bus.q_load = *q;
+            }
+        }
+
+        // Apply accumulated shunts to bus data (already in per-unit)
+        for bus in &mut buses {
+            if let Some((gs, bs)) = shunts.get(&bus.id) {
+                bus.gs_pu = *gs;
+                bus.bs_pu = *bs;
             }
         }
 
@@ -553,10 +589,11 @@ impl AcOpfProblem {
     /// A flat start assumes:
     /// - All voltages at 1.0 p.u. (nominal)
     /// - All angles at 0 radians (synchronized)
-    /// - Generators at midpoint of operating range
+    /// - Generators dispatched proportionally to meet total load
     ///
-    /// This is a common initialization strategy that works well for most networks.
-    /// For difficult cases, a DC power flow solution may provide a better start.
+    /// This improved initialization ensures generators provide enough power to
+    /// approximately meet the load, providing a much better starting point for
+    /// convergence than simple midpoint dispatch.
     ///
     /// # Returns
     ///
@@ -585,17 +622,74 @@ impl AcOpfProblem {
         // Already initialized by vec![0.0; n_var]
 
         // ====================================================================
-        // GENERATOR DISPATCH: MIDPOINT START
+        // GENERATOR DISPATCH: LOAD-PROPORTIONAL START
         // ====================================================================
         //
-        // Starting at midpoint of [P_min, P_max] is a safe choice:
-        // - Guaranteed to be feasible
-        // - Provides room to adjust up or down
-        // - Roughly balances load with generation
+        // Dispatch generators proportionally to meet total load, accounting for
+        // estimated losses. This provides a much better initial point than
+        // simple midpoint, especially for large cases where midpoint may not
+        // provide enough generation.
+        //
+        // Algorithm:
+        // 1. Compute total load (P and Q)
+        // 2. Add estimated losses (~5% of P load, ~10% of Q for reactive)
+        // 3. Dispatch each generator proportionally to its capacity headroom
 
+        let total_p_load: f64 = self.buses.iter().map(|b| b.p_load).sum::<f64>() / self.base_mva;
+        let total_q_load: f64 = self.buses.iter().map(|b| b.q_load).sum::<f64>() / self.base_mva;
+
+        // Target generation = load + estimated losses
+        // Use 5% loss estimate for P, 10% for Q (typical for transmission networks)
+        let target_p_gen = total_p_load * 1.05;
+        let target_q_gen = total_q_load * 1.10;
+
+        // Compute total capacity ranges
+        let total_pmin: f64 = self
+            .generators
+            .iter()
+            .map(|g| g.pmin_mw / self.base_mva)
+            .sum();
+        let total_pmax: f64 = self
+            .generators
+            .iter()
+            .map(|g| g.pmax_mw / self.base_mva)
+            .sum();
+        let total_qmin: f64 = self
+            .generators
+            .iter()
+            .map(|g| g.qmin_mvar / self.base_mva)
+            .sum();
+        let total_qmax: f64 = self
+            .generators
+            .iter()
+            .map(|g| g.qmax_mvar / self.base_mva)
+            .sum();
+
+        let total_p_headroom = total_pmax - total_pmin;
+        let total_q_headroom = total_qmax - total_qmin;
+
+        // Fraction of headroom to use (0 = all at Pmin, 1 = all at Pmax)
+        let p_frac = if total_p_headroom > 1e-6 {
+            ((target_p_gen - total_pmin) / total_p_headroom).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+
+        let q_frac = if total_q_headroom > 1e-6 {
+            ((target_q_gen - total_qmin) / total_q_headroom).clamp(0.0, 1.0)
+        } else {
+            0.5
+        };
+
+        // Set each generator's output proportionally
         for (i, gen) in self.generators.iter().enumerate() {
-            x[self.pg_offset + i] = (gen.pmin_mw + gen.pmax_mw) / 2.0 / self.base_mva;
-            x[self.qg_offset + i] = (gen.qmin_mvar + gen.qmax_mvar) / 2.0 / self.base_mva;
+            let pmin_pu = gen.pmin_mw / self.base_mva;
+            let pmax_pu = gen.pmax_mw / self.base_mva;
+            let qmin_pu = gen.qmin_mvar / self.base_mva;
+            let qmax_pu = gen.qmax_mvar / self.base_mva;
+
+            x[self.pg_offset + i] = pmin_pu + p_frac * (pmax_pu - pmin_pu);
+            x[self.qg_offset + i] = qmin_pu + q_frac * (qmax_pu - qmin_pu);
         }
 
         x
@@ -786,6 +880,183 @@ impl AcOpfProblem {
         grad
     }
 
+    // ========================================================================
+    // BRANCH FLOW COMPUTATION
+    // ========================================================================
+
+    /// Compute power flow on a branch (from side) in per-unit.
+    ///
+    /// For a branch from bus i to bus j with:
+    /// - Series admittance: g + jb = 1/(r + jx)
+    /// - Line charging: bc (total charging susceptance, split half to each side)
+    /// - Tap ratio: a (1.0 for transmission lines)
+    /// - Phase shift: θ_s (radians)
+    ///
+    /// The "from" side power injection is:
+    /// ```text
+    /// P_ij = (Vi²/a²) · g - (Vi·Vj/a) · [g·cos(θi-θj-θs) + b·sin(θi-θj-θs)]
+    /// Q_ij = -(Vi²/a²) · (b + bc/2) - (Vi·Vj/a) · [g·sin(θi-θj-θs) - b·cos(θi-θj-θs)]
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `branch` - Branch data (impedance, tap, limits)
+    /// * `vi` - Voltage magnitude at from bus (p.u.)
+    /// * `vj` - Voltage magnitude at to bus (p.u.)
+    /// * `theta_i` - Voltage angle at from bus (radians)
+    /// * `theta_j` - Voltage angle at to bus (radians)
+    ///
+    /// # Returns
+    ///
+    /// Tuple `(P_ij, Q_ij)` - real and reactive power flow in per-unit
+    pub fn branch_flow_from(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+        // Compute series admittance g + jb = 1/(r + jx)
+        let z_sq = branch.r * branch.r + branch.x * branch.x;
+        let g = branch.r / z_sq;
+        let b = -branch.x / z_sq;
+
+        // Tap ratio (default 1.0 for lines)
+        let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
+        let a_sq = a * a;
+
+        // Angle difference including phase shift
+        let theta_diff = theta_i - theta_j - branch.shift;
+        let cos_diff = theta_diff.cos();
+        let sin_diff = theta_diff.sin();
+
+        // Voltage products
+        let vi_sq = vi * vi;
+        let vi_vj = vi * vj;
+
+        // Real power: P_ij = (Vi²/a²)·g - (Vi·Vj/a)·[g·cos + b·sin]
+        let p_ij = (vi_sq / a_sq) * g - (vi_vj / a) * (g * cos_diff + b * sin_diff);
+
+        // Reactive power: Q_ij = -(Vi²/a²)·(b + bc/2) - (Vi·Vj/a)·[g·sin - b·cos]
+        let bc_half = branch.b_charging / 2.0;
+        let q_ij = -(vi_sq / a_sq) * (b + bc_half) - (vi_vj / a) * (g * sin_diff - b * cos_diff);
+
+        (p_ij, q_ij)
+    }
+
+    /// Compute power flow on a branch (to side) in per-unit.
+    ///
+    /// The "to" side power flow differs because the tap and phase shift
+    /// are on the from side. The formulas become:
+    /// ```text
+    /// P_ji = Vj² · g - (Vi·Vj/a) · [g·cos(θj-θi+θs) + b·sin(θj-θi+θs)]
+    /// Q_ji = -Vj² · (b + bc/2) - (Vi·Vj/a) · [g·sin(θj-θi+θs) - b·cos(θj-θi+θs)]
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// Tuple `(P_ji, Q_ji)` - real and reactive power flow in per-unit
+    pub fn branch_flow_to(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
+        // Compute series admittance
+        let z_sq = branch.r * branch.r + branch.x * branch.x;
+        let g = branch.r / z_sq;
+        let b = -branch.x / z_sq;
+
+        // Tap ratio
+        let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
+
+        // Angle difference (reversed direction, plus phase shift)
+        let theta_diff = theta_j - theta_i + branch.shift;
+        let cos_diff = theta_diff.cos();
+        let sin_diff = theta_diff.sin();
+
+        // Voltage products
+        let vj_sq = vj * vj;
+        let vi_vj = vi * vj;
+
+        // Real power: P_ji = Vj²·g - (Vi·Vj/a)·[g·cos + b·sin]
+        let p_ji = vj_sq * g - (vi_vj / a) * (g * cos_diff + b * sin_diff);
+
+        // Reactive power: Q_ji = -Vj²·(b + bc/2) - (Vi·Vj/a)·[g·sin - b·cos]
+        let bc_half = branch.b_charging / 2.0;
+        let q_ji = -vj_sq * (b + bc_half) - (vi_vj / a) * (g * sin_diff - b * cos_diff);
+
+        (p_ji, q_ji)
+    }
+
+    /// Compute squared apparent power flow on branch (from side) in per-unit².
+    ///
+    /// S²_ij = P²_ij + Q²_ij
+    ///
+    /// Used for thermal limit constraints: S²_ij ≤ S²_max
+    pub fn branch_flow_sq_from(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> f64 {
+        let (p, q) = self.branch_flow_from(branch, vi, vj, theta_i, theta_j);
+        p * p + q * q
+    }
+
+    /// Compute squared apparent power flow on branch (to side) in per-unit².
+    pub fn branch_flow_sq_to(&self, branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> f64 {
+        let (p, q) = self.branch_flow_to(branch, vi, vj, theta_i, theta_j);
+        p * p + q * q
+    }
+
+    /// Evaluate thermal limit inequality constraints.
+    ///
+    /// For each branch with a thermal limit (rate_mva > 0), we add constraints:
+    /// - S²_ij - S²_max ≤ 0  (from side)
+    /// - S²_ji - S²_max ≤ 0  (to side)
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Decision variable vector
+    ///
+    /// # Returns
+    ///
+    /// Vector of constraint values (should be ≤ 0 for feasibility).
+    /// Length = 2 * number of branches with thermal limits.
+    pub fn thermal_constraints(&self, x: &[f64]) -> Vec<f64> {
+        let (v, theta) = self.extract_v_theta(x);
+        let mut h = Vec::new();
+
+        for branch in &self.branches {
+            // Skip branches without thermal limits
+            if branch.rate_mva <= 0.0 {
+                continue;
+            }
+
+            let vi = v[branch.from_idx];
+            let vj = v[branch.to_idx];
+            let theta_i = theta[branch.from_idx];
+            let theta_j = theta[branch.to_idx];
+
+            // Thermal limit in per-unit squared
+            let s_max_pu = branch.rate_mva / self.base_mva;
+            let s_max_sq = s_max_pu * s_max_pu;
+
+            // From side: S²_ij - S²_max ≤ 0
+            let s_sq_from = self.branch_flow_sq_from(branch, vi, vj, theta_i, theta_j);
+            h.push(s_sq_from - s_max_sq);
+
+            // To side: S²_ji - S²_max ≤ 0
+            let s_sq_to = self.branch_flow_sq_to(branch, vi, vj, theta_i, theta_j);
+            h.push(s_sq_to - s_max_sq);
+        }
+
+        h
+    }
+
+    /// Count branches with thermal limits.
+    ///
+    /// Returns the number of branches that have rate_mva > 0, which determines
+    /// how many inequality constraints we need (2 per branch: from and to sides).
+    pub fn n_thermal_constrained_branches(&self) -> usize {
+        self.branches.iter().filter(|b| b.rate_mva > 0.0).count()
+    }
+
+    /// Get indices of branches with thermal limits.
+    pub fn thermal_constrained_branch_indices(&self) -> Vec<usize> {
+        self.branches
+            .iter()
+            .enumerate()
+            .filter(|(_, b)| b.rate_mva > 0.0)
+            .map(|(i, _)| i)
+            .collect()
+    }
+
     /// Evaluate equality constraints (power balance equations).
     ///
     /// The constraints enforce:
@@ -830,24 +1101,33 @@ impl AcOpfProblem {
         }
 
         // ====================================================================
-        // REAL POWER BALANCE: P_inj - P_gen + P_load = 0
+        // REAL POWER BALANCE: P_inj - P_gen + P_load + P_shunt = 0
         // ====================================================================
         //
-        // Rearranged from: P_gen = P_load + P_inj
-        // At a feasible point, generation equals load plus network injection.
+        // Rearranged from: P_gen = P_load + P_shunt + P_inj
+        // At a feasible point, generation equals load, shunt consumption, plus network injection.
+        // P_shunt = gs_pu * V² represents power consumed by shunt conductance (like a load).
 
         for (i, bus) in self.buses.iter().enumerate() {
             let p_load_pu = bus.p_load / self.base_mva;
-            g.push(p_inj[i] - pg_bus[i] + p_load_pu);
+            let v_sq = v[i] * v[i];
+            let p_shunt_pu = bus.gs_pu * v_sq; // Power consumed by shunt conductance
+            g.push(p_inj[i] - pg_bus[i] + p_load_pu + p_shunt_pu);
         }
 
         // ====================================================================
-        // REACTIVE POWER BALANCE: Q_inj - Q_gen + Q_load = 0
+        // REACTIVE POWER BALANCE: Q_inj - Q_gen + Q_load - Q_shunt = 0
         // ====================================================================
+        //
+        // Q_shunt = bs_pu * V² is reactive power supplied by the shunt:
+        // - bs_pu > 0 (capacitor): supplies VARs, reduces effective Q load
+        // - bs_pu < 0 (reactor): absorbs VARs, increases effective Q load
 
         for (i, bus) in self.buses.iter().enumerate() {
             let q_load_pu = bus.q_load / self.base_mva;
-            g.push(q_inj[i] - qg_bus[i] + q_load_pu);
+            let v_sq = v[i] * v[i];
+            let q_shunt_pu = bus.bs_pu * v_sq; // Reactive power supplied by shunt
+            g.push(q_inj[i] - qg_bus[i] + q_load_pu - q_shunt_pu);
         }
 
         // ====================================================================

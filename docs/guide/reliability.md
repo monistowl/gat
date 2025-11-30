@@ -2,7 +2,7 @@
 
 GAT provides comprehensive reliability analysis tools for evaluating power system performance under uncertainty, including Monte Carlo simulation, LOLE/EUE metrics, multi-area coordination, and integration with ADMS operations.
 
-**v0.4.0 Updates:**
+**v0.4.0+ Updates:**
 - **LODF/PTDF matrix computation** for fast N-k contingency screening
 - **Probabilistic ranking with EUE** for N-k contingency prioritization
 - **Full N-k evaluation** for flagged high-risk contingencies
@@ -69,7 +69,7 @@ score = 100 × exp(-LOLE / LOLE_max) ×
 - `voltage_weight`: Relative importance (default 0.4)
 - `thermal_weight`: Relative importance (default 0.6)
 
-## N-k Contingency Analysis with LODF/PTDF (v0.4.0)
+## N-k Contingency Analysis with LODF/PTDF (v0.4.0+)
 
 For N-k analysis with k ≥ 2, the combinatorial explosion makes exhaustive power flow infeasible. GAT uses **Line Outage Distribution Factors (LODFs)** and **Power Transfer Distribution Factors (PTDFs)** for efficient pre-screening.
 

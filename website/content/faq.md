@@ -177,24 +177,52 @@ See [Scaling](/internals/scaling/) for large-system guidance.
 
 ### Which solver should I use?
 
-**Clarabel (default)**
-- ✅ Good for most cases
-- ✅ Stable and reliable
-- ✅ Handles infeasibility well
-- ❌ Slower on very large systems
+GAT provides a **native solver plugin system** with automatic fallback:
 
-**CBC**
-- ✅ Fast for large systems
-- ✅ Robust MIP support
-- ❌ Less stable on some edge cases
+**Pure-Rust (always available):**
+- **L-BFGS** — Default for AC-OPF, always works
+- **Clarabel** — Default for SOCP/LP, stable and reliable
 
-**HiGHS**
-- ✅ Fast and modern
-- ✅ Good presolve
-- ✅ Handles degeneracy well
-- ❌ Newer (less field history)
+**Native (optional, higher performance):**
+- **IPOPT** — Fastest for large NLP/AC-OPF, requires installation
+- **HiGHS** — Fast LP/MIP, modern and efficient
+- **CBC** — Robust MIP support
 
-**Recommendation:** Start with Clarabel (default). If slow, try HiGHS. If still slow, consider distributed computing.
+**Recommendation:** Start with defaults. For large networks (1000+ buses), install IPOPT:
+```bash
+cargo xtask solver build ipopt --install
+gat solver list  # Verify installation
+```
+
+### How do I install native solvers?
+
+Native solvers provide better performance but require system dependencies:
+
+```bash
+# Install IPOPT (requires coinor-libipopt-dev on Ubuntu)
+sudo apt install coinor-libipopt-dev  # Ubuntu/Debian
+brew install ipopt                     # macOS
+
+# Build and install GAT's IPOPT wrapper
+cargo xtask solver build ipopt --install
+
+# Verify installation
+gat solver list
+```
+
+GAT automatically uses native solvers when available and falls back to pure-Rust solvers otherwise.
+
+### Do I need native solvers?
+
+**No.** GAT includes pure-Rust solvers (L-BFGS, Clarabel) that work everywhere:
+- ✅ No system dependencies
+- ✅ Cross-platform
+- ✅ Good performance for most cases
+
+Native solvers are optional enhancements for:
+- Very large networks (1000+ buses)
+- Production deployments requiring maximum speed
+- MIP problems (unit commitment, TEP)
 
 ### Does GAT support my file format?
 
@@ -335,7 +363,7 @@ We don't publish to crates.io yet. Use the modular installer instead:
 
 ```bash
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.4.0/install-modular.sh \
+  https://github.com/monistowl/gat/releases/download/v0.5.0/install-modular.sh \
   | bash
 ```
 

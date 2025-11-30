@@ -8,7 +8,7 @@ weight = 11
 
 This reference describes the OPF solver architecture, solution methods, and CLI commands.
 
-## Architecture Overview (v0.4.0)
+## Architecture Overview (v0.5.0)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods with varying accuracy/speed tradeoffs:
 
@@ -17,13 +17,24 @@ GAT provides a unified `OpfSolver` supporting multiple solution methods with var
 | `EconomicDispatch` | ~20% gap | Fastest | ✅ Implemented | Quick estimates, screening |
 | `DcOpf` | ~3-5% gap | Fast | ✅ Implemented | Planning studies |
 | `SocpRelaxation` | ~1-3% gap | Moderate | ✅ Implemented | Research benchmarking |
-| `AcOpf` | <1% gap | Slowest | ✅ Implemented (L-BFGS penalty) | High-fidelity analysis |
+| `AcOpf` (L-BFGS) | ~2-3% gap | Moderate | ✅ Implemented | Pure Rust deployment |
+| `AcOpf` (IPOPT) | **<0.01% gap** | Fast | ✅ **Validated** | High-fidelity analysis |
 
-### What's new in 0.4.0
+### IPOPT Benchmark Results (v0.5.0)
+
+The IPOPT backend with analytical Jacobian and Hessian achieves exact agreement with PGLib reference values:
+
+| Case | GAT Objective | Reference | Gap |
+|------|---------------|-----------|-----|
+| case14_ieee | $2,178.08/hr | $2,178.10/hr | **-0.00%** |
+| case118_ieee | $97,213.61/hr | $97,214.00/hr | **-0.00%** |
+
+### What's new in 0.5.0
 
 - **Full nonlinear AC-OPF** passes 65/68 PGLib benchmark cases with median 2.9% objective gap.
 - **Multi-period dispatch** with generator ramp constraints for day-ahead scheduling.
 - **IPOPT solver backend** with analytical Hessians for faster convergence on large networks.
+- **Native solver plugin system** with automatic fallback to pure-Rust solvers.
 - **Warm-start options** from DC or SOCP solutions for improved convergence.
 - **Native piecewise-linear cost support** for bid curves.
 - **Generator capability curves** (Q limits as function of P).
@@ -31,6 +42,43 @@ GAT provides a unified `OpfSolver` supporting multiple solution methods with var
 - **Sparse Y-bus** with O(nnz) storage for efficient large-network handling.
 - Robust **Y-bus construction** with transformer taps, phase shifters, shunts, and π-model line charging.
 - **Shunt support** for exact power flow agreement with external tools.
+
+## Solver Backends
+
+GAT provides a **native solver plugin system** that automatically selects the best available backend:
+
+| Backend | Type | Best For | Availability |
+|---------|------|----------|--------------|
+| L-BFGS (default) | Pure Rust | General AC-OPF, portability | Always available |
+| Clarabel | Pure Rust | SOCP, LP problems | Always available |
+| IPOPT | Native (C++) | Large NLP, high accuracy | Optional installation |
+| HiGHS | Native (C++) | LP/MIP, high performance | Optional installation |
+| CBC | Native (C) | MIP problems | Optional installation |
+
+### Installing Native Solvers
+
+Native solvers provide better performance for large networks but require system dependencies:
+
+```bash
+# Build and install IPOPT wrapper (requires libipopt-dev)
+cargo xtask solver build ipopt --install
+
+# List installed native solvers
+gat solver list
+
+# Uninstall a native solver
+gat solver uninstall ipopt
+```
+
+### Architecture Benefits
+
+Native solvers run as **isolated subprocesses** communicating via Arrow IPC:
+
+- **Crash isolation**: Native library issues don't crash the main process
+- **Version flexibility**: Different solver versions can coexist
+- **Portability**: Pure-Rust fallbacks always available when native solvers aren't installed
+
+The solver dispatcher automatically selects the best available backend based on problem class (LP, SOCP, NLP, MIP).
 
 ## Rust API
 

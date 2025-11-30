@@ -306,6 +306,95 @@ pub fn compute_opf_violations(
     OPFViolationMetrics::default()
 }
 
+/// Compute OPF constraint violation metrics from an OpfSolution
+///
+/// Violations are computed as the amount by which constraints are exceeded:
+/// - Voltage: max(0, V - Vmax) + max(0, Vmin - V)
+/// - Generator P: max(0, P - Pmax) + max(0, Pmin - P)
+/// - Branch flow: max(0, S - Smax) where S = sqrt(P² + Q²)
+///
+/// Returns metrics in the original units (p.u. for voltage, MW/MVAr for power).
+pub fn compute_opf_violations_from_solution(
+    network: &Network,
+    solution: &crate::OpfSolution,
+) -> OPFViolationMetrics {
+    use gat_core::Node;
+
+    let mut max_vm_violation = 0.0_f64;
+    let mut max_gen_p_violation = 0.0_f64;
+    let mut max_branch_flow_violation = 0.0_f64;
+
+    // Check voltage violations
+    for node in network.graph.node_weights() {
+        if let Node::Bus(bus) = node {
+            let bus_name = bus.name.clone();
+            if let Some(&vm) = solution.bus_voltage_mag.get(&bus_name) {
+                // Check upper bound
+                if let Some(vmax) = bus.vmax_pu {
+                    if vm > vmax {
+                        max_vm_violation = max_vm_violation.max(vm - vmax);
+                    }
+                }
+                // Check lower bound
+                if let Some(vmin) = bus.vmin_pu {
+                    if vm < vmin {
+                        max_vm_violation = max_vm_violation.max(vmin - vm);
+                    }
+                }
+            }
+        }
+    }
+
+    // Check generator P violations
+    for node in network.graph.node_weights() {
+        if let Node::Gen(gen) = node {
+            if !gen.status {
+                continue;
+            }
+            let gen_name = gen.name.clone();
+            if let Some(&pg) = solution.generator_p.get(&gen_name) {
+                // Check upper bound (if not infinite)
+                if gen.pmax_mw.is_finite() && pg > gen.pmax_mw {
+                    max_gen_p_violation = max_gen_p_violation.max(pg - gen.pmax_mw);
+                }
+                // Check lower bound
+                if pg < gen.pmin_mw {
+                    max_gen_p_violation = max_gen_p_violation.max(gen.pmin_mw - pg);
+                }
+            }
+        }
+    }
+
+    // Check branch flow violations
+    for edge in network.graph.edge_weights() {
+        use gat_core::Edge;
+
+        // Only branches (not transformers) have thermal limits in our model
+        if let Edge::Branch(branch) = edge {
+            let branch_name = branch.name.clone();
+            let p_flow = solution.branch_p_flow.get(&branch_name).copied().unwrap_or(0.0);
+            let q_flow = solution.branch_q_flow.get(&branch_name).copied().unwrap_or(0.0);
+            let s_flow = (p_flow.powi(2) + q_flow.powi(2)).sqrt();
+
+            // Get thermal limit (prefer s_max_mva, fall back to rating_a_mva)
+            let s_limit = branch.s_max_mva.or(branch.rating_a_mva);
+            if let Some(s_max) = s_limit {
+                if s_max > 0.0 && s_flow > s_max {
+                    max_branch_flow_violation = max_branch_flow_violation.max(s_flow - s_max);
+                }
+            }
+        }
+    }
+
+    OPFViolationMetrics {
+        max_p_balance_violation: 0.0, // Would require computing nodal injection balance
+        max_q_balance_violation: 0.0, // Would require computing nodal injection balance
+        max_branch_flow_violation,
+        max_gen_p_violation,
+        max_vm_violation,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
