@@ -49,6 +49,23 @@
       </div>
     </div>
     <div style="display: flex; align-items: center; gap: 1rem;">
+      <!-- Mobile Menu Button (visible only on mobile) -->
+      <button id="mobile-menu-btn" type="button" aria-label="Toggle menu"
+              class="lg:hidden"
+              style="background: transparent; border: none; cursor: pointer; padding: 0.5rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; color: var(--c4); transition: color 0.2s, background 0.2s;"
+              onmouseover="this.style.color='var(--f1)';this.style.background='var(--c2)'"
+              onmouseout="this.style.color='var(--c4)';this.style.background='transparent'">
+        <svg class="hamburger-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <svg class="close-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
       <!-- Theme Toggle Button -->
       <button id="mode" type="button" aria-label="Toggle theme"
               style="background: transparent; border: none; cursor: pointer; padding: 0.5rem; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; color: var(--c4); transition: color 0.2s, background 0.2s;"
@@ -80,6 +97,56 @@
     </div>
   </div>
 </nav>
+
+<!-- Mobile Navigation Drawer -->
+<div id="mobile-nav" class="lg:hidden" style="display: none; position: fixed; top: 4rem; left: 0; right: 0; background: var(--c1); border-bottom: 1px solid var(--c3); z-index: 49; padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+  <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
+    {% set path = current_path | default(value="") %}
+    <a href="{{ get_url(path='/guide/') }}"
+       style="font-size: 1rem; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.375rem; transition: background 0.2s; {% if path is starting_with('/guide') %}color: var(--a1); font-weight: 500; background: color-mix(in srgb, var(--a1) 10%, transparent);{% else %}color: var(--f1);{% endif %}"
+       onmouseover="this.style.background='var(--c2)'"
+       onmouseout="this.style.background='{% if path is starting_with('/guide') %}color-mix(in srgb, var(--a1) 10%, transparent){% else %}transparent{% endif %}'">
+      Guide
+    </a>
+    <a href="{{ get_url(path='/internals/') }}"
+       style="font-size: 1rem; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.375rem; transition: background 0.2s; {% if path is starting_with('/internals') %}color: var(--a1); font-weight: 500; background: color-mix(in srgb, var(--a1) 10%, transparent);{% else %}color: var(--f1);{% endif %}"
+       onmouseover="this.style.background='var(--c2)'"
+       onmouseout="this.style.background='{% if path is starting_with('/internals') %}color-mix(in srgb, var(--a1) 10%, transparent){% else %}transparent{% endif %}'">
+      Internals
+    </a>
+    <a href="{{ get_url(path='/reference/') }}"
+       style="font-size: 1rem; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.375rem; transition: background 0.2s; {% if path is starting_with('/reference') %}color: var(--a1); font-weight: 500; background: color-mix(in srgb, var(--a1) 10%, transparent);{% else %}color: var(--f1);{% endif %}"
+       onmouseover="this.style.background='var(--c2)'"
+       onmouseout="this.style.background='{% if path is starting_with('/reference') %}color-mix(in srgb, var(--a1) 10%, transparent){% else %}transparent{% endif %}'">
+      Reference
+    </a>
+    <a href="{{ get_url(path='/blog/') }}"
+       style="font-size: 1rem; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.375rem; transition: background 0.2s; {% if path is starting_with('/blog') %}color: var(--a1); font-weight: 500; background: color-mix(in srgb, var(--a1) 10%, transparent);{% else %}color: var(--f1);{% endif %}"
+       onmouseover="this.style.background='var(--c2)'"
+       onmouseout="this.style.background='{% if path is starting_with('/blog') %}color-mix(in srgb, var(--a1) 10%, transparent){% else %}transparent{% endif %}'">
+      Blog
+    </a>
+    <a href="{{ get_url(path='/faq/') }}"
+       style="font-size: 1rem; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.375rem; transition: background 0.2s; {% if path is starting_with('/faq') %}color: var(--a1); font-weight: 500; background: color-mix(in srgb, var(--a1) 10%, transparent);{% else %}color: var(--f1);{% endif %}"
+       onmouseover="this.style.background='var(--c2)'"
+       onmouseout="this.style.background='{% if path is starting_with('/faq') %}color-mix(in srgb, var(--a1) 10%, transparent){% else %}transparent{% endif %}'">
+      FAQ
+    </a>
+    <a href="{{ get_url(path='/command-builder/') }}"
+       style="font-size: 1rem; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.375rem; transition: background 0.2s; {% if path is starting_with('/command-builder') %}color: var(--a1); font-weight: 500; background: color-mix(in srgb, var(--a1) 10%, transparent);{% else %}color: var(--f1);{% endif %}"
+       onmouseover="this.style.background='var(--c2)'"
+       onmouseout="this.style.background='{% if path is starting_with('/command-builder') %}color-mix(in srgb, var(--a1) 10%, transparent){% else %}transparent{% endif %}'">
+      Command Builder
+    </a>
+    <div style="border-top: 1px solid var(--c3); margin: 0.5rem 0;"></div>
+    <a href="{{ config.extra.repo_url }}"
+       style="font-size: 1rem; color: var(--c4); text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.375rem; transition: background 0.2s;"
+       onmouseover="this.style.background='var(--c2)'"
+       onmouseout="this.style.background='transparent'">
+      GitHub
+    </a>
+  </nav>
+</div>
 
 <style>
   /* Hide nav links on mobile */
@@ -117,6 +184,39 @@
           localStorage.setItem('theme',
             document.documentElement.classList.contains('switch') ? 'switch' : 'default'
           );
+        });
+      }
+
+      // Mobile menu toggle functionality
+      const menuBtn = document.getElementById('mobile-menu-btn');
+      const mobileNav = document.getElementById('mobile-nav');
+      const hamburgerIcon = menuBtn?.querySelector('.hamburger-icon');
+      const closeIcon = menuBtn?.querySelector('.close-icon');
+
+      if (menuBtn && mobileNav) {
+        menuBtn.addEventListener('click', function() {
+          const isOpen = mobileNav.style.display === 'block';
+          mobileNav.style.display = isOpen ? 'none' : 'block';
+          if (hamburgerIcon) hamburgerIcon.style.display = isOpen ? 'block' : 'none';
+          if (closeIcon) closeIcon.style.display = isOpen ? 'none' : 'block';
+        });
+
+        // Close menu when clicking a link
+        mobileNav.querySelectorAll('a').forEach(link => {
+          link.addEventListener('click', function() {
+            mobileNav.style.display = 'none';
+            if (hamburgerIcon) hamburgerIcon.style.display = 'block';
+            if (closeIcon) closeIcon.style.display = 'none';
+          });
+        });
+
+        // Close menu on window resize to desktop
+        window.addEventListener('resize', function() {
+          if (window.innerWidth >= 1024) {
+            mobileNav.style.display = 'none';
+            if (hamburgerIcon) hamburgerIcon.style.display = 'block';
+            if (closeIcon) closeIcon.style.display = 'none';
+          }
         });
       }
     });
