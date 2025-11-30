@@ -365,7 +365,7 @@
   </script>
 
   <!-- Grid Widget styles (lightweight, always loaded) -->
-  <link rel="stylesheet" href="/css/grid-widget.css">
+  <link rel="stylesheet" href="{{ get_url(path='css/grid-widget.css') | safe }}">
 
   {% block extra_head %}{% endblock extra_head %}
 </head>
