@@ -54,3 +54,10 @@ test_data/**/tmp/
 
 # Tool artifacts
 .playwright-mcp/
+
+# Vendored COIN-OR: only track source archives, not extracted dirs or build output
+# The build scripts extract and build these at compile time
+vendor/local/
+vendor/*/
+!vendor/*.zip
+!vendor/*.tar.gz
