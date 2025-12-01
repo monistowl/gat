@@ -1,6 +1,6 @@
 [package]
 name = "gat-gui"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 description = "GUI launcher for GAT notebooks and future dashboards"
 readme = "README.md"

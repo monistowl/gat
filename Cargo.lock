@@ -2054,7 +2054,7 @@ dependencies = [
 
 [[package]]
 name = "gat-adms"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -2067,7 +2067,7 @@ dependencies = [
 
 [[package]]
 name = "gat-algo"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "argmin",
@@ -2093,7 +2093,7 @@ dependencies = [
 
 [[package]]
 name = "gat-batch"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2110,7 +2110,7 @@ dependencies = [
 
 [[package]]
 name = "gat-cbc"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "gat-coinor-build",
@@ -2123,7 +2123,7 @@ dependencies = [
 
 [[package]]
 name = "gat-cli"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2170,7 +2170,7 @@ dependencies = [
 
 [[package]]
 name = "gat-clp"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "gat-coinor-build",
@@ -2183,7 +2183,7 @@ dependencies = [
 
 [[package]]
 name = "gat-coinor-build"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "cc",
@@ -2193,7 +2193,7 @@ dependencies = [
 
 [[package]]
 name = "gat-core"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "faer",
@@ -2205,7 +2205,7 @@ dependencies = [
 
 [[package]]
 name = "gat-derms"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "polars",
@@ -2214,7 +2214,7 @@ dependencies = [
 
 [[package]]
 name = "gat-dist"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -2227,7 +2227,7 @@ dependencies = [
 
 [[package]]
 name = "gat-gui"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -2239,7 +2239,7 @@ dependencies = [
 
 [[package]]
 name = "gat-io"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "arrow-schema 53.4.1",
@@ -2263,7 +2263,7 @@ dependencies = [
 
 [[package]]
 name = "gat-ipopt"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -2278,11 +2278,11 @@ dependencies = [
 
 [[package]]
 name = "gat-ipopt-sys"
-version = "0.5.0"
+version = "0.5.1"
 
 [[package]]
 name = "gat-mcp-docs"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -2306,7 +2306,7 @@ dependencies = [
 
 [[package]]
 name = "gat-scenarios"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2322,7 +2322,7 @@ dependencies = [
 
 [[package]]
 name = "gat-schemas"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2330,7 +2330,7 @@ dependencies = [
 
 [[package]]
 name = "gat-solver-common"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "arrow",
@@ -2344,7 +2344,7 @@ dependencies = [
 
 [[package]]
 name = "gat-ts"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "gat-core",
@@ -2354,7 +2354,7 @@ dependencies = [
 
 [[package]]
 name = "gat-tui"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2384,7 +2384,7 @@ dependencies = [
 
 [[package]]
 name = "gat-viz"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "fdg-sim",
  "gat-core",
@@ -2981,7 +2981,7 @@ dependencies = [
 
 [[package]]
 name = "iocraft"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "termios",
 ]
