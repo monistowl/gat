@@ -45,19 +45,45 @@ jobs:
             gfortran \
             jq \
             libblas-dev \
+            libbz2-dev \
             liblapack-dev \
+            libreadline-dev \
             libssl-dev \
+            libz-dev \
             pkg-config
 
       - name: Install build dependencies
         if: runner.os == 'macOS'
         run: |
+          # readline and zlib are macOS system frameworks, don't need brew
           brew install cmake ninja jq openssl pkg-config gcc || true
+
+      - name: Setup gfortran symlink on macOS
+        if: runner.os == 'macOS'
+        run: |
+          # Homebrew gcc installs gfortran as gfortran-NN (versioned)
+          # Configure scripts expect plain 'gfortran' in PATH
+          BREW_PREFIX="$(brew --prefix)"
+          GFORTRAN_VERSIONED=$(ls "$BREW_PREFIX/bin"/gfortran-* 2>/dev/null | head -1)
+          if [ -n "$GFORTRAN_VERSIONED" ]; then
+            echo "Found: $GFORTRAN_VERSIONED"
+            sudo ln -sf "$GFORTRAN_VERSIONED" /usr/local/bin/gfortran
+            echo "Created symlink: /usr/local/bin/gfortran -> $GFORTRAN_VERSIONED"
+            gfortran --version
+          else
+            echo "Warning: No versioned gfortran found in $BREW_PREFIX/bin"
+          fi
 
       - name: Build COIN-OR libraries from vendored sources
         run: |
           echo "=== Building COIN-OR solvers from vendor/ ==="
-          cargo xtask build-solvers
+          # Use shell scripts (full autotools build) instead of xtask (cc-rs direct compile)
+          # The shell scripts produce OsiClp and OsiCbc which are needed for static linking
+          ./scripts/build-clp.sh
+          ./scripts/build-cbc.sh
+          echo ""
+          echo "=== Verifying COIN-OR installation ==="
+          ls -la vendor/local/lib/*.a | head -20
 
       - name: Build IPOPT from vendored sources
         run: |
