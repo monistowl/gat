@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use gat_core::{BusId, Network, Node, NodeIndex};
+use petgraph::visit::EdgeRef;
 use std::collections::HashSet;
 
 /// Represents a single outage scenario (which generators/lines are offline)
@@ -174,11 +175,23 @@ impl MonteCarlo {
 
     /// Compute LOLE and EUE for a network
     pub fn compute_reliability(&self, network: &Network) -> Result<ReliabilityMetrics> {
-        // Calculate total demand from all load nodes
+        use std::collections::{HashMap, HashSet};
+
+        // Build lookup caches once (reused for all scenarios)
+        let mut bus_id_to_node: HashMap<BusId, NodeIndex> = HashMap::new();
+        let mut load_buses: HashSet<BusId> = HashSet::new();
         let mut total_demand = 0.0;
+
         for node_idx in network.graph.node_indices() {
-            if let Some(Node::Load(load)) = network.graph.node_weight(node_idx) {
-                total_demand += load.active_power_mw;
+            match network.graph.node_weight(node_idx) {
+                Some(Node::Bus(bus)) => {
+                    bus_id_to_node.insert(bus.id, node_idx);
+                }
+                Some(Node::Load(load)) => {
+                    total_demand += load.active_power_mw;
+                    load_buses.insert(load.bus);
+                }
+                _ => {}
             }
         }
 
@@ -199,7 +212,12 @@ impl MonteCarlo {
         for scenario in &scenarios {
             // Calculate available generation accounting for branch outages
             // When a branch is offline, it may disconnect generators from loads
-            let available_gen = self.calculate_deliverable_generation(network, scenario)?;
+            let available_gen = self.calculate_deliverable_generation(
+                network,
+                scenario,
+                &bus_id_to_node,
+                &load_buses,
+            )?;
 
             // Calculate demand for this scenario
             let demand = total_demand * scenario.demand_scale;
@@ -239,31 +257,17 @@ impl MonteCarlo {
     /// some generators may be isolated and unable to contribute to supply.
     ///
     /// The algorithm works by:
-    /// 1. Building a map from BusId to NodeIndex for bus nodes
+    /// 1. Using pre-built map from BusId to NodeIndex for bus nodes (passed in)
     /// 2. Determining bus-level connectivity through online branches
     /// 3. Checking if each generator's bus can reach any load's bus
     fn calculate_deliverable_generation(
         &self,
         network: &Network,
         scenario: &OutageScenario,
+        bus_id_to_node: &std::collections::HashMap<BusId, NodeIndex>,
+        load_buses: &std::collections::HashSet<BusId>,
     ) -> Result<f64> {
         use std::collections::{HashMap, HashSet, VecDeque};
-
-        // Step 1: Build mapping from BusId to NodeIndex for bus nodes
-        let mut bus_id_to_node: HashMap<BusId, NodeIndex> = HashMap::new();
-        for node_idx in network.graph.node_indices() {
-            if let Some(Node::Bus(bus)) = network.graph.node_weight(node_idx) {
-                bus_id_to_node.insert(bus.id, node_idx);
-            }
-        }
-
-        // Step 2: Find all load buses
-        let mut load_buses: HashSet<BusId> = HashSet::new();
-        for node_idx in network.graph.node_indices() {
-            if let Some(Node::Load(load)) = network.graph.node_weight(node_idx) {
-                load_buses.insert(load.bus);
-            }
-        }
 
         if load_buses.is_empty() {
             return Ok(0.0);
@@ -306,33 +310,31 @@ impl MonteCarlo {
                     continue;
                 };
 
-                // Explore neighbors through online branches
-                for edge_idx in network.graph.edge_indices() {
+                // Explore neighbors through online branches using adjacency iteration
+                // This is O(degree) instead of O(edges), reducing overall complexity
+                // from O(buses * edges) to O(buses * avg_degree)
+                for edge_ref in network.graph.edges(current_node) {
+                    let edge_idx = edge_ref.id();
+
                     // Skip offline branches
                     if scenario.offline_branches.contains(&edge_idx.index()) {
                         continue;
                     }
 
-                    if let Some((source, target)) = network.graph.edge_endpoints(edge_idx) {
-                        // Check if this edge connects to the current bus node
-                        let neighbor_node = if source == current_node {
-                            Some(target)
-                        } else if target == current_node {
-                            Some(source)
-                        } else {
-                            None
-                        };
+                    // Get the neighbor node (edge_ref.target() for directed graphs,
+                    // but we also need to check source for undirected traversal)
+                    let neighbor = edge_ref.target();
+                    let neighbor = if neighbor == current_node {
+                        edge_ref.source()
+                    } else {
+                        neighbor
+                    };
 
-                        if let Some(neighbor) = neighbor_node {
-                            // Get the neighbor's bus ID if it's a bus node
-                            if let Some(Node::Bus(neighbor_bus)) =
-                                network.graph.node_weight(neighbor)
-                            {
-                                if !visited_buses.contains(&neighbor_bus.id) {
-                                    visited_buses.insert(neighbor_bus.id);
-                                    queue.push_back(neighbor_bus.id);
-                                }
-                            }
+                    // Get the neighbor's bus ID if it's a bus node
+                    if let Some(Node::Bus(neighbor_bus)) = network.graph.node_weight(neighbor) {
+                        if !visited_buses.contains(&neighbor_bus.id) {
+                            visited_buses.insert(neighbor_bus.id);
+                            queue.push_back(neighbor_bus.id);
                         }
                     }
                 }

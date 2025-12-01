@@ -104,6 +104,3 @@ pub use validation::{
     OPFViolationMetrics, ObjectiveGap, PFErrorMetrics, PFReferenceSolution,
 };
 
-pub fn run_algorithm() -> String {
-    "algorithm result".to_string()
-}

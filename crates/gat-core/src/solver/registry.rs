@@ -7,9 +7,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use super::backend::{FaerSolver, GaussSolver, SolverBackend};
+use super::backend::{FaerSolver, GaussSolver, LinearSystemBackend};
 
-type SolverConstructor = fn() -> Arc<dyn SolverBackend>;
+type SolverConstructor = fn() -> Arc<dyn LinearSystemBackend>;
 
 struct SolverEntry {
     canonical: &'static str,
@@ -95,7 +95,7 @@ impl SolverKind {
         registry.available()
     }
 
-    pub fn build_solver(&self) -> Arc<dyn SolverBackend> {
+    pub fn build_solver(&self) -> Arc<dyn LinearSystemBackend> {
         let registry = GLOBAL_SOLVER_REGISTRY
             .read()
             .expect("solver registry lock poisoned");
@@ -145,7 +145,7 @@ mod tests {
     #[derive(Debug, Default)]
     struct DummySolver;
 
-    impl SolverBackend for DummySolver {
+    impl LinearSystemBackend for DummySolver {
         fn solve(&self, _matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>> {
             Ok(rhs.to_vec())
         }

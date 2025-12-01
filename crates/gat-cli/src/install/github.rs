@@ -1,35 +1,50 @@
 //! GitHub API client for fetching releases
 
 use crate::install::Component;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
+use serde::Deserialize;
 
-/// Fetch latest release info from GitHub API using curl (via shell command)
+/// GitHub release response (subset of fields we need)
+#[derive(Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+}
+
+/// Fetch latest release info from GitHub API using curl (without shell).
+///
+/// This function invokes curl directly to avoid shell command injection.
+/// JSON parsing is done with serde instead of piping to jq.
 pub fn fetch_latest_release(repo_owner: &str, repo_name: &str) -> Result<String> {
     let api_url = format!(
         "https://api.github.com/repos/{}/{}/releases/latest",
         repo_owner, repo_name
     );
 
-    // Use curl + jq for JSON parsing to match install.sh approach
-    let output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(format!(
-            "curl -fsSL '{}' | jq -r '.tag_name // empty'",
-            api_url
-        ))
-        .output()?;
+    // Invoke curl directly without shell to prevent command injection
+    let output = std::process::Command::new("curl")
+        .args([
+            "-fsSL",
+            "-H",
+            "Accept: application/vnd.github.v3+json",
+            &api_url,
+        ])
+        .output()
+        .context("Failed to run curl")?;
 
     if !output.status.success() {
-        return Err(anyhow!("Failed to fetch releases from GitHub"));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("Failed to fetch releases from GitHub: {}", stderr));
     }
 
-    let tag = String::from_utf8(output.stdout)?.trim().to_string();
+    // Parse JSON with serde instead of piping to jq
+    let release: GitHubRelease = serde_json::from_slice(&output.stdout)
+        .context("Failed to parse GitHub release JSON")?;
 
-    if tag.is_empty() {
+    if release.tag_name.is_empty() {
         return Err(anyhow!("No tag_name in GitHub release response"));
     }
 
-    Ok(tag)
+    Ok(release.tag_name)
 }
 
 /// Build download URL for a release component

@@ -12,6 +12,7 @@ use quick_xml::{
 use zip::ZipArchive;
 
 use super::arrow::export_network_to_arrow;
+use crate::helpers::path_security::validate_zip_entry_name;
 use crate::helpers::{ImportDiagnostics, ImportResult};
 
 pub fn import_cim_rdf(rdf_path: &str, output_file: &str) -> Result<Network> {
@@ -221,8 +222,16 @@ fn collect_cim_documents(path: &Path) -> Result<Vec<String>> {
         let mut docs = Vec::new();
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
-            if file.name().to_ascii_lowercase().ends_with(".rdf")
-                || file.name().to_ascii_lowercase().ends_with(".xml")
+            let name = file.name().to_string();
+
+            // Validate entry name to prevent path traversal (defense-in-depth)
+            if let Err(e) = validate_zip_entry_name(&name) {
+                eprintln!("Warning: Skipping suspicious zip entry '{}': {}", name, e);
+                continue;
+            }
+
+            if name.to_ascii_lowercase().ends_with(".rdf")
+                || name.to_ascii_lowercase().ends_with(".xml")
             {
                 let mut contents = String::new();
                 file.read_to_string(&mut contents)?;

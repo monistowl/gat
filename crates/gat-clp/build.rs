@@ -87,8 +87,7 @@ fn try_system_clp() -> bool {
     println!("cargo:rustc-link-lib=c++");
 
     // Link additional dependencies that CoinUtils requires
-    // (bz2/zlib for compressed file I/O, LAPACK/BLAS for dense factorization)
-    println!("cargo:rustc-link-lib=bz2");
+    // Note: bz2 is provided by bzip2-sys crate dependency, not system -lbz2
     println!("cargo:rustc-link-lib=z");
     println!("cargo:rustc-link-lib=lapack");
     println!("cargo:rustc-link-lib=blas");
@@ -115,7 +114,7 @@ fn emit_link_flags(artifacts: &gat_coinor_build::BuildArtifacts) {
     println!("cargo:rustc-link-lib=c++");
 
     // Link dependencies that the pre-built libraries need
-    println!("cargo:rustc-link-lib=bz2");
+    // Note: bz2 is provided by bzip2-sys crate dependency, not system -lbz2
     println!("cargo:rustc-link-lib=z");
     println!("cargo:rustc-link-lib=lapack");
     println!("cargo:rustc-link-lib=blas");

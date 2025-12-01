@@ -1,14 +1,20 @@
 use anyhow::{anyhow, Result};
 use faer::{prelude::*, solvers::PartialPivLu, Mat};
-/// Trait that abstracts solver backends (dense LU/LDL engines).
-pub trait SolverBackend: Send + Sync {
+
+/// Trait for solving dense linear systems (Ax = b).
+///
+/// This is for linear algebra, not optimization solvers.
+/// For OPF solvers, see `gat_algo::opf::dispatch::SolverBackend`.
+pub trait LinearSystemBackend: Send + Sync {
+    /// Solve the linear system Ax = b
     fn solve(&self, matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>>;
 }
+
 
 #[derive(Debug, Clone, Default)]
 pub struct GaussSolver;
 
-impl SolverBackend for GaussSolver {
+impl LinearSystemBackend for GaussSolver {
     fn solve(&self, matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>> {
         let n = matrix.len();
         if n == 0 {
@@ -70,7 +76,7 @@ impl SolverBackend for GaussSolver {
 #[derive(Debug, Clone, Default)]
 pub struct FaerSolver;
 
-impl SolverBackend for FaerSolver {
+impl LinearSystemBackend for FaerSolver {
     fn solve(&self, matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>> {
         let n = matrix.len();
         if n == 0 {

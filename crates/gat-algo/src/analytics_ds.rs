@@ -2,7 +2,7 @@ use crate::io::{persist_dataframe, OutputStage};
 use crate::power_flow::branch_flow_dataframe;
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
-use gat_core::{solver::SolverBackend, Network, Node};
+use gat_core::{solver::LinearSystemBackend, Network, Node};
 use polars::prelude::*;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -76,7 +76,7 @@ struct DsRecord {
 /// **Output:** Parquet table with columns: bus_id, scenario_id, time, ds_case, pmax_mw, ds_mean
 pub fn deliverability_scores_dc(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     limits_csv: &str,
     branch_limits_csv: &str,
     flows_parquet: &Path,
@@ -234,7 +234,7 @@ pub fn deliverability_scores_dc(
 /// **Returns:** Map from branch_id to PTDF value (flow on that branch per 1 MW transfer)
 fn compute_ptdf_row(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     source: usize,
     sink: usize,
 ) -> Result<HashMap<i64, f64>> {

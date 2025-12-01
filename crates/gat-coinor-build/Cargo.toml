@@ -13,5 +13,5 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = "1.0"
 cc = "1.0"
-zip = "2.2"
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
 walkdir = "2.5"

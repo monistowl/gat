@@ -309,8 +309,8 @@ pub enum CostModel {
     /// No cost function specified
     #[default]
     NoCost,
-    /// Polynomial cost: cost = sum(coeffs[i] * P^i) where coeffs[0] is constant term
-    /// For quadratic: coeffs = [c0, c1, c2] means cost = c0 + c1*P + c2*P^2
+    /// Polynomial cost: `cost = sum(coeffs[i] * P^i)` where `coeffs[0]` is constant term.
+    /// For quadratic: `coeffs = [c0, c1, c2]` means `cost = c0 + c1*P + c2*P^2`.
     Polynomial(Vec<f64>),
     /// Piecewise linear cost: Vec<(mw, $/hr)> breakpoints
     PiecewiseLinear(Vec<(f64, f64)>),

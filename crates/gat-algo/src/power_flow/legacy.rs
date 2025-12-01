@@ -11,7 +11,7 @@ use crate::test_utils::read_stage_dataframe;
 use crate::OutputStage;
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
-use gat_core::solver::SolverBackend;
+use gat_core::solver::LinearSystemBackend;
 use gat_core::{Edge, Network, Node};
 use good_lp::solvers::clarabel::clarabel as clarabel_solver;
 #[cfg(feature = "solver-coin_cbc")]
@@ -168,7 +168,7 @@ impl FromStr for LpSolverKind {
 /// reactive power, voltage limits, or losses are critical.
 pub fn dc_power_flow(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     output_file: &Path,
     partitions: &[String],
 ) -> Result<()> {
@@ -208,7 +208,7 @@ pub fn dc_power_flow(
 /// PTDFs enable fast sensitivity analysis without re-solving power flow for each transfer.
 pub fn ptdf_analysis(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     source_bus: usize,
     sink_bus: usize,
     transfer_mw: f64,
@@ -300,7 +300,7 @@ pub fn ptdf_analysis(
 /// AC flow captures reactive power, voltage limits, and losses that DC flow ignores.
 pub fn ac_power_flow(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     tol: f64,
     max_iter: u32,
     output_file: &Path,
@@ -335,7 +335,7 @@ pub fn ac_power_flow(
 #[allow(clippy::too_many_arguments)]
 pub fn dc_optimal_power_flow(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     cost_csv: &str,
     limits_csv: &str,
     output_file: &Path,
@@ -481,7 +481,7 @@ where
 
 pub fn n_minus_one_dc(
     network: &Network,
-    solver: Arc<dyn SolverBackend>,
+    solver: Arc<dyn LinearSystemBackend>,
     contingencies_csv: &str,
     output_file: &Path,
     partitions: &[String],
@@ -665,7 +665,7 @@ pub fn n_minus_one_dc(
 
 pub fn ac_optimal_power_flow(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     tol: f64,
     max_iter: u32,
     output_file: &Path,
@@ -767,7 +767,7 @@ pub fn ac_optimal_power_flow(
 
 pub fn state_estimation_wls(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     measurements_csv: &str,
     output_file: &Path,
     partitions: &[String],
@@ -925,7 +925,7 @@ pub(crate) fn branch_flow_dataframe(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
 ) -> Result<(DataFrame, f64, f64)> {
     // Recover branch flows by solving for angles (B′ θ = P) and then computing each branch difference
     let angles = compute_dc_angles(network, injections, skip_branch, solver)?;
@@ -1099,7 +1099,7 @@ fn compute_dc_angles(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
 ) -> Result<HashMap<usize, f64>> {
     let (bus_ids, _, susceptance) = build_bus_susceptance(network, skip_branch);
     let node_count = bus_ids.len();
@@ -1140,7 +1140,7 @@ fn compute_dc_angles(
 fn solve_linear_system(
     matrix: &[Vec<f64>],
     injections: &[f64],
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
 ) -> Result<Vec<f64>> {
     solver.solve(matrix, injections)
 }

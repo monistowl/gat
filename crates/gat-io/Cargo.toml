@@ -16,8 +16,8 @@ wasm = []
 
 [dependencies]
 anyhow = "1.0"
-arrow-schema = "53"
-caseformat = "0.1"
+arrow-schema = "54"
+caseformat = { version = "0.1", default-features = false }
 gat-core = { path = "../gat-core" }
 thiserror = "1.0"
 # Note: polars unused when building with feature `wasm`

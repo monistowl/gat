@@ -9,6 +9,7 @@ chrono = { version = "0.4", features = ["serde"] }
 csv = "1.4"
 gat-core = { path = "../gat-core" }
 gat-solver-common = { path = "../gat-solver-common", optional = true }
+petgraph = "0.6"
 good_lp = { version = "1.14", default-features = false }
 sprs = "0.11"
 faer = "0.17"

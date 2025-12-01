@@ -15,7 +15,7 @@ use crate::test_utils::read_stage_dataframe;
 use crate::OutputStage;
 use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
-use gat_core::solver::SolverBackend;
+use gat_core::solver::LinearSystemBackend;
 use gat_core::{BusId, Edge, Network, Node};
 use good_lp::solvers::clarabel::clarabel as clarabel_solver;
 #[cfg(feature = "solver-coin_cbc")]
@@ -144,15 +144,22 @@ impl AcPowerFlowSolver {
 
     pub fn solve(&self, network: &Network) -> anyhow::Result<AcPowerFlowSolution> {
         let mut gen_buses: HashSet<BusId> = HashSet::new();
+        let mut num_buses = 0;
         for node in network.graph.node_weights() {
-            if let Node::Gen(gen) = node {
-                gen_buses.insert(gen.bus);
+            match node {
+                Node::Gen(gen) => {
+                    gen_buses.insert(gen.bus);
+                }
+                Node::Bus(_) => {
+                    num_buses += 1;
+                }
+                _ => {}
             }
         }
 
-        let mut bus_voltage_magnitude = HashMap::new();
-        let mut bus_voltage_angle = HashMap::new();
-        let mut bus_types = HashMap::new();
+        let mut bus_voltage_magnitude = HashMap::with_capacity(num_buses);
+        let mut bus_voltage_angle = HashMap::with_capacity(num_buses);
+        let mut bus_types = HashMap::with_capacity(num_buses);
 
         let mut slack_assigned = false;
         for node in network.graph.node_weights() {
@@ -267,7 +274,7 @@ impl FromStr for LpSolverKind {
 /// reactive power, voltage limits, or losses are critical.
 pub fn dc_power_flow(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     output_file: &Path,
     partitions: &[String],
 ) -> Result<()> {
@@ -307,7 +314,7 @@ pub fn dc_power_flow(
 /// PTDFs enable fast sensitivity analysis without re-solving power flow for each transfer.
 pub fn ptdf_analysis(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     source_bus: usize,
     sink_bus: usize,
     transfer_mw: f64,
@@ -399,7 +406,7 @@ pub fn ptdf_analysis(
 /// AC flow captures reactive power, voltage limits, and losses that DC flow ignores.
 pub fn ac_power_flow(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     tol: f64,
     max_iter: u32,
     output_file: &Path,
@@ -434,7 +441,7 @@ pub fn ac_power_flow(
 #[allow(clippy::too_many_arguments)]
 pub fn dc_optimal_power_flow(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     cost_csv: &str,
     limits_csv: &str,
     output_file: &Path,
@@ -532,7 +539,7 @@ pub fn dc_optimal_power_flow(
         }
     };
 
-    let mut injections = HashMap::new();
+    let mut injections = HashMap::with_capacity(gen_vars.len());
     for (bus_id, var, demand) in gen_vars.iter() {
         // Subtract load from the solved dispatch to compute nodal injections for the power flow.
         let dispatch = solution.value(*var);
@@ -580,7 +587,7 @@ where
 
 pub fn n_minus_one_dc(
     network: &Network,
-    solver: Arc<dyn SolverBackend>,
+    solver: Arc<dyn LinearSystemBackend>,
     contingencies_csv: &str,
     output_file: &Path,
     partitions: &[String],
@@ -764,7 +771,7 @@ pub fn n_minus_one_dc(
 
 pub fn ac_optimal_power_flow(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     tol: f64,
     max_iter: u32,
     output_file: &Path,
@@ -866,7 +873,7 @@ pub fn ac_optimal_power_flow(
 
 pub fn state_estimation_wls(
     network: &Network,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
     measurements_csv: &str,
     output_file: &Path,
     partitions: &[String],
@@ -1024,7 +1031,7 @@ pub(crate) fn branch_flow_dataframe(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
 ) -> Result<(DataFrame, f64, f64)> {
     // Recover branch flows by solving for angles (B′ θ = P) and then computing each branch difference
     let angles = compute_dc_angles(network, injections, skip_branch, solver)?;
@@ -1264,7 +1271,7 @@ fn compute_dc_angles(
     network: &Network,
     injections: &HashMap<usize, f64>,
     skip_branch: Option<i64>,
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
 ) -> Result<HashMap<usize, f64>> {
     let (bus_ids, _, susceptance) = build_bus_susceptance(network, skip_branch);
     let node_count = bus_ids.len();
@@ -1305,7 +1312,7 @@ fn compute_dc_angles(
 fn solve_linear_system(
     matrix: &[Vec<f64>],
     injections: &[f64],
-    solver: &dyn SolverBackend,
+    solver: &dyn LinearSystemBackend,
 ) -> Result<Vec<f64>> {
     solver.solve(matrix, injections)
 }

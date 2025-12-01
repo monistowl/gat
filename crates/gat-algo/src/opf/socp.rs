@@ -1702,6 +1702,8 @@ impl Default for SocpSolverConfig {
 ///
 /// Contains variable values to initialize the interior point solver,
 /// potentially reducing the number of iterations to convergence.
+// TODO: Integrate warm-start into SOCP solver for improved convergence
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SocpInitialPoint {
     /// Squared voltage magnitudes (v = |V|²), typically initialized to 1.0
@@ -1720,6 +1722,7 @@ pub struct SocpInitialPoint {
     pub q_flow: Vec<f64>,
 }
 
+#[allow(dead_code)]
 impl SocpInitialPoint {
     /// Create a flat start (all voltages at 1.0, zero angles).
     pub fn flat_start(n_bus: usize, n_gen: usize, n_branch: usize) -> Self {
@@ -1753,6 +1756,8 @@ impl SocpInitialPoint {
 ///
 /// # Returns
 /// Initial point suitable for warm-starting the SOCP solver.
+// TODO: Integrate into SOCP solver for improved convergence
+#[allow(dead_code)]
 pub fn warm_start_from_dc(
     dc_warm: &crate::opf::DcWarmStart,
     bus_names: &[String],
@@ -1761,7 +1766,7 @@ pub fn warm_start_from_dc(
     n_branch: usize,
 ) -> SocpInitialPoint {
     let n_bus = bus_names.len();
-    let n_gen = gen_names.len();
+    let _n_gen = gen_names.len();
 
     // Voltage magnitudes: flat at 1.0 (DC assumption)
     let vm_squared = vec![1.0; n_bus];
@@ -2247,6 +2252,8 @@ pub fn solve_with_config(
 ///
 /// Stores lower and upper bounds for all decision variables.
 /// Tighter bounds lead to tighter SOCP relaxation.
+// TODO: Implement OBBT (Optimality-Based Bound Tightening) using these bounds
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct VariableBounds {
     /// Squared voltage magnitude bounds: v_min² ≤ v ≤ v_max²
@@ -2272,6 +2279,7 @@ pub struct VariableBounds {
     pub ell_upper: Vec<f64>,
 }
 
+#[allow(dead_code)]
 impl VariableBounds {
     /// Create initial bounds from network data.
     ///
@@ -2279,7 +2287,7 @@ impl VariableBounds {
     /// OBBT can tighten these further.
     pub fn from_network(
         n_bus: usize,
-        n_gen: usize,
+        _n_gen: usize,
         n_branch: usize,
         v_limits: &[(f64, f64)],        // (v_min, v_max) per bus
         pg_limits: &[(f64, f64)],       // (pmin, pmax) per gen in p.u.
@@ -2382,10 +2390,11 @@ pub struct TighteningStats {
 /// # Reference
 /// Gleixner et al. (2017) "Three enhancements for optimization-based
 /// bound tightening" Journal of Global Optimization.
+#[allow(dead_code)]
 pub fn tighten_bounds_obbt(
     bounds: &mut VariableBounds,
     n_bus: usize,
-    n_gen: usize,
+    _n_gen: usize,
     n_branch: usize,
     max_iterations: usize,
 ) -> TighteningStats {
@@ -2498,6 +2507,8 @@ pub fn tighten_bounds_obbt(
 /// - cos(θ) ≤ (cos(θ_max) - cos(θ_min))/(θ_max - θ_min)·(θ - θ_min) + cos(θ_min)
 ///
 /// Reference: Coffrin et al. (2015)
+// TODO: Add QC envelope constraints to SOCP formulation for tighter relaxation
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct QcEnvelope {
     /// Branch index this envelope applies to
@@ -2516,6 +2527,7 @@ pub struct QcEnvelope {
     pub secant_b: f64,
 }
 
+#[allow(dead_code)]
 impl QcEnvelope {
     /// Compute QC envelope for a branch with given angle bounds.
     pub fn new(branch_idx: usize, theta_min: f64, theta_max: f64) -> Self {
