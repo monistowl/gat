@@ -4,37 +4,79 @@
 {% block description %}{{ page.description }}{% endblock description %}
 
 {% block content %}
+<style>
+  /* Tools page theme variables */
+  :root {
+    --tools-bg: var(--c1, #fafafa);
+    --tools-card-bg: var(--c2, #f0f0f0);
+    --tools-card-bg-alt: color-mix(in srgb, var(--c2, #f0f0f0) 80%, var(--c3, #e2e8f0));
+    --tools-border: var(--c3, #e2e8f0);
+    --tools-text: var(--f1, #2d3748);
+    --tools-heading: var(--f2, #1a202c);
+    --tools-muted: var(--c4, #718096);
+    --tools-accent: var(--a1, #ea580c);
+  }
+
+  [data-theme="dark"], .dark, html.switch {
+    --tools-card-bg: rgba(15, 23, 42, 0.4);
+    --tools-card-bg-alt: #0f172a;
+    --tools-border: #334155;
+    --tools-text: #e2e8f0;
+    --tools-heading: #ffffff;
+    --tools-muted: #94a3b8;
+  }
+
+  .tools-card {
+    background-color: var(--tools-card-bg);
+    border: 1px solid var(--tools-border);
+  }
+  .tools-card:hover {
+    border-color: color-mix(in srgb, var(--tools-accent) 50%, transparent);
+  }
+  .tools-card-alt {
+    background-color: var(--tools-card-bg-alt);
+    border: 1px solid var(--tools-border);
+  }
+  .tools-icon-box {
+    background-color: var(--tools-card-bg-alt);
+    border: 1px solid var(--tools-border);
+  }
+  .tools-heading { color: var(--tools-heading); }
+  .tools-text { color: var(--tools-text); }
+  .tools-muted { color: var(--tools-muted); }
+</style>
+
 <div class="relative z-10">
   {% include "partials/header.html" %}
 
   <div class="max-w-7xl mx-auto px-6 py-12">
     <!-- Breadcrumbs -->
-    <div class="text-sm text-slate-500 mb-8">
+    <div class="text-sm tools-muted mb-8">
       <a href="{{ config.base_url }}/" class="hover:text-orange-500 transition-colors">Home</a>
       <span class="mx-2">/</span>
-      <span class="text-white">{{ page.title }}</span>
+      <span class="tools-text">{{ page.title }}</span>
     </div>
 
     <!-- Header -->
     <div class="mb-16">
-      <h1 class="text-5xl font-bold text-white mb-4">{{ page.title }}</h1>
-      <p class="text-xl text-slate-400">{{ page.description }}</p>
+      <h1 class="text-5xl font-bold tools-heading mb-4">{{ page.title }}</h1>
+      <p class="text-xl tools-muted">{{ page.description }}</p>
     </div>
 
     <!-- Tools Grid -->
     <div class="grid md:grid-cols-2 gap-8 mb-16">
       <!-- Command Builder -->
-      <a href="{{ config.base_url }}/command-builder/" class="bg-slate-900/40 border border-slate-800 rounded-xl p-8 hover:border-orange-500/50 transition-all card-hover group">
+      <a href="{{ config.base_url }}/command-builder/" class="tools-card rounded-xl p-8 transition-all card-hover group">
         <div class="flex items-center gap-4 mb-6">
-          <div class="w-14 h-14 bg-slate-950 rounded-lg flex items-center justify-center border border-slate-800 text-3xl">
+          <div class="w-14 h-14 tools-icon-box rounded-lg flex items-center justify-center text-3xl">
             🔧
           </div>
           <div>
-            <h2 class="text-2xl font-bold text-white">Command Builder</h2>
-            <p class="text-sm text-slate-400">Interactive CLI generator</p>
+            <h2 class="text-2xl font-bold tools-heading">Command Builder</h2>
+            <p class="text-sm tools-muted">Interactive CLI generator</p>
           </div>
         </div>
-        <p class="text-slate-400 leading-relaxed mb-6">
+        <p class="tools-muted leading-relaxed mb-6">
           Visually build GAT commands without memorizing syntax. Select analysis type, configure parameters, and copy the command with a single click. Perfect for learning the CLI or rapid prototyping.
         </p>
         <div class="flex items-center gap-2 text-orange-500 font-medium group-hover:gap-3 transition-all">
@@ -47,13 +89,13 @@
 
     <!-- Resources Section -->
     <div class="mb-16">
-      <h2 class="text-3xl font-bold text-white mb-8">Resources</h2>
+      <h2 class="text-3xl font-bold tools-heading mb-8">Resources</h2>
       <div class="grid md:grid-cols-3 gap-6">
         <!-- Examples -->
-        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+        <div class="tools-card-alt rounded-xl p-6">
           <div class="text-3xl mb-4">💡</div>
-          <h3 class="text-lg font-bold text-white mb-3">Examples</h3>
-          <p class="text-slate-400 text-sm mb-4">
+          <h3 class="text-lg font-bold tools-heading mb-3">Examples</h3>
+          <p class="tools-muted text-sm mb-4">
             Real-world examples demonstrating different analysis types and workflows.
           </p>
           <a href="{{ config.extra.repo_url }}/tree/main/examples" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
@@ -62,10 +104,10 @@
         </div>
 
         <!-- Datasets -->
-        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+        <div class="tools-card-alt rounded-xl p-6">
           <div class="text-3xl mb-4">📊</div>
-          <h3 class="text-lg font-bold text-white mb-3">Sample Data</h3>
-          <p class="text-slate-400 text-sm mb-4">
+          <h3 class="text-lg font-bold tools-heading mb-3">Sample Data</h3>
+          <p class="tools-muted text-sm mb-4">
             Use built-in sample grids and test data to learn GAT without setting up your own data.
           </p>
           <a href="{{ config.base_url }}/guide/datasets/" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
@@ -74,10 +116,10 @@
         </div>
 
         <!-- Benchmarks -->
-        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+        <div class="tools-card-alt rounded-xl p-6">
           <div class="text-3xl mb-4">🏃</div>
-          <h3 class="text-lg font-bold text-white mb-3">Performance</h3>
-          <p class="text-slate-400 text-sm mb-4">
+          <h3 class="text-lg font-bold tools-heading mb-3">Performance</h3>
+          <p class="tools-muted text-sm mb-4">
             See how GAT compares to other tools on speed, accuracy, and feature coverage.
           </p>
           <a href="{{ config.base_url }}/guide/benchmark/" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
@@ -86,10 +128,10 @@
         </div>
 
         <!-- Documentation -->
-        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+        <div class="tools-card-alt rounded-xl p-6">
           <div class="text-3xl mb-4">📖</div>
-          <h3 class="text-lg font-bold text-white mb-3">Documentation</h3>
-          <p class="text-slate-400 text-sm mb-4">
+          <h3 class="text-lg font-bold tools-heading mb-3">Documentation</h3>
+          <p class="tools-muted text-sm mb-4">
             Complete guides for every GAT feature, from basics to advanced configuration.
           </p>
           <a href="{{ config.base_url }}/docs/" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
@@ -98,10 +140,10 @@
         </div>
 
         <!-- API Reference -->
-        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+        <div class="tools-card-alt rounded-xl p-6">
           <div class="text-3xl mb-4">⚙️</div>
-          <h3 class="text-lg font-bold text-white mb-3">MCP Server</h3>
-          <p class="text-slate-400 text-sm mb-4">
+          <h3 class="text-lg font-bold tools-heading mb-3">MCP Server</h3>
+          <p class="tools-muted text-sm mb-4">
             Integrate GAT as an AI tool. Full MCP server implementation for Claude and other agents.
           </p>
           <a href="{{ config.base_url }}/internals/mcp-onboarding/" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
@@ -110,10 +152,10 @@
         </div>
 
         <!-- Community -->
-        <div class="bg-slate-950 border border-slate-800 rounded-xl p-6">
+        <div class="tools-card-alt rounded-xl p-6">
           <div class="text-3xl mb-4">👥</div>
-          <h3 class="text-lg font-bold text-white mb-3">Community</h3>
-          <p class="text-slate-400 text-sm mb-4">
+          <h3 class="text-lg font-bold tools-heading mb-3">Community</h3>
+          <p class="tools-muted text-sm mb-4">
             Report issues, share your work, and contribute to GAT's development.
           </p>
           <a href="{{ config.extra.repo_url }}/issues" class="text-orange-500 hover:text-orange-400 font-medium text-sm">
@@ -124,9 +166,9 @@
     </div>
 
     <!-- Quick Tips -->
-    <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-8">
-      <h2 class="text-2xl font-bold text-white mb-6">Quick Tips</h2>
-      <div class="grid md:grid-cols-2 gap-6 text-slate-300">
+    <div class="tools-card rounded-xl p-8">
+      <h2 class="text-2xl font-bold tools-heading mb-6">Quick Tips</h2>
+      <div class="grid md:grid-cols-2 gap-6 tools-text">
         <div>
           <h3 class="text-orange-500 font-bold mb-2">🚀 Getting Started?</h3>
           <p class="text-sm">Start with the <a href="{{ config.base_url }}/guide/quickstart/" class="text-orange-500 hover:underline">5-minute quickstart</a>, then use the <a href="{{ config.base_url }}/command-builder/" class="text-orange-500 hover:underline">Command Builder</a> to explore.</p>
