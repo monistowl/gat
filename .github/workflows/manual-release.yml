@@ -44,6 +44,8 @@ jobs:
             ninja-build \
             gfortran \
             jq \
+            libblas-dev \
+            liblapack-dev \
             libssl-dev \
             pkg-config
 

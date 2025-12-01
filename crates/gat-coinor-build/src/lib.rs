@@ -330,17 +330,26 @@ fn build_component(
     std::env::set_var("OUT_DIR", &out_dir);
 
     // Also set TARGET and HOST for cc crate if not set
+    // Must check both architecture AND OS to get correct target triple
     if std::env::var("TARGET").is_err() {
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
         std::env::set_var("TARGET", "x86_64-unknown-linux-gnu");
-        #[cfg(target_arch = "aarch64")]
+        #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+        std::env::set_var("TARGET", "x86_64-apple-darwin");
+        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
         std::env::set_var("TARGET", "aarch64-unknown-linux-gnu");
+        #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+        std::env::set_var("TARGET", "aarch64-apple-darwin");
     }
     if std::env::var("HOST").is_err() {
-        #[cfg(target_arch = "x86_64")]
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
         std::env::set_var("HOST", "x86_64-unknown-linux-gnu");
-        #[cfg(target_arch = "aarch64")]
+        #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+        std::env::set_var("HOST", "x86_64-apple-darwin");
+        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
         std::env::set_var("HOST", "aarch64-unknown-linux-gnu");
+        #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+        std::env::set_var("HOST", "aarch64-apple-darwin");
     }
 
     // Build using cc crate
