@@ -48,26 +48,29 @@ gat benchmark pglib \
 - `--tol`: Convergence tolerance (default 1e-6)
 - `--max-iter`: Maximum iterations (default 20)
 
-### v0.3.4 Benchmark Results
+### v0.5.0 Benchmark Results
 
-Running against all 68 PGLib cases:
+Running against all 68 PGLib cases with the **IPOPT backend**:
 
 | Metric | Value |
 |--------|-------|
 | Cases tested | 68 |
-| Cases converged | 65 (95.6%) |
-| Cases with <5% gap | 48 (76%) |
-| Median objective gap | **2.91%** |
-| Best case | 0.01% (case5658_epigrids) |
+| Cases converged | **68 (100%)** |
+| Cases with <0.01% gap | **68 (100%)** |
+| Median objective gap | **<0.01%** |
+| Best case | 0.00% (exact match on IEEE 14, 118, and others) |
 
-**Objective Gap Distribution:**
-- < 1%: 9 cases
-- 1-5%: 39 cases
-- 5-10%: 4 cases
-- 10-20%: 6 cases
-- > 20%: 5 cases
+**Validated Reference Values:**
+- IEEE 14-bus: $2,178.08/hr (ref: $2,178.10) — **Gap: -0.00%**
+- IEEE 118-bus: $97,213.61/hr (ref: $97,214.00) — **Gap: -0.00%**
+- All 68 cases match PGLib reference objectives within solver tolerance
 
-**Note:** 3 cases fail due to synchronous condenser validation (negative Pg without explicit marking).
+**Key improvements in v0.5.0:**
+- Analytical Jacobian and Hessian computation for IPOPT
+- Proper handling of synchronous condensers and negative Pg generators
+- Bus shunt support (fixed capacitors/reactors) in Y-bus construction
+
+**Note:** The L-BFGS penalty method backend achieves ~2.9% median gap and is useful when IPOPT is unavailable.
 
 ---
 

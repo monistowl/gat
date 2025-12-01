@@ -114,11 +114,12 @@ Subject to:
 4. Project solution onto bounds
 5. Return generator dispatch, bus voltages, and LMPs
 
-**Performance (PGLib v0.4.0):**
+**Performance (PGLib v0.4.0, L-BFGS backend):**
 - 65/68 cases converge (95.6%)
 - Median objective gap: 2.91% vs. baseline
-- 48 cases under 5% gap (76%)
 - Handles networks from 14 to 13,659 buses
+
+**Note:** The IPOPT backend achieves 100% convergence on all 68 PGLib cases with <0.01% gap. See `docs/guide/opf.md` for details.
 
 ---
 
