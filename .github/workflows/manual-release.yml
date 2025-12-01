@@ -50,12 +50,21 @@ jobs:
       - name: Install build dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install cmake ninja jq openssl pkg-config || true
+          brew install cmake ninja jq openssl pkg-config gcc || true
 
       - name: Build COIN-OR libraries from vendored sources
         run: |
           echo "=== Building COIN-OR solvers from vendor/ ==="
           cargo xtask build-solvers
+
+      - name: Build IPOPT from vendored sources
+        run: |
+          echo "=== Building IPOPT (Metis + MUMPS + IPOPT) ==="
+          ./scripts/build-ipopt.sh
+          echo ""
+          echo "=== Verifying IPOPT installation ==="
+          ls -la vendor/local/lib/libipopt* || echo "Warning: IPOPT libs not found"
+          ls -la vendor/local/include/coin-or/IpStdCInterface.h || echo "Warning: IPOPT headers not found"
 
       - name: Build native solver binaries
         run: |
