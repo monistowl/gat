@@ -10,12 +10,12 @@
   <div class="max-w-4xl mx-auto px-6 py-12">
     <!-- Header -->
     <div class="mb-12">
-      <h1 class="text-5xl font-bold text-white mb-4">{{ section.title }}</h1>
-      <p class="text-xl text-slate-400">{{ section.description }}</p>
+      <h1 class="text-5xl font-bold mb-4" style="color: var(--f2);">{{ section.title }}</h1>
+      <p class="text-xl" style="color: var(--c4);">{{ section.description }}</p>
 
       <!-- RSS Link -->
       <div class="mt-6">
-        <a href="{{ config.base_url }}/rss.xml" class="inline-flex items-center gap-2 text-orange-500 hover:text-orange-400 transition-colors">
+        <a href="{{ config.base_url }}/rss.xml" class="inline-flex items-center gap-2 transition-colors" style="color: var(--a1);" onmouseover="this.style.color='var(--a1-hover)'" onmouseout="this.style.color='var(--a1)'">
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path d="M6.503 20.752c0 1.794-1.456 3.248-3.251 3.248-1.796 0-3.252-1.454-3.252-3.248 0-1.794 1.456-3.248 3.252-3.248 1.795.001 3.251 1.454 3.251 3.248zm-6.503-12.572v4.811c6.05.062 10.96 4.966 11.022 11.009h4.817c-.062-8.71-7.118-15.758-15.839-15.82zm0-3.368c10.58.046 19.152 8.594 19.183 19.188h4.817c-.03-13.231-10.755-23.954-24-24v4.812z"/>
           </svg>
@@ -29,40 +29,40 @@
       {% for page in section.pages %}
       {% if page.extra.external_url %}
       <!-- External Article Card -->
-      <article class="bg-gradient-to-br from-slate-900/60 to-slate-900/40 border-2 border-slate-700 rounded-lg p-8 hover:border-orange-500/50 transition-all relative overflow-hidden">
+      <article class="rounded-lg p-8 transition-all relative overflow-hidden" style="background: linear-gradient(to bottom right, color-mix(in srgb, var(--c2) 60%, transparent), color-mix(in srgb, var(--c2) 40%, transparent)); border: 2px solid var(--c3);" onmouseover="this.style.borderColor='color-mix(in srgb, var(--a1) 50%, transparent)'" onmouseout="this.style.borderColor='var(--c3)'">
         <!-- External indicator badge -->
         <div class="absolute top-4 right-4">
-          <div class="flex items-center gap-2 bg-slate-800/80 backdrop-blur px-3 py-1 rounded-full border border-slate-600">
-            <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex items-center gap-2 backdrop-blur px-3 py-1 rounded-full" style="background: color-mix(in srgb, var(--c2) 80%, transparent); border: 1px solid var(--c3);">
+            <svg class="w-3 h-3" style="color: var(--c4);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
             </svg>
-            <span class="text-xs text-slate-400 uppercase tracking-wider font-medium">{{ page.extra.source_type | default(value="External") }}</span>
+            <span class="text-xs uppercase tracking-wider font-medium" style="color: var(--c4);">{{ page.extra.source_type | default(value="External") }}</span>
           </div>
         </div>
 
-        <div class="flex items-center gap-3 text-sm text-slate-500 mb-3">
+        <div class="flex items-center gap-3 text-sm mb-3" style="color: var(--c4);">
           <time datetime="{{ page.date }}">{{ page.date | date(format="%B %d, %Y") }}</time>
           {% if page.extra.source %}
           <span>•</span>
-          <span class="text-slate-400">{{ page.extra.source }}</span>
+          <span>{{ page.extra.source }}</span>
           {% endif %}
           {% if page.taxonomies.tags %}
           <span>•</span>
           <div class="flex gap-2">
             {% for tag in page.taxonomies.tags %}
-            <span class="text-orange-500">#{{ tag }}</span>
+            <span style="color: var(--a1);">#{{ tag }}</span>
             {% endfor %}
           </div>
           {% endif %}
         </div>
 
-        <h2 class="text-2xl font-bold text-white mb-3 pr-24">
+        <h2 class="text-2xl font-bold mb-3 pr-24" style="color: var(--f2);">
           {{ page.title }}
         </h2>
 
-        <p class="text-slate-400 mb-6">{{ page.description }}</p>
+        <p class="mb-6" style="color: var(--c4);">{{ page.description }}</p>
 
-        <a href="{{ page.extra.external_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-orange-600 text-white rounded-lg transition-colors">
+        <a href="{{ page.extra.external_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors" style="background: var(--c2); color: var(--f2);" onmouseover="this.style.background='var(--a1)'; this.style.color='white'" onmouseout="this.style.background='var(--c2)'; this.style.color='var(--f2)'">
           Read on {{ page.extra.source | default(value="source") }}
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -71,28 +71,28 @@
       </article>
       {% else %}
       <!-- Regular Blog Post Card -->
-      <article class="bg-slate-900/40 border border-slate-800 rounded-lg p-8 hover:border-orange-500/50 transition-all">
-        <div class="flex items-center gap-3 text-sm text-slate-500 mb-3">
+      <article class="rounded-lg p-8 transition-all" style="background: color-mix(in srgb, var(--c2) 40%, transparent); border: 1px solid var(--c3);" onmouseover="this.style.borderColor='color-mix(in srgb, var(--a1) 50%, transparent)'" onmouseout="this.style.borderColor='var(--c3)'">
+        <div class="flex items-center gap-3 text-sm mb-3" style="color: var(--c4);">
           <time datetime="{{ page.date }}">{{ page.date | date(format="%B %d, %Y") }}</time>
           {% if page.taxonomies.tags %}
           <span>•</span>
           <div class="flex gap-2">
             {% for tag in page.taxonomies.tags %}
-            <span class="text-orange-500">#{{ tag }}</span>
+            <span style="color: var(--a1);">#{{ tag }}</span>
             {% endfor %}
           </div>
           {% endif %}
         </div>
 
-        <h2 class="text-2xl font-bold text-white mb-3">
-          <a href="{{ page.permalink }}" class="hover:text-orange-500 transition-colors">
+        <h2 class="text-2xl font-bold mb-3" style="color: var(--f2);">
+          <a href="{{ page.permalink }}" class="transition-colors" style="color: var(--f2);" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--f2)'">
             {{ page.title }}
           </a>
         </h2>
 
-        <p class="text-slate-400 mb-4">{{ page.description }}</p>
+        <p class="mb-4" style="color: var(--c4);">{{ page.description }}</p>
 
-        <a href="{{ page.permalink }}" class="inline-flex items-center gap-2 text-orange-500 hover:text-orange-400 transition-colors">
+        <a href="{{ page.permalink }}" class="inline-flex items-center gap-2 transition-colors" style="color: var(--a1);" onmouseover="this.style.color='var(--a1-hover)'" onmouseout="this.style.color='var(--a1)'">
           Read more
           <span>→</span>
         </a>
@@ -102,7 +102,7 @@
     </div>
 
     {% if section.pages | length == 0 %}
-    <div class="text-center py-12 text-slate-500">
+    <div class="text-center py-12" style="color: var(--c4);">
       <p>No blog posts yet. Stay tuned for updates!</p>
     </div>
     {% endif %}

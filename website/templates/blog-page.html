@@ -9,18 +9,18 @@
 
   <div class="max-w-4xl mx-auto px-6 py-12">
     <!-- Breadcrumbs -->
-    <div class="mb-8 text-sm text-slate-500">
-      <a href="{{ config.base_url }}/" class="hover:text-orange-500 transition-colors">Home</a>
+    <div class="mb-8 text-sm" style="color: var(--c4);">
+      <a href="{{ config.base_url }}/" class="transition-colors" style="color: var(--c4);" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">Home</a>
       <span class="mx-2">/</span>
-      <a href="{{ config.base_url }}/blog/" class="hover:text-orange-500 transition-colors">Blog</a>
+      <a href="{{ config.base_url }}/blog/" class="transition-colors" style="color: var(--c4);" onmouseover="this.style.color='var(--a1)'" onmouseout="this.style.color='var(--c4)'">Blog</a>
       <span class="mx-2">/</span>
-      <span class="text-white">{{ page.title }}</span>
+      <span style="color: var(--f2);">{{ page.title }}</span>
     </div>
 
     <!-- Article -->
-    <article class="bg-slate-900/20 border border-slate-800 rounded-lg p-8 lg:p-12">
+    <article class="rounded-lg p-8 lg:p-12" style="background: color-mix(in srgb, var(--c2) 20%, transparent); border: 1px solid var(--c3);">
       <!-- Metadata -->
-      <div class="flex items-center gap-3 text-sm text-slate-500 mb-6 flex-wrap">
+      <div class="flex items-center gap-3 text-sm mb-6 flex-wrap" style="color: var(--c4);">
         <time datetime="{{ page.date }}">{{ page.date | date(format="%B %d, %Y") }}</time>
         {% if page.extra.author %}
         <span>•</span>
@@ -41,17 +41,17 @@
         <span>•</span>
         <div class="flex gap-2">
           {% for tag in page.taxonomies.tags %}
-          <span class="text-orange-500">#{{ tag }}</span>
+          <span style="color: var(--a1);">#{{ tag }}</span>
           {% endfor %}
         </div>
         {% endif %}
       </div>
 
       <!-- Title -->
-      <h1 class="text-4xl lg:text-5xl font-bold text-white mb-6">{{ page.title }}</h1>
+      <h1 class="text-4xl lg:text-5xl font-bold mb-6" style="color: var(--f2);">{{ page.title }}</h1>
 
       {% if page.description %}
-      <p class="text-xl text-slate-400 mb-8 pb-8 border-b border-slate-800">{{ page.description }}</p>
+      <p class="text-xl mb-8 pb-8" style="color: var(--c4); border-bottom: 1px solid var(--c3);">{{ page.description }}</p>
       {% endif %}
 
       <!-- Content -->
@@ -60,10 +60,10 @@
       </div>
 
       <!-- Footer -->
-      <div class="mt-12 pt-8 border-t border-slate-800">
+      <div class="mt-12 pt-8" style="border-top: 1px solid var(--c3);">
         <div class="flex justify-between items-center">
           {% if page.earlier %}
-          <a href="{{ page.earlier.permalink }}" class="text-orange-500 hover:text-orange-400 transition-colors">
+          <a href="{{ page.earlier.permalink }}" class="transition-colors" style="color: var(--a1);" onmouseover="this.style.color='var(--a1-hover)'" onmouseout="this.style.color='var(--a1)'">
             ← {{ page.earlier.title }}
           </a>
           {% else %}
@@ -71,7 +71,7 @@
           {% endif %}
 
           {% if page.later %}
-          <a href="{{ page.later.permalink }}" class="text-orange-500 hover:text-orange-400 transition-colors">
+          <a href="{{ page.later.permalink }}" class="transition-colors" style="color: var(--a1);" onmouseover="this.style.color='var(--a1-hover)'" onmouseout="this.style.color='var(--a1)'">
             {{ page.later.title }} →
           </a>
           {% endif %}
@@ -80,13 +80,13 @@
     </article>
 
     <!-- Share/Subscribe Section -->
-    <div class="mt-8 p-6 bg-slate-900/40 border border-slate-800 rounded-lg">
+    <div class="mt-8 p-6 rounded-lg" style="background: color-mix(in srgb, var(--c2) 40%, transparent); border: 1px solid var(--c3);">
       <div class="flex items-center justify-between">
         <div>
-          <h3 class="text-white font-bold mb-2">Stay Updated</h3>
-          <p class="text-slate-400 text-sm">Subscribe to our RSS feed for the latest updates.</p>
+          <h3 class="font-bold mb-2" style="color: var(--f2);">Stay Updated</h3>
+          <p class="text-sm" style="color: var(--c4);">Subscribe to our RSS feed for the latest updates.</p>
         </div>
-        <a href="{{ config.base_url }}/rss.xml" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg transition-colors">
+        <a href="{{ config.base_url }}/rss.xml" class="px-4 py-2 rounded-lg transition-colors" style="background: var(--a1); color: white;" onmouseover="this.style.background='var(--a1-hover)'" onmouseout="this.style.background='var(--a1)'">
           Subscribe
         </a>
       </div>
