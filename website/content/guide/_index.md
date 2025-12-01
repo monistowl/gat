@@ -1,13 +1,9 @@
 +++
 title = "User Guide"
-description = "Getting started and using GAT for power systems analysis"
+description = "Practical guides for CLI operators and analysts using GAT"
 template = "section.html"
 sort_by = "weight"
 +++
-
-# User Guide
-
-Practical guides for CLI operators and analysts using GAT.
 
 ## Getting Started
 

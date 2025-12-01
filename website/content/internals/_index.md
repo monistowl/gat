@@ -1,13 +1,9 @@
 +++
 title = "Developer Internals"
-description = "Architecture, crate structure, and contribution guide for GAT developers"
+description = "Technical documentation for Rust developers contributing to GAT"
 template = "section.html"
 sort_by = "weight"
 +++
-
-# Developer Internals
-
-Technical documentation for Rust developers contributing to GAT.
 
 ## Architecture
 

@@ -1,13 +1,9 @@
 +++
 title = "Reference & Theory"
-description = "Power systems theory, algorithms, and technical reference"
+description = "Technical reference for power systems students, researchers, and practitioners"
 template = "section.html"
 sort_by = "weight"
 +++
-
-# Reference & Theory
-
-Technical reference for power systems students, researchers, and practitioners.
 
 ## Quick Reference
 
