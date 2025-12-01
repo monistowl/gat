@@ -54,7 +54,10 @@ fn try_vendor_local(vendor_local: &Path) -> bool {
     let include_dir = vendor_local.join("include/coin-or");
 
     // Check if IPOPT library exists
-    let has_shared = lib_dir.join("libipopt.so").exists();
+    // Linux uses .so, macOS uses .dylib
+    let has_shared_linux = lib_dir.join("libipopt.so").exists();
+    let has_shared_macos = lib_dir.join("libipopt.dylib").exists();
+    let has_shared = has_shared_linux || has_shared_macos;
     let has_static = lib_dir.join("libipopt.a").exists();
 
     if !has_shared && !has_static {
@@ -76,10 +79,18 @@ fn try_vendor_local(vendor_local: &Path) -> bool {
     if has_shared {
         println!("cargo:rustc-link-lib=ipopt");
         // Set rpath for finding shared library at runtime
-        // Use $ORIGIN-relative path for installed binaries (solvers/ -> ../lib/)
+        // Use relative path for installed binaries (solvers/ -> ../lib/)
         // Plus absolute path as fallback for development builds
-        println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/../lib");
-        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
+        #[cfg(target_os = "linux")]
+        {
+            println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/../lib");
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
+        }
+        #[cfg(target_os = "macos")]
+        {
+            println!("cargo:rustc-link-arg=-Wl,-rpath,@loader_path/../lib");
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
+        }
     } else {
         println!("cargo:rustc-link-lib=static=ipopt");
         // Static linking needs all dependencies

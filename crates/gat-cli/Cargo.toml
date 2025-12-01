@@ -8,7 +8,7 @@ default = ["full-io", "minimal", "viz"]
 docs = ["schemars", "clap-markdown", "clap_mangen"]
 minimal-io = ["gat-io/minimal", "gat-ts/minimal"]
 full-io = ["gat-io/full", "gat-ts/full"]
-gui = ["dep:gat-gui"]
+gui = ["dep:gat-gui", "dep:gat-notebook"]
 tui = ["dep:gat-tui"]
 viz = ["dep:gat-viz"]
 all-backends = [
@@ -42,6 +42,7 @@ gat-schemas = { path = "../gat-schemas" }
 gat-batch = { path = "../gat-batch" }
 gat-viz = { path = "../gat-viz", optional = true }
 gat-gui = { path = "../gat-gui", optional = true }
+gat-notebook = { path = "../gat-notebook", optional = true }
 gat-tui = { path = "../gat-tui", optional = true }
 dirs = "4"
 clap = { version = "4.0", features = ["derive"] }

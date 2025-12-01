@@ -2142,6 +2142,7 @@ dependencies = [
  "gat-dist",
  "gat-gui",
  "gat-io",
+ "gat-notebook",
  "gat-scenarios",
  "gat-schemas",
  "gat-ts",
