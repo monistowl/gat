@@ -87,8 +87,8 @@ fn try_system_cbc() -> bool {
     println!("cargo:rustc-link-lib=c++");
 
     // Link additional dependencies that CoinUtils requires
-    // Note: bz2 is provided by bzip2-sys crate dependency, not system -lbz2
     println!("cargo:rustc-link-lib=z");
+    println!("cargo:rustc-link-lib=bz2");
     println!("cargo:rustc-link-lib=lapack");
     println!("cargo:rustc-link-lib=blas");
     println!("cargo:rustc-link-lib=m");
@@ -120,11 +120,12 @@ fn emit_link_flags(artifacts: &gat_coinor_build::BuildArtifacts) {
     println!("cargo:rustc-link-lib=c++");
 
     // Link system libraries required by CoinUtils
-    // Note: bz2 is provided by bzip2-sys crate dependency, not system -lbz2
     // - z (zlib): compressed file I/O (gzopen, gzread, etc.)
+    // - bz2 (bzip2): compressed file I/O (BZ2_bzReadOpen, etc.)
     // - lapack/blas: dense linear algebra (dgetrf_, dgetrs_)
     // - readline: interactive parameter input (CoinParamUtils)
     println!("cargo:rustc-link-lib=z");
+    println!("cargo:rustc-link-lib=bz2");
     println!("cargo:rustc-link-lib=lapack");
     println!("cargo:rustc-link-lib=blas");
     println!("cargo:rustc-link-lib=readline");
