@@ -27,12 +27,8 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
             let out_path = Path::new(out);
 
             let network = importers::load_grid_from_arrow(grid_file.as_str())?;
-            let res = power_flow::dc_power_flow(
-                &network,
-                solver_impl.as_ref(),
-                out_path,
-                &partitions,
-            );
+            let res =
+                power_flow::dc_power_flow(&network, solver_impl.as_ref(), out_path, &partitions);
 
             record_run_timed(
                 out,

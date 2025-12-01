@@ -10,7 +10,6 @@ pub trait LinearSystemBackend: Send + Sync {
     fn solve(&self, matrix: &[Vec<f64>], rhs: &[f64]) -> Result<Vec<f64>>;
 }
 
-
 #[derive(Debug, Clone, Default)]
 pub struct GaussSolver;
 

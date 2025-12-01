@@ -37,8 +37,8 @@ pub fn fetch_latest_release(repo_owner: &str, repo_name: &str) -> Result<String>
     }
 
     // Parse JSON with serde instead of piping to jq
-    let release: GitHubRelease = serde_json::from_slice(&output.stdout)
-        .context("Failed to parse GitHub release JSON")?;
+    let release: GitHubRelease =
+        serde_json::from_slice(&output.stdout).context("Failed to parse GitHub release JSON")?;
 
     if release.tag_name.is_empty() {
         return Err(anyhow!("No tag_name in GitHub release response"));

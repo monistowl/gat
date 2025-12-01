@@ -116,8 +116,8 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
             configure_threads(threads);
 
             // Load network
-            let network = importers::load_grid_from_arrow(grid_file.as_str())
-                .context("loading grid file")?;
+            let network =
+                importers::load_grid_from_arrow(grid_file.as_str()).context("loading grid file")?;
 
             // Build AC-OPF problem
             let problem = AcOpfProblem::from_network(&network)
