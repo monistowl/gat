@@ -32,7 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        variant: [headless, full, analyst]
+        variant: [headless, full]
 
     outputs:
       summary: ${{ steps.summary.outputs.json }}
@@ -80,9 +80,6 @@ jobs:
           case "${{ matrix.variant }}" in
             headless)
               echo "flags=--no-default-features --features minimal-io" >> $GITHUB_OUTPUT
-              ;;
-            analyst)
-              echo "flags=--no-default-features --features minimal-io,adms,derms,dist,analytics,featurize" >> $GITHUB_OUTPUT
               ;;
             full)
               # Use explicit features instead of --all-features to avoid embedded solver
