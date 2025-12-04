@@ -1,5 +1,6 @@
 <script lang="ts">
   import { open } from '@tauri-apps/plugin-dialog';
+  import { invoke } from '@tauri-apps/api/core';
 
   // Props
   let { isOpen, onClose }: {
@@ -40,6 +41,20 @@
   let saveLogs = $state<boolean>(true);
   let generateSummary = $state<boolean>(true);
   let generateViolations = $state<boolean>(false);
+
+  // State - Execution
+  let runId = $state<string | null>(null);
+  let isRunning = $state(false);
+  let progress = $state({ completed: 0, total: 0 });
+  let results = $state<JobResult[] | null>(null);
+  let runError = $state<string | null>(null);
+
+  interface JobResult {
+    job_id: string;
+    status: string;
+    duration_ms: number | null;
+    error: string | null;
+  }
 
   // Analysis types
   const analysisTypes = [
@@ -228,6 +243,68 @@
     // Mock: return a random estimate based on file pattern
     return filePattern === '*.arrow' ? 12 : filePattern === '*.m' ? 8 : 5;
   });
+
+  // Execution functions
+  async function runBatch() {
+    if (!inputDir || !outputDir) return;
+
+    isRunning = true;
+    runError = null;
+    results = null;
+
+    try {
+      const response = await invoke<{ run_id: string; total_jobs: number }>('run_batch_job', {
+        request: {
+          input_dir: inputDir,
+          output_dir: outputDir,
+          file_pattern: filePattern,
+          analysis_type: analysisType,
+          parallel_jobs: parallelJobs,
+          tolerance: parseFloat(tolerance),
+          max_iterations: maxIterations,
+        }
+      });
+
+      runId = response.run_id;
+      progress = { completed: 0, total: response.total_jobs };
+
+      // Poll for status
+      pollStatus();
+    } catch (e) {
+      runError = String(e);
+      isRunning = false;
+    }
+  }
+
+  async function pollStatus() {
+    if (!runId) return;
+
+    try {
+      const status = await invoke<{
+        status: string;
+        completed: number;
+        total: number;
+        results: JobResult[] | null;
+        error: string | null;
+      }>('get_batch_status', { runId });
+
+      progress = { completed: status.completed, total: status.total };
+
+      if (status.status === 'completed') {
+        isRunning = false;
+        results = status.results;
+      } else if (status.status === 'failed') {
+        isRunning = false;
+        runError = status.error;
+      } else {
+        // Still running, poll again
+        setTimeout(pollStatus, 500);
+      }
+    } catch (e) {
+      runError = String(e);
+      isRunning = false;
+    }
+  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -605,6 +682,67 @@
         </div>
       </div>
     </section>
+
+    <!-- Results (shown after completion) -->
+    {#if results}
+      <section class="results-section">
+        <h3>📊 Results</h3>
+
+        <!-- Summary Stats -->
+        <div class="results-summary">
+          <div class="stat success">
+            <span class="stat-value">{results.filter(r => r.status === 'ok').length}</span>
+            <span class="stat-label">Passed</span>
+          </div>
+          <div class="stat error">
+            <span class="stat-value">{results.filter(r => r.status === 'error').length}</span>
+            <span class="stat-label">Failed</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">{(results.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / 1000).toFixed(2)}s</span>
+            <span class="stat-label">Total Time</span>
+          </div>
+        </div>
+
+        <!-- Job Table -->
+        <div class="results-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Job</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each results.slice(0, 10) as job}
+                <tr class:error={job.status === 'error'}>
+                  <td class="job-name">{job.job_id}</td>
+                  <td class="job-status">
+                    {#if job.status === 'ok'}
+                      <span class="status-ok">✓</span>
+                    {:else}
+                      <span class="status-error" title={job.error || ''}>✗</span>
+                    {/if}
+                  </td>
+                  <td class="job-time">{job.duration_ms?.toFixed(1) || '—'}ms</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          {#if results.length > 10}
+            <div class="table-footer">+ {results.length - 10} more jobs</div>
+          {/if}
+        </div>
+      </section>
+    {/if}
+
+    {#if runError}
+      <section class="error-section">
+        <h3>❌ Error</h3>
+        <p class="error-message">{runError}</p>
+      </section>
+    {/if}
   </div>
 
   <!-- Footer Actions -->
@@ -618,8 +756,16 @@
     </div>
     <div class="footer-actions">
       <button class="btn secondary" onclick={onClose}>Cancel</button>
-      <button class="btn primary" disabled={!isConfigured}>
-        ▶ Run Batch Job
+      <button
+        class="btn primary"
+        disabled={!isConfigured || isRunning}
+        onclick={runBatch}
+      >
+        {#if isRunning}
+          ⏳ Running... ({progress.completed}/{progress.total})
+        {:else}
+          ▶ Run Batch Job
+        {/if}
       </button>
     </div>
   </footer>
@@ -1227,5 +1373,103 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     margin-bottom: 12px;
+  }
+
+  /* Results Section */
+  .results-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .results-summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .stat {
+    flex: 1;
+    text-align: center;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+  }
+
+  .stat.success .stat-value { color: #22c55e; }
+  .stat.error .stat-value { color: #ef4444; }
+
+  .stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .results-table {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .results-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .results-table th, .results-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .results-table th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .results-table tr.error { background: rgba(239, 68, 68, 0.1); }
+
+  .job-name {
+    font-family: 'SF Mono', monospace;
+    color: var(--text-primary);
+  }
+
+  .job-time {
+    color: var(--text-muted);
+    font-family: 'SF Mono', monospace;
+  }
+
+  .status-ok { color: #22c55e; }
+  .status-error { color: #ef4444; cursor: help; }
+
+  .table-footer {
+    padding: 8px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  /* Error Section */
+  .error-section {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .error-message {
+    color: #ef4444;
+    font-family: 'SF Mono', monospace;
+    font-size: 12px;
   }
 </style>
