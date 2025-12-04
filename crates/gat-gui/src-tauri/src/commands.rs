@@ -1655,6 +1655,112 @@ pub fn get_batch_status(
     })
 }
 
+// ============================================================================
+// PTDF Computation
+// ============================================================================
+
+use gat_algo::contingency::lodf::compute_ptdf_matrix;
+
+/// Request to compute PTDF factors.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PtdfRequest {
+    pub network_path: String,
+    pub injection_bus: usize,
+    pub withdrawal_bus: usize,
+}
+
+/// PTDF result for a single branch.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PtdfBranchResult {
+    pub branch_id: usize,
+    pub from_bus: usize,
+    pub to_bus: usize,
+    pub branch_name: String,
+    pub ptdf_factor: f64,
+    pub flow_change_mw: f64,
+}
+
+/// Response from PTDF computation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PtdfResponse {
+    pub injection_bus: usize,
+    pub withdrawal_bus: usize,
+    pub transfer_mw: f64,
+    pub branches: Vec<PtdfBranchResult>,
+    pub compute_time_ms: f64,
+}
+
+/// Compute PTDF factors for a transfer between two buses.
+#[tauri::command]
+pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
+    let start = std::time::Instant::now();
+    let path = std::path::Path::new(&request.network_path);
+
+    // Parse network (use existing pattern from commands.rs)
+    let result = if let Some((format, _)) = Format::detect(path) {
+        format.parse(&request.network_path).map_err(|e| e.to_string())?
+    } else {
+        parse_matpower(&request.network_path).map_err(|e| e.to_string())?
+    };
+
+    let network = &result.network;
+
+    // Compute PTDF matrix
+    let ptdf_matrix = compute_ptdf_matrix(network).map_err(|e| e.to_string())?;
+
+    // Get branch info for names
+    let mut branch_info: HashMap<usize, (usize, usize, String)> = HashMap::new();
+    for edge in network.graph.edge_references() {
+        if let Edge::Branch(branch) = edge.weight() {
+            branch_info.insert(
+                branch.id.value(),
+                (branch.from_bus.value(), branch.to_bus.value(), branch.name.clone()),
+            );
+        }
+    }
+
+    // Calculate PTDF for the specified transfer
+    // Transfer = inject at injection_bus, withdraw at withdrawal_bus
+    // Net PTDF = PTDF[branch, injection] - PTDF[branch, withdrawal]
+    let transfer_mw = 100.0; // Standard 100 MW transfer
+    let mut branches: Vec<PtdfBranchResult> = Vec::new();
+
+    for &branch_id in &ptdf_matrix.branch_ids {
+        let ptdf_inject = ptdf_matrix.get(branch_id, request.injection_bus).unwrap_or(0.0);
+        let ptdf_withdraw = ptdf_matrix.get(branch_id, request.withdrawal_bus).unwrap_or(0.0);
+        let ptdf_factor = ptdf_inject - ptdf_withdraw;
+
+        let (from_bus, to_bus, name) = branch_info
+            .get(&branch_id)
+            .cloned()
+            .unwrap_or((0, 0, format!("Branch {}", branch_id)));
+
+        branches.push(PtdfBranchResult {
+            branch_id,
+            from_bus,
+            to_bus,
+            branch_name: name,
+            ptdf_factor,
+            flow_change_mw: ptdf_factor * transfer_mw,
+        });
+    }
+
+    // Sort by absolute PTDF factor descending
+    branches.sort_by(|a, b| {
+        b.ptdf_factor.abs().partial_cmp(&a.ptdf_factor.abs()).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let compute_time_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    Ok(PtdfResponse {
+        injection_bus: request.injection_bus,
+        withdrawal_bus: request.withdrawal_bus,
+        transfer_mw,
+        branches,
+        compute_time_ms,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
