@@ -1,6 +1,6 @@
 [package]
 name = "gat-cli"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 
 [features]
@@ -11,20 +11,20 @@ full-io = ["gat-io/full", "gat-ts/full"]
 gui = ["dep:gat-gui", "dep:gat-notebook"]
 tui = ["dep:gat-tui"]
 viz = ["dep:gat-viz"]
-all-backends = [
-    "solver-clarabel",
-    "solver-highs",
-    "polars-lazy",
-    "polars-parquet",
-    "polars-ipc",
-]
-minimal = ["solver-clarabel", "polars-lazy", "polars-parquet", "polars-ipc"]
+
+# All pure-Rust solvers + polars (no native FFI)
+all-solvers = ["solver-clarabel", "solver-highs", "all-polars"]
+# Minimal feature set for default builds
+minimal = ["solver-clarabel", "all-polars"]
+
+# Solver backends (forwarded to gat-algo)
 solver-clarabel = ["gat-algo/solver-clarabel"]
 solver-highs = ["gat-algo/solver-highs"]
 solver-ipopt = ["gat-algo/solver-ipopt"]
 native-dispatch = ["gat-algo/native-dispatch"]
-# DEPRECATED: Use native-dispatch + gat-cbc instead. Requires system CBC install.
-solver-coin_cbc = ["gat-algo/solver-coin_cbc"]
+
+# Polars features (bundled)
+all-polars = ["polars-lazy", "polars-parquet", "polars-ipc"]
 polars-lazy = ["gat-algo/polars-lazy"]
 polars-parquet = ["gat-algo/polars-parquet"]
 polars-ipc = ["gat-algo/polars-ipc"]

@@ -1231,7 +1231,7 @@ fn build_bus_susceptance(
         .collect();
     bus_ids.sort_unstable();
 
-    let mut id_to_index = HashMap::new();
+    let mut id_to_index = HashMap::with_capacity(bus_ids.len());
     for (idx, bus_id) in bus_ids.iter().enumerate() {
         id_to_index.insert(*bus_id, idx);
     }
@@ -1301,7 +1301,7 @@ fn compute_dc_angles(
     // Drop the slack bus row/column so the susceptance matrix becomes non-singular before solving Aj = P.
 
     let solution = solve_linear_system(&reduced, &reduced_rhs, solver)?;
-    let mut angles = HashMap::new();
+    let mut angles = HashMap::with_capacity(node_count);
     angles.insert(bus_ids[0], 0.0);
     for (i, bus_id) in bus_ids.iter().enumerate().skip(1) {
         angles.insert(*bus_id, solution[i - 1]);
@@ -1435,7 +1435,7 @@ fn build_measurement_rows(
     // Each measurement contributes a row to the WLS Jacobian, mapping the unknown bus angles
     // into the expected measurement; flow and injection equations come from the DC sensitivities,
     // while angle/voltage measurements are direct observations of a single variable (see doi:10.1109/PWRS.2003.1307674).
-    let mut branch_map = HashMap::new();
+    let mut branch_map = HashMap::with_capacity(network.graph.edge_count());
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
             if !branch.status {

@@ -1,50 +1,39 @@
 use gat_core::{Edge, Gen, Network, Node};
 use std::collections::HashMap;
 use std::time::Duration;
+use thiserror::Error;
 
 /// AC OPF solver errors
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum AcOpfError {
     /// Network is infeasible (demand exceeds supply)
+    #[error("AC OPF infeasible: {0}")]
     Infeasible(String),
+
     /// Problem is unbounded
+    #[error("AC OPF unbounded")]
     Unbounded,
+
     /// Solver timeout
+    #[error("AC OPF timeout after {0:?}")]
     SolverTimeout(Duration),
+
     /// Numerical convergence issue
+    #[error("AC OPF numerical issue: {0}")]
     NumericalIssue(String),
+
     /// Input data validation error
+    #[error("AC OPF data validation: {0}")]
     DataValidation(String),
+
     /// Convergence failure with residual info
+    #[error("AC OPF failed to converge after {iterations} iterations (residual: {residual:.2e})")]
     ConvergenceFailure { iterations: usize, residual: f64 },
+
     /// Method not yet implemented
+    #[error("OPF method not implemented: {0}")]
     NotImplemented(String),
 }
-
-impl std::fmt::Display for AcOpfError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AcOpfError::Infeasible(msg) => write!(f, "AC OPF infeasible: {}", msg),
-            AcOpfError::Unbounded => write!(f, "AC OPF unbounded"),
-            AcOpfError::SolverTimeout(dur) => write!(f, "AC OPF timeout after {:?}", dur),
-            AcOpfError::NumericalIssue(msg) => write!(f, "AC OPF numerical issue: {}", msg),
-            AcOpfError::DataValidation(msg) => write!(f, "AC OPF data validation: {}", msg),
-            AcOpfError::ConvergenceFailure {
-                iterations,
-                residual,
-            } => {
-                write!(
-                    f,
-                    "AC OPF failed to converge after {} iterations (residual: {})",
-                    iterations, residual
-                )
-            }
-            AcOpfError::NotImplemented(msg) => write!(f, "OPF method not implemented: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for AcOpfError {}
 
 /// AC OPF Solution
 #[derive(Debug, Clone)]

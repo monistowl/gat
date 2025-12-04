@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use gat_core::{BusId, Network, Node, NodeIndex};
 use petgraph::visit::EdgeRef;
+use rayon::prelude::*;
 use std::collections::HashSet;
 
 /// Represents a single outage scenario (which generators/lines are offline)
@@ -178,8 +179,9 @@ impl MonteCarlo {
         use std::collections::{HashMap, HashSet};
 
         // Build lookup caches once (reused for all scenarios)
-        let mut bus_id_to_node: HashMap<BusId, NodeIndex> = HashMap::new();
-        let mut load_buses: HashSet<BusId> = HashSet::new();
+        let node_count = network.graph.node_count();
+        let mut bus_id_to_node: HashMap<BusId, NodeIndex> = HashMap::with_capacity(node_count);
+        let mut load_buses: HashSet<BusId> = HashSet::with_capacity(node_count);
         let mut total_demand = 0.0;
 
         for node_idx in network.graph.node_indices() {
@@ -204,32 +206,42 @@ impl MonteCarlo {
             .scenario_gen
             .generate_scenarios(network, self.num_scenarios);
 
-        // Analyze each scenario
-        let mut shortfall_hours = 0.0;
-        let mut total_shortfall_mwh = 0.0;
-        let mut scenarios_with_shortfall = 0;
+        // Analyze scenarios in parallel (embarrassingly parallel workload)
+        // Each scenario is independent - we compute shortfall metrics and aggregate
+        let results: Result<Vec<(f64, f64, bool)>> = scenarios
+            .par_iter()
+            .map(|scenario| {
+                let available_gen = self.calculate_deliverable_generation(
+                    network,
+                    scenario,
+                    &bus_id_to_node,
+                    &load_buses,
+                )?;
 
-        for scenario in &scenarios {
-            // Calculate available generation accounting for branch outages
-            // When a branch is offline, it may disconnect generators from loads
-            let available_gen = self.calculate_deliverable_generation(
-                network,
-                scenario,
-                &bus_id_to_node,
-                &load_buses,
-            )?;
+                let demand = total_demand * scenario.demand_scale;
+                let has_shortfall = available_gen < demand;
+                let shortfall = if has_shortfall {
+                    demand - available_gen
+                } else {
+                    0.0
+                };
 
-            // Calculate demand for this scenario
-            let demand = total_demand * scenario.demand_scale;
+                Ok((scenario.probability, shortfall * scenario.probability, has_shortfall))
+            })
+            .collect();
 
-            // Check for shortfall
-            if available_gen < demand {
-                let shortfall = demand - available_gen;
-                shortfall_hours += scenario.probability;
-                total_shortfall_mwh += shortfall * scenario.probability;
-                scenarios_with_shortfall += 1;
-            }
-        }
+        let results = results?;
+
+        // Aggregate parallel results
+        let (shortfall_hours, total_shortfall_mwh, scenarios_with_shortfall) = results
+            .iter()
+            .fold((0.0, 0.0, 0usize), |(sh, ts, count), (prob, shortfall_mwh, has_shortfall)| {
+                if *has_shortfall {
+                    (sh + prob, ts + shortfall_mwh, count + 1)
+                } else {
+                    (sh, ts, count)
+                }
+            });
 
         // Convert shortfall hours to annual basis
         let lole = shortfall_hours * self.hours_per_year;
