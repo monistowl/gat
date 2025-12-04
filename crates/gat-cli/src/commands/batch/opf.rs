@@ -5,10 +5,64 @@ use std::time::Instant;
 use crate::commands::telemetry::record_run_timed;
 use crate::commands::util::{configure_threads, parse_partitions};
 use anyhow::{anyhow, Result};
-use gat_batch::{jobs_from_artifacts, run_batch, BatchRunnerConfig, TaskKind};
+use gat_batch::{jobs_from_artifacts, run_batch, BatchRunnerConfig, BatchSummary, TaskKind};
 use gat_cli::cli::BatchCommands;
 use gat_core::solver::SolverKind;
 use gat_scenarios::manifest::load_manifest;
+
+/// Format duration in human-readable form
+fn format_duration(ms: f64) -> String {
+    if ms < 1000.0 {
+        format!("{:.1}ms", ms)
+    } else if ms < 60_000.0 {
+        format!("{:.2}s", ms / 1000.0)
+    } else {
+        let mins = (ms / 60_000.0).floor();
+        let secs = (ms % 60_000.0) / 1000.0;
+        format!("{:.0}m {:.1}s", mins, secs)
+    }
+}
+
+/// Print rich batch summary with statistics
+fn print_batch_summary(summary: &BatchSummary, task_name: &str) {
+    let stats = &summary.stats;
+
+    println!();
+    println!("╭─────────────────────────────────────────────────────────╮");
+    println!("│  Batch {} Summary                                     │", task_name);
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!("│  Jobs: {:>6} total  │  Success: {:>6}  │  Failed: {:>4} │",
+             summary.jobs.len(), summary.success, summary.failure);
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!("│  Timing Statistics                                      │");
+    println!("│    Total:   {:>12}                                │", format_duration(stats.total_time_ms));
+    println!("│    Mean:    {:>12}    Median: {:>12}       │",
+             format_duration(stats.mean_time_ms), format_duration(stats.median_time_ms));
+    println!("│    Min:     {:>12}    Max:    {:>12}       │",
+             format_duration(stats.min_time_ms), format_duration(stats.max_time_ms));
+    println!("│    P95:     {:>12}                                │", format_duration(stats.p95_time_ms));
+
+    // Show AC solver stats if available
+    if let (Some(avg_iter), Some(conv_rate)) = (stats.avg_iterations, stats.convergence_rate) {
+        println!("├─────────────────────────────────────────────────────────┤");
+        println!("│  Solver Statistics                                      │");
+        println!("│    Avg Iterations: {:>6.1}    Convergence: {:>6.1}%      │",
+                 avg_iter, conv_rate * 100.0);
+    }
+
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!("│  Manifest: {}  │", summary.manifest_path.display());
+    println!("╰─────────────────────────────────────────────────────────╯");
+
+    // Show failed jobs if any
+    if summary.failure > 0 {
+        println!();
+        println!("Failed jobs:");
+        for job in summary.jobs.iter().filter(|j| j.status == "error") {
+            println!("  ✗ {} - {}", job.job_id, job.error.as_deref().unwrap_or("unknown error"));
+        }
+    }
+}
 
 pub fn handle(command: &BatchCommands) -> Result<()> {
     let BatchCommands::Opf {
@@ -76,12 +130,8 @@ pub fn handle(command: &BatchCommands) -> Result<()> {
     let mut summary = None;
     let res = (|| -> Result<()> {
         let batch_summary = run_batch(&config)?;
-        println!(
-            "batch opf {} -> {}/{} ok/fail",
-            batch_summary.jobs.len(),
-            batch_summary.success,
-            batch_summary.failure
-        );
+        let task_name = if *mode == "dc" { "OPF-DC" } else { "OPF-AC" };
+        print_batch_summary(&batch_summary, task_name);
         summary = Some(batch_summary);
         Ok(())
     })();

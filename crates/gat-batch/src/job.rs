@@ -49,6 +49,15 @@ pub struct BatchJobRecord {
     pub status: String,
     pub error: Option<String>,
     pub output: String,
+    /// Execution duration in milliseconds
+    #[serde(default)]
+    pub duration_ms: Option<f64>,
+    /// For AC solvers: number of iterations to convergence
+    #[serde(default)]
+    pub iterations: Option<u32>,
+    /// For AC solvers: whether the solution converged
+    #[serde(default)]
+    pub converged: Option<bool>,
 }
 
 /// Convert scenario artifacts (from `gat scenarios materialize`) into batch jobs.

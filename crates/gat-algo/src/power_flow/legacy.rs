@@ -180,16 +180,58 @@ pub fn dc_power_flow(
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for DC power flow")?;
 
+    // Compute flow statistics
+    let flow_vals: Vec<f64> = df
+        .column("flow_mw")
+        .ok()
+        .and_then(|c| c.f64().ok())
+        .map(|ca| ca.into_iter().flatten().collect())
+        .unwrap_or_default();
+    let abs_flows: Vec<f64> = flow_vals.iter().map(|f| f.abs()).collect();
+    let max_abs_flow = abs_flows.iter().cloned().fold(0.0f64, f64::max);
+
     // Persist branch flow results to Parquet
     persist_dataframe(&mut df, output_file, partitions, OutputStage::PfDc.as_str())?;
 
+    // Count buses and compute total injection
+    let num_buses = injections.len();
+    let total_gen: f64 = injections.values().filter(|&&v| v > 0.0).sum();
+    let total_load: f64 = injections.values().filter(|&&v| v < 0.0).map(|v| -v).sum();
+
+    // Print rich DC power flow summary
+    println!();
+    println!("╭─────────────────────────────────────────────────────────╮");
+    println!("│  DC Power Flow Results                                  │");
+    println!("├─────────────────────────────────────────────────────────┤");
     println!(
-        "DC power flow summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
-        df.height(),
-        min_flow,
-        max_flow,
-        output_file.display()
+        "│  Buses: {:>6}                                          │",
+        num_buses
     );
+    println!(
+        "│  Generation: {:>10.2} MW                              │",
+        total_gen
+    );
+    println!(
+        "│  Load:       {:>10.2} MW                              │",
+        total_load
+    );
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!(
+        "│  Branch Flows: {} branches                              │",
+        df.height()
+    );
+    println!(
+        "│    Range: [{:>8.2}, {:>8.2}] MW                        │",
+        min_flow, max_flow
+    );
+    println!(
+        "│    Max |flow|: {:>10.2} MW                            │",
+        max_abs_flow
+    );
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!("│  Output: {}  │", output_file.display());
+    println!("╰─────────────────────────────────────────────────────────╯");
+
     Ok(())
 }
 
@@ -314,21 +356,66 @@ pub fn ac_power_flow(
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
         .context("building branch flow table for AC power flow")?;
 
+    // Compute flow statistics
+    let flow_vals: Vec<f64> = df
+        .column("flow_mw")
+        .ok()
+        .and_then(|c| c.f64().ok())
+        .map(|ca| ca.into_iter().flatten().collect())
+        .unwrap_or_default();
+    let abs_flows: Vec<f64> = flow_vals.iter().map(|f| f.abs()).collect();
+    let max_abs_flow = abs_flows.iter().cloned().fold(0.0f64, f64::max);
+
     // Persist branch flow results to Parquet
     persist_dataframe(&mut df, output_file, partitions, OutputStage::PfAc.as_str())?;
 
     // Build bus-level results (voltages, angles) for reporting
     let bus_df = bus_result_dataframe(network).context("building bus table for AC power flow")?;
 
+    // Compute bus statistics
+    let num_buses = bus_df.height();
+    let total_gen: f64 = injections.values().filter(|&&v| v > 0.0).sum();
+    let total_load: f64 = injections.values().filter(|&&v| v < 0.0).map(|v| -v).sum();
+
+    // Print rich AC power flow summary
+    println!();
+    println!("╭─────────────────────────────────────────────────────────╮");
+    println!("│  AC Power Flow Results                                  │");
+    println!("├─────────────────────────────────────────────────────────┤");
     println!(
-        "AC power flow summary: tol={} max_iter={} -> {} buses, branch flow range [{:.3}, {:.3}] MW, persisted to {}",
-        tol,
-        max_iter,
-        bus_df.height(),
-        min_flow,
-        max_flow,
-        output_file.display()
+        "│  Solver: tol={:<8.1e}  max_iter={:<6}                 │",
+        tol, max_iter
     );
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!(
+        "│  Buses: {:>6}                                          │",
+        num_buses
+    );
+    println!(
+        "│  Generation: {:>10.2} MW                              │",
+        total_gen
+    );
+    println!(
+        "│  Load:       {:>10.2} MW                              │",
+        total_load
+    );
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!(
+        "│  Branch Flows: {} branches                              │",
+        df.height()
+    );
+    println!(
+        "│    Range: [{:>8.2}, {:>8.2}] MW                        │",
+        min_flow, max_flow
+    );
+    println!(
+        "│    Max |flow|: {:>10.2} MW                            │",
+        max_abs_flow
+    );
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!("│  Output: {}  │", output_file.display());
+    println!("╰─────────────────────────────────────────────────────────╯");
+
     Ok(())
 }
 
@@ -433,11 +520,20 @@ pub fn dc_optimal_power_flow(
         }
     };
 
+    // Build injections and compute dispatch summary
     let mut injections = HashMap::new();
+    let mut total_cost = 0.0;
+    let mut dispatch_summary: Vec<(usize, f64, f64, f64)> = Vec::new(); // (bus_id, dispatch, cost_coeff, contribution)
+
     for (bus_id, var, demand) in gen_vars.iter() {
-        // Subtract load from the solved dispatch to compute nodal injections for the power flow.
         let dispatch = solution.value(*var);
         injections.insert(*bus_id, dispatch - *demand);
+
+        // Calculate cost contribution for this generator
+        let cost_coeff = *costs.get(bus_id).unwrap_or(&1.0);
+        let contribution = cost_coeff * dispatch;
+        total_cost += contribution;
+        dispatch_summary.push((*bus_id, dispatch, cost_coeff, contribution));
     }
 
     let (mut df, max_flow, min_flow) = branch_flow_dataframe(network, &injections, None, solver)
@@ -451,13 +547,49 @@ pub fn dc_optimal_power_flow(
         OutputStage::OpfDc.as_str(),
     )
     .context("writing DC-OPF Parquet output")?;
+
+    // Print rich DC-OPF summary
+    println!();
+    println!("╭─────────────────────────────────────────────────────────╮");
+    println!("│  DC Optimal Power Flow Results                          │");
+    println!("├─────────────────────────────────────────────────────────┤");
     println!(
-        "DC-OPF summary: {} branch(es), flow range [{:.3}, {:.3}] MW, persisted to {}",
-        df.height(),
-        min_flow,
-        max_flow,
-        output_file.display()
+        "│  Total Cost: ${:>12.2}/hr                            │",
+        total_cost
     );
+    println!(
+        "│  Total Demand: {:>10.2} MW                            │",
+        total_demand
+    );
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!("│  Generator Dispatch                                     │");
+
+    // Sort by dispatch (descending) and show top generators
+    dispatch_summary.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    let top_n = dispatch_summary.len().min(5);
+    for (bus_id, dispatch, _cost, _contrib) in dispatch_summary.iter().take(top_n) {
+        println!("│    Bus {:>6}: {:>10.2} MW                            │", bus_id, dispatch);
+    }
+    if dispatch_summary.len() > 5 {
+        println!(
+            "│    ... and {} more generators                           │",
+            dispatch_summary.len() - 5
+        );
+    }
+
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!(
+        "│  Branch Flows: {} branches                              │",
+        df.height()
+    );
+    println!(
+        "│    Range: [{:>8.2}, {:>8.2}] MW                        │",
+        min_flow, max_flow
+    );
+    println!("├─────────────────────────────────────────────────────────┤");
+    println!("│  Output: {}  │", output_file.display());
+    println!("╰─────────────────────────────────────────────────────────╯");
+
     Ok(())
 }
 

@@ -24,6 +24,7 @@ members = [
     "crates/iocraft",
     "xtask",
     "crates/gat-mcp-docs",
+    "crates/gat-gui/src-tauri",
 ]
 default-members = [
     "crates/gat-core",

@@ -1,5 +1,5 @@
 use crate::job::{BatchJob, BatchJobRecord, TaskKind};
-use crate::manifest::{write_batch_manifest, BatchManifest};
+use crate::manifest::{write_batch_manifest, BatchManifest, BatchStats};
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use gat_algo::power_flow;
@@ -12,6 +12,7 @@ use rayon::ThreadPoolBuilder;
 use std::convert::TryInto;
 use std::fs;
 use std::path::PathBuf;
+use std::time::Instant;
 
 /// Runner settings that keep the batch aligned with the classic B′θ = P DC flow fan-out (doi:10.1109/TPWRS.2007.899019).
 pub struct BatchRunnerConfig {
@@ -36,9 +37,13 @@ pub struct BatchSummary {
     pub failure: usize,
     pub manifest_path: PathBuf,
     pub jobs: Vec<BatchJobRecord>,
+    /// Aggregated timing and solver statistics
+    pub stats: BatchStats,
 }
 
 pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
+    let batch_start = Instant::now();
+
     // Create output directory structure
     fs::create_dir_all(&config.output_root).with_context(|| {
         format!(
@@ -68,12 +73,17 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
             .collect()
     });
 
+    let total_time_ms = batch_start.elapsed().as_secs_f64() * 1000.0;
+
     // Count successes and failures for summary
     let success = job_records
         .iter()
         .filter(|record| record.status == "ok")
         .count();
     let failure = job_records.len() - success;
+
+    // Compute aggregated statistics
+    let stats = BatchStats::from_jobs(&job_records, total_time_ms);
 
     // Write batch manifest JSON for downstream tools (analytics, reporting)
     let manifest = BatchManifest {
@@ -83,6 +93,7 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
         success,
         failure,
         jobs: job_records.clone(),
+        stats: Some(stats.clone()),
     };
     let manifest_path = config.output_root.join("batch_manifest.json");
     write_batch_manifest(&manifest_path, &manifest)?;
@@ -91,6 +102,7 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
         failure,
         manifest_path,
         jobs: job_records,
+        stats,
     })
 }
 
@@ -105,6 +117,7 @@ pub fn run_batch(config: &BatchRunnerConfig) -> Result<BatchSummary> {
 /// **Returns:** BatchJobRecord with status ("ok" or "error") and output path.
 fn run_job(job: &BatchJob, config: &BatchRunnerConfig) -> BatchJobRecord {
     let output_file = config.output_root.join(&job.job_id).join("result.parquet");
+    let job_start = Instant::now();
 
     // Closure that performs the actual computation
     let runner = || -> Result<()> {
@@ -174,7 +187,10 @@ fn run_job(job: &BatchJob, config: &BatchRunnerConfig) -> BatchJobRecord {
             }
         }
     };
+
     let status = runner();
+    let duration_ms = job_start.elapsed().as_secs_f64() * 1000.0;
+
     let (status_label, error) = match status {
         Ok(_) => ("ok".to_string(), None),
         Err(err) => {
@@ -189,5 +205,8 @@ fn run_job(job: &BatchJob, config: &BatchRunnerConfig) -> BatchJobRecord {
         status: status_label,
         error,
         output: output_file.display().to_string(),
+        duration_ms: Some(duration_ms),
+        iterations: None, // TODO: capture from AC solver when available
+        converged: None,  // TODO: capture from AC solver when available
     }
 }

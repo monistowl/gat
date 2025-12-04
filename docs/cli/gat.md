@@ -6,13 +6,16 @@ This document contains the help content for the `gat-cli` command-line program.
 
 * [`gat-cli`↴](#gat-cli)
 * [`gat-cli import`↴](#gat-cli-import)
+* [`gat-cli import auto`↴](#gat-cli-import-auto)
 * [`gat-cli import psse`↴](#gat-cli-import-psse)
 * [`gat-cli import matpower`↴](#gat-cli-import-matpower)
 * [`gat-cli import cim`↴](#gat-cli-import-cim)
+* [`gat-cli import pandapower`↴](#gat-cli-import-pandapower)
 * [`gat-cli validate`↴](#gat-cli-validate)
 * [`gat-cli graph`↴](#gat-cli-graph)
 * [`gat-cli graph stats`↴](#gat-cli-graph-stats)
 * [`gat-cli graph islands`↴](#gat-cli-graph-islands)
+* [`gat-cli graph validate`↴](#gat-cli-graph-validate)
 * [`gat-cli graph export`↴](#gat-cli-graph-export)
 * [`gat-cli graph visualize`↴](#gat-cli-graph-visualize)
 * [`gat-cli scenarios`↴](#gat-cli-scenarios)
@@ -21,6 +24,7 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli scenarios expand`↴](#gat-cli-scenarios-expand)
 * [`gat-cli scenarios materialize`↴](#gat-cli-scenarios-materialize)
 * [`gat-cli completions`↴](#gat-cli-completions)
+* [`gat-cli doctor`↴](#gat-cli-doctor)
 * [`gat-cli pf`↴](#gat-cli-pf)
 * [`gat-cli pf dc`↴](#gat-cli-pf-dc)
 * [`gat-cli pf ac`↴](#gat-cli-pf-ac)
@@ -47,8 +51,14 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli opf`↴](#gat-cli-opf)
 * [`gat-cli opf dc`↴](#gat-cli-opf-dc)
 * [`gat-cli opf ac`↴](#gat-cli-opf-ac)
+* [`gat-cli opf ac-nlp`↴](#gat-cli-opf-ac-nlp)
 * [`gat-cli se`↴](#gat-cli-se)
 * [`gat-cli se wls`↴](#gat-cli-se-wls)
+* [`gat-cli solver`↴](#gat-cli-solver)
+* [`gat-cli solver list`↴](#gat-cli-solver-list)
+* [`gat-cli solver install`↴](#gat-cli-solver-install)
+* [`gat-cli solver uninstall`↴](#gat-cli-solver-uninstall)
+* [`gat-cli solver status`↴](#gat-cli-solver-status)
 * [`gat-cli viz`↴](#gat-cli-viz)
 * [`gat-cli viz plot`↴](#gat-cli-viz-plot)
 * [`gat-cli analytics`↴](#gat-cli-analytics)
@@ -72,6 +82,8 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli benchmark pfdelta`↴](#gat-cli-benchmark-pfdelta)
 * [`gat-cli benchmark pglib`↴](#gat-cli-benchmark-pglib)
 * [`gat-cli benchmark opfdata`↴](#gat-cli-benchmark-opfdata)
+* [`gat-cli benchmark summary`↴](#gat-cli-benchmark-summary)
+* [`gat-cli benchmark compare`↴](#gat-cli-benchmark-compare)
 * [`gat-cli runs`↴](#gat-cli-runs)
 * [`gat-cli runs list`↴](#gat-cli-runs-list)
 * [`gat-cli runs describe`↴](#gat-cli-runs-describe)
@@ -93,11 +105,17 @@ This document contains the help content for the `gat-cli` command-line program.
 * [`gat-cli dataset public fetch`↴](#gat-cli-dataset-public-fetch)
 * [`gat-cli dataset eia`↴](#gat-cli-dataset-eia)
 * [`gat-cli dataset ember`↴](#gat-cli-dataset-ember)
-* [`gat-cli solver`↴](#gat-cli-solver)
-* [`gat-cli solver list`↴](#gat-cli-solver-list)
-* [`gat-cli solver uninstall`↴](#gat-cli-solver-uninstall)
 * [`gat-cli version`↴](#gat-cli-version)
 * [`gat-cli version sync`↴](#gat-cli-version-sync)
+* [`gat-cli convert`↴](#gat-cli-convert)
+* [`gat-cli convert format`↴](#gat-cli-convert-format)
+* [`gat-cli inspect`↴](#gat-cli-inspect)
+* [`gat-cli inspect summary`↴](#gat-cli-inspect-summary)
+* [`gat-cli inspect generators`↴](#gat-cli-inspect-generators)
+* [`gat-cli inspect branches`↴](#gat-cli-inspect-branches)
+* [`gat-cli inspect power-balance`↴](#gat-cli-inspect-power-balance)
+* [`gat-cli inspect json`↴](#gat-cli-inspect-json)
+* [`gat-cli inspect thermal`↴](#gat-cli-inspect-thermal)
 
 ## `gat-cli`
 
@@ -110,6 +128,7 @@ This document contains the help content for the `gat-cli` command-line program.
 * `graph` — Graph utilities
 * `scenarios` — Scenario definitions and materialization workflows
 * `completions` — Generate shell completion scripts
+* `doctor` — Inspect the local environment and report common setup issues
 * `pf` — Power flow solvers
 * `nminus1` — Contingency analysis
 * `ts` — Time-series utilities
@@ -118,6 +137,7 @@ This document contains the help content for the `gat-cli` command-line program.
 * `adms` — ADMS reliability workflows
 * `opf` — Optimal power flow
 * `se` — State estimation
+* `solver` — Native solver management (install, list, status)
 * `viz` — Visualization helpers
 * `analytics` — Grid analytics helpers (PTDF, sensitivities, etc.)
 * `featurize` — Feature extraction for ML models (GNN, KPI predictors, etc.)
@@ -127,8 +147,9 @@ This document contains the help content for the `gat-cli` command-line program.
 * `benchmark` — Benchmarking suites for OPF/PF solvers
 * `runs` — Run management
 * `dataset` — Dataset adapters
-* `solver` — Native solver management (list, uninstall)
 * `version` — Release version helpers
+* `convert` — Convert between power system formats via the Arrow schema
+* `inspect` — Deep-dive network inspection and analysis
 
 ###### **Options:**
 
@@ -145,13 +166,37 @@ This document contains the help content for the `gat-cli` command-line program.
 
 Import data from various formats
 
-**Usage:** `gat-cli import <COMMAND>`
+**Usage:** `gat-cli import [OPTIONS] <COMMAND>`
 
 ###### **Subcommands:**
 
+* `auto` — Auto-detect format and import (based on file extension and content)
 * `psse` — Import PSS/E RAW file
 * `matpower` — Import MATPOWER case file
 * `cim` — Import CIM RDF file
+* `pandapower` — Import pandapower JSON file
+
+###### **Options:**
+
+* `-v`, `--verbose` — Increase verbosity (-v for warnings summary, -vv for line details)
+* `--strict` — Fail if any warnings are encountered
+* `--validate` — Run post-import validation (topology, references, physical sanity)
+
+
+
+## `gat-cli import auto`
+
+Auto-detect format and import (based on file extension and content)
+
+**Usage:** `gat-cli import auto [OPTIONS] <INPUT>`
+
+###### **Arguments:**
+
+* `<INPUT>` — Path to the input file
+
+###### **Options:**
+
+* `-o`, `--output <OUTPUT>` — Output file path (Arrow format)
 
 
 
@@ -159,7 +204,7 @@ Import data from various formats
 
 Import PSS/E RAW file
 
-**Usage:** `gat-cli import psse --raw <RAW> --output <OUTPUT>`
+**Usage:** `gat-cli import psse [OPTIONS] --raw <RAW>`
 
 ###### **Options:**
 
@@ -172,7 +217,7 @@ Import PSS/E RAW file
 
 Import MATPOWER case file
 
-**Usage:** `gat-cli import matpower --m <M> --output <OUTPUT>`
+**Usage:** `gat-cli import matpower [OPTIONS] --m <M>`
 
 ###### **Options:**
 
@@ -185,11 +230,24 @@ Import MATPOWER case file
 
 Import CIM RDF file
 
-**Usage:** `gat-cli import cim --rdf <RDF> --output <OUTPUT>`
+**Usage:** `gat-cli import cim [OPTIONS] --rdf <RDF>`
 
 ###### **Options:**
 
 * `--rdf <RDF>` — Path to the CIM RDF file
+* `-o`, `--output <OUTPUT>` — Output file path (Arrow format)
+
+
+
+## `gat-cli import pandapower`
+
+Import pandapower JSON file
+
+**Usage:** `gat-cli import pandapower [OPTIONS] --json <JSON>`
+
+###### **Options:**
+
+* `--json <JSON>` — Path to the pandapower JSON file
 * `-o`, `--output <OUTPUT>` — Output file path (Arrow format)
 
 
@@ -216,6 +274,7 @@ Graph utilities
 
 * `stats` — Graph stats summary
 * `islands` — Find islands in the grid
+* `validate` — Validate network data for consistency and physical sanity
 * `export` — Export graph to various formats
 * `visualize` — Compute force-directed layout for visualization
 
@@ -246,6 +305,24 @@ Find islands in the grid
 ###### **Options:**
 
 * `--emit` — Emit island IDs
+
+
+
+## `gat-cli graph validate`
+
+Validate network data for consistency and physical sanity
+
+**Usage:** `gat-cli graph validate [OPTIONS] <GRID_FILE>`
+
+###### **Arguments:**
+
+* `<GRID_FILE>` — Path to the grid data file (Arrow format)
+
+###### **Options:**
+
+* `--strict` — Enable strict mode (fail on any warnings)
+* `--skip-topology` — Skip topology checks (connectivity, islands)
+* `-v`, `--verbose` — Increase verbosity (-v for details)
 
 
 
@@ -379,6 +456,14 @@ Generate shell completion scripts
 
 
 
+## `gat-cli doctor`
+
+Inspect the local environment and report common setup issues
+
+**Usage:** `gat-cli doctor`
+
+
+
 ## `gat-cli pf`
 
 Power flow solvers
@@ -394,7 +479,9 @@ Power flow solvers
 
 ## `gat-cli pf dc`
 
-Run DC power flow
+Run DC power flow.
+
+Solves the linearized DC power flow equations (B'θ = P) and outputs branch flows to Parquet. Console output shows a rich summary with bus counts, generation/load totals, and branch flow statistics (range, max absolute flow).
 
 **Usage:** `gat-cli pf dc [OPTIONS] --out <OUT> <GRID_FILE>`
 
@@ -420,7 +507,9 @@ Run DC power flow
 
 ## `gat-cli pf ac`
 
-Run AC power flow
+Run AC power flow.
+
+Solves the nonlinear AC power flow equations using iterative methods. Outputs branch flows to Parquet. Console output shows a rich summary with solver parameters, bus counts, generation/load totals, and branch flow statistics.
 
 **Usage:** `gat-cli pf ac [OPTIONS] --out <OUT> <GRID_FILE>`
 
@@ -447,6 +536,7 @@ Run AC power flow
 
   Default value: `clarabel`
 * `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
+* `--q-limits` — Enforce generator Q limits (PV-PQ bus switching)
 
 
 
@@ -846,13 +936,16 @@ Optimal power flow
 ###### **Subcommands:**
 
 * `dc` — Run DC optimal power flow
-* `ac` — Run AC optimal power flow
+* `ac` — Run AC optimal power flow (fast-decoupled, linear approximation)
+* `ac-nlp` — Run full nonlinear AC-OPF with cost optimization
 
 
 
 ## `gat-cli opf dc`
 
-Run DC optimal power flow
+Run DC optimal power flow.
+
+Solves the DC-OPF linear program to minimize generation cost subject to power balance and branch flow constraints. Console output shows a rich summary with total cost, total demand, top generator dispatches, and branch flow statistics.
 
 **Usage:** `gat-cli opf dc [OPTIONS] --cost <COST> --limits <LIMITS> --out <OUT> <GRID_FILE>`
 
@@ -882,7 +975,7 @@ Run DC optimal power flow
 
 ## `gat-cli opf ac`
 
-Run AC optimal power flow
+Run AC optimal power flow (fast-decoupled, linear approximation)
 
 **Usage:** `gat-cli opf ac [OPTIONS] --out <OUT> <GRID_FILE>`
 
@@ -906,6 +999,39 @@ Run AC optimal power flow
 
   Default value: `gauss`
 * `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
+
+
+
+## `gat-cli opf ac-nlp`
+
+Run full nonlinear AC-OPF with cost optimization
+
+Uses penalty method + L-BFGS to solve the full nonlinear AC optimal power flow problem including voltage magnitudes, angles, and generator dispatch. Minimizes total generation cost subject to power balance and physical limits.
+
+**Usage:** `gat-cli opf ac-nlp [OPTIONS] --out <OUT> <GRID_FILE>`
+
+###### **Arguments:**
+
+* `<GRID_FILE>` — Path to the grid data file (Arrow format)
+
+###### **Options:**
+
+* `-o`, `--out <OUT>` — Output JSON file for dispatch results
+* `--tol <TOL>` — Convergence tolerance
+
+  Default value: `1e-4`
+* `--max-iter <MAX_ITER>` — Maximum number of iterations
+
+  Default value: `200`
+* `--warm-start <WARM_START>` — Warm-start method: flat, dc, socp
+
+  Default value: `flat`
+* `--threads <THREADS>` — Threading hint (`auto` or integer)
+
+  Default value: `auto`
+* `--solver <SOLVER>` — NLP solver to use: lbfgs (default), ipopt (requires solver-ipopt feature)
+
+  Default value: `lbfgs`
 
 
 
@@ -944,6 +1070,65 @@ Run WLS state estimation
   Default value: `gauss`
 * `--out-partitions <OUT_PARTITIONS>` — Partition columns (comma separated)
 * `--slack-bus <SLACK_BUS>` — Slack bus ID (defaults to lowest bus ID)
+
+
+
+## `gat-cli solver`
+
+Native solver management (install, list, status)
+
+**Usage:** `gat-cli solver <COMMAND>`
+
+###### **Subcommands:**
+
+* `list` — List available and installed solvers
+* `install` — Install a native solver plugin
+* `uninstall` — Uninstall a native solver plugin
+* `status` — Show solver configuration status
+
+
+
+## `gat-cli solver list`
+
+List available and installed solvers
+
+**Usage:** `gat-cli solver list`
+
+
+
+## `gat-cli solver install`
+
+Install a native solver plugin
+
+**Usage:** `gat-cli solver install [OPTIONS] <SOLVER>`
+
+###### **Arguments:**
+
+* `<SOLVER>` — Solver name (ipopt, highs, cbc, bonmin, couenne, symphony)
+
+###### **Options:**
+
+* `--force` — Force reinstall if already installed
+
+
+
+## `gat-cli solver uninstall`
+
+Uninstall a native solver plugin
+
+**Usage:** `gat-cli solver uninstall <SOLVER>`
+
+###### **Arguments:**
+
+* `<SOLVER>` — Solver name to uninstall
+
+
+
+## `gat-cli solver status`
+
+Show solver configuration status
+
+**Usage:** `gat-cli solver status`
 
 
 
@@ -1262,14 +1447,16 @@ Scenario batch runners for PF/OPF (CANOS-style fan-out)
 
 ###### **Subcommands:**
 
-* `pf` — Run DC/AC PF for every scenario in a manifest (CANOS-style fan-out, doi:10.1109/TPWRS.2007.899019)
+* `pf` — Run DC/AC PF for every scenario in a manifest (CANOS-style fan-out)
 * `opf` — Run DC/AC OPF for every scenario (CANOS-ready reliability stats)
 
 
 
 ## `gat-cli batch pf`
 
-Run DC/AC PF for every scenario in a manifest (CANOS-style fan-out, doi:10.1109/TPWRS.2007.899019)
+Run DC/AC PF for every scenario in a manifest (CANOS-style fan-out).
+
+Executes power flow analysis in parallel across all scenarios defined in the manifest. Produces a batch_manifest.json with per-job timing statistics (min/max/mean/median/p95) and a rich console summary showing job counts, timing distribution, and any failures. See doi:10.1109/TPWRS.2007.899019 for DC power flow fundamentals.
 
 **Usage:** `gat-cli batch pf [OPTIONS] --manifest <MANIFEST> --out <OUT>`
 
@@ -1301,7 +1488,9 @@ Run DC/AC PF for every scenario in a manifest (CANOS-style fan-out, doi:10.1109/
 
 ## `gat-cli batch opf`
 
-Run DC/AC OPF for every scenario (CANOS-ready reliability stats)
+Run DC/AC OPF for every scenario (CANOS-ready reliability stats).
+
+Executes optimal power flow in parallel across all scenarios. Produces a batch_manifest.json with per-job timing statistics (min/max/mean/median/p95), solver iterations, and convergence status. Console output includes a rich summary with job counts, timing distribution, AC solver statistics when applicable, and failed job details.
 
 **Usage:** `gat-cli batch opf [OPTIONS] --manifest <MANIFEST> --out <OUT>`
 
@@ -1353,6 +1542,8 @@ Benchmarking suites for OPF/PF solvers
 * `pfdelta` — Run PFDelta AC OPF benchmark suite
 * `pglib` — Run PGLib-OPF benchmark suite (MATPOWER format)
 * `opfdata` — Run OPFData benchmark suite (GNN-format JSON)
+* `summary` — Display summary statistics from a benchmark CSV
+* `compare` — Compare two benchmark CSV files to show improvements/regressions
 
 
 
@@ -1385,6 +1576,8 @@ Run PFDelta AC OPF benchmark suite
 * `--max-iter <MAX_ITER>` — Maximum AC solver iterations
 
   Default value: `20`
+* `--diagnostics-log <DIAGNOSTICS_LOG>` — Path for JSONL diagnostics output (import warnings, validation issues)
+* `--strict` — Fail if any case has import warnings (for CI quality gates)
 
 
 
@@ -1406,12 +1599,19 @@ Run PGLib-OPF benchmark suite (MATPOWER format)
 * `--threads <THREADS>` — Number of parallel solver threads (auto = CPU count)
 
   Default value: `auto`
+* `--method <METHOD>` — OPF method: ac, socp, dc, economic (default: socp)
+
+  Default value: `socp`
 * `--tol <TOL>` — Convergence tolerance
 
   Default value: `1e-6`
 * `--max-iter <MAX_ITER>` — Maximum AC solver iterations
 
-  Default value: `20`
+  Default value: `200`
+* `--enhanced` — Use enhanced SOCP (OBBT + QC envelopes for tighter relaxation)
+* `--solver <SOLVER>` — Native solver preference for AC-OPF: none, prefer, require - none: use pure Rust L-BFGS (default) - prefer: use IPOPT if available, fall back to L-BFGS - require: require IPOPT, fail if unavailable
+
+  Default value: `none`
 
 
 
@@ -1432,12 +1632,45 @@ Run OPFData benchmark suite (GNN-format JSON)
 * `--threads <THREADS>` — Number of parallel solver threads (auto = CPU count)
 
   Default value: `auto`
+* `--method <METHOD>` — OPF method: ac, socp, dc, economic (default: socp)
+
+  Default value: `socp`
 * `--tol <TOL>` — Convergence tolerance
 
   Default value: `1e-6`
 * `--max-iter <MAX_ITER>` — Maximum AC solver iterations
 
-  Default value: `20`
+  Default value: `200`
+* `--diagnostics-log <DIAGNOSTICS_LOG>` — Path for JSONL diagnostics output (import warnings, validation issues)
+* `--strict` — Fail if any sample has import warnings (for CI quality gates)
+* `--solver <SOLVER>` — Native solver preference for AC-OPF: none, prefer, require - none: use pure Rust L-BFGS (default) - prefer: use IPOPT if available, fall back to L-BFGS - require: require IPOPT, fail if unavailable
+
+  Default value: `none`
+
+
+
+## `gat-cli benchmark summary`
+
+Display summary statistics from a benchmark CSV
+
+**Usage:** `gat-cli benchmark summary <CSV>`
+
+###### **Arguments:**
+
+* `<CSV>` — Path to benchmark CSV file
+
+
+
+## `gat-cli benchmark compare`
+
+Compare two benchmark CSV files to show improvements/regressions
+
+**Usage:** `gat-cli benchmark compare <BEFORE> <AFTER>`
+
+###### **Arguments:**
+
+* `<BEFORE>` — Path to "before" benchmark CSV
+* `<AFTER>` — Path to "after" benchmark CSV
 
 
 
@@ -1757,60 +1990,6 @@ Download carbon intensity and renewable data from Ember
 
 
 
-## `gat-cli solver`
-
-Native solver management
-
-Manage optional native solver backends (IPOPT, HiGHS, CBC) that provide higher performance for specific problem classes. Native solvers are optional — GAT always falls back to pure-Rust solvers (L-BFGS, Clarabel) when native solvers aren't installed.
-
-**Usage:** `gat-cli solver <COMMAND>`
-
-###### **Subcommands:**
-
-* `list` — List all solver backends (native and pure-Rust)
-* `uninstall` — Remove an installed native solver
-
-
-
-## `gat-cli solver list`
-
-List all available solver backends
-
-Shows both installed native solvers and always-available pure-Rust solvers. For each solver, displays the installation status, supported problem classes, and version information.
-
-**Usage:** `gat-cli solver list`
-
-**Example output:**
-```
-Installed native solvers:
-  ipopt v0.4.0 - Nonlinear Programming (AC-OPF)
-
-Available pure-Rust solvers (always included):
-  l-bfgs   - Nonlinear Programming (AC-OPF)
-  clarabel - SOCP, LP
-```
-
-
-
-## `gat-cli solver uninstall`
-
-Remove an installed native solver
-
-Removes the solver binary from `~/.gat/solvers/` and updates the solver registry.
-
-**Usage:** `gat-cli solver uninstall <SOLVER>`
-
-###### **Arguments:**
-
-* `<SOLVER>` — Solver name to uninstall (e.g., `ipopt`, `highs`, `cbc`)
-
-**Example:**
-```bash
-gat solver uninstall ipopt
-```
-
-
-
 ## `gat-cli version`
 
 Release version helpers
@@ -1833,6 +2012,183 @@ Sync release metadata
 
 * `--tag <TAG>` — Tag name to validate (leading `v` is stripped)
 * `--manifest <MANIFEST>` — Write manifest JSON describing the resolved version/tag
+
+
+
+## `gat-cli convert`
+
+Convert between power system formats via the Arrow schema
+
+**Usage:** `gat-cli convert <COMMAND>`
+
+###### **Subcommands:**
+
+* `format` — Convert between supported formats using Arrow as an intermediate representation
+
+
+
+## `gat-cli convert format`
+
+Convert between supported formats using Arrow as an intermediate representation
+
+**Usage:** `gat-cli convert format [OPTIONS] --to <TO> <INPUT>`
+
+###### **Arguments:**
+
+* `<INPUT>` — Path to the input file or Arrow directory
+
+###### **Options:**
+
+* `--from <FROM>` — Input format override (auto-detect by default)
+
+  Possible values:
+  - `arrow`:
+    Arrow directory
+  - `matpower`:
+    MATPOWER case
+  - `psse`:
+    PSS/E RAW file
+  - `cim`:
+    CIM RDF/XML file
+  - `pandapower`:
+    pandapower JSON file
+  - `powermodels`:
+    PowerModels.jl JSON file
+
+* `--to <TO>` — Target format for conversion
+
+  Possible values:
+  - `arrow`:
+    Arrow directory
+  - `matpower`:
+    MATPOWER case
+  - `psse`:
+    PSS/E RAW file
+  - `cim`:
+    CIM RDF/XML file
+  - `pandapower`:
+    pandapower JSON file
+  - `powermodels`:
+    PowerModels.jl JSON file
+
+* `-o`, `--output <OUTPUT>` — Output directory/file (default inferred from input + target)
+* `--force` — Overwrite existing output without prompting
+* `-v`, `--verbose` — Show import diagnostics (warnings about defaults, validation issues)
+* `--strict` — Fail if any import warnings or errors occur (for CI pipelines)
+
+
+
+## `gat-cli inspect`
+
+Deep-dive network inspection and analysis
+
+**Usage:** `gat-cli inspect <COMMAND>`
+
+###### **Subcommands:**
+
+* `summary` — Show network summary statistics (buses, branches, generators, loads)
+* `generators` — List all generators with their bus assignments and limits
+* `branches` — List all branches with their endpoints and parameters
+* `power-balance` — Show power balance analysis (total generation capacity vs load)
+* `json` — Dump network data as JSON (for scripting)
+* `thermal` — Analyze branch thermal limits to identify potential bottlenecks
+
+
+
+## `gat-cli inspect summary`
+
+Show network summary statistics (buses, branches, generators, loads)
+
+**Usage:** `gat-cli inspect summary <INPUT>`
+
+###### **Arguments:**
+
+* `<INPUT>` — Path to Arrow directory or importable file
+
+
+
+## `gat-cli inspect generators`
+
+List all generators with their bus assignments and limits
+
+**Usage:** `gat-cli inspect generators [OPTIONS] <INPUT>`
+
+###### **Arguments:**
+
+* `<INPUT>` — Path to Arrow directory or importable file
+
+###### **Options:**
+
+* `--bus <BUS>` — Filter by bus ID
+* `--format <FORMAT>` — Output format (table or json)
+
+  Default value: `table`
+
+
+
+## `gat-cli inspect branches`
+
+List all branches with their endpoints and parameters
+
+**Usage:** `gat-cli inspect branches [OPTIONS] <INPUT>`
+
+###### **Arguments:**
+
+* `<INPUT>` — Path to Arrow directory or importable file
+
+###### **Options:**
+
+* `--rating-lt <RATING_LT>` — Filter by rating less than threshold (MVA)
+* `--format <FORMAT>` — Output format (table or json)
+
+  Default value: `table`
+
+
+
+## `gat-cli inspect power-balance`
+
+Show power balance analysis (total generation capacity vs load)
+
+**Usage:** `gat-cli inspect power-balance <INPUT>`
+
+###### **Arguments:**
+
+* `<INPUT>` — Path to Arrow directory or importable file
+
+
+
+## `gat-cli inspect json`
+
+Dump network data as JSON (for scripting)
+
+**Usage:** `gat-cli inspect json [OPTIONS] <INPUT>`
+
+###### **Arguments:**
+
+* `<INPUT>` — Path to Arrow directory or importable file
+
+###### **Options:**
+
+* `--pretty` — Pretty-print the JSON output
+
+
+
+## `gat-cli inspect thermal`
+
+Analyze branch thermal limits to identify potential bottlenecks
+
+**Usage:** `gat-cli inspect thermal [OPTIONS] <INPUT>`
+
+###### **Arguments:**
+
+* `<INPUT>` — Path to Arrow directory or importable file
+
+###### **Options:**
+
+* `--threshold <THRESHOLD>` — Only show branches with rating below this threshold (MVA)
+* `--format <FORMAT>` — Output format (table or json)
+
+  Default value: `table`
 
 
 

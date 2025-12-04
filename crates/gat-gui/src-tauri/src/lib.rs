@@ -2,9 +2,9 @@ mod commands;
 mod state;
 
 use commands::{
-    get_config, get_config_path, get_notebook_manifest, get_ybus, init_notebook_workspace,
-    list_cases, load_case, read_notebook, run_n1_contingency, save_config, solve_dc_power_flow,
-    solve_power_flow,
+    get_batch_status, get_config, get_config_path, get_notebook_manifest, get_ybus,
+    init_notebook_workspace, list_cases, load_case, read_notebook, run_batch_job,
+    run_n1_contingency, save_config, solve_dc_power_flow, solve_power_flow,
 };
 use state::AppState;
 
@@ -27,6 +27,8 @@ pub fn run() {
             get_notebook_manifest,
             read_notebook,
             init_notebook_workspace,
+            run_batch_job,
+            get_batch_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

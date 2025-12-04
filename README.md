@@ -266,9 +266,31 @@ cargo run -p gat-tui --release
 
 Navigate with arrow keys, Tab to switch panes, Enter to select, Esc to close modals, `q` to quit. See `crates/gat-tui/README.md` for full keyboard shortcuts and feature details.
 
-### GUI Dashboard
+### GUI Dashboard (Experimental)
 
-Coming in Horizon 7 (planned).
+**Status: Work in Progress** — The GUI is functional but should be considered experimental.
+
+A native desktop application built with Tauri 2.0 + Svelte 5 + D3.js for interactive grid visualization and analysis:
+
+- **Grid Visualization** — Force-directed, schematic, and geographic layout modes with drag-and-drop positioning
+- **Power Flow** — DC (fast linearized) and AC (Newton-Raphson) solvers with real-time results
+- **N-1 Contingency Analysis** — Security screening that identifies overloads for single-branch outages
+- **Y-bus Explorer** — Interactive admittance matrix visualization with sparsity patterns
+- **Branch Loading** — Traffic-light color coding (green/yellow/red) based on loading percentage
+
+Launch from the GUI crate:
+
+```bash
+cd crates/gat-gui && pnpm install && pnpm tauri dev
+```
+
+Or build for production:
+
+```bash
+cd crates/gat-gui && pnpm tauri build
+```
+
+See `crates/gat-gui/README.md` for architecture details and keyboard shortcuts.
 
 ---
 

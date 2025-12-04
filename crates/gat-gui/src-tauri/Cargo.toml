@@ -34,3 +34,6 @@ gat-io = { path = "../../gat-io" }
 gat-algo = { path = "../../gat-algo" }
 gat-batch = { path = "../../gat-batch" }
 
+# UUID generation
+uuid = { version = "1.5", features = ["v4"] }
+
