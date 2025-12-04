@@ -9,6 +9,7 @@
   import CommandBuilder from "$lib/CommandBuilder.svelte";
   import BatchJobPane from "$lib/BatchJobPane.svelte";
   import NotebookPane from "$lib/NotebookPane.svelte";
+  import PtdfPanel from "$lib/PtdfPanel.svelte";
   import { themeState } from "$lib/stores/theme.svelte";
 
   // Types for our data
@@ -117,6 +118,7 @@
   let commandBuilderOpen = $state<boolean>(false);
   let batchJobOpen = $state<boolean>(false);
   let notebookOpen = $state<boolean>(false);
+  let ptdfOpen = $state<boolean>(false);
 
   // Handle bus selection from Y-bus explorer
   function handleSelectBus(busId: number) {
@@ -404,6 +406,13 @@
           </svg>
           Notebook
         </button>
+        <button class="footer-btn" onclick={() => ptdfOpen = !ptdfOpen} title="PTDF Analysis">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3v18h18"/>
+            <path d="M18 9l-5 5-4-4-3 3"/>
+          </svg>
+          PTDF
+        </button>
         <button
           class="footer-btn theme-toggle"
           onclick={() => themeState.toggle()}
@@ -488,6 +497,9 @@
 
   <!-- Research Notebook -->
   <NotebookPane bind:isOpen={notebookOpen} />
+
+  <!-- PTDF Analysis -->
+  <PtdfPanel isOpen={ptdfOpen} onClose={() => ptdfOpen = false} />
 </div>
 
 <style>
