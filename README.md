@@ -284,9 +284,14 @@ A native desktop application built with Tauri 2.0 + Svelte 5 + D3.js for interac
 
 - **Grid Visualization** — Force-directed, schematic, and geographic layout modes with drag-and-drop positioning
 - **Power Flow** — DC (fast linearized) and AC (Newton-Raphson) solvers with real-time results
+- **DC-OPF** — DC Optimal Power Flow with LMPs and congestion detection
 - **N-1 Contingency Analysis** — Security screening that identifies overloads for single-branch outages
+- **PTDF/LODF Analysis** — Transfer sensitivity factors and line outage distribution factors
+- **Grid Summary** — Bus/branch counts, MW totals, voltage ranges, graph statistics
+- **Island Detection** — Find disconnected network components
+- **Thermal Analysis** — Pre-contingency thermal headroom assessment
 - **Y-bus Explorer** — Interactive admittance matrix visualization with sparsity patterns
-- **Branch Loading** — Traffic-light color coding (green/yellow/red) based on loading percentage
+- **JSON Export** — Full network model export for external tools
 
 Launch from the GUI crate:
 

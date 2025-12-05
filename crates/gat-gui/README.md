@@ -158,9 +158,15 @@ gat-gui/
 | `load_case` | Load network from MATPOWER/Arrow file |
 | `solve_power_flow` | Run AC Newton-Raphson solver |
 | `solve_dc_power_flow` | Run DC linear approximation (B'θ = P) |
+| `solve_dc_opf` | DC Optimal Power Flow with LMPs and congestion |
 | `run_n1_contingency` | N-1 security screening with LODF |
 | `get_ybus` | Get sparse admittance matrix |
 | `compute_ptdf` | Compute PTDF factors for bus-to-bus transfer |
+| `get_lodf_matrix` | Line Outage Distribution Factors for N-k analysis |
+| `get_grid_summary` | Bus/branch counts, MW totals, voltage ranges, graph stats |
+| `detect_islands` | Find disconnected network components |
+| `get_thermal_analysis` | Pre-contingency thermal headroom analysis |
+| `export_network_json` | Full network model export for external tools |
 | `run_batch_job` | Start async batch job execution |
 | `get_batch_status` | Poll batch job progress and results |
 | `get_config` / `save_config` | Configuration management (~/.gat/config/gat.toml) |
@@ -257,6 +263,12 @@ This GUI is under active development. Known limitations:
 - ✅ Batch job execution with async tracking and parallel workers
 - ✅ PTDF analysis panel for transfer sensitivity studies
 - ✅ LODF-based N-1 contingency screening with correct transfer formula
+- ✅ DC Optimal Power Flow with LMPs and congestion detection
+- ✅ Grid summary statistics (bus/branch counts, MW totals, graph density)
+- ✅ Island detection for disconnected network analysis
+- ✅ LODF matrix computation for N-k contingency analysis
+- ✅ Pre-contingency thermal headroom analysis
+- ✅ JSON export for external tools integration
 
 Contributions and feedback welcome.
 
