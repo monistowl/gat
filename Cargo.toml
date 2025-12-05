@@ -58,4 +58,4 @@ opt-level = 1
 opt-level = 3
 
 [workspace.metadata.release]
-version = "0.5.1"
+version = "0.5.2"
