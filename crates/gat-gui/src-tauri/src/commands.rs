@@ -1720,7 +1720,7 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
 // DC Optimal Power Flow
 // ============================================================================
 
-use gat_algo::opf::{dc_opf, OpfMethod, OpfSolution, OpfSolver};
+use gat_algo::opf::{OpfMethod, OpfSolver};
 
 /// DC-OPF result for frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1796,7 +1796,7 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
     for node in network.graph.node_weights() {
         if let Node::Gen(gen) = node {
             let p_dispatch = solution
-                .generator_dispatch
+                .generator_p
                 .get(&gen.name)
                 .copied()
                 .unwrap_or(gen.active_power_mw);
@@ -1806,7 +1806,7 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
                 p_dispatch_mw: p_dispatch,
                 p_min_mw: gen.pmin_mw,
                 p_max_mw: gen.pmax_mw,
-                marginal_cost: gen.cost_coeffs.get(1).copied().unwrap_or(0.0),
+                marginal_cost: gen.cost_model.marginal_cost(p_dispatch),
             });
         }
     }
@@ -1826,8 +1826,8 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
                 continue;
             }
             let flow = solution
-                .branch_flows
-                .get(&branch.id)
+                .branch_p_flow
+                .get(&branch.name)
                 .copied()
                 .unwrap_or(0.0);
             let rating = branch.rating_a_mva;
@@ -1855,22 +1855,34 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    // Extract LMPs
-    let mut lmps: Vec<LmpResult> = solution
-        .lmp
-        .iter()
-        .map(|(bus_id, &lmp)| LmpResult {
-            bus: bus_id.value(),
-            lmp,
-        })
-        .collect();
+    // Extract LMPs - iterate over buses and look up by name
+    let mut lmps: Vec<LmpResult> = Vec::new();
+    for node in network.graph.node_weights() {
+        if let Node::Bus(bus) = node {
+            if let Some(&lmp) = solution.bus_lmp.get(&bus.name) {
+                lmps.push(LmpResult {
+                    bus: bus.id.value(),
+                    lmp,
+                });
+            }
+        }
+    }
     lmps.sort_by_key(|l| l.bus);
+
+    // Compute totals from network
+    let total_generation_mw: f64 = generators.iter().map(|g| g.p_dispatch_mw).sum();
+    let mut total_load_mw: f64 = 0.0;
+    for node in network.graph.node_weights() {
+        if let Node::Load(load) = node {
+            total_load_mw += load.active_power_mw;
+        }
+    }
 
     Ok(DcOpfResult {
         converged: solution.converged,
         objective_value: solution.objective_value,
-        total_generation_mw: solution.total_generation_mw,
-        total_load_mw: solution.total_load_mw,
+        total_generation_mw,
+        total_load_mw,
         total_losses_mw: solution.total_losses_mw,
         generators,
         branches,
@@ -1883,7 +1895,7 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
 // Grid Summary Statistics
 // ============================================================================
 
-use gat_core::graph_utils::{find_islands, graph_stats, GraphStats, IslandAnalysis};
+use gat_core::graph_utils::{find_islands, graph_stats};
 
 /// Grid summary statistics for frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2425,7 +2437,6 @@ pub struct LoadExport {
     pub bus: usize,
     pub p_mw: f64,
     pub q_mvar: f64,
-    pub status: bool,
 }
 
 /// Export network data to JSON format for external tools.
@@ -2471,6 +2482,11 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                 });
             }
             Node::Gen(gen) => {
+                // Extract cost coefficients from CostModel
+                let cost_coeffs = match &gen.cost_model {
+                    gat_core::CostModel::Polynomial(coeffs) => coeffs.clone(),
+                    _ => Vec::new(),
+                };
                 generators.push(GeneratorExport {
                     name: gen.name.clone(),
                     bus: gen.bus.value(),
@@ -2480,7 +2496,7 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                     p_max_mw: gen.pmax_mw,
                     q_min_mvar: gen.qmin_mvar,
                     q_max_mvar: gen.qmax_mvar,
-                    cost_coeffs: gen.cost_coeffs.clone(),
+                    cost_coeffs,
                     status: gen.status,
                 });
             }
@@ -2490,7 +2506,6 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                     bus: load.bus.value(),
                     p_mw: load.active_power_mw,
                     q_mvar: load.reactive_power_mvar,
-                    status: load.status,
                 });
             }
             Node::Shunt(_) => {}
