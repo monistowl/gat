@@ -165,6 +165,78 @@ const COMMANDS = {
       { id: "method", label: "Method", type: "select", required: true, flag: "--method", options: ["envelope", "centroid"], help: "Aggregation methodology" },
       { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "aggregated.parquet" }
     ]
+  },
+  ptdf: {
+    name: "PTDF Analysis",
+    icon: "📊",
+    description: "Compute Power Transfer Distribution Factors",
+    template: "gat analytics ptdf",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "from", label: "Injection Bus", type: "number", required: true, flag: "--from", help: "Bus where power is injected" },
+      { id: "to", label: "Withdrawal Bus", type: "number", required: true, flag: "--to", help: "Bus where power is withdrawn" },
+      { id: "transfer", label: "Transfer MW", type: "number", flag: "--transfer", default: "100", help: "Transfer amount in MW" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "ptdf.parquet" }
+    ]
+  },
+  inspect: {
+    name: "Grid Inspection",
+    icon: "🔬",
+    description: "Inspect network topology and parameters",
+    template: "gat inspect",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "ybus", label: "Show Y-bus Matrix", type: "checkbox", flag: "--ybus", help: "Display admittance matrix" },
+      { id: "topology", label: "Show Topology", type: "checkbox", flag: "--topology", help: "Show bus/branch counts" },
+      { id: "islands", label: "Check Islands", type: "checkbox", flag: "--islands", help: "Detect electrical islands" }
+    ]
+  },
+  se: {
+    name: "State Estimation",
+    icon: "📡",
+    description: "Estimate grid state from measurements",
+    template: "gat se",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "measurements", label: "Measurements File", type: "text", required: true, flag: "--measurements", default: "measurements.parquet", help: "SCADA/PMU measurements" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "state.parquet" },
+      { id: "method", label: "Method", type: "select", flag: "--method", options: ["wls", "lav"], help: "Weighted Least Squares or Least Absolute Value" },
+      { id: "bad-data", label: "Bad Data Detection", type: "checkbox", flag: "--bad-data", help: "Enable bad data detection" }
+    ]
+  },
+  import_matpower: {
+    name: "Import MATPOWER",
+    icon: "📥",
+    description: "Convert MATPOWER .m file to Arrow format",
+    template: "gat import matpower",
+    params: [
+      { id: "m", label: "MATPOWER File", type: "text", required: true, flag: "--m", default: "case14.m", help: ".m or .case file" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "-o", default: "grid.arrow" }
+    ]
+  },
+  convert: {
+    name: "Format Conversion",
+    icon: "🔄",
+    description: "Auto-detect and convert grid file formats",
+    template: "gat convert format",
+    params: [
+      { id: "input", label: "Input File", type: "text", required: true, help: "MATPOWER, PSS/E, PandaPower, or CIM file" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "-o", default: "grid.arrow" },
+      { id: "format", label: "Output Format", type: "select", flag: "--format", options: ["arrow", "parquet", "json"], help: "Target format" }
+    ]
+  },
+  reliability: {
+    name: "Reliability Analysis",
+    icon: "📈",
+    description: "LOLE/EUE reliability metrics",
+    template: "gat reliability",
+    params: [
+      { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
+      { id: "load-profile", label: "Load Profile", type: "text", required: true, flag: "--load-profile", default: "load.parquet", help: "Hourly load profile" },
+      { id: "gen-profile", label: "Generation Profile", type: "text", flag: "--gen-profile", default: "gen.parquet", help: "Generator availability" },
+      { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "reliability.parquet" },
+      { id: "iterations", label: "Monte Carlo Iterations", type: "number", flag: "--iterations", default: "1000", help: "Number of simulations" }
+    ]
   }
 };
 
@@ -356,6 +428,42 @@ function copyMultiline() {
             <div class="text-2xl mb-2">🔋</div>
             <h3 class="text-sm font-bold text-white mb-1">DER Aggregation</h3>
             <p class="text-slate-500 text-xs">Aggregate DERs</p>
+          </button>
+
+          <button onclick="loadCommand('ptdf')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">📊</div>
+            <h3 class="text-sm font-bold text-white mb-1">PTDF Analysis</h3>
+            <p class="text-slate-500 text-xs">Transfer factors</p>
+          </button>
+
+          <button onclick="loadCommand('inspect')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🔬</div>
+            <h3 class="text-sm font-bold text-white mb-1">Grid Inspection</h3>
+            <p class="text-slate-500 text-xs">Y-bus, topology</p>
+          </button>
+
+          <button onclick="loadCommand('se')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">📡</div>
+            <h3 class="text-sm font-bold text-white mb-1">State Estimation</h3>
+            <p class="text-slate-500 text-xs">WLS/LAV SE</p>
+          </button>
+
+          <button onclick="loadCommand('import_matpower')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">📥</div>
+            <h3 class="text-sm font-bold text-white mb-1">Import MATPOWER</h3>
+            <p class="text-slate-500 text-xs">.m to Arrow</p>
+          </button>
+
+          <button onclick="loadCommand('convert')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🔄</div>
+            <h3 class="text-sm font-bold text-white mb-1">Format Convert</h3>
+            <p class="text-slate-500 text-xs">Auto-detect</p>
+          </button>
+
+          <button onclick="loadCommand('reliability')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">📈</div>
+            <h3 class="text-sm font-bold text-white mb-1">Reliability</h3>
+            <p class="text-slate-500 text-xs">LOLE/EUE</p>
           </button>
         </div>
       </div>

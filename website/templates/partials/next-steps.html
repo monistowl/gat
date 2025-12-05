@@ -8,7 +8,8 @@
   <div class="space-y-3">
     {% for step in page.extra.next_steps %}
     <div>
-      <a href="{{ step.link }}" class="text-orange-500 hover:text-orange-400 font-medium transition-colors">
+      {% set link_path = step.link | trim_start_matches(pat="/") %}
+      <a href="{{ get_url(path=link_path) }}" class="text-orange-500 hover:text-orange-400 font-medium transition-colors">
         {{ step.title }}
       </a>
       <p class="text-slate-400 text-sm mt-1">{{ step.description }}</p>

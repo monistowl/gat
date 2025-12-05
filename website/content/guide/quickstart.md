@@ -185,7 +185,7 @@ Now that you've run your first analysis, explore these topics:
 
 ### 🎯 Try Other Analyses
 - [Optimal Power Flow (OPF)](@/guide/opf.md) — Economic dispatch
-- [N-1 Contingency Analysis](/guide/dist/#n-1-screening) — What happens if a line fails?
+- [N-1 Contingency Analysis](@/guide/dist.md#n-1-screening) — What happens if a line fails?
 - [State Estimation](@/guide/se.md) — Infer grid state from measurements
 
 ### 💻 Build Automation Workflows
