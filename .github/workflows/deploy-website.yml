@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ZOLA_VERSION: 0.18.0
+  ZOLA_VERSION: 0.21.0
 
 jobs:
   build:

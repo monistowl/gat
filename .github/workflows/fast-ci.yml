@@ -15,8 +15,7 @@ on:
       - '**.md'
       - 'docs/**'
       - '.github/workflows/deploy-website.yml'
-  schedule:
-    - cron: "0 6 * * *"
+  # Nightly builds handled by comprehensive-ci.yml (runs build-matrix at 6am UTC)
   workflow_dispatch:
 
 env:
