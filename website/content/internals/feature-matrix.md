@@ -1,19 +1,71 @@
 +++
 title = "Feature Matrix"
-description = "gat-cli Feature Matrix"
+description = "gat-cli Feature Matrix and Distribution Builds"
 weight = 33
 +++
 
 # gat-cli Feature Matrix
 
-The `.github/workflows/cli-feature-matrix.yml` CI job runs on every push or pull request to `main` and optionally via `workflow_dispatch`. It exercises `gat-cli` under multiple feature sets to ensure all solver combinations and UI integrations stay healthy.
+## Distribution Build Variants
 
-- **Where it runs:** `ubuntu-latest` (the job installs `coinor-libcbc-dev` to make `coinor-libcbc` available to the `all-backends` feature set). The release workflow runs a similar solver discovery script on macOS so both Linux and macOS installers have parity in tooling.
-- **What it runs:** `cargo test -p gat-cli --locked --no-default-features --features "<set>" -- --nocapture`.
-- **Feature sets:**
-  * `minimal` (solver-clarabel + lean I/O).
-  * `minimal,full-io` (adds the full I/O stack so more data sources/types are exercised).
-  * `minimal,full-io,viz` (also enables `gat-viz` for visualization helpers).
-  * `all-backends` (switches to `all-backends`; runs the full solver pool, including `solver-coin_cbc` and `solver-highs`).
+For end-user builds, use the `dist*` feature flags:
 
-Running this matrix catches regressions where a feature flag environment might compile but not run under different solver stacks. Trigger it manually from the Actions tab with `workflow_dispatch`, e.g. when you need to rerun the entire matrix after a local fix before merging.
+| Feature | Solvers | TUI | Viz | IPOPT | Binary | Use Case |
+|---------|---------|-----|-----|-------|--------|----------|
+| `dist` | clarabel, highs | ✓ | ✓ | — | ~61 MB | Desktop users |
+| `dist-headless` | clarabel, highs | — | ✓ | — | ~60 MB | Servers, CI |
+| `dist-native` | clarabel, highs | ✓ | ✓ | ✓ | ~61 MB | AC-OPF (requires libipopt) |
+| `dist-native-headless` | clarabel, highs | — | ✓ | ✓ | ~60 MB | HPC clusters |
+
+**Build commands:**
+
+```bash
+# Desktop (TUI + all solvers)
+cargo build -p gat-cli --release --no-default-features --features dist
+
+# Server/automation (headless)
+cargo build -p gat-cli --release --no-default-features --features dist-headless
+
+# With IPOPT for AC-OPF
+cargo build -p gat-cli --release --no-default-features --features dist-native
+```
+
+## CI Feature Matrix
+
+The `.github/workflows/rust.yml` CI job runs on every push to test feature combinations:
+
+- **Where it runs:** `ubuntu-latest`
+- **What it tests:** `cargo clippy` and `cargo test` with various feature sets
+
+**CI feature sets:**
+
+| Set | Components | Purpose |
+|-----|------------|---------|
+| `minimal` | solver-clarabel + lean I/O | Fast CI, core functionality |
+| `minimal,full-io` | + full I/O stack | Data format coverage |
+| `minimal,full-io,viz` | + gat-viz | Visualization helpers |
+| `all-solvers` | clarabel + highs | Full solver pool |
+
+## Solver Features
+
+Individual solver features can be combined:
+
+| Feature | Solver | Type | Runtime Deps |
+|---------|--------|------|--------------|
+| `solver-clarabel` | Clarabel | SOCP/SDP | None (pure Rust) |
+| `solver-highs` | HiGHS | LP/MIP | None (pure Rust) |
+| `solver-ipopt` | IPOPT | NLP | libipopt.so |
+
+## Legacy Features
+
+For minimal or custom builds:
+
+```bash
+# Minimal (Clarabel only)
+cargo build -p gat-cli --release --no-default-features --features minimal
+
+# Custom combination
+cargo build -p gat-cli --release --no-default-features --features "solver-clarabel,solver-highs,tui,viz"
+```
+
+Running the feature matrix catches regressions where a feature flag environment might compile but not run under different solver stacks.
