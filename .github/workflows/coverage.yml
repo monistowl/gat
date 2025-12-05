@@ -17,7 +17,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libbz2-dev
+          sudo apt-get install -y libbz2-dev libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev patchelf
 
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin
@@ -26,7 +26,7 @@ jobs:
         run: |
           cargo tarpaulin \
             --workspace \
-            --exclude gat-gui gat-tui gat-ipopt-sys gat-coinor-build \
+            --exclude gat-gui gat-gui-desktop gat-tui gat-ipopt-sys gat-coinor-build \
             --out xml \
             --output-dir coverage \
             --skip-clean \
