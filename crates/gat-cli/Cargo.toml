@@ -14,6 +14,8 @@ viz = ["dep:gat-viz"]
 
 # All pure-Rust solvers + polars (no native FFI)
 all-solvers = ["solver-clarabel", "solver-highs", "all-polars"]
+# Alias for CI workflows
+all-backends = ["all-solvers"]
 # Minimal feature set for default builds
 minimal = ["solver-clarabel", "all-polars"]
 

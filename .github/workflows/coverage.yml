@@ -24,9 +24,10 @@ jobs:
 
       - name: Run coverage
         run: |
+          # Target core library crates to avoid disk space issues with full workspace
+          # LLVM instrumentation creates large .profraw files
           cargo tarpaulin \
-            --workspace \
-            --exclude gat-gui gat-gui-desktop gat-tui gat-ipopt-sys gat-coinor-build \
+            --packages gat-core gat-io gat-algo gat-ts gat-cli \
             --out xml \
             --output-dir coverage \
             --skip-clean \
