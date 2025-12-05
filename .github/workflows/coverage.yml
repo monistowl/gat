@@ -29,9 +29,12 @@ jobs:
             --exclude gat-gui gat-tui gat-ipopt-sys gat-coinor-build \
             --out xml \
             --output-dir coverage \
-            --skip-clean
+            --skip-clean \
+            --engine llvm
         env:
           CARGO_TERM_COLOR: always
+          # Disable AVX2 to avoid pulp SIMD const-eval issues under tarpaulin
+          RUSTFLAGS: "-C target-cpu=x86-64"
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
