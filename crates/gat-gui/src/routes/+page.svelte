@@ -102,6 +102,34 @@
   // State
   let cases = $state<CaseInfo[]>([]);
   let selectedCase = $state<CaseInfo | null>(null);
+  let recentCases = $state<CaseInfo[]>([]);
+
+  // Recent cases storage
+  const RECENT_CASES_KEY = 'gat-recent-cases';
+  const MAX_RECENT_CASES = 5;
+
+  function loadRecentCases(): CaseInfo[] {
+    try {
+      const stored = localStorage.getItem(RECENT_CASES_KEY);
+      if (stored) {
+        return JSON.parse(stored) as CaseInfo[];
+      }
+    } catch (e) {
+      console.warn('Failed to load recent cases:', e);
+    }
+    return [];
+  }
+
+  function saveRecentCase(caseInfo: CaseInfo) {
+    // Remove if already in list, then add to front
+    const filtered = recentCases.filter(c => c.path !== caseInfo.path);
+    recentCases = [caseInfo, ...filtered].slice(0, MAX_RECENT_CASES);
+    try {
+      localStorage.setItem(RECENT_CASES_KEY, JSON.stringify(recentCases));
+    } catch (e) {
+      console.warn('Failed to save recent cases:', e);
+    }
+  }
   let network = $state<NetworkJson | null>(null);
   let pfResult = $state<PowerFlowResult | null>(null);
   let dcResult = $state<DcPowerFlowResult | null>(null);
@@ -139,6 +167,9 @@
 
   // Load cases on mount
   onMount(async () => {
+    // Load recent cases from localStorage
+    recentCases = loadRecentCases();
+
     try {
       cases = await invoke<CaseInfo[]>("list_cases");
       status = `Loaded ${cases.length} cases`;
@@ -161,6 +192,9 @@
       network = await invoke<NetworkJson>("load_case", { path: caseInfo.path });
       const elapsed = Math.round(performance.now() - start);
       status = `Loaded ${network.buses.length} buses, ${network.branches.length} branches in ${elapsed}ms`;
+
+      // Save to recent cases on successful load
+      saveRecentCase(caseInfo);
     } catch (e) {
       status = `Error: ${e}`;
       network = null;
@@ -299,6 +333,25 @@
         {/each}
       </div>
     </div>
+
+    {#if recentCases.length > 0}
+      <div class="sidebar-section recent-section">
+        <h2 class="section-title">Recent</h2>
+        <div class="case-list">
+          {#each recentCases as caseInfo}
+            <button
+              class="case-item recent"
+              class:selected={selectedCase?.name === caseInfo.name}
+              onclick={() => loadCase(caseInfo)}
+            >
+              <span class="recent-icon">↻</span>
+              <span class="case-name">{shortName(caseInfo.name)}</span>
+              <span class="case-buses">{formatBusCount(caseInfo.buses)}</span>
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
     <div class="sidebar-section">
       <h2 class="section-title">Hero Cases</h2>
@@ -607,6 +660,30 @@
   .play-icon {
     font-size: 10px;
     margin-right: 6px;
+  }
+
+  .recent-icon {
+    font-size: 12px;
+    margin-right: 4px;
+    opacity: 0.6;
+  }
+
+  .case-item.recent {
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 6px 16px;
+  }
+
+  .case-item.recent:hover {
+    color: var(--text-primary);
+  }
+
+  .case-item.recent .recent-icon {
+    opacity: 1;
+  }
+
+  .recent-section {
+    background: var(--bg-tertiary);
   }
 
   /* Main Content */

@@ -143,6 +143,17 @@
   // Geographic mode: persistent positions stored by bus ID
   let geoPositions = $state<Map<number, { x: number; y: number }>>(new Map());
 
+  // Search/filter state
+  let searchQuery = $state<string>('');
+  let searchOpen = $state<boolean>(false);
+
+  // Element inspector state
+  let inspectedElement = $state<{ type: 'bus' | 'branch'; data: BusJson | BranchJson } | null>(null);
+  let inspectorOpen = $state<boolean>(false);
+
+  // Storage key for layout persistence
+  const getStorageKey = (networkName: string) => `gat-layout-${networkName}`;
+
   // Particle animation state
   let particleInterval: number | null = null;
 
@@ -301,6 +312,12 @@
 
   // Initialize geographic positions from current layout or defaults
   function initGeoPositions(nodes: SimNode[], width: number, height: number) {
+    // First try to load from localStorage
+    const stored = loadLayoutFromStorage();
+    if (stored.size > 0) {
+      geoPositions = stored;
+    }
+
     for (const node of nodes) {
       if (!geoPositions.has(node.id)) {
         // Initialize with a spread pattern if no existing position
@@ -318,7 +335,107 @@
   function saveGeoPosition(node: SimNode) {
     if (layoutMode === 'geographic' && node.x !== undefined && node.y !== undefined) {
       geoPositions.set(node.id, { x: node.x, y: node.y });
+      // Persist to localStorage
+      persistLayoutToStorage();
     }
+  }
+
+  // Persist all layout positions to localStorage
+  function persistLayoutToStorage() {
+    if (!network) return;
+    const key = getStorageKey(network.name);
+    const positions: Record<number, { x: number; y: number }> = {};
+    geoPositions.forEach((pos, id) => {
+      positions[id] = pos;
+    });
+    try {
+      localStorage.setItem(key, JSON.stringify(positions));
+    } catch (e) {
+      console.warn('Failed to persist layout:', e);
+    }
+  }
+
+  // Load layout positions from localStorage
+  function loadLayoutFromStorage(): Map<number, { x: number; y: number }> {
+    if (!network) return new Map();
+    const key = getStorageKey(network.name);
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Record<string, { x: number; y: number }>;
+        const map = new Map<number, { x: number; y: number }>();
+        for (const [id, pos] of Object.entries(parsed)) {
+          map.set(parseInt(id, 10), pos);
+        }
+        return map;
+      }
+    } catch (e) {
+      console.warn('Failed to load layout:', e);
+    }
+    return new Map();
+  }
+
+  // Clear persisted layout
+  function clearPersistedLayout() {
+    if (!network) return;
+    const key = getStorageKey(network.name);
+    localStorage.removeItem(key);
+    geoPositions = new Map();
+  }
+
+  // Filtered nodes based on search query
+  const filteredBusIds = $derived(() => {
+    if (!searchQuery.trim() || !network) return new Set<number>();
+    const query = searchQuery.toLowerCase().trim();
+    const matches = new Set<number>();
+    for (const bus of network.buses) {
+      const nameMatch = bus.name?.toLowerCase().includes(query);
+      const idMatch = bus.id.toString().includes(query);
+      const kvMatch = bus.voltage_kv?.toString().includes(query);
+      if (nameMatch || idMatch || kvMatch) {
+        matches.add(bus.id);
+      }
+    }
+    return matches;
+  });
+
+  // Export SVG
+  function exportSVG() {
+    if (!container) return;
+    const svgElement = container.querySelector('svg');
+    if (!svgElement) return;
+
+    // Clone the SVG to avoid modifying the original
+    const clone = svgElement.cloneNode(true) as SVGSVGElement;
+
+    // Add inline styles for export
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('style', 'background: #1a1a24;');
+
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(clone);
+    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${network?.name || 'grid'}-${layoutMode}.svg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  // Open inspector for a bus
+  function inspectBus(bus: BusJson) {
+    inspectedElement = { type: 'bus', data: bus };
+    inspectorOpen = true;
+  }
+
+  // Open inspector for a branch
+  function inspectBranch(branch: BranchJson) {
+    inspectedElement = { type: 'branch', data: branch };
+    inspectorOpen = true;
   }
 
   function initVisualization() {
@@ -338,6 +455,33 @@
       .attr('width', width)
       .attr('height', height)
       .attr('viewBox', [0, 0, width, height]);
+
+    // Add SVG filters for glow effects
+    const defs = svg.append('defs');
+
+    // Warning glow (yellow/orange) for high loading
+    const warningGlow = defs.append('filter')
+      .attr('id', 'glow-warning')
+      .attr('x', '-50%').attr('y', '-50%')
+      .attr('width', '200%').attr('height', '200%');
+    warningGlow.append('feGaussianBlur')
+      .attr('stdDeviation', '3')
+      .attr('result', 'coloredBlur');
+    const warningMerge = warningGlow.append('feMerge');
+    warningMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    warningMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // Critical glow (red) for overloaded
+    const criticalGlow = defs.append('filter')
+      .attr('id', 'glow-critical')
+      .attr('x', '-50%').attr('y', '-50%')
+      .attr('width', '200%').attr('height', '200%');
+    criticalGlow.append('feGaussianBlur')
+      .attr('stdDeviation', '4')
+      .attr('result', 'coloredBlur');
+    const criticalMerge = criticalGlow.append('feMerge');
+    criticalMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    criticalMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
     // Add zoom behavior
     const g = svg.append('g');
@@ -476,7 +620,7 @@
           .radius(d => nodeRadius(d) + 5));
     }
 
-    // Draw links (branches) with loading-based coloring
+    // Draw links (branches) with loading-based coloring and glow effects
     const link = g.append('g')
       .attr('class', 'links')
       .selectAll('line')
@@ -488,7 +632,16 @@
         return loading > 0 ? loadingColor(loading) : '#3f3f46';
       })
       .attr('stroke-width', d => lineWidth(d.branch))
-      .attr('stroke-opacity', 0.8);
+      .attr('stroke-opacity', 0.8)
+      .attr('filter', d => {
+        // Add glow effect for high loading branches
+        const loading = d.branch.loading_pct;
+        if (loading > 100) return 'url(#glow-critical)';
+        if (loading > 80) return 'url(#glow-warning)';
+        return null;
+      })
+      .classed('overloaded', d => d.branch.loading_pct > 100)
+      .classed('high-loading', d => d.branch.loading_pct > 80 && d.branch.loading_pct <= 100);
 
     // Draw nodes (buses)
     const node = g.append('g')
@@ -557,12 +710,21 @@
 
     } else {
       // Original force/geographic mode symbols
-      // Bus circles
+      // Bus circles with glow for voltage violations
       node.append('circle')
         .attr('r', d => nodeRadius(d))
         .attr('fill', d => voltageColor(d.bus.vm))
         .attr('stroke', d => d.isGenerator ? '#0066ff' : '#52525b')
-        .attr('stroke-width', d => d.isGenerator ? 3 : 1.5);
+        .attr('stroke-width', d => d.isGenerator ? 3 : 1.5)
+        .attr('filter', d => {
+          // Add glow for voltage violations
+          const vm = d.bus.vm;
+          if (vm < 0.9 || vm > 1.1) return 'url(#glow-critical)';
+          if (vm < 0.95 || vm > 1.05) return 'url(#glow-warning)';
+          return null;
+        })
+        .classed('voltage-violation', d => d.bus.vm < 0.9 || d.bus.vm > 1.1)
+        .classed('voltage-warning', d => (d.bus.vm >= 0.9 && d.bus.vm < 0.95) || (d.bus.vm > 1.05 && d.bus.vm <= 1.1));
 
       // Generator triangles
       node.filter(d => d.isGenerator)
@@ -586,7 +748,7 @@
       connectionCount.set(targetId, (connectionCount.get(targetId) || 0) + 1);
     }
 
-    // Rich tooltip on hover
+    // Rich tooltip on hover + click to inspect
     node.on('mouseenter', (event, d) => {
       const rect = container.getBoundingClientRect();
       tooltipPos = {
@@ -605,7 +767,18 @@
     })
     .on('mouseleave', () => {
       hoveredNode = null;
+    })
+    .on('click', (event, d) => {
+      event.stopPropagation();
+      inspectBus(d.bus);
     });
+
+    // Click on branch to inspect
+    link.on('click', (event, d) => {
+      event.stopPropagation();
+      inspectBranch(d.branch);
+    })
+    .style('cursor', 'pointer');
 
     // Particle container for power flow animation
     const particleLayer = g.append('g').attr('class', 'particles');
@@ -811,31 +984,75 @@
     layoutMode = mode;
   }
 
-  // Highlight selected bus
+  // Highlight selected bus and search matches
   $effect(() => {
     if (!container || !svg) return;
 
     const nodes = d3.select(container).selectAll<SVGGElement, SimNode>('.nodes g');
+    const searchMatches = filteredBusIds();
 
     // Reset all nodes
     nodes.select('circle')
       .attr('stroke-width', (d: SimNode) => d.isGenerator ? 3 : 1.5)
-      .attr('stroke', (d: SimNode) => d.isGenerator ? '#0066ff' : '#52525b');
+      .attr('stroke', (d: SimNode) => d.isGenerator ? '#0066ff' : '#52525b')
+      .attr('opacity', (d: SimNode) => {
+        // Dim non-matching nodes when searching
+        if (searchMatches.size > 0 && !searchMatches.has(d.id)) {
+          return 0.2;
+        }
+        return 1;
+      });
 
-    // Highlight selected
+    // Highlight search matches
+    if (searchMatches.size > 0) {
+      nodes.filter((d: SimNode) => searchMatches.has(d.id))
+        .select('circle')
+        .attr('stroke', '#22c55e')
+        .attr('stroke-width', 3);
+    }
+
+    // Highlight selected (takes precedence)
     if (selectedBusId !== null) {
       nodes.filter((d: SimNode) => d.id === selectedBusId)
         .select('circle')
         .attr('stroke', '#fde047')
         .attr('stroke-width', 4);
     }
+
+    // Also dim branches when searching
+    const links = d3.select(container).selectAll<SVGLineElement, SimLink>('.links line');
+    links.attr('opacity', (d: SimLink) => {
+      if (searchMatches.size > 0) {
+        const sourceId = (d.source as SimNode).id;
+        const targetId = (d.target as SimNode).id;
+        if (!searchMatches.has(sourceId) && !searchMatches.has(targetId)) {
+          return 0.1;
+        }
+      }
+      return 0.8;
+    });
   });
 
   // Keyboard shortcuts handler
   function handleKeydown(event: KeyboardEvent) {
-    // Ignore if focus is in an input/textarea
+    // Ignore if focus is in an input/textarea (except for Escape)
     const target = event.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+
+    // Escape always works to close things
+    if (event.key === 'Escape') {
+      if (searchOpen) {
+        searchOpen = false;
+        searchQuery = '';
+        return;
+      }
+      if (inspectorOpen) {
+        inspectorOpen = false;
+        return;
+      }
+    }
+
+    if (inInput) return;
 
     switch (event.key) {
       case ' ': // Space = solve
@@ -850,6 +1067,23 @@
       case 'F':
         event.preventDefault();
         zoomFit();
+        break;
+      case '/': // Slash = open search
+        event.preventDefault();
+        searchOpen = true;
+        // Focus will happen via $effect
+        break;
+      case 's':
+      case 'S':
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          exportSVG();
+        }
+        break;
+      case 'i':
+      case 'I':
+        event.preventDefault();
+        inspectorOpen = !inspectorOpen;
         break;
       case '1':
         event.preventDefault();
@@ -1034,6 +1268,42 @@
       </div>
     </div>
 
+    <!-- Search bar -->
+    <div class="search-bar" class:open={searchOpen}>
+      {#if searchOpen}
+        <div class="search-input-wrapper">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search buses by name, ID, or kV..."
+            bind:value={searchQuery}
+            autofocus
+          />
+          {#if searchQuery}
+            <span class="search-count">{filteredBusIds().size} found</span>
+          {/if}
+          <button class="search-close" onclick={() => { searchOpen = false; searchQuery = ''; }} title="Close (Esc)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      {:else}
+        <button class="search-toggle" onclick={() => searchOpen = true} title="Search buses (/)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <span class="kbd">/</span>
+        </button>
+      {/if}
+    </div>
+
     <div class="zoom-controls">
       <button class="zoom-btn" onclick={zoomIn} title="Zoom in (+)">+</button>
       <button class="zoom-btn zoom-level" onclick={zoomReset} title="Reset zoom (0)">
@@ -1043,6 +1313,21 @@
       <button class="zoom-btn zoom-fit" onclick={zoomFit} title="Fit to view (F)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+        </svg>
+      </button>
+      <div class="zoom-divider"></div>
+      <button class="zoom-btn" onclick={exportSVG} title="Export SVG (Ctrl+S)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </button>
+      <button class="zoom-btn" class:active={inspectorOpen} onclick={() => inspectorOpen = !inspectorOpen} title="Inspector (I)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 16v-4"/>
+          <path d="M12 8h.01"/>
         </svg>
       </button>
     </div>
@@ -1274,6 +1559,157 @@
             </svg>
             <span>System is N-1 Secure</span>
             <span class="n1-secure-sub">No overloads detected for any single branch outage</span>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Element Inspector Panel -->
+    {#if inspectorOpen}
+      <div class="inspector-panel">
+        <div class="inspector-header">
+          <h3>Inspector</h3>
+          <button class="inspector-close" onclick={() => inspectorOpen = false} title="Close (Esc)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {#if inspectedElement}
+          {#if inspectedElement.type === 'bus'}
+            {@const bus = inspectedElement.data as BusJson}
+            <div class="inspector-content">
+              <div class="inspector-title">
+                <span class="inspector-icon bus">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                  </svg>
+                </span>
+                <span>Bus {bus.id}</span>
+                <span class="inspector-badge">{bus.type === 'slack' ? 'Slack' : bus.type === 'pv' ? 'PV' : 'PQ'}</span>
+              </div>
+
+              {#if bus.name && bus.name !== `Bus${bus.id}`}
+                <div class="inspector-name">{bus.name}</div>
+              {/if}
+
+              <div class="inspector-section">
+                <div class="inspector-section-title">Electrical State</div>
+                <div class="inspector-grid">
+                  <div class="inspector-field">
+                    <span class="field-label">Voltage</span>
+                    <span class="field-value" class:warning={bus.vm < 0.95 || bus.vm > 1.05} class:critical={bus.vm < 0.9 || bus.vm > 1.1}>
+                      {bus.vm.toFixed(4)} pu
+                    </span>
+                  </div>
+                  <div class="inspector-field">
+                    <span class="field-label">Angle</span>
+                    <span class="field-value">{bus.va.toFixed(2)}°</span>
+                  </div>
+                  <div class="inspector-field">
+                    <span class="field-label">Base kV</span>
+                    <span class="field-value">{bus.voltage_kv.toFixed(1)} kV</span>
+                  </div>
+                  <div class="inspector-field">
+                    <span class="field-label">Actual kV</span>
+                    <span class="field-value">{(bus.vm * bus.voltage_kv).toFixed(1)} kV</span>
+                  </div>
+                </div>
+              </div>
+
+              {#if bus.p_load > 0 || bus.q_load !== 0}
+                <div class="inspector-section">
+                  <div class="inspector-section-title">Load</div>
+                  <div class="inspector-grid">
+                    <div class="inspector-field">
+                      <span class="field-label">Active (P)</span>
+                      <span class="field-value">{bus.p_load.toFixed(2)} MW</span>
+                    </div>
+                    <div class="inspector-field">
+                      <span class="field-label">Reactive (Q)</span>
+                      <span class="field-value">{bus.q_load.toFixed(2)} MVAr</span>
+                    </div>
+                    <div class="inspector-field">
+                      <span class="field-label">Apparent</span>
+                      <span class="field-value">{Math.sqrt(bus.p_load ** 2 + bus.q_load ** 2).toFixed(2)} MVA</span>
+                    </div>
+                    <div class="inspector-field">
+                      <span class="field-label">Power Factor</span>
+                      <span class="field-value">
+                        {bus.p_load > 0 ? (bus.p_load / Math.sqrt(bus.p_load ** 2 + bus.q_load ** 2)).toFixed(3) : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          {:else}
+            {@const branch = inspectedElement.data as BranchJson}
+            <div class="inspector-content">
+              <div class="inspector-title">
+                <span class="inspector-icon branch">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </span>
+                <span>Branch {branch.from} → {branch.to}</span>
+                <span class="inspector-badge" class:offline={!branch.status}>{branch.status ? 'Online' : 'Offline'}</span>
+              </div>
+
+              <div class="inspector-section">
+                <div class="inspector-section-title">Flow</div>
+                <div class="inspector-grid">
+                  <div class="inspector-field">
+                    <span class="field-label">Active Flow</span>
+                    <span class="field-value">{branch.p_flow.toFixed(2)} MW</span>
+                  </div>
+                  <div class="inspector-field">
+                    <span class="field-label">Loading</span>
+                    <span class="field-value" class:warning={branch.loading_pct > 80} class:critical={branch.loading_pct > 100}>
+                      {branch.loading_pct.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div class="loading-bar-container">
+                  <div class="loading-bar" style="width: {Math.min(branch.loading_pct, 100)}%"
+                       class:warning={branch.loading_pct > 80}
+                       class:critical={branch.loading_pct > 100}></div>
+                </div>
+              </div>
+
+              <div class="inspector-section">
+                <div class="inspector-section-title">Impedance (pu)</div>
+                <div class="inspector-grid">
+                  <div class="inspector-field">
+                    <span class="field-label">R (resistance)</span>
+                    <span class="field-value mono">{branch.r.toFixed(5)}</span>
+                  </div>
+                  <div class="inspector-field">
+                    <span class="field-label">X (reactance)</span>
+                    <span class="field-value mono">{branch.x.toFixed(5)}</span>
+                  </div>
+                  <div class="inspector-field">
+                    <span class="field-label">B (charging)</span>
+                    <span class="field-value mono">{branch.b.toFixed(5)}</span>
+                  </div>
+                  <div class="inspector-field">
+                    <span class="field-label">|Z| (magnitude)</span>
+                    <span class="field-value mono">{Math.sqrt(branch.r ** 2 + branch.x ** 2).toFixed(5)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {/if}
+        {:else}
+          <div class="inspector-empty">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4"/>
+              <path d="M12 8h.01"/>
+            </svg>
+            <span>Click on a bus or branch to inspect</span>
           </div>
         {/if}
       </div>
@@ -2078,5 +2514,393 @@
     font-size: 11px;
     color: var(--text-muted);
     margin-top: 4px;
+  }
+
+  /* Search bar */
+  .search-bar {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+  }
+
+  .search-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.15s ease;
+  }
+
+  .search-toggle:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+  }
+
+  .search-toggle .kbd {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    color: var(--text-muted);
+  }
+
+  .search-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+    min-width: 320px;
+    animation: searchExpand 0.2s ease-out;
+  }
+
+  @keyframes searchExpand {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .search-input-wrapper svg {
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    min-width: 180px;
+  }
+
+  .search-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .search-count {
+    font-size: 11px;
+    color: var(--accent);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    white-space: nowrap;
+  }
+
+  .search-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .search-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  /* Zoom controls additions */
+  .zoom-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  .zoom-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  /* Inspector Panel */
+  .inspector-panel {
+    position: absolute;
+    top: 70px;
+    left: 16px;
+    width: 280px;
+    max-height: calc(100% - 180px);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: slideInLeft 0.2s ease-out;
+    z-index: 20;
+  }
+
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .inspector-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .inspector-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .inspector-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .inspector-close:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+  }
+
+  .inspector-content {
+    padding: 14px;
+    overflow-y: auto;
+  }
+
+  .inspector-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .inspector-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  .inspector-icon.bus {
+    background: rgba(0, 102, 255, 0.15);
+    color: #0066ff;
+  }
+
+  .inspector-icon.branch {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+
+  .inspector-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .inspector-badge.offline {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
+
+  .inspector-name {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    padding-left: 36px;
+  }
+
+  .inspector-section {
+    margin-bottom: 16px;
+  }
+
+  .inspector-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .inspector-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .inspector-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .inspector-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .field-label {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .field-value {
+    font-size: 13px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: var(--text-primary);
+  }
+
+  .field-value.warning {
+    color: #f59e0b;
+  }
+
+  .field-value.critical {
+    color: #ef4444;
+  }
+
+  .field-value.mono {
+    font-size: 11px;
+  }
+
+  .loading-bar-container {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+
+  .loading-bar {
+    height: 100%;
+    background: #22c55e;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+
+  .loading-bar.warning {
+    background: #f59e0b;
+  }
+
+  .loading-bar.critical {
+    background: #ef4444;
+  }
+
+  .inspector-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    gap: 12px;
+  }
+
+  .inspector-empty svg {
+    opacity: 0.5;
+  }
+
+  .inspector-empty span {
+    font-size: 12px;
+  }
+
+  /* Glow animations for violations */
+  :global(.overloaded) {
+    animation: pulse-critical 1.5s ease-in-out infinite;
+  }
+
+  :global(.high-loading) {
+    animation: pulse-warning 2s ease-in-out infinite;
+  }
+
+  :global(.voltage-violation) {
+    animation: pulse-critical 1.5s ease-in-out infinite;
+  }
+
+  :global(.voltage-warning) {
+    animation: pulse-warning 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-critical {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes pulse-warning {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+
+  /* Smooth transitions on SVG elements */
+  :global(.links line) {
+    transition: stroke 0.3s ease, stroke-width 0.2s ease, opacity 0.3s ease;
+  }
+
+  :global(.nodes circle) {
+    transition: fill 0.3s ease, stroke 0.2s ease, opacity 0.3s ease, r 0.2s ease;
+  }
+
+  :global(.nodes g) {
+    transition: transform 0.1s ease-out;
   }
 </style>

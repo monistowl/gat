@@ -19,7 +19,7 @@
 
 use super::lodf::{compute_lodf_matrix, compute_ptdf_matrix, LodfMatrix, PtdfMatrix};
 use anyhow::Result;
-use gat_core::{Edge, Network};
+use gat_core::{Edge, Network, Node};
 use rayon::prelude::*;
 use std::collections::HashMap;
 
@@ -865,6 +865,69 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>> {
     }
 
     Ok(x)
+}
+
+// =============================================================================
+// Helper functions for extracting network data
+// =============================================================================
+
+/// Extract net power injections (generation - load) per bus in MW.
+///
+/// This is the standard input format for N-k screening and DC power flow.
+/// Returns a map of bus_id → net injection in MW (positive = generation surplus).
+pub fn collect_injections(network: &Network) -> HashMap<usize, f64> {
+    let mut injections = HashMap::new();
+    for node_idx in network.graph.node_indices() {
+        match &network.graph[node_idx] {
+            Node::Gen(gen) => {
+                *injections.entry(gen.bus.value()).or_insert(0.0) += gen.active_power_mw;
+            }
+            Node::Load(load) => {
+                *injections.entry(load.bus.value()).or_insert(0.0) -= load.active_power_mw;
+            }
+            _ => {}
+        }
+    }
+    injections
+}
+
+/// Extract branch thermal limits (rating_a_mva) per branch.
+///
+/// Returns a map of branch_id → thermal limit in MVA.
+/// Branches without ratings or with very small ratings (< 0.1 MVA) are excluded.
+pub fn collect_branch_limits(network: &Network) -> HashMap<usize, f64> {
+    let mut limits = HashMap::new();
+    for edge in network.graph.edge_references() {
+        if let Edge::Branch(branch) = edge.weight() {
+            if branch.status {
+                if let Some(rating) = branch.rating_a_mva {
+                    // Skip very small ratings to avoid numerical issues
+                    if rating > 0.1 {
+                        limits.insert(branch.id.value(), rating);
+                    }
+                }
+            }
+        }
+    }
+    limits
+}
+
+/// Collect branch terminal buses for result mapping.
+///
+/// Returns a map of branch_id → (from_bus, to_bus).
+pub fn collect_branch_terminals(network: &Network) -> HashMap<usize, (usize, usize)> {
+    let mut terminals = HashMap::new();
+    for edge in network.graph.edge_references() {
+        if let Edge::Branch(branch) = edge.weight() {
+            if branch.status {
+                terminals.insert(
+                    branch.id.value(),
+                    (branch.from_bus.value(), branch.to_bus.value()),
+                );
+            }
+        }
+    }
+    terminals
 }
 
 #[cfg(test)]

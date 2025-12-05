@@ -7,6 +7,10 @@ use std::path::{Path, PathBuf};
 
 use std::collections::HashMap;
 
+use gat_algo::contingency::{
+    collect_branch_limits, collect_branch_terminals, collect_injections, Contingency,
+    NkEvaluator,
+};
 use gat_algo::opf::ac_nlp::SparseYBus;
 use gat_algo::power_flow::ac_pf::AcPowerFlowSolver;
 use gat_core::solver::{FaerSolver, LinearSystemBackend};
@@ -524,11 +528,11 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
                 - (v_from * v_to / tap) * (g_series * cos_t + b_series * sin_t);
             let p_flow = p_flow_pu * base_mva;
 
-            // Loading percentage based on rating
-            let loading_pct = branch
-                .rating_a_mva
-                .map(|rating| (p_flow.abs() / rating * 100.0).min(999.0))
-                .unwrap_or(0.0);
+            // Loading percentage based on rating (skip very small ratings)
+            let loading_pct = match branch.rating_a_mva {
+                Some(rating) if rating > 0.1 => (p_flow.abs() / rating * 100.0).min(999.0),
+                _ => 0.0, // No constraint
+            };
 
             branches.push(BranchJson {
                 from: branch.from_bus.value(),
@@ -695,11 +699,11 @@ pub fn solve_dc_power_flow(path: &str) -> Result<DcPowerFlowResult, String> {
             let flow_pu = ((theta_from - theta_to) - branch.phase_shift_rad) / reactance;
             let p_flow = flow_pu * base_mva;
 
-            // Loading percentage based on rating
-            let loading_pct = branch
-                .rating_a_mva
-                .map(|rating| (p_flow.abs() / rating * 100.0).min(999.0))
-                .unwrap_or(0.0);
+            // Loading percentage based on rating (skip very small ratings)
+            let loading_pct = match branch.rating_a_mva {
+                Some(rating) if rating > 0.1 => (p_flow.abs() / rating * 100.0).min(999.0),
+                _ => 0.0, // No constraint
+            };
 
             branches.push(BranchJson {
                 from: branch.from_bus.value(),
@@ -813,8 +817,9 @@ pub struct N1ContingencyResult {
     pub solve_time_ms: f64,
 }
 
-/// Run N-1 contingency analysis using DC power flow.
+/// Run N-1 contingency analysis using DC power flow from gat-algo.
 ///
+/// Uses the library's NkEvaluator for consistent results between GUI and CLI.
 /// For each branch, temporarily remove it and solve DC power flow
 /// to check if remaining branches become overloaded.
 #[tauri::command]
@@ -830,186 +835,84 @@ pub fn run_n1_contingency(path: &str) -> Result<N1ContingencyResult, String> {
     };
 
     let network = &result.network;
-    let solver = FaerSolver;
-    let base_mva = 100.0;
 
-    // Collect all active branches with their info
-    let mut branches_info: Vec<(usize, usize, f64, f64, Option<f64>, f64)> = Vec::new();
-    for edge in network.graph.edge_weights() {
-        if let Edge::Branch(branch) = edge {
-            if branch.status {
-                let reactance = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
-                branches_info.push((
-                    branch.from_bus.value(),
-                    branch.to_bus.value(),
-                    reactance,
-                    branch.phase_shift_rad,
-                    branch.rating_a_mva,
-                    branch.tap_ratio,
-                ));
-            }
-        }
-    }
+    // Use library helpers to collect network data
+    let injections = collect_injections(network);
+    let branch_limits = collect_branch_limits(network);
+    let branch_terminals = collect_branch_terminals(network);
 
-    // Collect bus info and injections
-    let mut bus_ids: Vec<usize> = network
-        .graph
-        .node_weights()
-        .filter_map(|n| {
-            if let Node::Bus(bus) = n {
-                Some(bus.id.value())
-            } else {
-                None
-            }
-        })
+    // Generate N-1 contingencies (one for each branch)
+    let contingencies: Vec<Contingency> = branch_terminals
+        .keys()
+        .map(|&branch_id| Contingency::single(branch_id))
         .collect();
-    bus_ids.sort();
 
-    let n = bus_ids.len();
-    let bus_idx_map: HashMap<usize, usize> =
-        bus_ids.iter().enumerate().map(|(i, &id)| (id, i)).collect();
-
-    // Collect net injections
-    let mut injections: HashMap<usize, f64> = HashMap::new();
-    for node in network.graph.node_weights() {
-        match node {
-            Node::Gen(gen) => {
-                let bus_id = gen.bus.value();
-                *injections.entry(bus_id).or_default() += gen.active_power_mw / base_mva;
-            }
-            Node::Load(load) => {
-                let bus_id = load.bus.value();
-                *injections.entry(bus_id).or_default() -= load.active_power_mw / base_mva;
-            }
-            _ => {}
-        }
+    if contingencies.is_empty() {
+        return Ok(N1ContingencyResult {
+            total_contingencies: 0,
+            contingencies_with_violations: 0,
+            contingencies_failed: 0,
+            results: vec![],
+            worst_contingency: None,
+            solve_time_ms: start.elapsed().as_secs_f64() * 1000.0,
+        });
     }
 
-    let mut results = Vec::new();
-    let mut worst_loading = 0.0;
+    // Use the library's NkEvaluator for DC power flow evaluation
+    let evaluator = NkEvaluator::new(network, injections, branch_limits.clone());
+    let lib_results = evaluator.evaluate_all(&contingencies);
+
+    // Convert library results to GUI format
+    let mut results: Vec<ContingencyResult> = Vec::with_capacity(lib_results.evaluations.len());
+    let mut worst_loading = 0.0f64;
     let mut worst_result: Option<ContingencyResult> = None;
 
-    // For each branch, run contingency analysis
-    for outage_idx in 0..branches_info.len() {
-        let (outage_from, outage_to, _, _, _, _) = branches_info[outage_idx];
+    for eval in &lib_results.evaluations {
+        // Get the outaged branch's terminal buses
+        let outage_branch_id = eval.contingency.outaged_branches[0];
+        let (outage_from, outage_to) = branch_terminals
+            .get(&outage_branch_id)
+            .copied()
+            .unwrap_or((0, 0));
 
-        // Build susceptance matrix excluding this branch
-        let mut b_matrix = vec![vec![0.0; n]; n];
-        for (idx, &(from, to, reactance, _, _, _)) in branches_info.iter().enumerate() {
-            if idx == outage_idx {
-                continue; // Skip the outaged branch
-            }
-            if let (Some(&i), Some(&j)) = (bus_idx_map.get(&from), bus_idx_map.get(&to)) {
-                let b = 1.0 / reactance;
-                b_matrix[i][j] -= b;
-                b_matrix[j][i] -= b;
-                b_matrix[i][i] += b;
-                b_matrix[j][j] += b;
-            }
-        }
-
-        // Solve for angles (excluding slack bus at index 0)
-        let angles: HashMap<usize, f64> = if n <= 1 {
-            bus_ids.iter().map(|&id| (id, 0.0)).collect()
-        } else {
-            let reduced_size = n - 1;
-            let mut b_reduced: Vec<Vec<f64>> = vec![vec![0.0; reduced_size]; reduced_size];
-            let mut p_reduced = vec![0.0; reduced_size];
-
-            for i in 0..reduced_size {
-                let bus_i = bus_ids[i + 1];
-                p_reduced[i] = *injections.get(&bus_i).unwrap_or(&0.0);
-                for j in 0..reduced_size {
-                    let bus_j = bus_ids[j + 1];
-                    if let (Some(&row_idx), Some(&col_idx)) =
-                        (bus_idx_map.get(&bus_i), bus_idx_map.get(&bus_j))
-                    {
-                        b_reduced[i][j] = b_matrix[row_idx][col_idx];
-                    }
-                }
-            }
-
-            // Try to solve - may fail if contingency creates an island
-            match solver.solve(&b_reduced, &p_reduced) {
-                Ok(theta_reduced) => {
-                    let mut angles: HashMap<usize, f64> = HashMap::new();
-                    angles.insert(bus_ids[0], 0.0);
-                    for (i, &theta) in theta_reduced.iter().enumerate() {
-                        angles.insert(bus_ids[i + 1], theta);
-                    }
-                    angles
-                }
-                Err(_) => {
-                    // Contingency creates island or singular matrix
-                    results.push(ContingencyResult {
-                        outage_from,
-                        outage_to,
-                        has_violations: true,
-                        overloaded_branches: vec![],
-                        max_loading_pct: 999.0,
-                        solved: false,
-                    });
-                    continue;
-                }
-            }
-        };
-
-        // Calculate flows on remaining branches
-        let mut overloaded = Vec::new();
-        let mut max_loading = 0.0;
-
-        for (idx, &(from, to, reactance, phase_shift, rating, _)) in
-            branches_info.iter().enumerate()
-        {
-            if idx == outage_idx {
-                continue;
-            }
-
-            let theta_from = angles.get(&from).copied().unwrap_or(0.0);
-            let theta_to = angles.get(&to).copied().unwrap_or(0.0);
-            let flow_pu = (theta_from - theta_to - phase_shift) / reactance;
-            let flow_mw = flow_pu * base_mva;
-
-            let loading_pct = rating
-                .map(|r| (flow_mw.abs() / r * 100.0).min(999.0))
-                .unwrap_or(0.0);
-
-            if loading_pct > max_loading {
-                max_loading = loading_pct;
-            }
-
-            if loading_pct > 100.0 {
-                overloaded.push(OverloadedBranch {
+        // Convert violations to GUI format
+        let overloaded_branches: Vec<OverloadedBranch> = eval
+            .violations
+            .iter()
+            .map(|v| {
+                let (from, to) = branch_terminals
+                    .get(&v.branch_id)
+                    .copied()
+                    .unwrap_or((0, 0));
+                OverloadedBranch {
                     from,
                     to,
-                    loading_pct,
-                    flow_mw,
-                    rating_mva: rating.unwrap_or(0.0),
-                });
-            }
-        }
+                    loading_pct: v.loading_fraction * 100.0,
+                    flow_mw: v.flow_mw,
+                    rating_mva: v.limit_mw,
+                }
+            })
+            .collect();
 
-        let has_violations = !overloaded.is_empty();
-        let contingency = ContingencyResult {
+        let max_loading_pct = eval.max_loading * 100.0;
+        let has_violations = !eval.violations.is_empty();
+
+        let contingency_result = ContingencyResult {
             outage_from,
             outage_to,
             has_violations,
-            overloaded_branches: overloaded,
-            max_loading_pct: max_loading,
-            solved: true,
+            overloaded_branches,
+            max_loading_pct,
+            solved: eval.converged,
         };
 
-        if max_loading > worst_loading {
-            worst_loading = max_loading;
-            worst_result = Some(contingency.clone());
+        if max_loading_pct > worst_loading {
+            worst_loading = max_loading_pct;
+            worst_result = Some(contingency_result.clone());
         }
 
-        results.push(contingency);
+        results.push(contingency_result);
     }
-
-    let solve_time = start.elapsed().as_secs_f64() * 1000.0;
-    let contingencies_with_violations = results.iter().filter(|r| r.has_violations).count();
-    let contingencies_failed = results.iter().filter(|r| !r.solved).count();
 
     // Sort results: violations first, then by max loading descending
     results.sort_by(|a, b| {
@@ -1022,8 +925,12 @@ pub fn run_n1_contingency(path: &str) -> Result<N1ContingencyResult, String> {
         }
     });
 
+    let solve_time = start.elapsed().as_secs_f64() * 1000.0;
+    let contingencies_with_violations = results.iter().filter(|r| r.has_violations).count();
+    let contingencies_failed = results.iter().filter(|r| !r.solved).count();
+
     Ok(N1ContingencyResult {
-        total_contingencies: branches_info.len(),
+        total_contingencies: results.len(),
         contingencies_with_violations,
         contingencies_failed,
         results,
@@ -1807,6 +1714,820 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
         transfer_mw,
         branches,
         compute_time_ms,
+    })
+}
+
+// ============================================================================
+// DC Optimal Power Flow
+// ============================================================================
+
+use gat_algo::opf::{dc_opf, OpfMethod, OpfSolution, OpfSolver};
+
+/// DC-OPF result for frontend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DcOpfResult {
+    pub converged: bool,
+    pub objective_value: f64,
+    pub total_generation_mw: f64,
+    pub total_load_mw: f64,
+    pub total_losses_mw: f64,
+    pub generators: Vec<GeneratorDispatch>,
+    pub branches: Vec<BranchFlow>,
+    pub lmps: Vec<LmpResult>,
+    pub solve_time_ms: f64,
+}
+
+/// Generator dispatch result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeneratorDispatch {
+    pub bus: usize,
+    pub name: String,
+    pub p_dispatch_mw: f64,
+    pub p_min_mw: f64,
+    pub p_max_mw: f64,
+    pub marginal_cost: f64,
+}
+
+/// Branch flow result from OPF.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchFlow {
+    pub from: usize,
+    pub to: usize,
+    pub p_flow_mw: f64,
+    pub rating_mva: Option<f64>,
+    pub loading_pct: f64,
+    pub congested: bool,
+}
+
+/// Locational Marginal Price result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LmpResult {
+    pub bus: usize,
+    pub lmp: f64,
+}
+
+/// Solve DC Optimal Power Flow.
+///
+/// DC-OPF minimizes generation cost subject to:
+/// - Power balance constraints
+/// - Generator limits
+/// - Branch thermal limits (optional)
+#[tauri::command]
+pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
+    let path_obj = Path::new(path);
+    let start = std::time::Instant::now();
+
+    // Parse the case
+    let result = if let Some((format, _)) = Format::detect(path_obj) {
+        format.parse(path).map_err(|e| e.to_string())?
+    } else {
+        parse_matpower(path).map_err(|e| e.to_string())?
+    };
+
+    let network = &result.network;
+
+    // Solve DC-OPF using the library solver
+    let solver = OpfSolver::new().with_method(OpfMethod::DcOpf);
+    let solution = solver.solve(network).map_err(|e| e.to_string())?;
+
+    let solve_time_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    // Extract generator dispatches
+    let mut generators: Vec<GeneratorDispatch> = Vec::new();
+    for node in network.graph.node_weights() {
+        if let Node::Gen(gen) = node {
+            let p_dispatch = solution
+                .generator_dispatch
+                .get(&gen.name)
+                .copied()
+                .unwrap_or(gen.active_power_mw);
+            generators.push(GeneratorDispatch {
+                bus: gen.bus.value(),
+                name: gen.name.clone(),
+                p_dispatch_mw: p_dispatch,
+                p_min_mw: gen.pmin_mw,
+                p_max_mw: gen.pmax_mw,
+                marginal_cost: gen.cost_coeffs.get(1).copied().unwrap_or(0.0),
+            });
+        }
+    }
+
+    // Sort by dispatch (highest first)
+    generators.sort_by(|a, b| {
+        b.p_dispatch_mw
+            .partial_cmp(&a.p_dispatch_mw)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    // Extract branch flows
+    let mut branches: Vec<BranchFlow> = Vec::new();
+    for edge in network.graph.edge_weights() {
+        if let Edge::Branch(branch) = edge {
+            if !branch.status {
+                continue;
+            }
+            let flow = solution
+                .branch_flows
+                .get(&branch.id)
+                .copied()
+                .unwrap_or(0.0);
+            let rating = branch.rating_a_mva;
+            let loading_pct = match rating {
+                Some(r) if r > 0.1 => (flow.abs() / r * 100.0).min(999.0),
+                _ => 0.0,
+            };
+            let congested = loading_pct > 99.0;
+
+            branches.push(BranchFlow {
+                from: branch.from_bus.value(),
+                to: branch.to_bus.value(),
+                p_flow_mw: flow,
+                rating_mva: rating,
+                loading_pct,
+                congested,
+            });
+        }
+    }
+
+    // Sort by loading (highest first)
+    branches.sort_by(|a, b| {
+        b.loading_pct
+            .partial_cmp(&a.loading_pct)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    // Extract LMPs
+    let mut lmps: Vec<LmpResult> = solution
+        .lmp
+        .iter()
+        .map(|(bus_id, &lmp)| LmpResult {
+            bus: bus_id.value(),
+            lmp,
+        })
+        .collect();
+    lmps.sort_by_key(|l| l.bus);
+
+    Ok(DcOpfResult {
+        converged: solution.converged,
+        objective_value: solution.objective_value,
+        total_generation_mw: solution.total_generation_mw,
+        total_load_mw: solution.total_load_mw,
+        total_losses_mw: solution.total_losses_mw,
+        generators,
+        branches,
+        lmps,
+        solve_time_ms,
+    })
+}
+
+// ============================================================================
+// Grid Summary Statistics
+// ============================================================================
+
+use gat_core::graph_utils::{find_islands, graph_stats, GraphStats, IslandAnalysis};
+
+/// Grid summary statistics for frontend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GridSummary {
+    pub bus_count: usize,
+    pub branch_count: usize,
+    pub generator_count: usize,
+    pub load_count: usize,
+    pub total_generation_mw: f64,
+    pub total_load_mw: f64,
+    pub total_generation_mvar: f64,
+    pub total_load_mvar: f64,
+    pub voltage_min_pu: f64,
+    pub voltage_max_pu: f64,
+    pub voltage_min_kv: f64,
+    pub voltage_max_kv: f64,
+    pub base_mva: f64,
+    pub connected_components: usize,
+    pub graph_density: f64,
+    pub avg_degree: f64,
+}
+
+/// Get summary statistics for a grid.
+#[tauri::command]
+pub fn get_grid_summary(path: &str) -> Result<GridSummary, String> {
+    let path_obj = Path::new(path);
+
+    // Parse the case
+    let result = if let Some((format, _)) = Format::detect(path_obj) {
+        format.parse(path).map_err(|e| e.to_string())?
+    } else {
+        parse_matpower(path).map_err(|e| e.to_string())?
+    };
+
+    let network = &result.network;
+
+    // Count elements and collect statistics
+    let mut bus_count = 0;
+    let mut branch_count = 0;
+    let mut generator_count = 0;
+    let mut load_count = 0;
+    let mut total_gen_mw = 0.0;
+    let mut total_gen_mvar = 0.0;
+    let mut total_load_mw = 0.0;
+    let mut total_load_mvar = 0.0;
+    let mut voltage_min_pu = f64::MAX;
+    let mut voltage_max_pu = f64::MIN;
+    let mut voltage_min_kv = f64::MAX;
+    let mut voltage_max_kv = f64::MIN;
+
+    for node in network.graph.node_weights() {
+        match node {
+            Node::Bus(bus) => {
+                bus_count += 1;
+                voltage_min_pu = voltage_min_pu.min(bus.voltage_pu);
+                voltage_max_pu = voltage_max_pu.max(bus.voltage_pu);
+                if bus.voltage_kv > 0.0 {
+                    voltage_min_kv = voltage_min_kv.min(bus.voltage_kv);
+                    voltage_max_kv = voltage_max_kv.max(bus.voltage_kv);
+                }
+            }
+            Node::Gen(gen) => {
+                generator_count += 1;
+                total_gen_mw += gen.active_power_mw;
+                total_gen_mvar += gen.reactive_power_mvar;
+            }
+            Node::Load(load) => {
+                load_count += 1;
+                total_load_mw += load.active_power_mw;
+                total_load_mvar += load.reactive_power_mvar;
+            }
+            Node::Shunt(_) => {}
+        }
+    }
+
+    for edge in network.graph.edge_weights() {
+        if let Edge::Branch(branch) = edge {
+            if branch.status {
+                branch_count += 1;
+            }
+        }
+    }
+
+    // Get graph statistics
+    let stats = graph_stats(network).map_err(|e| e.to_string())?;
+
+    // Handle edge cases for empty networks
+    if voltage_min_pu == f64::MAX {
+        voltage_min_pu = 0.0;
+    }
+    if voltage_max_pu == f64::MIN {
+        voltage_max_pu = 0.0;
+    }
+    if voltage_min_kv == f64::MAX {
+        voltage_min_kv = 0.0;
+    }
+    if voltage_max_kv == f64::MIN {
+        voltage_max_kv = 0.0;
+    }
+
+    Ok(GridSummary {
+        bus_count,
+        branch_count,
+        generator_count,
+        load_count,
+        total_generation_mw: total_gen_mw,
+        total_load_mw,
+        total_generation_mvar: total_gen_mvar,
+        total_load_mvar,
+        voltage_min_pu,
+        voltage_max_pu,
+        voltage_min_kv,
+        voltage_max_kv,
+        base_mva: 100.0,
+        connected_components: stats.connected_components,
+        graph_density: stats.density,
+        avg_degree: stats.avg_degree,
+    })
+}
+
+// ============================================================================
+// Island Detection
+// ============================================================================
+
+/// Island (connected component) information.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IslandInfo {
+    pub island_id: usize,
+    pub node_count: usize,
+    pub bus_ids: Vec<usize>,
+}
+
+/// Island detection result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IslandDetectionResult {
+    pub total_islands: usize,
+    pub is_connected: bool,
+    pub islands: Vec<IslandInfo>,
+    pub largest_island_size: usize,
+}
+
+/// Detect islands (disconnected components) in the network.
+///
+/// A connected network has exactly 1 island. Multiple islands indicate
+/// disconnected buses that won't have power flow solutions.
+#[tauri::command]
+pub fn detect_islands(path: &str) -> Result<IslandDetectionResult, String> {
+    let path_obj = Path::new(path);
+
+    // Parse the case
+    let result = if let Some((format, _)) = Format::detect(path_obj) {
+        format.parse(path).map_err(|e| e.to_string())?
+    } else {
+        parse_matpower(path).map_err(|e| e.to_string())?
+    };
+
+    let network = &result.network;
+
+    // Find islands using gat-core graph utilities
+    let analysis = find_islands(network).map_err(|e| e.to_string())?;
+
+    // Build bus ID lists for each island
+    let mut island_buses: HashMap<usize, Vec<usize>> = HashMap::new();
+    for assignment in &analysis.assignments {
+        // Extract bus ID from label if it's a bus node
+        if assignment.label.starts_with("Bus") || assignment.label.parse::<usize>().is_ok() {
+            // Try to parse bus ID from label
+            let bus_id = assignment
+                .label
+                .trim_start_matches("Bus")
+                .trim()
+                .parse::<usize>()
+                .unwrap_or(assignment.node_index);
+            island_buses
+                .entry(assignment.island_id)
+                .or_default()
+                .push(bus_id);
+        }
+    }
+
+    let islands: Vec<IslandInfo> = analysis
+        .islands
+        .iter()
+        .map(|island| IslandInfo {
+            island_id: island.island_id,
+            node_count: island.node_count,
+            bus_ids: island_buses
+                .get(&island.island_id)
+                .cloned()
+                .unwrap_or_default(),
+        })
+        .collect();
+
+    let largest = islands.iter().map(|i| i.node_count).max().unwrap_or(0);
+
+    Ok(IslandDetectionResult {
+        total_islands: islands.len(),
+        is_connected: islands.len() <= 1,
+        islands,
+        largest_island_size: largest,
+    })
+}
+
+// ============================================================================
+// LODF Matrix Computation
+// ============================================================================
+
+use gat_algo::contingency::lodf::compute_lodf_matrix;
+
+/// LODF entry for a pair of branches.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LodfEntry {
+    pub monitored_branch: usize,
+    pub monitored_from: usize,
+    pub monitored_to: usize,
+    pub outaged_branch: usize,
+    pub outaged_from: usize,
+    pub outaged_to: usize,
+    pub lodf_factor: f64,
+}
+
+/// LODF matrix result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LodfResponse {
+    pub branch_count: usize,
+    /// Top LODF entries (sorted by absolute value)
+    pub top_entries: Vec<LodfEntry>,
+    /// Full matrix as sparse entries (only non-trivial values)
+    pub entries: Vec<LodfEntry>,
+    pub compute_time_ms: f64,
+}
+
+/// Compute LODF matrix showing flow redistribution when branches trip.
+///
+/// LODF[ℓ,m] = fraction of branch m's flow that shifts to branch ℓ when m trips.
+/// High LODF values indicate branches that are sensitive to specific outages.
+#[tauri::command]
+pub fn get_lodf_matrix(path: &str) -> Result<LodfResponse, String> {
+    let path_obj = Path::new(path);
+    let start = std::time::Instant::now();
+
+    // Parse the case
+    let result = if let Some((format, _)) = Format::detect(path_obj) {
+        format.parse(path).map_err(|e| e.to_string())?
+    } else {
+        parse_matpower(path).map_err(|e| e.to_string())?
+    };
+
+    let network = &result.network;
+
+    // Compute PTDF first (required for LODF)
+    let ptdf = compute_ptdf_matrix(network).map_err(|e| e.to_string())?;
+
+    // Compute LODF matrix
+    let lodf = compute_lodf_matrix(network, &ptdf).map_err(|e| e.to_string())?;
+
+    // Get branch terminal info
+    let branch_terminals = collect_branch_terminals(network);
+
+    // Collect all non-trivial LODF entries
+    let mut entries: Vec<LodfEntry> = Vec::new();
+    let threshold = 0.01; // Only include entries > 1%
+
+    for (l_idx, &branch_l) in lodf.branch_ids.iter().enumerate() {
+        let (l_from, l_to) = branch_terminals.get(&branch_l).copied().unwrap_or((0, 0));
+
+        for (m_idx, &branch_m) in lodf.branch_ids.iter().enumerate() {
+            if l_idx == m_idx {
+                continue; // Skip diagonal (self-outage)
+            }
+
+            let lodf_val = lodf.values[l_idx][m_idx];
+            if lodf_val.abs() > threshold {
+                let (m_from, m_to) = branch_terminals.get(&branch_m).copied().unwrap_or((0, 0));
+                entries.push(LodfEntry {
+                    monitored_branch: branch_l,
+                    monitored_from: l_from,
+                    monitored_to: l_to,
+                    outaged_branch: branch_m,
+                    outaged_from: m_from,
+                    outaged_to: m_to,
+                    lodf_factor: lodf_val,
+                });
+            }
+        }
+    }
+
+    // Sort by absolute LODF factor
+    entries.sort_by(|a, b| {
+        b.lodf_factor
+            .abs()
+            .partial_cmp(&a.lodf_factor.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    // Top 50 entries for quick view
+    let top_entries: Vec<LodfEntry> = entries.iter().take(50).cloned().collect();
+
+    let compute_time_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+    Ok(LodfResponse {
+        branch_count: lodf.num_branches(),
+        top_entries,
+        entries,
+        compute_time_ms,
+    })
+}
+
+// ============================================================================
+// Thermal Analysis (Pre-contingency)
+// ============================================================================
+
+/// Branch thermal status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThermalStatus {
+    pub branch_id: usize,
+    pub from: usize,
+    pub to: usize,
+    pub name: String,
+    pub rating_mva: f64,
+    pub estimated_flow_mw: f64,
+    pub headroom_mw: f64,
+    pub headroom_pct: f64,
+    pub status: String, // "normal", "watch", "warning", "critical"
+}
+
+/// Thermal analysis result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThermalAnalysisResult {
+    pub total_branches: usize,
+    pub branches_with_ratings: usize,
+    pub critical_count: usize,
+    pub warning_count: usize,
+    pub watch_count: usize,
+    pub branches: Vec<ThermalStatus>,
+}
+
+/// Analyze thermal headroom on all branches.
+///
+/// Uses base case power balance to estimate flows and identify
+/// branches that are already near their limits before any contingency.
+#[tauri::command]
+pub fn get_thermal_analysis(path: &str) -> Result<ThermalAnalysisResult, String> {
+    let path_obj = Path::new(path);
+
+    // Parse the case
+    let result = if let Some((format, _)) = Format::detect(path_obj) {
+        format.parse(path).map_err(|e| e.to_string())?
+    } else {
+        parse_matpower(path).map_err(|e| e.to_string())?
+    };
+
+    let network = &result.network;
+
+    // Run DC power flow to get base case flows
+    let solver = FaerSolver;
+    let (bus_ids, bus_idx_map, susceptance) = build_bus_susceptance(network);
+    let node_count = bus_ids.len();
+    let base_mva = 100.0;
+
+    // Collect injections
+    let mut injections: HashMap<usize, f64> = HashMap::new();
+    for node in network.graph.node_weights() {
+        match node {
+            Node::Gen(gen) => {
+                *injections.entry(gen.bus.value()).or_default() += gen.active_power_mw / base_mva;
+            }
+            Node::Load(load) => {
+                *injections.entry(load.bus.value()).or_default() -= load.active_power_mw / base_mva;
+            }
+            _ => {}
+        }
+    }
+
+    // Solve for angles
+    let angles: HashMap<usize, f64> = if node_count <= 1 {
+        bus_ids.iter().map(|&id| (id, 0.0)).collect()
+    } else {
+        let reduced_size = node_count - 1;
+        let mut b_reduced: Vec<Vec<f64>> = vec![vec![0.0; reduced_size]; reduced_size];
+        let mut p_reduced = vec![0.0; reduced_size];
+
+        for i in 0..reduced_size {
+            let bus_i = bus_ids[i + 1];
+            p_reduced[i] = *injections.get(&bus_i).unwrap_or(&0.0);
+            for j in 0..reduced_size {
+                let bus_j = bus_ids[j + 1];
+                if let (Some(&row_idx), Some(&col_idx)) =
+                    (bus_idx_map.get(&bus_i), bus_idx_map.get(&bus_j))
+                {
+                    b_reduced[i][j] = susceptance[row_idx][col_idx];
+                }
+            }
+        }
+
+        let theta_reduced = solver
+            .solve(&b_reduced, &p_reduced)
+            .map_err(|e| format!("DC power flow failed: {}", e))?;
+
+        let mut angles: HashMap<usize, f64> = HashMap::new();
+        angles.insert(bus_ids[0], 0.0);
+        for (i, &theta) in theta_reduced.iter().enumerate() {
+            angles.insert(bus_ids[i + 1], theta);
+        }
+        angles
+    };
+
+    // Compute branch flows and thermal status
+    let mut branches: Vec<ThermalStatus> = Vec::new();
+    let mut branches_with_ratings = 0;
+    let mut critical_count = 0;
+    let mut warning_count = 0;
+    let mut watch_count = 0;
+
+    for edge in network.graph.edge_weights() {
+        if let Edge::Branch(branch) = edge {
+            if !branch.status {
+                continue;
+            }
+
+            let theta_from = angles.get(&branch.from_bus.value()).copied().unwrap_or(0.0);
+            let theta_to = angles.get(&branch.to_bus.value()).copied().unwrap_or(0.0);
+            let reactance = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
+            let flow_pu = ((theta_from - theta_to) - branch.phase_shift_rad) / reactance;
+            let flow_mw = flow_pu.abs() * base_mva;
+
+            if let Some(rating) = branch.rating_a_mva {
+                if rating > 0.1 {
+                    branches_with_ratings += 1;
+                    let headroom_mw = rating - flow_mw;
+                    let headroom_pct = (headroom_mw / rating) * 100.0;
+                    let loading_pct = (flow_mw / rating) * 100.0;
+
+                    let status = if loading_pct >= 100.0 {
+                        critical_count += 1;
+                        "critical"
+                    } else if loading_pct >= 90.0 {
+                        warning_count += 1;
+                        "warning"
+                    } else if loading_pct >= 75.0 {
+                        watch_count += 1;
+                        "watch"
+                    } else {
+                        "normal"
+                    };
+
+                    branches.push(ThermalStatus {
+                        branch_id: branch.id.value(),
+                        from: branch.from_bus.value(),
+                        to: branch.to_bus.value(),
+                        name: branch.name.clone(),
+                        rating_mva: rating,
+                        estimated_flow_mw: flow_mw,
+                        headroom_mw: headroom_mw.max(0.0),
+                        headroom_pct: headroom_pct.max(0.0),
+                        status: status.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Sort by headroom (lowest first - most critical)
+    branches.sort_by(|a, b| {
+        a.headroom_pct
+            .partial_cmp(&b.headroom_pct)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let total_branches = branches.len();
+
+    Ok(ThermalAnalysisResult {
+        total_branches,
+        branches_with_ratings,
+        critical_count,
+        warning_count,
+        watch_count,
+        branches,
+    })
+}
+
+// ============================================================================
+// Export Network to JSON
+// ============================================================================
+
+/// Detailed network export for external tools.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NetworkExport {
+    pub name: String,
+    pub base_mva: f64,
+    pub buses: Vec<BusExport>,
+    pub branches: Vec<BranchExport>,
+    pub generators: Vec<GeneratorExport>,
+    pub loads: Vec<LoadExport>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BusExport {
+    pub id: usize,
+    pub name: String,
+    pub voltage_kv: f64,
+    pub voltage_pu: f64,
+    pub angle_deg: f64,
+    pub bus_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchExport {
+    pub id: usize,
+    pub name: String,
+    pub from_bus: usize,
+    pub to_bus: usize,
+    pub r_pu: f64,
+    pub x_pu: f64,
+    pub b_pu: f64,
+    pub rating_mva: Option<f64>,
+    pub tap_ratio: f64,
+    pub phase_shift_deg: f64,
+    pub status: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GeneratorExport {
+    pub name: String,
+    pub bus: usize,
+    pub p_mw: f64,
+    pub q_mvar: f64,
+    pub p_min_mw: f64,
+    pub p_max_mw: f64,
+    pub q_min_mvar: f64,
+    pub q_max_mvar: f64,
+    pub cost_coeffs: Vec<f64>,
+    pub status: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoadExport {
+    pub name: String,
+    pub bus: usize,
+    pub p_mw: f64,
+    pub q_mvar: f64,
+    pub status: bool,
+}
+
+/// Export network data to JSON format for external tools.
+///
+/// Provides complete network model data including buses, branches,
+/// generators, and loads with all parameters.
+#[tauri::command]
+pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
+    let path_obj = Path::new(path);
+
+    // Parse the case
+    let result = if let Some((format, _)) = Format::detect(path_obj) {
+        format.parse(path).map_err(|e| e.to_string())?
+    } else {
+        parse_matpower(path).map_err(|e| e.to_string())?
+    };
+
+    let network = &result.network;
+
+    // Extract case name
+    let name = path_obj
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    let mut buses: Vec<BusExport> = Vec::new();
+    let mut generators: Vec<GeneratorExport> = Vec::new();
+    let mut loads: Vec<LoadExport> = Vec::new();
+    let mut branches: Vec<BranchExport> = Vec::new();
+
+    // Collect nodes
+    for node in network.graph.node_weights() {
+        match node {
+            Node::Bus(bus) => {
+                buses.push(BusExport {
+                    id: bus.id.value(),
+                    name: bus.name.clone(),
+                    voltage_kv: bus.voltage_kv,
+                    voltage_pu: bus.voltage_pu,
+                    angle_deg: bus.angle_rad.to_degrees(),
+                    bus_type: "PQ".to_string(), // Simplified
+                });
+            }
+            Node::Gen(gen) => {
+                generators.push(GeneratorExport {
+                    name: gen.name.clone(),
+                    bus: gen.bus.value(),
+                    p_mw: gen.active_power_mw,
+                    q_mvar: gen.reactive_power_mvar,
+                    p_min_mw: gen.pmin_mw,
+                    p_max_mw: gen.pmax_mw,
+                    q_min_mvar: gen.qmin_mvar,
+                    q_max_mvar: gen.qmax_mvar,
+                    cost_coeffs: gen.cost_coeffs.clone(),
+                    status: gen.status,
+                });
+            }
+            Node::Load(load) => {
+                loads.push(LoadExport {
+                    name: load.name.clone(),
+                    bus: load.bus.value(),
+                    p_mw: load.active_power_mw,
+                    q_mvar: load.reactive_power_mvar,
+                    status: load.status,
+                });
+            }
+            Node::Shunt(_) => {}
+        }
+    }
+
+    // Collect branches
+    for edge in network.graph.edge_weights() {
+        if let Edge::Branch(branch) = edge {
+            branches.push(BranchExport {
+                id: branch.id.value(),
+                name: branch.name.clone(),
+                from_bus: branch.from_bus.value(),
+                to_bus: branch.to_bus.value(),
+                r_pu: branch.resistance,
+                x_pu: branch.reactance,
+                b_pu: branch.charging_b_pu,
+                rating_mva: branch.rating_a_mva,
+                tap_ratio: branch.tap_ratio,
+                phase_shift_deg: branch.phase_shift_rad.to_degrees(),
+                status: branch.status,
+            });
+        }
+    }
+
+    // Sort by ID for consistent output
+    buses.sort_by_key(|b| b.id);
+    branches.sort_by_key(|b| b.id);
+
+    Ok(NetworkExport {
+        name,
+        base_mva: 100.0,
+        buses,
+        branches,
+        generators,
+        loads,
     })
 }
 

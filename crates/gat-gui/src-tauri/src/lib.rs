@@ -2,9 +2,11 @@ mod commands;
 mod state;
 
 use commands::{
-    compute_ptdf, get_batch_status, get_config, get_config_path, get_notebook_manifest, get_ybus,
-    init_notebook_workspace, list_cases, load_case, read_notebook, run_batch_job,
-    run_n1_contingency, save_config, solve_dc_power_flow, solve_power_flow,
+    compute_ptdf, detect_islands, export_network_json, get_batch_status, get_config,
+    get_config_path, get_grid_summary, get_lodf_matrix, get_notebook_manifest,
+    get_thermal_analysis, get_ybus, init_notebook_workspace, list_cases, load_case, read_notebook,
+    run_batch_job, run_n1_contingency, save_config, solve_dc_opf, solve_dc_power_flow,
+    solve_power_flow,
 };
 use state::AppState;
 
@@ -19,6 +21,7 @@ pub fn run() {
             load_case,
             solve_power_flow,
             solve_dc_power_flow,
+            solve_dc_opf,
             run_n1_contingency,
             get_ybus,
             get_config,
@@ -30,6 +33,11 @@ pub fn run() {
             run_batch_job,
             get_batch_status,
             compute_ptdf,
+            get_grid_summary,
+            detect_islands,
+            get_lodf_matrix,
+            get_thermal_analysis,
+            export_network_json,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
