@@ -62,7 +62,7 @@ GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-m
 - Full physics accuracy required
 - Regulatory compliance
 
-## Architecture Overview (v0.5.0)
+## Architecture Overview (v0.5.2)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods:
 
@@ -94,7 +94,7 @@ The SOCP solver has been validated against all 67 PGLib-OPF cases:
 
 → [View complete benchmark results](@/internals/benchmarks.md)
 
-### What's New in 0.5.0
+### What's New in 0.5.2
 
 - **Full nonlinear AC-OPF** reproduces **all 68 PGLib benchmark cases with <0.01% gap** using IPOPT backend.
 - **Multi-period dispatch** with generator ramp constraints for day-ahead scheduling.

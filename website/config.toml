@@ -35,7 +35,7 @@ external_links_no_referrer = false
 [extra]
 # GAT-specific variables
 repo_url = "https://github.com/monistowl/gat"
-version = "0.5.0"
+version = "0.5.2"
 tagline = "Stop installing. Start solving."
 
 # Abridge layout settings

@@ -145,7 +145,7 @@ Development happens in the open:
 
 ## Project Status
 
-**Current Version:** v0.5.0
+**Current Version:** v0.5.2
 
 **Status:** Production-ready, actively developed
 
