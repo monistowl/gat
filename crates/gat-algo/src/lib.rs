@@ -70,6 +70,7 @@ pub mod io;
 pub mod opf;
 pub mod power_flow;
 pub mod reliability_monte_carlo;
+pub mod sparse;
 pub mod tep;
 pub mod test_utils;
 pub mod validation;
@@ -91,6 +92,10 @@ pub use geo_join::*;
 pub use io::*;
 pub use opf::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution, OpfSolver};
 pub use power_flow::*;
+pub use sparse::{
+    IncrementalSolver, LodfMatrix, PtdfMatrix, SparsePtdf, SparseSusceptance, SparseYBus,
+    SusceptanceError, WoodburyUpdate, YBusError,
+};
 pub use reliability_monte_carlo::{
     DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
     ReliabilityMetrics,
