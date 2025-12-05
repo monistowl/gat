@@ -130,31 +130,41 @@ Go to https://rustup.rs to install the Rust toolchain.
 Then:
 
 ```bash
-# Full variant (default): CLI + TUI + all features
-cargo build -p gat-cli --release --all-features
+# Full distribution: all solvers + TUI + visualization (~61 MB)
+cargo build -p gat-cli --release --no-default-features --features dist
 
-# Headless (CLI only, minimal dependencies)
-cargo build -p gat-cli --release --no-default-features --features minimal-io
+# Headless distribution: all solvers, no TUI/GUI (~60 MB, for servers)
+cargo build -p gat-cli --release --no-default-features --features dist-headless
 
-# Analyst (CLI + visualization/analysis tools)
-cargo build -p gat-cli --release --no-default-features --features "minimal-io,viz,all-backends"
+# Native distribution: includes IPOPT for AC-OPF (requires libipopt)
+cargo build -p gat-cli --release --no-default-features --features dist-native
+
+# Native headless: IPOPT without UI (for HPC/cluster deployments)
+cargo build -p gat-cli --release --no-default-features --features dist-native-headless
 ```
 
 The binary lands under `target/release/gat-cli`.
 
-#### Feature Flags
+#### Distribution Feature Summary
 
-* Default builds use the lightweight Clarabel backend. Enable other `good_lp` solvers:
+| Feature | Solvers | TUI | Viz | IPOPT | Use Case |
+|---------|---------|-----|-----|-------|----------|
+| `dist` | clarabel, highs | ✓ | ✓ | — | End users (desktop/laptop) |
+| `dist-headless` | clarabel, highs | — | ✓ | — | Servers, automation, CI |
+| `dist-native` | clarabel, highs | ✓ | ✓ | ✓ | AC-OPF users (requires libipopt) |
+| `dist-native-headless` | clarabel, highs | — | ✓ | ✓ | HPC clusters, batch AC-OPF |
 
-  ```bash
-  cargo build -p gat-cli --no-default-features --features "all-backends"
-  ```
+#### Legacy Feature Flags
 
-* To keep dependencies lean while supporting Parquet/IPC I/O:
+For minimal or custom builds:
 
-  ```bash
-  cargo build -p gat-cli --no-default-features --features "minimal-io"
-  ```
+```bash
+# Minimal (Clarabel only, lean dependencies)
+cargo build -p gat-cli --release --no-default-features --features minimal
+
+# Custom: specific solvers + features
+cargo build -p gat-cli --release --no-default-features --features "solver-clarabel,solver-highs,tui,viz"
+```
 
 ### Native Solvers (Optional)
 

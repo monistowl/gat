@@ -1,8 +1,8 @@
 # gat-gui — Interactive Grid Analysis Dashboard
 
-**Status: Experimental Work in Progress**
+**Status: Experimental (Active Development)**
 
-A native desktop application for interactive power grid visualization and analysis, built with Tauri 2.0 + Svelte 5 + D3.js.
+A native desktop application for interactive power grid visualization and analysis, built with Tauri 2.0 + Svelte 5 + D3.js. Provides real-time power flow solving, contingency analysis, and batch execution with a force-directed graph visualization.
 
 ## Features
 
@@ -52,6 +52,28 @@ A native desktop application for interactive power grid visualization and analys
 - Click cells to view complex values (G + jB)
 - Color scale for magnitude
 - Bus selection syncs with GridView
+
+### PTDF Analysis (PtdfPanel)
+
+Power Transfer Distribution Factors quantify how power injections redistribute across branches:
+
+- **Interactive transfer selection** — Pick injection and withdrawal buses
+- **Real-time PTDF computation** — Calculates sensitivity matrix on demand
+- **Branch impact ranking** — Branches sorted by absolute PTDF factor
+- **Flow change preview** — Shows MW impact for a standard 100 MW transfer
+- **Integration with N-1** — PTDF underpins LODF-based contingency screening
+
+**Theory:** PTDF[ℓ, i→j] = PTDF[ℓ, i] - PTDF[ℓ, j] represents the fraction of a transfer from bus i to bus j that flows on branch ℓ.
+
+### Batch Job Execution (BatchJobPane)
+
+Run parametric studies across multiple grid cases:
+
+- **File pattern matching** — Select cases by wildcard pattern (e.g., `*.m`, `*.arrow`)
+- **Analysis types** — DC/AC power flow, DC/AC OPF
+- **Parallel execution** — Configure worker threads for throughput
+- **Progress tracking** — Real-time status updates via polling
+- **Results aggregation** — Success/failure summary with per-job details
 
 ### Additional Features
 
@@ -113,16 +135,18 @@ gat-gui/
 │   └── lib/
 │       ├── GridView.svelte      # D3 network visualization
 │       ├── YbusExplorer.svelte  # Admittance matrix viewer
+│       ├── PtdfPanel.svelte     # PTDF transfer analysis
 │       ├── ArchitectureDiagram  # System overview
 │       ├── EducationDrawer      # Learning content
 │       ├── ConfigPane           # Settings
 │       ├── CommandBuilder       # CLI command builder
-│       ├── BatchJobPane         # Batch execution
+│       ├── BatchJobPane         # Batch execution UI
 │       └── NotebookPane         # Research notebooks
 ├── src-tauri/              # Rust backend
 │   └── src/
 │       ├── lib.rs          # Tauri app setup
-│       └── commands.rs     # Tauri commands (IPC)
+│       ├── commands.rs     # Tauri commands (IPC)
+│       └── state.rs        # AppState for batch job tracking
 └── static/                 # Static assets
 ```
 
@@ -130,15 +154,19 @@ gat-gui/
 
 | Command | Description |
 |---------|-------------|
-| `list_cases` | List available test cases |
-| `load_case` | Load network from file path |
-| `solve_power_flow` | Run AC Newton-Raphson |
-| `solve_dc_power_flow` | Run DC linear approximation |
-| `run_n1_contingency` | N-1 security screening |
-| `get_ybus` | Get admittance matrix |
-| `get_config` / `save_config` | Configuration management |
-| `get_notebook_manifest` | List demo notebooks |
-| `read_notebook` / `init_notebook_workspace` | Notebook support |
+| `list_cases` | List available test cases from pglib-opf |
+| `load_case` | Load network from MATPOWER/Arrow file |
+| `solve_power_flow` | Run AC Newton-Raphson solver |
+| `solve_dc_power_flow` | Run DC linear approximation (B'θ = P) |
+| `run_n1_contingency` | N-1 security screening with LODF |
+| `get_ybus` | Get sparse admittance matrix |
+| `compute_ptdf` | Compute PTDF factors for bus-to-bus transfer |
+| `run_batch_job` | Start async batch job execution |
+| `get_batch_status` | Poll batch job progress and results |
+| `get_config` / `save_config` | Configuration management (~/.gat/config/gat.toml) |
+| `get_config_path` | Get path to config file |
+| `get_notebook_manifest` | List demo notebooks and quick actions |
+| `read_notebook` / `init_notebook_workspace` | Notebook workspace support |
 
 ### Data Flow
 
@@ -179,6 +207,32 @@ Slide-out results panel triggered by N-1 analysis:
 - Sortable list (by severity or branch ID)
 - Status badge: "SECURE" (green) or "N VIOLATIONS" (red)
 
+### PtdfPanel.svelte
+
+Interactive PTDF transfer analysis:
+
+- Two bus selectors (injection/withdrawal) populated from loaded network
+- "Compute" button triggers `compute_ptdf` command
+- Results table showing all branches with:
+  - Branch name and terminal buses
+  - PTDF factor (dimensionless, typically -1 to +1)
+  - Flow change for 100 MW transfer
+- Sorted by absolute impact for quick identification of critical branches
+
+### State Management (state.rs)
+
+Thread-safe application state for async operations:
+
+```rust
+pub struct AppState {
+    pub batch_runs: Arc<Mutex<HashMap<String, BatchRun>>>,
+}
+```
+
+- `BatchRun` tracks: run_id, status, completed/total counts, results, errors
+- Enables polling-based progress updates for long-running batch jobs
+- Managed by Tauri's state injection system
+
 ## Technology Stack
 
 - **Tauri 2.0** — Rust backend with webview frontend
@@ -194,14 +248,25 @@ This GUI is under active development. Known limitations:
 
 - Large networks (>1000 buses) may have performance issues in force layout
 - Geographic positions are not persisted across sessions
-- Some features are stubs (batch jobs, CLI builder)
+- CLI command builder is a stub (use terminal for complex commands)
 - No undo/redo for layout changes
-- Y-bus explorer doesn't scale well for very large matrices
+- Y-bus explorer doesn't scale well for very large matrices (>500 buses)
+
+### Recently Implemented
+
+- ✅ Batch job execution with async tracking and parallel workers
+- ✅ PTDF analysis panel for transfer sensitivity studies
+- ✅ LODF-based N-1 contingency screening with correct transfer formula
 
 Contributions and feedback welcome.
 
-## Related
+## Related Crates
 
-- `gat-core` — Core solver library (power flow, contingency)
-- `gat-tui` — Terminal UI alternative
-- `gat-cli` — Command-line interface
+| Crate | Description |
+|-------|-------------|
+| `gat-core` | Network graph model, linear system solvers, ID types |
+| `gat-algo` | Power flow (AC/DC), OPF, contingency analysis (PTDF/LODF) |
+| `gat-batch` | Parallel batch job runner with manifest support |
+| `gat-io` | File I/O: MATPOWER, Arrow, PSS/E parsers |
+| `gat-cli` | Command-line interface |
+| `gat-tui` | Terminal UI (Ratatui-based) |

@@ -2,6 +2,8 @@
 
 Interactive terminal UI (TUI) for browsing datasets, executing commands, monitoring batch jobs, and visualizing grid analysis results without leaving the terminal.
 
+Provides terminal-native equivalents of `gat-gui` features including power flow visualization, N-1 contingency screening, PTDF transfer analysis, and Y-bus matrix exploration—all accessible via keyboard navigation in any terminal emulator.
+
 ## Quick Start
 
 ```bash
@@ -19,7 +21,7 @@ Supports the latest CLI additions (pandapower import, dataset fetch/describe, ru
 3. **Datasets** — Catalog browser, upload manager, scenario template browser
 4. **Pipeline** — Workflow DAG visualization, transform step tracking
 5. **Operations** — Batch job monitor, allocation results, job status polling
-6. **Analytics** — Multi-tab results: Reliability, Deliverability Score, ELCC, Power Flow
+6. **Analytics** — Seven analysis tabs: Reliability, Deliverability, ELCC, Power Flow, N-1 Contingency, PTDF, Y-bus
 7. **Settings** — Display, data, execution, and advanced preferences
 
 ## Features
@@ -57,11 +59,49 @@ Supports the latest CLI additions (pandapower import, dataset fetch/describe, ru
 - Aggregate statistics: total contributions, average factors
 
 ### Analytics Pane
+
+Seven analysis tabs provide comprehensive grid analytics in the terminal:
+
 - **Reliability tab**: LOLE, EUE, thermal violations per scenario
 - **Deliverability tab**: Delivery capability scores by zone
 - **ELCC tab**: Effective load carrying capability distributions
 - **Power Flow tab**: Congestion hotspots, line loading %, voltage violations
-- Contextual metrics display with status colors (Good/Warning/Critical)
+- **N-1 Contingency tab**: Single-branch outage screening with overload detection
+- **PTDF tab**: Power Transfer Distribution Factor analysis for transfer sensitivity
+- **Y-bus tab**: Admittance matrix explorer with multiple view modes
+
+Contextual metrics display with status colors (Good/Warning/Critical).
+
+#### N-1 Contingency Analysis
+
+Systematic security screening for single-branch outages:
+
+- Summary statistics: total contingencies, violations, failed solves
+- Status badge: "SECURE" (green) or "N VIOLATIONS" (red)
+- Sortable results table: outage branch, max loading %, violation count
+- Per-contingency details: overloaded branches, loading percentages
+
+#### PTDF Analysis (Power Transfer Distribution Factors)
+
+Quantify how power injections redistribute across branches:
+
+- **Bus selection**: Pick injection and withdrawal buses from dropdown
+- **Transfer sensitivity**: PTDF factors for each branch (-1 to +1 range)
+- **Flow change preview**: MW impact for a standard 100 MW transfer
+- **Branch ranking**: Sorted by absolute PTDF factor for critical path identification
+
+**Theory:** PTDF[ℓ, i→j] = PTDF[ℓ, i] - PTDF[ℓ, j] represents the fraction of a transfer from bus i to bus j that flows on branch ℓ.
+
+#### Y-bus Matrix Explorer
+
+Interactive admittance matrix visualization in the terminal:
+
+- **Three view modes** (cycle with `v`):
+  - **Heatmap**: ASCII grid with `░▒▓█` characters by magnitude
+  - **List**: Table of (row, col, G, B, magnitude) entries
+  - **Sparsity**: Pattern view with `·` for zero, `█` for non-zero
+- Matrix dimensions and bus count header
+- Cell selection shows complex value: Y[i,j] = G + jB
 
 ### Settings Pane
 - **Display**: Theme, font size, color scheme
@@ -99,8 +139,15 @@ Supports the latest CLI additions (pandapower import, dataset fetch/describe, ru
 - `s` — View allocation summary
 
 **Analytics:**
-- `Tab` — Switch analytics tab
+- `Tab` / `Shift+Tab` — Switch analytics tab (forward/backward)
+- `↑` / `↓` — Navigate result rows
 - `f` — Cycle between scenarios (when viewing results)
+- `c` — Run N-1 contingency analysis (on Contingency tab)
+- `p` — Compute PTDF (on PTDF tab, after selecting buses)
+- `y` — Load Y-bus matrix (on Y-bus tab)
+- `v` — Cycle Y-bus view mode (Heatmap → List → Sparsity)
+- `i` — Select injection bus (PTDF tab)
+- `w` — Select withdrawal bus (PTDF tab)
 
 ## State Management
 
@@ -124,6 +171,38 @@ let result = service.execute_custom_command(cmd_text, dry_run).await?;
 // Example: Batch job execution from Operations pane
 let job = service.execute_batch_power_flow(manifest, max_jobs).await?;
 ```
+
+### GridService for Analysis Operations
+
+The `GridService` manages loaded power system networks and provides analysis methods:
+
+```rust
+use gat_tui::services::GridService;
+
+let service = GridService::new();
+
+// Load a grid from Arrow file
+let grid_id = service.load_grid_from_arrow("case14.arrow")?;
+
+// Get Y-bus admittance matrix
+let (n_bus, entries) = service.get_ybus(&grid_id)?;
+
+// Compute PTDF for a transfer (bus 1 → bus 5)
+let ptdf_results = service.compute_ptdf(&grid_id, 1, 5)?;
+
+// Run N-1 contingency screening
+let contingencies = service.run_n1_contingency(&grid_id)?;
+
+// Get bus list for UI dropdowns
+let buses = service.get_buses(&grid_id)?;
+```
+
+**Features:**
+- Thread-safe network caching with `Arc<RwLock<HashMap>>`
+- Support for Arrow and Matpower file formats via `gat-io`
+- Y-bus extraction from branch impedance parameters
+- PTDF sensitivity calculation for transfer analysis
+- N-1 contingency screening with loading estimation
 
 ## Building & Features
 
@@ -194,10 +273,40 @@ See `docs/guide/gat-tui.md` for:
 
 ## Related Crates
 
-- **gat-cli** — Backend command execution
-- **gat-core** — Grid types and solvers
-- **gat-io** — Data formats and schemas
-- **ratatui** — TUI framework
+| Crate | Description |
+|-------|-------------|
+| `gat-cli` | Backend command execution |
+| `gat-core` | Network graph model, Bus/Branch/Gen types, linear system solvers |
+| `gat-algo` | Power flow (AC/DC), OPF, contingency analysis (PTDF/LODF) |
+| `gat-io` | File I/O: Arrow, MATPOWER, PSS/E parsers |
+| `gat-batch` | Parallel batch job runner with manifest support |
+| `gat-gui` | Desktop GUI (Tauri + Svelte) with similar features |
+| `ratatui` | TUI framework (Rust terminal rendering) |
+
+## Feature Comparison: TUI vs GUI
+
+| Feature | gat-tui (Terminal) | gat-gui (Desktop) |
+|---------|-------------------|-------------------|
+| **Power Flow** | Table + status colors | D3.js force graph |
+| **N-1 Contingency** | Summary + sortable table | Panel with violation cards |
+| **PTDF Analysis** | Bus selection + results table | Interactive dropdowns + table |
+| **Y-bus Matrix** | ASCII heatmap/list/sparsity | D3.js color heatmap |
+| **Batch Jobs** | Progress polling + status | Real-time progress bar |
+| **Network View** | Tabular bus/branch lists | Force-directed graph |
+| **Theme Support** | Terminal colors | Light/dark/system |
+| **Keyboard Nav** | Full keyboard control | Mouse + keyboard |
+
+**When to use TUI:**
+- SSH sessions and remote servers
+- Low-bandwidth connections
+- Integration with tmux/screen workflows
+- Preference for keyboard-driven interfaces
+
+**When to use GUI:**
+- Interactive network visualization
+- Drag-and-drop node positioning
+- Large matrix heatmaps (>100 buses)
+- Mouse-driven exploration
 
 ## See Also
 

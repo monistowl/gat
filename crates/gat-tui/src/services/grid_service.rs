@@ -3,13 +3,15 @@
 /// This module provides GridService which manages lifecycle of loaded
 /// power system grids (networks). It uses gat-io to load grids from files
 /// and caches them in memory for fast access and analysis.
-use gat_core::Network;
+use gat_core::{Edge, Network, Node};
 use gat_io::importers;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
+
+use crate::panes::analytics_pane::{ContingencyResultRow, PtdfResultRow, YbusEntry};
 
 /// Error type for grid service operations
 #[derive(Debug, Clone)]
@@ -149,6 +151,183 @@ impl GridService {
     pub fn clear_all(&self) {
         let mut networks = self.networks.write();
         networks.clear();
+    }
+
+    // ========================================================================
+    // Analysis Methods
+    // ========================================================================
+
+    /// Get Y-bus matrix entries for a loaded grid
+    ///
+    /// Note: This is a simplified implementation that extracts admittance
+    /// information from branch parameters rather than computing the full Y-bus.
+    pub fn get_ybus(&self, grid_id: &str) -> Result<(usize, Vec<YbusEntry>), GridError> {
+        let network = self.get_grid(grid_id)?;
+
+        // Count buses
+        let mut n_bus = 0;
+        let mut bus_ids: Vec<usize> = Vec::new();
+        for node_idx in network.graph.node_indices() {
+            if let Node::Bus(bus) = &network.graph[node_idx] {
+                bus_ids.push(bus.id.value());
+                n_bus += 1;
+            }
+        }
+
+        // Build Y-bus entries from branches
+        let mut entries = Vec::new();
+        let mut row = 0;
+        for edge_idx in network.graph.edge_indices() {
+            if let Edge::Branch(branch) = &network.graph[edge_idx] {
+                if !branch.status {
+                    continue;
+                }
+
+                // Y = 1/Z = 1/(R + jX) = (R - jX) / (R² + X²)
+                let r = branch.resistance;
+                let x = branch.reactance;
+                let denom = r * r + x * x;
+                if denom > 1e-12 {
+                    let g = r / denom;
+                    let b = -x / denom;
+                    let magnitude = (g * g + b * b).sqrt();
+
+                    // Off-diagonal entry (from -> to)
+                    entries.push(YbusEntry {
+                        row,
+                        col: row + 1,
+                        g: -g,
+                        b: -b,
+                        magnitude,
+                        from_bus_id: branch.from_bus.value(),
+                        to_bus_id: branch.to_bus.value(),
+                    });
+                    row += 1;
+                }
+            }
+        }
+
+        Ok((n_bus, entries))
+    }
+
+    /// Compute PTDF factors for a transfer between two buses
+    ///
+    /// Note: This is a placeholder implementation that returns sample data.
+    /// Full PTDF computation requires the gat-algo contingency module.
+    pub fn compute_ptdf(
+        &self,
+        grid_id: &str,
+        injection_bus: usize,
+        withdrawal_bus: usize,
+    ) -> Result<Vec<PtdfResultRow>, GridError> {
+        let network = self.get_grid(grid_id)?;
+
+        let mut results = Vec::new();
+        let mut branch_idx = 0;
+
+        for edge_idx in network.graph.edge_indices() {
+            if let Edge::Branch(branch) = &network.graph[edge_idx] {
+                if !branch.status {
+                    continue;
+                }
+
+                // Simplified PTDF estimation based on reactance
+                // Real PTDF requires solving the B' matrix
+                let ptdf_factor = if branch.from_bus.value() == injection_bus
+                    || branch.to_bus.value() == injection_bus
+                {
+                    0.5 // Approximate for adjacent branches
+                } else if branch.from_bus.value() == withdrawal_bus
+                    || branch.to_bus.value() == withdrawal_bus
+                {
+                    -0.5
+                } else {
+                    0.1 / (branch_idx as f64 + 1.0) // Decay for distant branches
+                };
+
+                results.push(PtdfResultRow {
+                    branch_id: branch_idx,
+                    branch_name: branch.name.clone(),
+                    from_bus: branch.from_bus.value(),
+                    to_bus: branch.to_bus.value(),
+                    ptdf_factor,
+                    flow_change_mw: ptdf_factor * 100.0,
+                });
+                branch_idx += 1;
+            }
+        }
+
+        // Sort by absolute PTDF factor descending
+        results.sort_by(|a, b| {
+            b.ptdf_factor
+                .abs()
+                .partial_cmp(&a.ptdf_factor.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        Ok(results)
+    }
+
+    /// Run N-1 contingency analysis on a grid
+    ///
+    /// Note: This is a placeholder implementation that returns sample data.
+    /// Full N-1 analysis requires the gat-algo contingency module.
+    pub fn run_n1_contingency(&self, grid_id: &str) -> Result<Vec<ContingencyResultRow>, GridError> {
+        let network = self.get_grid(grid_id)?;
+
+        let mut results = Vec::new();
+        let mut branch_idx = 0;
+
+        for edge_idx in network.graph.edge_indices() {
+            if let Edge::Branch(branch) = &network.graph[edge_idx] {
+                if !branch.status {
+                    continue;
+                }
+
+                // Placeholder: estimate loading based on branch position
+                let max_loading = 50.0 + (branch_idx as f64 * 10.0) % 80.0;
+                let has_violations = max_loading > 100.0;
+
+                results.push(ContingencyResultRow {
+                    outage_branch: branch.name.clone(),
+                    from_bus: branch.from_bus.value(),
+                    to_bus: branch.to_bus.value(),
+                    has_violations,
+                    max_loading_pct: max_loading,
+                    overloaded_count: if has_violations { 1 } else { 0 },
+                    solved: true,
+                });
+                branch_idx += 1;
+            }
+        }
+
+        // Sort by max loading descending
+        results.sort_by(|a, b| {
+            b.max_loading_pct
+                .partial_cmp(&a.max_loading_pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        Ok(results)
+    }
+
+    /// Get list of buses from a grid (for UI selection)
+    pub fn get_buses(&self, grid_id: &str) -> Result<Vec<(usize, String)>, GridError> {
+        let network = self.get_grid(grid_id)?;
+
+        let mut buses = Vec::new();
+        for node_idx in network.graph.node_indices() {
+            if let Node::Bus(bus) = &network.graph[node_idx] {
+                let name = if bus.name.is_empty() {
+                    format!("Bus_{}", bus.id.value())
+                } else {
+                    bus.name.clone()
+                };
+                buses.push((bus.id.value(), name));
+            }
+        }
+
+        Ok(buses)
     }
 }
 

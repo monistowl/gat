@@ -17,6 +17,22 @@ all-solvers = ["solver-clarabel", "solver-highs", "all-polars"]
 # Minimal feature set for default builds
 minimal = ["solver-clarabel", "all-polars"]
 
+# ============================================================================
+# Distribution Builds
+# ============================================================================
+
+# Full distribution: all solvers + TUI + viz (for end users with terminal UI)
+dist = ["all-solvers", "full-io", "tui", "viz"]
+
+# Headless distribution: all solvers, no TUI/GUI (for servers and automation)
+dist-headless = ["all-solvers", "full-io", "viz"]
+
+# Native distribution: includes IPOPT for nonlinear OPF (requires libipopt)
+dist-native = ["dist", "solver-ipopt"]
+
+# Native headless: IPOPT without UI (for HPC/cluster deployments)
+dist-native-headless = ["dist-headless", "solver-ipopt"]
+
 # Solver backends (forwarded to gat-algo)
 solver-clarabel = ["gat-algo/solver-clarabel"]
 solver-highs = ["gat-algo/solver-highs"]

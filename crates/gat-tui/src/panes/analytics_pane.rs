@@ -40,6 +40,9 @@ pub enum AnalyticsTab {
     DeliverabilityScore,
     ELCC,
     PowerFlow,
+    Contingency,
+    Ptdf,
+    Ybus,
 }
 
 impl AnalyticsTab {
@@ -49,6 +52,9 @@ impl AnalyticsTab {
             AnalyticsTab::DeliverabilityScore => "DS",
             AnalyticsTab::ELCC => "ELCC",
             AnalyticsTab::PowerFlow => "Power Flow",
+            AnalyticsTab::Contingency => "N-1",
+            AnalyticsTab::Ptdf => "PTDF",
+            AnalyticsTab::Ybus => "Y-bus",
         }
     }
 
@@ -58,7 +64,15 @@ impl AnalyticsTab {
             AnalyticsTab::DeliverabilityScore => 1,
             AnalyticsTab::ELCC => 2,
             AnalyticsTab::PowerFlow => 3,
+            AnalyticsTab::Contingency => 4,
+            AnalyticsTab::Ptdf => 5,
+            AnalyticsTab::Ybus => 6,
         }
+    }
+
+    /// Total number of tabs
+    pub fn count() -> usize {
+        7
     }
 }
 
@@ -140,6 +154,101 @@ impl CongestionStatus {
     }
 }
 
+// ============================================================================
+// N-1 Contingency Analysis Types
+// ============================================================================
+
+/// N-1 contingency analysis result for a single branch outage
+#[derive(Clone, Debug)]
+pub struct ContingencyResultRow {
+    /// Branch that was removed (outage)
+    pub outage_branch: String,
+    /// From bus ID of outaged branch
+    pub from_bus: usize,
+    /// To bus ID of outaged branch
+    pub to_bus: usize,
+    /// Whether this contingency causes any violations
+    pub has_violations: bool,
+    /// Maximum loading percentage across remaining branches
+    pub max_loading_pct: f64,
+    /// Count of overloaded branches (loading > 100%)
+    pub overloaded_count: usize,
+    /// Solve succeeded (false if island created)
+    pub solved: bool,
+}
+
+/// N-1 contingency analysis summary
+#[derive(Clone, Debug, Default)]
+pub struct ContingencySummary {
+    pub total_contingencies: usize,
+    pub contingencies_with_violations: usize,
+    pub contingencies_failed: usize,
+    pub worst_contingency: Option<String>,
+    pub worst_loading_pct: f64,
+}
+
+// ============================================================================
+// PTDF Analysis Types
+// ============================================================================
+
+/// PTDF input mode for bus selection
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PtdfInputMode {
+    #[default]
+    None,
+    SelectingInjection,
+    SelectingWithdrawal,
+}
+
+/// PTDF result for a single branch
+#[derive(Clone, Debug)]
+pub struct PtdfResultRow {
+    /// Branch ID
+    pub branch_id: usize,
+    /// Branch name/label
+    pub branch_name: String,
+    /// From bus ID
+    pub from_bus: usize,
+    /// To bus ID
+    pub to_bus: usize,
+    /// PTDF factor (fraction of transfer flowing on this branch)
+    pub ptdf_factor: f64,
+    /// Flow change in MW for a 100 MW transfer
+    pub flow_change_mw: f64,
+}
+
+// ============================================================================
+// Y-bus Matrix Types
+// ============================================================================
+
+/// Y-bus view mode
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum YbusViewMode {
+    #[default]
+    Heatmap,
+    List,
+    Sparsity,
+}
+
+/// Y-bus matrix entry
+#[derive(Clone, Debug)]
+pub struct YbusEntry {
+    /// Row index (bus index)
+    pub row: usize,
+    /// Column index (bus index)
+    pub col: usize,
+    /// Conductance (real part of admittance)
+    pub g: f64,
+    /// Susceptance (imaginary part of admittance)
+    pub b: f64,
+    /// Magnitude |Y|
+    pub magnitude: f64,
+    /// From bus ID (row)
+    pub from_bus_id: usize,
+    /// To bus ID (column)
+    pub to_bus_id: usize,
+}
+
 /// Analytics pane state
 #[derive(Clone, Debug)]
 pub struct AnalyticsPaneState {
@@ -165,6 +274,26 @@ pub struct AnalyticsPaneState {
     pub power_flow_results: Vec<PowerFlowResult>,
     pub selected_flow: usize,
     pub congestion_count: usize,
+
+    // N-1 Contingency tab
+    pub contingency_results: Vec<ContingencyResultRow>,
+    pub selected_contingency: usize,
+    pub contingency_summary: ContingencySummary,
+
+    // PTDF tab
+    pub ptdf_injection_bus: Option<usize>,
+    pub ptdf_withdrawal_bus: Option<usize>,
+    pub ptdf_results: Vec<PtdfResultRow>,
+    pub selected_ptdf: usize,
+    pub ptdf_input_mode: PtdfInputMode,
+    pub available_buses: Vec<(usize, String)>, // (bus_id, bus_name)
+
+    // Y-bus tab
+    pub ybus_entries: Vec<YbusEntry>,
+    pub ybus_n_bus: usize,
+    pub ybus_selected_row: usize,
+    pub ybus_selected_col: usize,
+    pub ybus_view_mode: YbusViewMode,
 
     // Component states
     pub metrics_list: ListWidget,
@@ -328,6 +457,24 @@ impl Default for AnalyticsPaneState {
             power_flow_results: power_flow_results.clone(),
             selected_flow: 0,
             congestion_count: 1,
+            // N-1 Contingency (empty until analysis run)
+            contingency_results: Vec::new(),
+            selected_contingency: 0,
+            contingency_summary: ContingencySummary::default(),
+            // PTDF (empty until analysis run)
+            ptdf_injection_bus: None,
+            ptdf_withdrawal_bus: None,
+            ptdf_results: Vec::new(),
+            selected_ptdf: 0,
+            ptdf_input_mode: PtdfInputMode::None,
+            available_buses: Vec::new(),
+            // Y-bus (empty until loaded)
+            ybus_entries: Vec::new(),
+            ybus_n_bus: 0,
+            ybus_selected_row: 0,
+            ybus_selected_col: 0,
+            ybus_view_mode: YbusViewMode::Heatmap,
+            // Component states
             metrics_list,
             details_table,
             summary_text: TextWidget::new("analytics_summary", ""),
@@ -355,17 +502,23 @@ impl AnalyticsPaneState {
             AnalyticsTab::Reliability => AnalyticsTab::DeliverabilityScore,
             AnalyticsTab::DeliverabilityScore => AnalyticsTab::ELCC,
             AnalyticsTab::ELCC => AnalyticsTab::PowerFlow,
-            AnalyticsTab::PowerFlow => AnalyticsTab::Reliability,
+            AnalyticsTab::PowerFlow => AnalyticsTab::Contingency,
+            AnalyticsTab::Contingency => AnalyticsTab::Ptdf,
+            AnalyticsTab::Ptdf => AnalyticsTab::Ybus,
+            AnalyticsTab::Ybus => AnalyticsTab::Reliability,
         };
         self.update_metrics_list();
     }
 
     pub fn prev_tab(&mut self) {
         self.active_tab = match self.active_tab {
-            AnalyticsTab::Reliability => AnalyticsTab::PowerFlow,
+            AnalyticsTab::Reliability => AnalyticsTab::Ybus,
             AnalyticsTab::DeliverabilityScore => AnalyticsTab::Reliability,
             AnalyticsTab::ELCC => AnalyticsTab::DeliverabilityScore,
             AnalyticsTab::PowerFlow => AnalyticsTab::ELCC,
+            AnalyticsTab::Contingency => AnalyticsTab::PowerFlow,
+            AnalyticsTab::Ptdf => AnalyticsTab::Contingency,
+            AnalyticsTab::Ybus => AnalyticsTab::Ptdf,
         };
         self.update_metrics_list();
     }
@@ -384,6 +537,18 @@ impl AnalyticsPaneState {
 
     pub fn is_powerflow_tab(&self) -> bool {
         self.active_tab == AnalyticsTab::PowerFlow
+    }
+
+    pub fn is_contingency_tab(&self) -> bool {
+        self.active_tab == AnalyticsTab::Contingency
+    }
+
+    pub fn is_ptdf_tab(&self) -> bool {
+        self.active_tab == AnalyticsTab::Ptdf
+    }
+
+    pub fn is_ybus_tab(&self) -> bool {
+        self.active_tab == AnalyticsTab::Ybus
     }
 
     // Reliability tab methods
@@ -538,6 +703,183 @@ impl AnalyticsPaneState {
         }
     }
 
+    // N-1 Contingency tab methods
+
+    pub fn select_next_contingency(&mut self) {
+        if self.selected_contingency < self.contingency_results.len().saturating_sub(1) {
+            self.selected_contingency += 1;
+        }
+    }
+
+    pub fn select_prev_contingency(&mut self) {
+        if self.selected_contingency > 0 {
+            self.selected_contingency -= 1;
+        }
+    }
+
+    pub fn selected_contingency(&self) -> Option<&ContingencyResultRow> {
+        self.contingency_results.get(self.selected_contingency)
+    }
+
+    pub fn contingency_count(&self) -> usize {
+        self.contingency_results.len()
+    }
+
+    pub fn get_contingency_details(&self) -> String {
+        if let Some(result) = self.selected_contingency() {
+            format!(
+                "Outage: {}\nFrom Bus: {}\nTo Bus: {}\nMax Loading: {:.1}%\nOverloaded: {}\nSolved: {}\nStatus: {}",
+                result.outage_branch,
+                result.from_bus,
+                result.to_bus,
+                result.max_loading_pct,
+                result.overloaded_count,
+                if result.solved { "Yes" } else { "No (island)" },
+                if result.has_violations { "⚠ VIOLATIONS" } else { "✓ SECURE" },
+            )
+        } else {
+            "No contingency results - run N-1 analysis first".into()
+        }
+    }
+
+    pub fn set_contingency_results(&mut self, results: Vec<ContingencyResultRow>) {
+        // Calculate summary
+        let total = results.len();
+        let with_violations = results.iter().filter(|r| r.has_violations).count();
+        let failed = results.iter().filter(|r| !r.solved).count();
+        let worst = results
+            .iter()
+            .max_by(|a, b| a.max_loading_pct.partial_cmp(&b.max_loading_pct).unwrap())
+            .map(|r| (r.outage_branch.clone(), r.max_loading_pct));
+
+        self.contingency_summary = ContingencySummary {
+            total_contingencies: total,
+            contingencies_with_violations: with_violations,
+            contingencies_failed: failed,
+            worst_contingency: worst.as_ref().map(|(name, _)| name.clone()),
+            worst_loading_pct: worst.map(|(_, pct)| pct).unwrap_or(0.0),
+        };
+        self.contingency_results = results;
+        self.selected_contingency = 0;
+    }
+
+    // PTDF tab methods
+
+    pub fn select_next_ptdf(&mut self) {
+        if self.selected_ptdf < self.ptdf_results.len().saturating_sub(1) {
+            self.selected_ptdf += 1;
+        }
+    }
+
+    pub fn select_prev_ptdf(&mut self) {
+        if self.selected_ptdf > 0 {
+            self.selected_ptdf -= 1;
+        }
+    }
+
+    pub fn selected_ptdf(&self) -> Option<&PtdfResultRow> {
+        self.ptdf_results.get(self.selected_ptdf)
+    }
+
+    pub fn ptdf_count(&self) -> usize {
+        self.ptdf_results.len()
+    }
+
+    pub fn get_ptdf_details(&self) -> String {
+        if let Some(result) = self.selected_ptdf() {
+            format!(
+                "Branch: {} ({})\nFrom Bus: {}\nTo Bus: {}\nPTDF Factor: {:.4}\nFlow Change (100 MW): {:.2} MW",
+                result.branch_name,
+                result.branch_id,
+                result.from_bus,
+                result.to_bus,
+                result.ptdf_factor,
+                result.flow_change_mw,
+            )
+        } else if self.ptdf_injection_bus.is_none() || self.ptdf_withdrawal_bus.is_none() {
+            "Select injection and withdrawal buses, then compute PTDF".into()
+        } else {
+            "No PTDF results - click Compute".into()
+        }
+    }
+
+    pub fn set_ptdf_results(&mut self, results: Vec<PtdfResultRow>) {
+        self.ptdf_results = results;
+        self.selected_ptdf = 0;
+    }
+
+    pub fn set_available_buses(&mut self, buses: Vec<(usize, String)>) {
+        self.available_buses = buses;
+    }
+
+    // Y-bus tab methods
+
+    pub fn select_next_ybus_row(&mut self) {
+        if self.ybus_selected_row < self.ybus_n_bus.saturating_sub(1) {
+            self.ybus_selected_row += 1;
+        }
+    }
+
+    pub fn select_prev_ybus_row(&mut self) {
+        if self.ybus_selected_row > 0 {
+            self.ybus_selected_row -= 1;
+        }
+    }
+
+    pub fn select_next_ybus_col(&mut self) {
+        if self.ybus_selected_col < self.ybus_n_bus.saturating_sub(1) {
+            self.ybus_selected_col += 1;
+        }
+    }
+
+    pub fn select_prev_ybus_col(&mut self) {
+        if self.ybus_selected_col > 0 {
+            self.ybus_selected_col -= 1;
+        }
+    }
+
+    pub fn ybus_entry_count(&self) -> usize {
+        self.ybus_entries.len()
+    }
+
+    pub fn get_ybus_details(&self) -> String {
+        // Find entry at selected row/col
+        let entry = self.ybus_entries.iter().find(|e| {
+            e.row == self.ybus_selected_row && e.col == self.ybus_selected_col
+        });
+
+        if let Some(e) = entry {
+            format!(
+                "Y[{}, {}]\nBus {} ↔ Bus {}\nG = {:.6} pu\nB = {:.6} pu\n|Y| = {:.6} pu",
+                e.row, e.col,
+                e.from_bus_id, e.to_bus_id,
+                e.g, e.b, e.magnitude,
+            )
+        } else if self.ybus_n_bus == 0 {
+            "No Y-bus matrix loaded - load a case first".into()
+        } else {
+            format!(
+                "Y[{}, {}] = 0\n(no connection between buses)",
+                self.ybus_selected_row, self.ybus_selected_col
+            )
+        }
+    }
+
+    pub fn set_ybus_entries(&mut self, entries: Vec<YbusEntry>, n_bus: usize) {
+        self.ybus_entries = entries;
+        self.ybus_n_bus = n_bus;
+        self.ybus_selected_row = 0;
+        self.ybus_selected_col = 0;
+    }
+
+    pub fn cycle_ybus_view_mode(&mut self) {
+        self.ybus_view_mode = match self.ybus_view_mode {
+            YbusViewMode::Heatmap => YbusViewMode::List,
+            YbusViewMode::List => YbusViewMode::Sparsity,
+            YbusViewMode::Sparsity => YbusViewMode::Heatmap,
+        };
+    }
+
     // Summary and status methods
 
     pub fn update_metrics_list(&mut self) {
@@ -595,6 +937,43 @@ impl AnalyticsPaneState {
                     );
                 }
             }
+            AnalyticsTab::Contingency => {
+                for result in &self.contingency_results {
+                    self.metrics_list.add_item(
+                        format!(
+                            "{}: {:.0}% {}",
+                            result.outage_branch,
+                            result.max_loading_pct,
+                            if result.has_violations { "⚠" } else { "✓" }
+                        ),
+                        result.outage_branch.clone(),
+                    );
+                }
+            }
+            AnalyticsTab::Ptdf => {
+                for result in &self.ptdf_results {
+                    self.metrics_list.add_item(
+                        format!(
+                            "{}: {:.3}",
+                            result.branch_name,
+                            result.ptdf_factor
+                        ),
+                        result.branch_name.clone(),
+                    );
+                }
+            }
+            AnalyticsTab::Ybus => {
+                // For Y-bus, show non-zero entries in list mode
+                for entry in self.ybus_entries.iter().take(50) {
+                    self.metrics_list.add_item(
+                        format!(
+                            "Y[{},{}]: {:.4}",
+                            entry.row, entry.col, entry.magnitude
+                        ),
+                        format!("{}_{}", entry.row, entry.col),
+                    );
+                }
+            }
         }
     }
 
@@ -609,6 +988,40 @@ impl AnalyticsPaneState {
                     self.power_flow_results.len(),
                     self.congestion_count
                 )
+            }
+            AnalyticsTab::Contingency => {
+                let s = &self.contingency_summary;
+                if s.total_contingencies == 0 {
+                    "No contingency analysis run".into()
+                } else if s.contingencies_with_violations == 0 {
+                    format!("✓ SECURE - {} contingencies analyzed", s.total_contingencies)
+                } else {
+                    format!(
+                        "⚠ {} VIOLATIONS of {} contingencies",
+                        s.contingencies_with_violations, s.total_contingencies
+                    )
+                }
+            }
+            AnalyticsTab::Ptdf => {
+                match (self.ptdf_injection_bus, self.ptdf_withdrawal_bus) {
+                    (Some(from), Some(to)) => {
+                        format!(
+                            "Transfer: Bus {} → Bus {} ({} branches)",
+                            from, to, self.ptdf_results.len()
+                        )
+                    }
+                    _ => "Select injection and withdrawal buses".into(),
+                }
+            }
+            AnalyticsTab::Ybus => {
+                if self.ybus_n_bus == 0 {
+                    "No Y-bus matrix loaded".into()
+                } else {
+                    format!(
+                        "{}×{} matrix - {} non-zero entries",
+                        self.ybus_n_bus, self.ybus_n_bus, self.ybus_entries.len()
+                    )
+                }
             }
         };
         self.summary_text.set_content(content);
@@ -636,6 +1049,9 @@ impl AnalyticsPaneState {
                 .filter(|r| r.status == MetricStatus::Warning)
                 .count(),
             AnalyticsTab::PowerFlow => self.congestion_count,
+            AnalyticsTab::Contingency => self.contingency_summary.contingencies_with_violations,
+            AnalyticsTab::Ptdf => 0, // PTDF has no warning concept
+            AnalyticsTab::Ybus => 0, // Y-bus has no warning concept
         };
 
         let critical_count = match self.active_tab {
@@ -655,6 +1071,9 @@ impl AnalyticsPaneState {
                 .filter(|r| r.status == MetricStatus::Critical)
                 .count(),
             AnalyticsTab::PowerFlow => 0, // Handled by congestion_count
+            AnalyticsTab::Contingency => self.contingency_summary.contingencies_failed,
+            AnalyticsTab::Ptdf => 0,
+            AnalyticsTab::Ybus => 0,
         };
 
         if critical_count > 0 {
@@ -706,13 +1125,31 @@ mod tests {
         assert_eq!(state.active_tab, AnalyticsTab::PowerFlow);
 
         state.next_tab();
-        assert_eq!(state.active_tab, AnalyticsTab::Reliability);
+        assert_eq!(state.active_tab, AnalyticsTab::Contingency);
+
+        state.next_tab();
+        assert_eq!(state.active_tab, AnalyticsTab::Ptdf);
+
+        state.next_tab();
+        assert_eq!(state.active_tab, AnalyticsTab::Ybus);
+
+        state.next_tab();
+        assert_eq!(state.active_tab, AnalyticsTab::Reliability); // Wrap around
     }
 
     #[test]
     fn test_tab_cycle_backward() {
         let mut state = AnalyticsPaneState::new();
         state.active_tab = AnalyticsTab::Reliability;
+
+        state.prev_tab();
+        assert_eq!(state.active_tab, AnalyticsTab::Ybus);
+
+        state.prev_tab();
+        assert_eq!(state.active_tab, AnalyticsTab::Ptdf);
+
+        state.prev_tab();
+        assert_eq!(state.active_tab, AnalyticsTab::Contingency);
 
         state.prev_tab();
         assert_eq!(state.active_tab, AnalyticsTab::PowerFlow);
@@ -923,6 +1360,9 @@ mod tests {
         assert_eq!(AnalyticsTab::DeliverabilityScore.label(), "DS");
         assert_eq!(AnalyticsTab::ELCC.label(), "ELCC");
         assert_eq!(AnalyticsTab::PowerFlow.label(), "Power Flow");
+        assert_eq!(AnalyticsTab::Contingency.label(), "N-1");
+        assert_eq!(AnalyticsTab::Ptdf.label(), "PTDF");
+        assert_eq!(AnalyticsTab::Ybus.label(), "Y-bus");
     }
 
     #[test]
@@ -931,5 +1371,124 @@ mod tests {
         assert_eq!(AnalyticsTab::DeliverabilityScore.index(), 1);
         assert_eq!(AnalyticsTab::ELCC.index(), 2);
         assert_eq!(AnalyticsTab::PowerFlow.index(), 3);
+        assert_eq!(AnalyticsTab::Contingency.index(), 4);
+        assert_eq!(AnalyticsTab::Ptdf.index(), 5);
+        assert_eq!(AnalyticsTab::Ybus.index(), 6);
+        assert_eq!(AnalyticsTab::count(), 7);
+    }
+
+    // New tab tests
+
+    #[test]
+    fn test_contingency_tab() {
+        let mut state = AnalyticsPaneState::new();
+        state.switch_tab(AnalyticsTab::Contingency);
+        assert!(state.is_contingency_tab());
+        assert_eq!(state.contingency_count(), 0); // Empty on init
+
+        // Test setting results
+        let results = vec![
+            ContingencyResultRow {
+                outage_branch: "Line_001".into(),
+                from_bus: 1,
+                to_bus: 2,
+                has_violations: false,
+                max_loading_pct: 85.0,
+                overloaded_count: 0,
+                solved: true,
+            },
+            ContingencyResultRow {
+                outage_branch: "Line_002".into(),
+                from_bus: 2,
+                to_bus: 3,
+                has_violations: true,
+                max_loading_pct: 115.0,
+                overloaded_count: 2,
+                solved: true,
+            },
+        ];
+        state.set_contingency_results(results);
+
+        assert_eq!(state.contingency_count(), 2);
+        assert_eq!(state.contingency_summary.total_contingencies, 2);
+        assert_eq!(state.contingency_summary.contingencies_with_violations, 1);
+    }
+
+    #[test]
+    fn test_ptdf_tab() {
+        let mut state = AnalyticsPaneState::new();
+        state.switch_tab(AnalyticsTab::Ptdf);
+        assert!(state.is_ptdf_tab());
+        assert_eq!(state.ptdf_count(), 0);
+
+        // Set up buses
+        state.ptdf_injection_bus = Some(1);
+        state.ptdf_withdrawal_bus = Some(2);
+
+        // Test setting results
+        let results = vec![
+            PtdfResultRow {
+                branch_id: 1,
+                branch_name: "Line_001".into(),
+                from_bus: 1,
+                to_bus: 2,
+                ptdf_factor: 0.5,
+                flow_change_mw: 50.0,
+            },
+        ];
+        state.set_ptdf_results(results);
+
+        assert_eq!(state.ptdf_count(), 1);
+        assert!(state.get_ptdf_details().contains("Line_001"));
+    }
+
+    #[test]
+    fn test_ybus_tab() {
+        let mut state = AnalyticsPaneState::new();
+        state.switch_tab(AnalyticsTab::Ybus);
+        assert!(state.is_ybus_tab());
+        assert_eq!(state.ybus_entry_count(), 0);
+
+        // Test setting entries
+        let entries = vec![
+            YbusEntry {
+                row: 0,
+                col: 0,
+                g: 10.0,
+                b: -20.0,
+                magnitude: 22.36,
+                from_bus_id: 1,
+                to_bus_id: 1,
+            },
+            YbusEntry {
+                row: 0,
+                col: 1,
+                g: -5.0,
+                b: 10.0,
+                magnitude: 11.18,
+                from_bus_id: 1,
+                to_bus_id: 2,
+            },
+        ];
+        state.set_ybus_entries(entries, 3);
+
+        assert_eq!(state.ybus_entry_count(), 2);
+        assert_eq!(state.ybus_n_bus, 3);
+        assert!(state.get_ybus_details().contains("10.0"));
+    }
+
+    #[test]
+    fn test_ybus_view_mode_cycle() {
+        let mut state = AnalyticsPaneState::new();
+        assert_eq!(state.ybus_view_mode, YbusViewMode::Heatmap);
+
+        state.cycle_ybus_view_mode();
+        assert_eq!(state.ybus_view_mode, YbusViewMode::List);
+
+        state.cycle_ybus_view_mode();
+        assert_eq!(state.ybus_view_mode, YbusViewMode::Sparsity);
+
+        state.cycle_ybus_view_mode();
+        assert_eq!(state.ybus_view_mode, YbusViewMode::Heatmap);
     }
 }
