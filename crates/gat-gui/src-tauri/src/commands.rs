@@ -8,8 +8,7 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 
 use gat_algo::contingency::{
-    collect_branch_limits, collect_branch_terminals, collect_injections, Contingency,
-    NkEvaluator,
+    collect_branch_limits, collect_branch_terminals, collect_injections, Contingency, NkEvaluator,
 };
 use gat_algo::opf::ac_nlp::SparseYBus;
 use gat_algo::power_flow::ac_pf::AcPowerFlowSolver;
