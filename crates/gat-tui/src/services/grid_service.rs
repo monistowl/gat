@@ -272,7 +272,10 @@ impl GridService {
     ///
     /// Note: This is a placeholder implementation that returns sample data.
     /// Full N-1 analysis requires the gat-algo contingency module.
-    pub fn run_n1_contingency(&self, grid_id: &str) -> Result<Vec<ContingencyResultRow>, GridError> {
+    pub fn run_n1_contingency(
+        &self,
+        grid_id: &str,
+    ) -> Result<Vec<ContingencyResultRow>, GridError> {
         let network = self.get_grid(grid_id)?;
 
         let mut results = Vec::new();

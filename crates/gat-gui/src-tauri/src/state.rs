@@ -1,12 +1,12 @@
 // crates/gat-gui/src-tauri/src/state.rs
+use gat_batch::BatchJobRecord;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use gat_batch::BatchJobRecord;
 
 #[derive(Debug, Clone)]
 pub struct BatchRun {
     pub run_id: String,
-    pub status: String,  // "running" | "completed" | "failed"
+    pub status: String, // "running" | "completed" | "failed"
     pub completed: usize,
     pub total: usize,
     pub results: Option<Vec<BatchJobRecord>>,

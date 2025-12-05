@@ -844,16 +844,15 @@ impl AnalyticsPaneState {
 
     pub fn get_ybus_details(&self) -> String {
         // Find entry at selected row/col
-        let entry = self.ybus_entries.iter().find(|e| {
-            e.row == self.ybus_selected_row && e.col == self.ybus_selected_col
-        });
+        let entry = self
+            .ybus_entries
+            .iter()
+            .find(|e| e.row == self.ybus_selected_row && e.col == self.ybus_selected_col);
 
         if let Some(e) = entry {
             format!(
                 "Y[{}, {}]\nBus {} ↔ Bus {}\nG = {:.6} pu\nB = {:.6} pu\n|Y| = {:.6} pu",
-                e.row, e.col,
-                e.from_bus_id, e.to_bus_id,
-                e.g, e.b, e.magnitude,
+                e.row, e.col, e.from_bus_id, e.to_bus_id, e.g, e.b, e.magnitude,
             )
         } else if self.ybus_n_bus == 0 {
             "No Y-bus matrix loaded - load a case first".into()
@@ -953,11 +952,7 @@ impl AnalyticsPaneState {
             AnalyticsTab::Ptdf => {
                 for result in &self.ptdf_results {
                     self.metrics_list.add_item(
-                        format!(
-                            "{}: {:.3}",
-                            result.branch_name,
-                            result.ptdf_factor
-                        ),
+                        format!("{}: {:.3}", result.branch_name, result.ptdf_factor),
                         result.branch_name.clone(),
                     );
                 }
@@ -966,10 +961,7 @@ impl AnalyticsPaneState {
                 // For Y-bus, show non-zero entries in list mode
                 for entry in self.ybus_entries.iter().take(50) {
                     self.metrics_list.add_item(
-                        format!(
-                            "Y[{},{}]: {:.4}",
-                            entry.row, entry.col, entry.magnitude
-                        ),
+                        format!("Y[{},{}]: {:.4}", entry.row, entry.col, entry.magnitude),
                         format!("{}_{}", entry.row, entry.col),
                     );
                 }
@@ -994,7 +986,10 @@ impl AnalyticsPaneState {
                 if s.total_contingencies == 0 {
                     "No contingency analysis run".into()
                 } else if s.contingencies_with_violations == 0 {
-                    format!("✓ SECURE - {} contingencies analyzed", s.total_contingencies)
+                    format!(
+                        "✓ SECURE - {} contingencies analyzed",
+                        s.total_contingencies
+                    )
                 } else {
                     format!(
                         "⚠ {} VIOLATIONS of {} contingencies",
@@ -1002,24 +997,26 @@ impl AnalyticsPaneState {
                     )
                 }
             }
-            AnalyticsTab::Ptdf => {
-                match (self.ptdf_injection_bus, self.ptdf_withdrawal_bus) {
-                    (Some(from), Some(to)) => {
-                        format!(
-                            "Transfer: Bus {} → Bus {} ({} branches)",
-                            from, to, self.ptdf_results.len()
-                        )
-                    }
-                    _ => "Select injection and withdrawal buses".into(),
+            AnalyticsTab::Ptdf => match (self.ptdf_injection_bus, self.ptdf_withdrawal_bus) {
+                (Some(from), Some(to)) => {
+                    format!(
+                        "Transfer: Bus {} → Bus {} ({} branches)",
+                        from,
+                        to,
+                        self.ptdf_results.len()
+                    )
                 }
-            }
+                _ => "Select injection and withdrawal buses".into(),
+            },
             AnalyticsTab::Ybus => {
                 if self.ybus_n_bus == 0 {
                     "No Y-bus matrix loaded".into()
                 } else {
                     format!(
                         "{}×{} matrix - {} non-zero entries",
-                        self.ybus_n_bus, self.ybus_n_bus, self.ybus_entries.len()
+                        self.ybus_n_bus,
+                        self.ybus_n_bus,
+                        self.ybus_entries.len()
                     )
                 }
             }
@@ -1426,16 +1423,14 @@ mod tests {
         state.ptdf_withdrawal_bus = Some(2);
 
         // Test setting results
-        let results = vec![
-            PtdfResultRow {
-                branch_id: 1,
-                branch_name: "Line_001".into(),
-                from_bus: 1,
-                to_bus: 2,
-                ptdf_factor: 0.5,
-                flow_change_mw: 50.0,
-            },
-        ];
+        let results = vec![PtdfResultRow {
+            branch_id: 1,
+            branch_name: "Line_001".into(),
+            from_bus: 1,
+            to_bus: 2,
+            ptdf_factor: 0.5,
+            flow_change_mw: 50.0,
+        }];
         state.set_ptdf_results(results);
 
         assert_eq!(state.ptdf_count(), 1);

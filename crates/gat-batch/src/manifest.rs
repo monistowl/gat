@@ -30,26 +30,24 @@ pub struct BatchStats {
 impl BatchStats {
     /// Compute statistics from a list of job records.
     pub fn from_jobs(jobs: &[BatchJobRecord], total_time_ms: f64) -> Self {
-        let mut times: Vec<f64> = jobs
-            .iter()
-            .filter_map(|j| j.duration_ms)
-            .collect();
+        let mut times: Vec<f64> = jobs.iter().filter_map(|j| j.duration_ms).collect();
         times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-        let (min_time_ms, max_time_ms, mean_time_ms, median_time_ms, p95_time_ms) = if times.is_empty() {
-            (0.0, 0.0, 0.0, 0.0, 0.0)
-        } else {
-            let sum: f64 = times.iter().sum();
-            let mean = sum / times.len() as f64;
-            let median = if times.len() % 2 == 0 {
-                (times[times.len() / 2 - 1] + times[times.len() / 2]) / 2.0
+        let (min_time_ms, max_time_ms, mean_time_ms, median_time_ms, p95_time_ms) =
+            if times.is_empty() {
+                (0.0, 0.0, 0.0, 0.0, 0.0)
             } else {
-                times[times.len() / 2]
+                let sum: f64 = times.iter().sum();
+                let mean = sum / times.len() as f64;
+                let median = if times.len() % 2 == 0 {
+                    (times[times.len() / 2 - 1] + times[times.len() / 2]) / 2.0
+                } else {
+                    times[times.len() / 2]
+                };
+                let p95_idx = ((times.len() as f64) * 0.95).ceil() as usize;
+                let p95 = times[p95_idx.min(times.len() - 1)];
+                (times[0], times[times.len() - 1], mean, median, p95)
             };
-            let p95_idx = ((times.len() as f64) * 0.95).ceil() as usize;
-            let p95 = times[p95_idx.min(times.len() - 1)];
-            (times[0], times[times.len() - 1], mean, median, p95)
-        };
 
         // Compute AC solver statistics if available
         let ac_jobs: Vec<_> = jobs.iter().filter(|j| j.iterations.is_some()).collect();

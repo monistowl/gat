@@ -154,7 +154,7 @@ fn network_to_json(network: &Network, name: &str) -> NetworkJson {
                 branches.push(BranchJson {
                     from: xfmr.from_bus.value(),
                     to: xfmr.to_bus.value(),
-                    r: 0.0, // Transformer - impedance modeled differently
+                    r: 0.0,  // Transformer - impedance modeled differently
                     x: 0.01, // Small reactance placeholder
                     b: 0.0,
                     p_flow: 0.0,
@@ -434,7 +434,10 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
                 .unwrap_or("PQ")
                 .to_string();
 
-            let (p_load, q_load) = bus_loads.get(&bus_id.value()).copied().unwrap_or((0.0, 0.0));
+            let (p_load, q_load) = bus_loads
+                .get(&bus_id.value())
+                .copied()
+                .unwrap_or((0.0, 0.0));
 
             buses.push(BusJson {
                 id: bus_id.value(),
@@ -475,15 +478,39 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
             let to_id = gat_core::BusId::new(branch.to_bus.value());
 
             // Get solved voltages
-            let v_from = pf_solution.bus_voltage_magnitude.get(&from_id).copied().unwrap_or(1.0);
-            let v_to = pf_solution.bus_voltage_magnitude.get(&to_id).copied().unwrap_or(1.0);
-            let theta_from = pf_solution.bus_voltage_angle.get(&from_id).copied().unwrap_or(0.0);
-            let theta_to = pf_solution.bus_voltage_angle.get(&to_id).copied().unwrap_or(0.0);
+            let v_from = pf_solution
+                .bus_voltage_magnitude
+                .get(&from_id)
+                .copied()
+                .unwrap_or(1.0);
+            let v_to = pf_solution
+                .bus_voltage_magnitude
+                .get(&to_id)
+                .copied()
+                .unwrap_or(1.0);
+            let theta_from = pf_solution
+                .bus_voltage_angle
+                .get(&from_id)
+                .copied()
+                .unwrap_or(0.0);
+            let theta_to = pf_solution
+                .bus_voltage_angle
+                .get(&to_id)
+                .copied()
+                .unwrap_or(0.0);
 
             // Branch admittance: y = 1/(r + jx), then g = r/(r² + x²), b = -x/(r² + x²)
             let z_sq = branch.resistance.powi(2) + branch.reactance.powi(2);
-            let g_series = if z_sq > 1e-12 { branch.resistance / z_sq } else { 0.0 };
-            let b_series = if z_sq > 1e-12 { -branch.reactance / z_sq } else { -1e6 };
+            let g_series = if z_sq > 1e-12 {
+                branch.resistance / z_sq
+            } else {
+                0.0
+            };
+            let b_series = if z_sq > 1e-12 {
+                -branch.reactance / z_sq
+            } else {
+                -1e6
+            };
 
             // Angle difference
             let theta_ij = theta_from - theta_to - branch.phase_shift_rad;
@@ -931,7 +958,8 @@ pub fn run_n1_contingency(path: &str) -> Result<N1ContingencyResult, String> {
         let mut overloaded = Vec::new();
         let mut max_loading = 0.0;
 
-        for (idx, &(from, to, reactance, phase_shift, rating, _)) in branches_info.iter().enumerate()
+        for (idx, &(from, to, reactance, phase_shift, rating, _)) in
+            branches_info.iter().enumerate()
         {
             if idx == outage_idx {
                 continue;
@@ -1066,7 +1094,9 @@ pub fn get_config() -> Result<AppConfigJson, String> {
         let content = std::fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
 
         // Parse TOML - we'll manually extract fields since the structure might differ
-        let toml_value: toml::Value = content.parse().map_err(|e: toml::de::Error| e.to_string())?;
+        let toml_value: toml::Value = content
+            .parse()
+            .map_err(|e: toml::de::Error| e.to_string())?;
 
         let config = AppConfigJson {
             solvers: SolverConfigJson {
@@ -1314,10 +1344,7 @@ pub fn get_notebook_manifest() -> Result<NotebookManifest, String> {
                 .unwrap_or("GAT research notebook")
                 .to_string(),
             workspace: workspace.to_string_lossy().to_string(),
-            port: json
-                .get("port")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(8787) as u16,
+            port: json.get("port").and_then(|v| v.as_u64()).unwrap_or(8787) as u16,
             notebooks_dir: json
                 .get("notebooks_dir")
                 .and_then(|v| v.as_str())
@@ -1479,7 +1506,7 @@ Grid Analysis Toolkit (GAT) workflows:
 // ============================================================================
 
 use crate::state::AppState;
-use gat_batch::{BatchJob, BatchRunnerConfig, TaskKind, run_batch as batch_run};
+use gat_batch::{run_batch as batch_run, BatchJob, BatchRunnerConfig, TaskKind};
 use uuid::Uuid;
 
 /// Request to run a batch job.
@@ -1488,7 +1515,7 @@ pub struct BatchRunRequest {
     pub input_dir: String,
     pub output_dir: String,
     pub file_pattern: String,
-    pub analysis_type: String,  // "pf_dc" | "pf_ac" | "opf_dc" | "opf_ac"
+    pub analysis_type: String, // "pf_dc" | "pf_ac" | "opf_dc" | "opf_ac"
     pub parallel_jobs: usize,
     pub tolerance: f64,
     pub max_iterations: usize,
@@ -1554,20 +1581,26 @@ pub async fn run_batch_job(
 
     let total_jobs = jobs.len();
     if total_jobs == 0 {
-        return Err(format!("No files matching {} found in {}", request.file_pattern, request.input_dir));
+        return Err(format!(
+            "No files matching {} found in {}",
+            request.file_pattern, request.input_dir
+        ));
     }
 
     // Initialize run state
     {
         let mut runs = state.batch_runs.lock().unwrap();
-        runs.insert(run_id.clone(), crate::state::BatchRun {
-            run_id: run_id.clone(),
-            status: "running".to_string(),
-            completed: 0,
-            total: total_jobs,
-            results: None,
-            error: None,
-        });
+        runs.insert(
+            run_id.clone(),
+            crate::state::BatchRun {
+                run_id: run_id.clone(),
+                status: "running".to_string(),
+                completed: 0,
+                total: total_jobs,
+                results: None,
+                error: None,
+            },
+        );
     }
 
     // Parse task type
@@ -1586,7 +1619,8 @@ pub async fn run_batch_job(
     // Spawn background task
     std::thread::spawn(move || {
         // Use faer solver by default (fast, reliable)
-        let solver = "faer".parse::<gat_core::solver::SolverKind>()
+        let solver = "faer"
+            .parse::<gat_core::solver::SolverKind>()
             .unwrap_or_default();
 
         let config = BatchRunnerConfig {
@@ -1624,10 +1658,7 @@ pub async fn run_batch_job(
         }
     });
 
-    Ok(BatchRunResponse {
-        run_id,
-        total_jobs,
-    })
+    Ok(BatchRunResponse { run_id, total_jobs })
 }
 
 /// Get status of a batch run.
@@ -1637,19 +1668,23 @@ pub fn get_batch_status(
     state: tauri::State<'_, AppState>,
 ) -> Result<BatchStatusResponse, String> {
     let runs = state.batch_runs.lock().unwrap();
-    let run = runs.get(&run_id).ok_or_else(|| format!("Run {} not found", run_id))?;
+    let run = runs
+        .get(&run_id)
+        .ok_or_else(|| format!("Run {} not found", run_id))?;
 
     Ok(BatchStatusResponse {
         status: run.status.clone(),
         completed: run.completed,
         total: run.total,
         results: run.results.as_ref().map(|jobs| {
-            jobs.iter().map(|j| JobResultJson {
-                job_id: j.job_id.clone(),
-                status: j.status.clone(),
-                duration_ms: j.duration_ms,
-                error: j.error.clone(),
-            }).collect()
+            jobs.iter()
+                .map(|j| JobResultJson {
+                    job_id: j.job_id.clone(),
+                    status: j.status.clone(),
+                    duration_ms: j.duration_ms,
+                    error: j.error.clone(),
+                })
+                .collect()
         }),
         error: run.error.clone(),
     })
@@ -1698,7 +1733,9 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
 
     // Parse network (use existing pattern from commands.rs)
     let result = if let Some((format, _)) = Format::detect(path) {
-        format.parse(&request.network_path).map_err(|e| e.to_string())?
+        format
+            .parse(&request.network_path)
+            .map_err(|e| e.to_string())?
     } else {
         parse_matpower(&request.network_path).map_err(|e| e.to_string())?
     };
@@ -1714,7 +1751,11 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
         if let Edge::Branch(branch) = edge.weight() {
             branch_info.insert(
                 branch.id.value(),
-                (branch.from_bus.value(), branch.to_bus.value(), branch.name.clone()),
+                (
+                    branch.from_bus.value(),
+                    branch.to_bus.value(),
+                    branch.name.clone(),
+                ),
             );
         }
     }
@@ -1726,14 +1767,19 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
     let mut branches: Vec<PtdfBranchResult> = Vec::new();
 
     for &branch_id in &ptdf_matrix.branch_ids {
-        let ptdf_inject = ptdf_matrix.get(branch_id, request.injection_bus).unwrap_or(0.0);
-        let ptdf_withdraw = ptdf_matrix.get(branch_id, request.withdrawal_bus).unwrap_or(0.0);
+        let ptdf_inject = ptdf_matrix
+            .get(branch_id, request.injection_bus)
+            .unwrap_or(0.0);
+        let ptdf_withdraw = ptdf_matrix
+            .get(branch_id, request.withdrawal_bus)
+            .unwrap_or(0.0);
         let ptdf_factor = ptdf_inject - ptdf_withdraw;
 
-        let (from_bus, to_bus, name) = branch_info
-            .get(&branch_id)
-            .cloned()
-            .unwrap_or((0, 0, format!("Branch {}", branch_id)));
+        let (from_bus, to_bus, name) =
+            branch_info
+                .get(&branch_id)
+                .cloned()
+                .unwrap_or((0, 0, format!("Branch {}", branch_id)));
 
         branches.push(PtdfBranchResult {
             branch_id,
@@ -1747,7 +1793,10 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
 
     // Sort by absolute PTDF factor descending
     branches.sort_by(|a, b| {
-        b.ptdf_factor.abs().partial_cmp(&a.ptdf_factor.abs()).unwrap_or(std::cmp::Ordering::Equal)
+        b.ptdf_factor
+            .abs()
+            .partial_cmp(&a.ptdf_factor.abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     let compute_time_ms = start.elapsed().as_secs_f64() * 1000.0;

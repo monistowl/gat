@@ -30,25 +30,47 @@ fn print_batch_summary(summary: &BatchSummary, task_name: &str) {
 
     println!();
     println!("╭─────────────────────────────────────────────────────────╮");
-    println!("│  Batch {} Summary                                      │", task_name);
+    println!(
+        "│  Batch {} Summary                                      │",
+        task_name
+    );
     println!("├─────────────────────────────────────────────────────────┤");
-    println!("│  Jobs: {:>6} total  │  Success: {:>6}  │  Failed: {:>4} │",
-             summary.jobs.len(), summary.success, summary.failure);
+    println!(
+        "│  Jobs: {:>6} total  │  Success: {:>6}  │  Failed: {:>4} │",
+        summary.jobs.len(),
+        summary.success,
+        summary.failure
+    );
     println!("├─────────────────────────────────────────────────────────┤");
     println!("│  Timing Statistics                                      │");
-    println!("│    Total:   {:>12}                                │", format_duration(stats.total_time_ms));
-    println!("│    Mean:    {:>12}    Median: {:>12}       │",
-             format_duration(stats.mean_time_ms), format_duration(stats.median_time_ms));
-    println!("│    Min:     {:>12}    Max:    {:>12}       │",
-             format_duration(stats.min_time_ms), format_duration(stats.max_time_ms));
-    println!("│    P95:     {:>12}                                │", format_duration(stats.p95_time_ms));
+    println!(
+        "│    Total:   {:>12}                                │",
+        format_duration(stats.total_time_ms)
+    );
+    println!(
+        "│    Mean:    {:>12}    Median: {:>12}       │",
+        format_duration(stats.mean_time_ms),
+        format_duration(stats.median_time_ms)
+    );
+    println!(
+        "│    Min:     {:>12}    Max:    {:>12}       │",
+        format_duration(stats.min_time_ms),
+        format_duration(stats.max_time_ms)
+    );
+    println!(
+        "│    P95:     {:>12}                                │",
+        format_duration(stats.p95_time_ms)
+    );
 
     // Show AC solver stats if available
     if let (Some(avg_iter), Some(conv_rate)) = (stats.avg_iterations, stats.convergence_rate) {
         println!("├─────────────────────────────────────────────────────────┤");
         println!("│  Solver Statistics                                      │");
-        println!("│    Avg Iterations: {:>6.1}    Convergence: {:>6.1}%      │",
-                 avg_iter, conv_rate * 100.0);
+        println!(
+            "│    Avg Iterations: {:>6.1}    Convergence: {:>6.1}%      │",
+            avg_iter,
+            conv_rate * 100.0
+        );
     }
 
     println!("├─────────────────────────────────────────────────────────┤");
@@ -60,7 +82,11 @@ fn print_batch_summary(summary: &BatchSummary, task_name: &str) {
         println!();
         println!("Failed jobs:");
         for job in summary.jobs.iter().filter(|j| j.status == "error") {
-            println!("  ✗ {} - {}", job.job_id, job.error.as_deref().unwrap_or("unknown error"));
+            println!(
+                "  ✗ {} - {}",
+                job.job_id,
+                job.error.as_deref().unwrap_or("unknown error")
+            );
         }
     }
 }

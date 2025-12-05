@@ -226,22 +226,27 @@ impl MonteCarlo {
                     0.0
                 };
 
-                Ok((scenario.probability, shortfall * scenario.probability, has_shortfall))
+                Ok((
+                    scenario.probability,
+                    shortfall * scenario.probability,
+                    has_shortfall,
+                ))
             })
             .collect();
 
         let results = results?;
 
         // Aggregate parallel results
-        let (shortfall_hours, total_shortfall_mwh, scenarios_with_shortfall) = results
-            .iter()
-            .fold((0.0, 0.0, 0usize), |(sh, ts, count), (prob, shortfall_mwh, has_shortfall)| {
+        let (shortfall_hours, total_shortfall_mwh, scenarios_with_shortfall) = results.iter().fold(
+            (0.0, 0.0, 0usize),
+            |(sh, ts, count), (prob, shortfall_mwh, has_shortfall)| {
                 if *has_shortfall {
                     (sh + prob, ts + shortfall_mwh, count + 1)
                 } else {
                     (sh, ts, count)
                 }
-            });
+            },
+        );
 
         // Convert shortfall hours to annual basis
         let lole = shortfall_hours * self.hours_per_year;
