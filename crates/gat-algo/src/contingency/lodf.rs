@@ -183,16 +183,24 @@ pub fn compute_ptdf_matrix(network: &Network) -> Result<PtdfMatrix> {
 
 /// Compute LODF matrix from PTDF matrix.
 ///
-/// LODF[ℓ,m] = PTDF[ℓ,from_m] / (1 - PTDF[m,from_m])
+/// LODF[ℓ,m] = PTDF_transfer[ℓ, i→j] / (1 - PTDF_transfer[m, i→j])
 ///
-/// where from_m is the "from" bus of branch m.
+/// where i,j are the terminal buses of branch m and PTDF_transfer[x, i→j] = PTDF[x,i] - PTDF[x,j]
+/// represents the sensitivity of branch x flow to a transfer from bus i to bus j.
+///
+/// This formula accounts for the fact that when branch m (connecting buses i,j) trips,
+/// power that was flowing through it must redistribute. The transfer sensitivity
+/// captures how much of that redistributed power flows on each surviving branch ℓ.
 pub fn compute_lodf_matrix(network: &Network, ptdf: &PtdfMatrix) -> Result<LodfMatrix> {
-    // Get branch from-bus mapping
-    let mut branch_from: HashMap<usize, usize> = HashMap::new();
+    // Get branch terminal buses mapping
+    let mut branch_terminals: HashMap<usize, (usize, usize)> = HashMap::new();
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
             if branch.status {
-                branch_from.insert(branch.id.value(), branch.from_bus.value());
+                branch_terminals.insert(
+                    branch.id.value(),
+                    (branch.from_bus.value(), branch.to_bus.value()),
+                );
             }
         }
     }
@@ -208,25 +216,29 @@ pub fn compute_lodf_matrix(network: &Network, ptdf: &PtdfMatrix) -> Result<LodfM
                 continue;
             }
 
-            // Get from-bus of branch m
-            let from_m = match branch_from.get(&branch_m) {
-                Some(&bus) => bus,
+            // Get terminal buses of branch m
+            let (from_m, to_m) = match branch_terminals.get(&branch_m) {
+                Some(&buses) => buses,
                 None => continue,
             };
 
-            // PTDF[m, from_m] - sensitivity of branch m to its own from-bus
+            // Transfer PTDF: sensitivity to transfer from from_m to to_m
+            // PTDF_transfer[x, i→j] = PTDF[x, i] - PTDF[x, j]
             let ptdf_m_from = ptdf.get(branch_m, from_m).unwrap_or(0.0);
+            let ptdf_m_to = ptdf.get(branch_m, to_m).unwrap_or(0.0);
+            let ptdf_m_transfer = ptdf_m_from - ptdf_m_to;
 
-            // PTDF[ℓ, from_m] - sensitivity of branch ℓ to branch m's from-bus
             let ptdf_l_from = ptdf.get(branch_l, from_m).unwrap_or(0.0);
+            let ptdf_l_to = ptdf.get(branch_l, to_m).unwrap_or(0.0);
+            let ptdf_l_transfer = ptdf_l_from - ptdf_l_to;
 
-            // LODF[ℓ,m] = PTDF[ℓ,from_m] / (1 - PTDF[m,from_m])
-            let denom = 1.0 - ptdf_m_from;
+            // LODF[ℓ,m] = PTDF_transfer[ℓ, i→j] / (1 - PTDF_transfer[m, i→j])
+            let denom = 1.0 - ptdf_m_transfer;
             if denom.abs() < 1e-10 {
                 // Island or radial branch - LODF is undefined/infinite
                 lodf[l_idx][m_idx] = f64::INFINITY;
             } else {
-                lodf[l_idx][m_idx] = ptdf_l_from / denom;
+                lodf[l_idx][m_idx] = ptdf_l_transfer / denom;
             }
         }
     }
