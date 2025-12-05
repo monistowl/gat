@@ -11,6 +11,12 @@
 //! - [`sensitivity`]: PTDF and LODF matrices for contingency analysis
 //! - [`incremental`]: Woodbury-based incremental updates for N-1 analysis
 //!
+//! ## Type Safety
+//!
+//! Unlike older implementations in [`crate::contingency::lodf`] and
+//! [`crate::opf::ac_nlp::sparse_ybus`], this module uses typed IDs
+//! ([`gat_core::BranchId`], [`gat_core::BusId`]) throughout for compile-time safety.
+//!
 //! ## Memory Comparison
 //!
 //! | Network Size | Dense (MB) | Sparse (MB) | Ratio |
@@ -23,6 +29,7 @@
 //!
 //! ```ignore
 //! use gat_algo::sparse::{SparseSusceptance, SparsePtdf};
+//! use gat_core::BusId;
 //!
 //! let network = Network::from_file("case9241.arrow")?;
 //!
@@ -32,9 +39,13 @@
 //!          b_prime.nnz(),
 //!          b_prime.density() * 100.0);
 //!
-//! // Compute sparse PTDF for contingency screening
-//! let ptdf = SparsePtdf::from_network(&network)?;
-//! let flow_sensitivity = ptdf.get_branch_sensitivity(branch_id, bus_id);
+//! // Compute PTDF for contingency screening
+//! let ptdf = SparsePtdf::compute_ptdf(&network)?;
+//! let sens = ptdf.get(branch_id, BusId::new(5));
+//!
+//! // Compute LODF for N-1 analysis
+//! let lodf = SparsePtdf::compute_lodf(&network, &ptdf)?;
+//! let post_flow = lodf.estimate_post_outage_flow(branch_l, branch_m, flow_l, flow_m);
 //! ```
 
 pub mod incremental;

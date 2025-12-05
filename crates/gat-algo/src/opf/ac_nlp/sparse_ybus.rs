@@ -2,6 +2,12 @@
 //!
 //! Uses CSR (Compressed Sparse Row) format via `sprs` for O(nnz) storage
 //! instead of O(n²) dense storage. Critical for networks > 500 buses.
+//!
+//! # Note
+//!
+//! Consider using the unified [`crate::sparse::SparseYBus`] module instead,
+//! which provides additional features including shunt admittance handling,
+//! reverse bus ID lookup, and memory estimation utilities.
 
 use crate::opf::OpfError;
 use gat_core::{BusId, Edge, Network, Node};

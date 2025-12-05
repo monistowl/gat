@@ -6,6 +6,11 @@
 //! ```
 //!
 //! This enables fast N-k screening without re-solving power flow for each contingency.
+//!
+//! # Note
+//!
+//! For new code, consider using [`crate::sparse::SparsePtdf`] which provides
+//! typed `BranchId`/`BusId` accessors and integrates with the unified sparse module.
 
 use anyhow::{anyhow, Result};
 use gat_core::{Edge, Network, Node};
