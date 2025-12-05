@@ -109,11 +109,16 @@ use petgraph::{prelude::*, Undirected};
 pub mod diagnostics;
 pub mod graph_utils;
 pub mod solver;
+pub mod units;
 
 pub use diagnostics::{DiagnosticIssue, Diagnostics, ImportDiagnostics, ImportStats, Severity};
 pub use graph_utils::*;
 pub use petgraph::graph::NodeIndex;
 pub use solver::*;
+pub use units::{
+    AdmittancePu, CurrentPu, Degrees, ImpedancePu, Kiloamperes, Kilovolts, MegavoltAmperes,
+    Megavars, Megawatts, PerUnit, Radians,
+};
 
 // Newtype wrappers for IDs for type safety
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
