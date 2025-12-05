@@ -1599,6 +1599,49 @@ pub enum OpfCommands {
         #[arg(long, default_value = "lbfgs")]
         solver: String,
     },
+    /// Run OPF directly on a MATPOWER file with full solver options.
+    ///
+    /// Swiss-army-knife command for validation and testing. Accepts MATPOWER files
+    /// directly (no separate cost/limits CSV needed), supports all solver methods
+    /// and warm-start strategies, and provides rich console output with optional
+    /// JSON export.
+    Run {
+        /// Path to MATPOWER (.m) file or directory containing .m file
+        input: String,
+        /// OPF method: economic, dc, socp, ac [default: socp]
+        #[arg(long, default_value = "socp")]
+        method: String,
+        /// NLP solver for AC-OPF: lbfgs, ipopt [default: lbfgs]
+        #[arg(long, default_value = "lbfgs")]
+        solver: String,
+        /// Warm-start strategy for AC-OPF: flat, dc, socp, cascaded [default: flat]
+        #[arg(long, default_value = "flat")]
+        warm_start: String,
+        /// Enable OBBT + QC envelopes for tighter SOCP relaxation
+        #[arg(long)]
+        enhanced: bool,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum iterations
+        #[arg(long, default_value = "200")]
+        max_iter: u32,
+        /// Solver timeout in seconds
+        #[arg(long, default_value = "300")]
+        timeout: u64,
+        /// Compare objective against PGLib baseline CSV
+        #[arg(long)]
+        baseline: Option<String>,
+        /// Include constraint violation details in output
+        #[arg(long)]
+        output_violations: bool,
+        /// Write JSON solution to file
+        #[arg(short, long)]
+        out: Option<String>,
+        /// Threading hint (`auto` or integer)
+        #[arg(long, default_value = "auto")]
+        threads: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]
