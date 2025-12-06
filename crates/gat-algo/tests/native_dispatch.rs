@@ -72,7 +72,7 @@ fn two_bus_network() -> Network {
         qmin: gat_core::Megavars(-50.0),
         qmax: gat_core::Megavars(50.0),
         cost_model: CostModel::linear(0.0, 10.0),
-        voltage_setpoint_pu: Some(1.0),
+        voltage_setpoint: Some(gat_core::PerUnit(1.0)),
         status: true,
         ..Gen::default()
     }));

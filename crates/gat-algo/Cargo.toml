@@ -61,3 +61,7 @@ full-native = ["all-solvers-native", "all-polars"]
 solver-clarabel = ["good_lp/clarabel"]
 solver-highs = ["good_lp/highs"]
 solver-ipopt = ["gat-ipopt-sys"]
+
+[lints.rust]
+# solver-coin_cbc is placeholder for future CLP/CBC integration
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(feature, values(\"solver-coin_cbc\"))"] }
