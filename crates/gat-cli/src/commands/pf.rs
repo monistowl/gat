@@ -168,7 +168,7 @@ fn dataframe_to_stdout(df: &polars::prelude::DataFrame, format: OutputFormat) ->
                         }
                         DataType::Float64 => {
                             let val = series.f64()?.get(row_idx);
-                            val.and_then(|v| serde_json::Number::from_f64(v))
+                            val.and_then(serde_json::Number::from_f64)
                                 .map(serde_json::Value::Number)
                                 .unwrap_or(serde_json::Value::Null)
                         }

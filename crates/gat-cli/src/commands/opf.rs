@@ -504,6 +504,7 @@ fn collect_violations(network: &Network, solution: &OpfSolution) -> Vec<Violatio
 }
 
 /// Print rich console output
+#[allow(clippy::too_many_arguments)]
 fn print_console_output(
     case_name: &str,
     network_summary: &NetworkSummary,

@@ -189,11 +189,9 @@ pub fn write_json<W: Write, T: Serialize>(
     pretty: bool,
 ) -> io::Result<()> {
     if pretty {
-        serde_json::to_writer_pretty(&mut *writer, data)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        serde_json::to_writer_pretty(&mut *writer, data).map_err(io::Error::other)?;
     } else {
-        serde_json::to_writer(&mut *writer, data)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        serde_json::to_writer(&mut *writer, data).map_err(io::Error::other)?;
     }
     writeln!(writer)?;
     Ok(())
@@ -202,8 +200,7 @@ pub fn write_json<W: Write, T: Serialize>(
 /// Write data as JSON Lines (one JSON object per line) to the given writer.
 pub fn write_jsonl<W: Write, T: Serialize>(data: &[T], writer: &mut W) -> io::Result<()> {
     for item in data {
-        serde_json::to_writer(&mut *writer, item)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        serde_json::to_writer(&mut *writer, item).map_err(io::Error::other)?;
         writeln!(writer)?;
     }
     Ok(())
