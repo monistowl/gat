@@ -22,6 +22,8 @@ thiserror = "1.0"
 clarabel = { version = "0.11", default-features = false }
 argmin = "0.10"
 argmin-math = { version = "0.4", features = ["vec"] }
+bumpalo = { version = "3", features = ["collections"] }
+hashbrown = "0.15"
 dirs = { version = "5.0", optional = true }
 # Native IPOPT bindings from vendored sources
 gat-ipopt-sys = { path = "../gat-ipopt-sys", optional = true }
