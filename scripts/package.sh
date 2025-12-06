@@ -44,7 +44,8 @@ case "$VARIANT" in
     # Use explicit features instead of --all-features to avoid embedded solver
     # crates that require system libraries. Native solvers (IPOPT, CBC) are
     # built separately from vendored sources via xtask and use native-dispatch.
-    BUILD_FLAGS="--no-default-features --features full-io,viz,gui,tui,docs,all-backends,native-dispatch"
+    # GPU acceleration (wgpu) is pure Rust with no external dependencies.
+    BUILD_FLAGS="--no-default-features --features full-io,viz,gui,tui,docs,all-backends,native-dispatch,gpu"
     ;;
   *)
     echo "Unknown variant: $VARIANT. Use headless, analyst, or full." >&2
