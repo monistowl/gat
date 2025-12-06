@@ -80,6 +80,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
             out_partitions,
             q_limits,
             slack_bus: _, // TODO: wire into solver
+            show_iterations: _, // TODO: wire into solver
         } => {
             let start = Instant::now();
             configure_threads(threads);

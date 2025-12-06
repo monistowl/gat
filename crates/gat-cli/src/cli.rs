@@ -735,6 +735,9 @@ pub enum PowerFlowCommands {
         /// Override slack bus selection (default: auto-select from network data)
         #[arg(long)]
         slack_bus: Option<usize>,
+        /// Show per-iteration convergence progress
+        #[arg(long)]
+        show_iterations: bool,
     },
 }
 
@@ -1595,6 +1598,9 @@ pub enum OpfCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Show per-iteration convergence progress
+        #[arg(long)]
+        show_iterations: bool,
     },
     /// Run full nonlinear AC-OPF with cost optimization
     ///
@@ -1622,6 +1628,9 @@ pub enum OpfCommands {
         /// NLP solver to use: lbfgs (default), ipopt (requires solver-ipopt feature)
         #[arg(long, default_value = "lbfgs")]
         solver: String,
+        /// Show per-iteration convergence progress
+        #[arg(long)]
+        show_iterations: bool,
     },
     /// Run OPF directly on a MATPOWER file with full solver options.
     ///
@@ -1665,6 +1674,9 @@ pub enum OpfCommands {
         /// Threading hint (`auto` or integer)
         #[arg(short = 't', long, default_value = "auto")]
         threads: String,
+        /// Show per-iteration convergence progress
+        #[arg(long)]
+        show_iterations: bool,
     },
 }
 

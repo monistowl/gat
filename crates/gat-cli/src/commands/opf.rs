@@ -161,6 +161,7 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
             threads,
             solver,
             out_partitions,
+            show_iterations: _, // TODO: wire into solver
         } => {
             configure_threads(threads);
             let solver_kind = solver.parse::<SolverKind>()?;
@@ -201,6 +202,7 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
             warm_start,
             threads,
             solver,
+            show_iterations: _, // TODO: wire into solver
         } => {
             configure_threads(threads);
 
@@ -301,6 +303,7 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
             output_violations,
             out,
             threads,
+            show_iterations: _, // TODO: wire into solver
         } => {
             configure_threads(threads);
             handle_run(
