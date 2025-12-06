@@ -1377,8 +1377,8 @@ pub enum RunsCommands {
         #[arg(long, default_value = ".")]
         root: PathBuf,
         /// Output format for the listing
-        #[arg(long, value_enum, default_value_t = RunFormat::Plain)]
-        format: RunFormat,
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// Describe a recorded run
     Describe {
@@ -1388,8 +1388,8 @@ pub enum RunsCommands {
         #[arg(long, default_value = ".")]
         root: PathBuf,
         /// Output format for the description
-        #[arg(long, value_enum, default_value_t = RunFormat::Plain)]
-        format: RunFormat,
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// Resume a long run from a manifest
     Resume {
@@ -1695,12 +1695,6 @@ pub enum SolverCommands {
     },
     /// Show solver configuration status
     Status,
-}
-
-#[derive(Copy, Clone, Debug, ValueEnum)]
-pub enum RunFormat {
-    Plain,
-    Json,
 }
 
 pub fn build_cli_command() -> clap::Command {

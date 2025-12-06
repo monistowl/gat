@@ -2,20 +2,36 @@ use std::io;
 use std::path::Path;
 
 use anyhow::Result;
-use gat_cli::cli::RunFormat;
+use gat_cli::common::OutputFormat;
 use gat_cli::manifest::ManifestEntry;
 use serde_json;
 
 use crate::runs::resolve_manifest;
 
-pub fn handle(root: &Path, target: &str, format: RunFormat) -> Result<()> {
+pub fn handle(root: &Path, target: &str, format: OutputFormat) -> Result<()> {
     let record = resolve_manifest(root, target)?;
     match format {
-        RunFormat::Plain => describe_manifest(&record.manifest),
-        RunFormat::Json => {
+        OutputFormat::Table => describe_manifest(&record.manifest),
+        OutputFormat::Json => {
             serde_json::to_writer_pretty(io::stdout(), &record.manifest)
                 .map_err(|err| anyhow::anyhow!("serializing manifest: {err}"))?;
             println!();
+        }
+        OutputFormat::Jsonl => {
+            serde_json::to_writer(io::stdout(), &record.manifest)
+                .map_err(|err| anyhow::anyhow!("serializing manifest: {err}"))?;
+            println!();
+        }
+        OutputFormat::Csv => {
+            // For CSV, we'll output manifest as a single-row CSV with key columns
+            println!("run_id,command,timestamp,version");
+            println!(
+                "{},{},{},{}",
+                record.manifest.run_id,
+                csv_escape(&record.manifest.command),
+                record.manifest.timestamp,
+                record.manifest.version
+            );
         }
     }
     Ok(())
@@ -56,5 +72,13 @@ pub fn describe_manifest(manifest: &ManifestEntry) {
             let when = chunk.completed_at.as_deref().unwrap_or("pending");
             println!("  {} -> {} ({})", chunk.id, chunk.status, when);
         }
+    }
+}
+
+fn csv_escape(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
     }
 }
