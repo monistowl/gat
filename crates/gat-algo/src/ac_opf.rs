@@ -364,32 +364,6 @@ impl AcOpfSolver {
     }
 }
 
-/// Internal penalty formulation problem (reserved for future AC-OPF implementation)
-#[derive(Debug)]
-#[allow(dead_code)]
-struct PenaltyFormulation {
-    /// Bus indices
-    bus_indices: Vec<usize>,
-    /// Generator indices
-    gen_indices: Vec<usize>,
-    /// Bus voltage variables (magnitude)
-    bus_voltages: Vec<String>, // Variable names for debug
-    /// Generator power variables
-    gen_powers: Vec<String>, // Variable names for debug
-}
-
-impl PenaltyFormulation {
-    #[allow(dead_code)]
-    fn new() -> Self {
-        Self {
-            bus_indices: Vec::new(),
-            gen_indices: Vec::new(),
-            bus_voltages: Vec::new(),
-            gen_powers: Vec::new(),
-        }
-    }
-}
-
 impl Default for AcOpfSolver {
     fn default() -> Self {
         Self::new()

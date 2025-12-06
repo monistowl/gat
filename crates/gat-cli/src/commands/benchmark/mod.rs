@@ -3,7 +3,6 @@ use gat_cli::cli::BenchmarkCommands;
 use gat_cli::common::OpfMethod;
 
 pub mod baseline;
-pub mod common;
 pub mod compare;
 pub mod opfdata;
 pub mod pfdelta;

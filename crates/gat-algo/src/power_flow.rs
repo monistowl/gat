@@ -17,6 +17,8 @@ use anyhow::{anyhow, Context, Result};
 use csv::ReaderBuilder;
 use gat_core::solver::LinearSystemBackend;
 use gat_core::{BusId, Edge, Network, Node};
+
+use crate::sparse::{IncrementalSolver, SparseSusceptance};
 use good_lp::solvers::clarabel::clarabel as clarabel_solver;
 #[cfg(feature = "solver-coin_cbc")]
 use good_lp::solvers::coin_cbc::coin_cbc as coin_cbc_solver;
@@ -25,7 +27,6 @@ use good_lp::solvers::highs::highs as highs_solver;
 use good_lp::{
     constraint, variable, variables, Expression, ProblemVariables, Solution, SolverModel, Variable,
 };
-use num_complex::Complex64;
 use polars::prelude::{DataFrame, NamedFrom, PolarsResult, Series};
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -348,7 +349,8 @@ pub fn ptdf_analysis(
     }
 
     // Verify both buses exist in the network topology
-    let (bus_ids, _, _) = build_bus_susceptance(network, None);
+    // Use get_bus_ids() to avoid building full susceptance matrix for validation
+    let bus_ids = get_bus_ids(network);
     if !bus_ids.contains(&source_bus) {
         return Err(anyhow!("source bus {} not found in network", source_bus));
     }
@@ -1061,8 +1063,14 @@ pub(crate) fn branch_flow_dataframe(
     skip_branch: Option<i64>,
     solver: &dyn LinearSystemBackend,
 ) -> Result<(DataFrame, f64, f64)> {
-    // Recover branch flows by solving for angles (B′ θ = P) and then computing each branch difference
-    let angles = compute_dc_angles(network, injections, skip_branch, solver)?;
+    // Use sparse solver for base case (no branch outage), dense for contingencies
+    let angles = if skip_branch.is_none() {
+        // Base case: use efficient sparse solver
+        compute_dc_angles_sparse(network, injections)?
+    } else {
+        // Contingency case: use dense solver with skip_branch support
+        compute_dc_angles(network, injections, skip_branch, solver)?
+    };
     branch_flow_dataframe_with_angles(network, &angles, skip_branch).map_err(|err| anyhow!(err))
 }
 
@@ -1346,6 +1354,88 @@ fn solve_linear_system(
     solver: &dyn LinearSystemBackend,
 ) -> Result<Vec<f64>> {
     solver.solve(matrix, injections)
+}
+
+/// Extract sorted bus IDs from network without building susceptance matrix.
+///
+/// This is more efficient than `build_bus_susceptance` when only the bus list is needed
+/// (e.g., for input validation).
+fn get_bus_ids(network: &Network) -> Vec<usize> {
+    let mut bus_ids: Vec<usize> = network
+        .graph
+        .node_indices()
+        .filter_map(|idx| match &network.graph[idx] {
+            Node::Bus(bus) => Some(bus.id.value()),
+            _ => None,
+        })
+        .collect();
+    bus_ids.sort_unstable();
+    bus_ids
+}
+
+/// Solve DC power flow using sparse susceptance matrix.
+///
+/// Uses `SparseSusceptance` for O(nnz) storage and `IncrementalSolver` for LU factorization.
+/// This is 10-400x more memory efficient than the dense version for large networks.
+///
+/// # Arguments
+/// * `network` - The network model
+/// * `injections` - Map from bus ID to net power injection (MW)
+///
+/// # Returns
+/// Map from bus ID to voltage angle (radians)
+fn compute_dc_angles_sparse(
+    network: &Network,
+    injections: &HashMap<usize, f64>,
+) -> Result<HashMap<usize, f64>> {
+    // Build sparse susceptance matrix
+    let b_prime = SparseSusceptance::from_network(network)
+        .map_err(|e| anyhow!("Failed to build sparse susceptance: {}", e))?;
+
+    let n = b_prime.n_bus();
+    if n == 0 {
+        return Ok(HashMap::new());
+    }
+    if n == 1 {
+        let mut angles = HashMap::new();
+        if let Some(bus_id) = b_prime.bus_id(0) {
+            angles.insert(bus_id.value(), 0.0);
+        }
+        return Ok(angles);
+    }
+
+    // Build reduced RHS vector (slack bus removed)
+    let slack_idx = b_prime.slack_idx();
+    let mut reduced_rhs = Vec::with_capacity(n - 1);
+    for (idx, bus_id) in b_prime.bus_order().iter().enumerate() {
+        if idx == slack_idx {
+            continue;
+        }
+        let p = injections.get(&bus_id.value()).copied().unwrap_or(0.0);
+        reduced_rhs.push(p);
+    }
+
+    // Solve using sparse LU factorization
+    let solver = IncrementalSolver::new(&b_prime)
+        .map_err(|e| anyhow!("Sparse LU factorization failed: {}", e))?;
+
+    let solution = solver
+        .solve(&reduced_rhs)
+        .map_err(|e| anyhow!("Sparse solve failed: {}", e))?;
+
+    // Reconstruct full angle map
+    let mut angles = HashMap::with_capacity(n);
+    let mut sol_idx = 0;
+    for (idx, bus_id) in b_prime.bus_order().iter().enumerate() {
+        if idx == slack_idx {
+            angles.insert(bus_id.value(), 0.0);
+        } else {
+            angles.insert(bus_id.value(), solution[sol_idx]);
+            sol_idx += 1;
+        }
+    }
+
+    Ok(angles)
 }
 
 fn load_costs(path: &str) -> Result<HashMap<usize, f64>> {
@@ -1675,82 +1765,6 @@ fn enforce_branch_limits(df: &DataFrame, limits: &HashMap<i64, f64>) -> Result<(
         ));
     }
     Ok(())
-}
-
-type YBusComponents = (
-    HashMap<usize, HashMap<usize, Complex64>>,
-    Vec<usize>,
-    HashMap<usize, usize>,
-);
-
-#[allow(dead_code)]
-fn build_y_bus(network: &Network) -> YBusComponents {
-    // Build the full complex admittance matrix (YBus), useful for future AC analysis extensions.
-    let mut ybus: HashMap<usize, HashMap<usize, Complex64>> = HashMap::new();
-    let mut bus_order = Vec::new();
-    for node_idx in network.graph.node_indices() {
-        if let Node::Bus(bus) = &network.graph[node_idx] {
-            bus_order.push(bus.id.value());
-        }
-    }
-    let mut id_to_index = HashMap::new();
-    for (idx, bus_id) in bus_order.iter().enumerate() {
-        id_to_index.insert(*bus_id, idx);
-    }
-
-    for edge in network.graph.edge_references() {
-        if let Edge::Branch(branch) = edge.weight() {
-            if !branch.status {
-                continue;
-            }
-            let i = branch.from_bus.value();
-            let j = branch.to_bus.value();
-            let x_eff = (branch.reactance * branch.tap_ratio).max(1e-6);
-            let admittance = Complex64::new(0.0, -1.0 / x_eff);
-            ybus.entry(i)
-                .or_default()
-                .entry(j)
-                .and_modify(|v| *v += admittance)
-                .or_insert(admittance);
-            ybus.entry(j)
-                .or_default()
-                .entry(i)
-                .and_modify(|v| *v += admittance)
-                .or_insert(admittance);
-            ybus.entry(i)
-                .or_default()
-                .entry(i)
-                .and_modify(|v| *v -= admittance)
-                .or_insert(-admittance);
-            ybus.entry(j)
-                .or_default()
-                .entry(j)
-                .and_modify(|v| *v -= admittance)
-                .or_insert(-admittance);
-        }
-    }
-    (ybus, bus_order, id_to_index)
-}
-
-#[allow(dead_code)]
-fn compute_p(
-    ybus: &HashMap<usize, HashMap<usize, Complex64>>,
-    id_to_index: &HashMap<usize, usize>,
-    angles: &[f64],
-    bus_id: usize,
-) -> f64 {
-    // Compute the real power injection using imag(Y_ij) times angle differences.
-    let idx = *id_to_index.get(&bus_id).unwrap_or(&0);
-    let theta_i = angles[idx];
-    ybus.get(&bus_id)
-        .map(|neighbors| {
-            neighbors.iter().fold(0.0, |acc, (other, adm)| {
-                let neighbor_idx = *id_to_index.get(other).unwrap_or(&idx);
-                let theta_j = angles[neighbor_idx];
-                acc + adm.im * (theta_i - theta_j)
-            })
-        })
-        .unwrap_or(0.0)
 }
 
 #[cfg(test)]

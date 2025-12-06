@@ -21,7 +21,6 @@ use good_lp::solvers::highs::highs as highs_solver;
 use good_lp::{
     constraint, variable, variables, Expression, ProblemVariables, Solution, SolverModel, Variable,
 };
-use num_complex::Complex64;
 use polars::prelude::{DataFrame, NamedFrom, PolarsResult, Series};
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -1604,82 +1603,6 @@ fn enforce_branch_limits(df: &DataFrame, limits: &HashMap<i64, f64>) -> Result<(
         ));
     }
     Ok(())
-}
-
-type YBusComponents = (
-    HashMap<usize, HashMap<usize, Complex64>>,
-    Vec<usize>,
-    HashMap<usize, usize>,
-);
-
-#[allow(dead_code)]
-fn build_y_bus(network: &Network) -> YBusComponents {
-    // Build the full complex admittance matrix (YBus), useful for future AC analysis extensions.
-    let mut ybus: HashMap<usize, HashMap<usize, Complex64>> = HashMap::new();
-    let mut bus_order = Vec::new();
-    for node_idx in network.graph.node_indices() {
-        if let Node::Bus(bus) = &network.graph[node_idx] {
-            bus_order.push(bus.id.value());
-        }
-    }
-    let mut id_to_index = HashMap::new();
-    for (idx, bus_id) in bus_order.iter().enumerate() {
-        id_to_index.insert(*bus_id, idx);
-    }
-
-    for edge in network.graph.edge_references() {
-        if let Edge::Branch(branch) = edge.weight() {
-            if !branch.status {
-                continue;
-            }
-            let i = branch.from_bus.value();
-            let j = branch.to_bus.value();
-            let x_eff = (branch.reactance * branch.tap_ratio).max(1e-6);
-            let admittance = Complex64::new(0.0, -1.0 / x_eff);
-            ybus.entry(i)
-                .or_default()
-                .entry(j)
-                .and_modify(|v| *v += admittance)
-                .or_insert(admittance);
-            ybus.entry(j)
-                .or_default()
-                .entry(i)
-                .and_modify(|v| *v += admittance)
-                .or_insert(admittance);
-            ybus.entry(i)
-                .or_default()
-                .entry(i)
-                .and_modify(|v| *v -= admittance)
-                .or_insert(-admittance);
-            ybus.entry(j)
-                .or_default()
-                .entry(j)
-                .and_modify(|v| *v -= admittance)
-                .or_insert(-admittance);
-        }
-    }
-    (ybus, bus_order, id_to_index)
-}
-
-#[allow(dead_code)]
-fn compute_p(
-    ybus: &HashMap<usize, HashMap<usize, Complex64>>,
-    id_to_index: &HashMap<usize, usize>,
-    angles: &[f64],
-    bus_id: usize,
-) -> f64 {
-    // Compute the real power injection using imag(Y_ij) times angle differences.
-    let idx = *id_to_index.get(&bus_id).unwrap_or(&0);
-    let theta_i = angles[idx];
-    ybus.get(&bus_id)
-        .map(|neighbors| {
-            neighbors.iter().fold(0.0, |acc, (other, adm)| {
-                let neighbor_idx = *id_to_index.get(other).unwrap_or(&idx);
-                let theta_j = angles[neighbor_idx];
-                acc + adm.im * (theta_i - theta_j)
-            })
-        })
-        .unwrap_or(0.0)
 }
 
 #[cfg(test)]
