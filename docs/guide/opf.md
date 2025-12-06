@@ -16,6 +16,45 @@ GAT provides a unified `OpfSolver` supporting multiple solution methods with var
 
 **Current Status:** All methods are fully implemented and validated. The IPOPT-backed AC-OPF solver achieves **<0.01% objective gap** on standard benchmarks (IEEE 14-bus, IEEE 118-bus) with full thermal constraint support.
 
+### Strategy Pattern Architecture
+
+The OPF system uses a Strategy Pattern with two levels of abstraction for extensibility:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      OpfDispatcher                           │
+│           (orchestrates solving, fallback chains)            │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+        ┌───────────────────┼───────────────────┐
+        ▼                   ▼                   ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│ DcOpf         │   │ Socp          │   │ AcOpf         │  ← OpfFormulation
+│ Formulation   │   │ Formulation   │   │ Formulation   │    (what to solve)
+└───────┬───────┘   └───────┬───────┘   └───────┬───────┘
+        ↓                   ↓                   ↓
+   LinearProgram       ConicProgram      NonlinearProgram
+        └───────────────────┼───────────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     SolverRegistry                           │
+│        (selects best backend for problem class)              │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+        ┌───────────────────┼───────────────────┐
+        ▼                   ▼                   ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│ Clarabel      │   │ L-BFGS        │   │ IPOPT         │  ← OpfBackend
+│ (pure Rust)   │   │ (pure Rust)   │   │ (via IPC)     │    (how to solve)
+└───────────────┘   └───────────────┘   └───────────────┘
+```
+
+**Key benefits:**
+- **Add new formulations** by implementing `OpfFormulation` trait
+- **Add new solvers** by implementing `OpfBackend` trait
+- **Runtime solver selection** based on availability and problem class
+- **Fallback chains** for warm-starting (e.g., Flat → DC → SOCP → AC)
+
 ---
 
 ## Full Nonlinear AC-OPF (AcOpf)

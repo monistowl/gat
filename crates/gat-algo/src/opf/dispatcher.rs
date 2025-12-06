@@ -74,7 +74,7 @@ impl OpfDispatcher {
 
         // Attempt flat-start solve
         match backend.solve(&problem, &config, None) {
-            Ok(solution) => return Ok(solution),
+            Ok(solution) => Ok(solution),
             Err(first_error) => {
                 // Check if this is a convergence failure worth retrying
                 if !Self::is_convergence_failure(&first_error) {

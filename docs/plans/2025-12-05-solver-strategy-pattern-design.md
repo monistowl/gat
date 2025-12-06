@@ -267,9 +267,49 @@ impl OpfBackend for MockBackend {
 
 ## Success Criteria
 
-- [ ] All existing `OpfSolver` tests pass unchanged
-- [ ] New `OpfDispatcher` API works for all methods
-- [ ] Runtime detection correctly identifies installed native solvers
-- [ ] Fallback chain works (Flat → DC → SOCP for AC-OPF)
-- [ ] No `#[cfg]` attributes in the solve path
-- [ ] Custom formulation/backend can be registered and used
+- [x] All existing `OpfSolver` tests pass unchanged
+- [x] New `OpfDispatcher` API works for all methods
+- [x] Runtime detection correctly identifies installed native solvers
+- [x] Fallback chain works (Flat → DC → SOCP for AC-OPF)
+- [x] No `#[cfg]` attributes in the solve path
+- [x] Custom formulation/backend can be registered and used
+
+---
+
+## Implementation Status: COMPLETE (2025-12-05)
+
+All success criteria have been verified:
+
+| Test Suite | Tests | Status |
+|------------|-------|--------|
+| Unit tests (opf::*) | 135 | ✅ Pass |
+| solver_dispatch.rs | 19 | ✅ Pass |
+| strategy_pattern.rs | 11 | ✅ Pass |
+| dc_opf.rs | 5 | ✅ Pass |
+| socp.rs | 11 | ✅ Pass |
+| ac_opf.rs | 4 | ✅ Pass |
+
+### Files Created
+
+```
+crates/gat-algo/src/opf/
+├── traits.rs           # OpfFormulation, OpfBackend, SolverConfig
+├── registry.rs         # SolverRegistry with formulations + backends
+├── dispatcher.rs       # OpfDispatcher with fallback logic
+├── formulations/
+│   ├── mod.rs
+│   ├── dc.rs           # DcOpfFormulation
+│   ├── socp.rs         # SocpFormulation
+│   ├── ac.rs           # AcOpfFormulation
+│   └── economic.rs     # EconomicDispatchFormulation
+└── backends/
+    ├── mod.rs
+    ├── clarabel.rs     # ClarabelBackend (LP/SOCP)
+    └── lbfgs.rs        # LbfgsBackend (NLP)
+```
+
+### Files Modified
+
+- `crates/gat-algo/src/opf/mod.rs` - Updated exports, added `solve_with_dispatcher()`
+- `crates/gat-algo/tests/solver_dispatch.rs` - Added strategy_pattern test module
+- `crates/gat-algo/tests/strategy_pattern.rs` - New integration tests

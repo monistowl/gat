@@ -8,6 +8,52 @@ Native solvers (CLP, CBC, IPOPT) run as isolated subprocesses communicating via 
 - **License compliance**: Solvers with restrictive licenses run in separate address spaces
 - **Version flexibility**: Different solver versions can coexist
 
+## Relationship to Strategy Pattern
+
+The OPF system uses a Strategy Pattern with two abstraction levels:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        OpfDispatcher                             │
+│  (orchestrates solving, manages fallback chains)                 │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+       ┌───────────────┼───────────────┐
+       ▼               ▼               ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ DcOpf        │ │ Socp         │ │ AcOpf        │  ◄─ OpfFormulation
+│ Formulation  │ │ Formulation  │ │ Formulation  │     (what to solve)
+└──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+       │                │                │
+       ▼                ▼                ▼
+  ProblemClass:    ProblemClass:    ProblemClass:
+  LinearProgram    ConicProgram     NonlinearProgram
+       │                │                │
+       └────────────────┼────────────────┘
+                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      SolverRegistry                              │
+│  (selects best available backend for problem class)              │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+       ┌───────────────┼───────────────┐
+       ▼               ▼               ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ Clarabel     │ │ L-BFGS       │ │ IPOPT        │  ◄─ OpfBackend
+│ Backend      │ │ Backend      │ │ Backend      │     (how to solve)
+│ (pure Rust)  │ │ (pure Rust)  │ │ (via IPC)    │
+└──────────────┘ └──────────────┘ └──────────────┘
+                                         │
+                                         ▼ Arrow IPC
+                                  ┌──────────────┐
+                                  │ gat-ipopt    │
+                                  │ subprocess   │
+                                  └──────────────┘
+```
+
+**Pure-Rust backends** (Clarabel, L-BFGS) run in-process.
+**Native backends** (IPOPT, CLP, CBC) use the IPC protocol below.
+
 ## Message Format
 
 ```
