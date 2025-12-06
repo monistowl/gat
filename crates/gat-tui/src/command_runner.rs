@@ -4,7 +4,9 @@ use std::sync::mpsc::{self, Receiver};
 use std::thread;
 
 /// Shell metacharacters that could enable command injection
-const SHELL_METACHARACTERS: &[char] = &[';', '|', '&', '$', '`', '(', ')', '{', '}', '<', '>', '\n', '\r'];
+const SHELL_METACHARACTERS: &[char] = &[
+    ';', '|', '&', '$', '`', '(', ')', '{', '}', '<', '>', '\n', '\r',
+];
 
 pub struct CommandHandle {
     receiver: Receiver<String>,
@@ -142,6 +144,7 @@ mod tests {
             "case.arrow".to_string(),
             "--output".to_string(),
             "results.parquet".to_string(),
-        ]).is_ok());
+        ])
+        .is_ok());
     }
 }

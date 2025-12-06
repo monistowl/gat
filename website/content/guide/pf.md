@@ -67,8 +67,107 @@ Shunts are modeled as constant-admittance injections:
 - **Gs**: Shunt conductance (p.u.) — real power injection
 - **Bs**: Shunt susceptance (p.u.) — reactive power injection (positive = capacitive)
 
+## Troubleshooting
+
+### AC Power Flow Does Not Converge
+
+**Symptoms:** "Did not converge" after max iterations, large mismatch values
+
+**Common Causes & Solutions:**
+
+1. **Insufficient generation capacity**
+   ```bash
+   gat inspect power-balance grid.arrow
+   # Check: Total generation > Total load
+   ```
+
+2. **Network islands (disconnected buses)**
+   ```bash
+   gat graph islands grid.arrow
+   # Should report 1 island for valid network
+   ```
+
+3. **Unrealistic voltage setpoints**
+   ```bash
+   # Check generator voltage setpoints are within [0.9, 1.1] pu
+   gat inspect generators grid.arrow --format json | \
+     jq '.[] | select(.vset < 0.9 or .vset > 1.1)'
+   ```
+
+4. **Missing slack bus**
+   ```bash
+   # Verify exactly one slack (type=3) bus exists
+   gat inspect buses grid.arrow --format json | \
+     jq '[.[] | select(.type == 3)] | length'
+   ```
+
+5. **Try DC first, then warm-start AC**
+   ```bash
+   gat pf dc grid.arrow --out dc_result.parquet
+   gat pf ac grid.arrow --out ac_result.parquet --warm-start dc_result.parquet
+   ```
+
+### Large Mismatches at Specific Buses
+
+**Symptoms:** Convergence but some buses show large P/Q mismatch
+
+**Solutions:**
+
+1. **Check Q limits are reasonable**
+   ```bash
+   gat inspect generators grid.arrow --format json | \
+     jq '.[] | select(.qmin > .qmax)'
+   ```
+
+2. **Enable Q-limit enforcement**
+   ```bash
+   gat pf ac grid.arrow --out flows.parquet --enforce-q-limits
+   ```
+
+3. **Verify load data**
+   ```bash
+   gat inspect summary grid.arrow
+   # Check for negative loads or unrealistic values
+   ```
+
+### Results Don't Match MATPOWER/PSS/E
+
+**Solutions:**
+
+1. **Include shunt elements**
+   ```bash
+   gat pf ac grid.arrow --out flows.parquet --include-shunts
+   ```
+
+2. **Check per-unit base**
+   ```bash
+   gat inspect summary grid.arrow
+   # Verify base_mva matches external tool
+   ```
+
+3. **Verify transformer tap ratios**
+   ```bash
+   gat inspect branches grid.arrow --format json | \
+     jq '.[] | select(.tap != 1.0 and .tap != null)'
+   ```
+
+### Memory Issues on Large Systems
+
+**Symptoms:** Out of memory on systems > 50k buses
+
+**Solutions:**
+
+```bash
+# Use sparse solver (default for large systems)
+gat pf ac grid.arrow --solver sparse --out flows.parquet
+
+# Reduce thread count to lower memory pressure
+gat pf ac grid.arrow --threads 2 --out flows.parquet
+```
+
 ## Related Commands
 
 - [OPF](@/guide/opf.md) — Optimal power flow analysis
 - [Inspect](@/guide/inspect.md) — Network inspection and validation
 - [Batch](@/guide/batch.md) — Multi-scenario power flow
+- [Graph](@/guide/graph.md) — Topology analysis and island detection

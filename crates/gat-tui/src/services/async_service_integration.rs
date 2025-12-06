@@ -276,9 +276,11 @@ impl AsyncServiceIntegration {
     }
 
     async fn batch_opf(&self, manifest: &Path, max_jobs: usize, solver: &str) -> EventResult {
-        let cmd = self
-            .service_layer
-            .build_batch_opf_command(&manifest.display().to_string(), max_jobs, solver);
+        let cmd = self.service_layer.build_batch_opf_command(
+            &manifest.display().to_string(),
+            max_jobs,
+            solver,
+        );
         EventResult::Success(format!("Batch OPF: {}", cmd))
     }
 

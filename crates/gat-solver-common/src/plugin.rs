@@ -149,7 +149,8 @@ fn run_plugin_inner<P: SolverPlugin>(plugin: &P) -> Result<()> {
     debug!("Writing solution to stdout...");
     let mut output = Vec::new();
     if plugin.use_v2_protocol() {
-        ipc::write_solution_v2(&solution, &mut output).context("Failed to serialize solution v2")?;
+        ipc::write_solution_v2(&solution, &mut output)
+            .context("Failed to serialize solution v2")?;
     } else {
         ipc::write_solution(&solution, &mut output).context("Failed to serialize solution")?;
     }

@@ -10,6 +10,8 @@
   import BatchJobPane from "$lib/BatchJobPane.svelte";
   import NotebookPane from "$lib/NotebookPane.svelte";
   import PtdfPanel from "$lib/PtdfPanel.svelte";
+  import WorkflowsPane from "$lib/WorkflowsPane.svelte";
+  import QuickActions from "$lib/QuickActions.svelte";
   import { themeState } from "$lib/stores/theme.svelte";
 
   // Types for our data
@@ -147,6 +149,7 @@
   let batchJobOpen = $state<boolean>(false);
   let notebookOpen = $state<boolean>(false);
   let ptdfOpen = $state<boolean>(false);
+  let workflowsOpen = $state<boolean>(false);
 
   // Handle bus selection from Y-bus explorer
   function handleSelectBus(busId: number) {
@@ -418,6 +421,27 @@
       {/if}
     </div>
 
+    <!-- Quick Actions Toolbar (visible when network is loaded) -->
+    {#if network}
+      <div class="quick-actions-bar">
+        <QuickActions
+          {network}
+          casePath={selectedCase?.path ?? null}
+          onActionComplete={(action, result) => {
+            // Handle quick action results
+            if (action === 'solve_dc' && result) {
+              dcResult = result as DcPowerFlowResult;
+            } else if (action === 'solve_ac' && result) {
+              pfResult = result as PowerFlowResult;
+            } else if (action === 'run_n1' && result) {
+              n1Result = result as N1ContingencyResult;
+            }
+          }}
+          onStatus={(msg) => status = msg}
+        />
+      </div>
+    {/if}
+
     <!-- View Tabs + Status Bar -->
     <div class="footer">
       <div class="view-tabs">
@@ -465,6 +489,13 @@
             <path d="M18 9l-5 5-4-4-3 3"/>
           </svg>
           PTDF
+        </button>
+        <button class="footer-btn" onclick={() => workflowsOpen = !workflowsOpen} title="Analysis Workflows">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          Workflows
         </button>
         <button
           class="footer-btn theme-toggle"
@@ -553,6 +584,9 @@
 
   <!-- PTDF Analysis -->
   <PtdfPanel isOpen={ptdfOpen} onClose={() => ptdfOpen = false} />
+
+  <!-- Analysis Workflows -->
+  <WorkflowsPane isOpen={workflowsOpen} onClose={() => workflowsOpen = false} />
 </div>
 
 <style>
@@ -754,6 +788,15 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* Quick Actions Bar */
+  .quick-actions-bar {
+    display: flex;
+    justify-content: center;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
   }
 
   /* Footer */

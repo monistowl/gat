@@ -467,6 +467,146 @@ gat opf ac grid.arrow \
 * `branch_limits.csv`: tight limits for violation testing.
 * `piecewise.csv`: two-piece segments for piecewise cost testing.
 
+## Troubleshooting
+
+### OPF Returns Infeasible
+
+**Symptoms:** "Problem infeasible" or "No solution found"
+
+**Common Causes & Solutions:**
+
+1. **Insufficient generation capacity**
+   ```bash
+   gat inspect power-balance grid.arrow
+   # Total Pmax must exceed total load + losses
+   ```
+
+2. **Transmission limits too tight**
+   ```bash
+   # Relax limits temporarily to diagnose
+   gat opf dc grid.arrow --out test.parquet --ignore-branch-limits
+   ```
+
+3. **Missing or incorrect cost data**
+   ```bash
+   # Verify all generators have costs
+   gat inspect generators grid.arrow --format json | \
+     jq '.[] | select(.cost == null or .cost == 0)'
+   ```
+
+4. **Network islands**
+   ```bash
+   gat graph islands grid.arrow
+   # Each island needs its own slack/generation
+   ```
+
+### AC-OPF Does Not Converge
+
+**Symptoms:** IPOPT reports "Maximum iterations exceeded" or "Restoration failed"
+
+**Solutions:**
+
+1. **Use SOCP warm-start** (recommended)
+   ```bash
+   gat opf ac grid.arrow --warm-start socp --out results.parquet
+   ```
+
+2. **Increase iterations and relax tolerance**
+   ```bash
+   gat opf ac grid.arrow --max-iter 500 --tol 1e-3 --out results.parquet
+   ```
+
+3. **Check voltage bounds**
+   ```bash
+   # Widen voltage bounds if too restrictive
+   gat inspect buses grid.arrow --format json | \
+     jq '.[] | {id, vmin, vmax} | select(.vmax - .vmin < 0.1)'
+   ```
+
+4. **Fall back to L-BFGS if IPOPT unavailable**
+   ```bash
+   gat opf ac grid.arrow --solver lbfgs --out results.parquet
+   ```
+
+### Large Objective Gap vs Reference
+
+**Symptoms:** Cost differs significantly from MATPOWER/PowerModels results
+
+**Causes & Solutions:**
+
+1. **Different cost function interpretation**
+   ```bash
+   # Verify cost units ($/MWh vs $/MW)
+   gat inspect generators grid.arrow --format json | jq '.[0].cost'
+   ```
+
+2. **Generator limits not binding correctly**
+   ```bash
+   # Check dispatch is within limits
+   gat opf dc grid.arrow --out r.parquet --format json | \
+     jq '.generators[] | select(.pg > .pmax or .pg < .pmin)'
+   ```
+
+3. **Loss modeling differences**
+   - DC-OPF ignores losses (expected ~3-5% gap)
+   - Use SOCP or AC-OPF for loss-inclusive comparison
+
+### SOCP Relaxation Gap Too Large
+
+**Symptoms:** SOCP objective significantly lower than AC-OPF
+
+**Solutions:**
+
+1. **Tighten voltage bounds**
+   ```bash
+   # Narrow voltage range reduces relaxation gap
+   gat opf socp grid.arrow --vmin 0.95 --vmax 1.05 --out results.parquet
+   ```
+
+2. **Check for binding constraints**
+   ```bash
+   # Large gaps often indicate loose problem
+   gat opf socp grid.arrow --out r.parquet --format json | \
+     jq '.binding_constraints | length'
+   ```
+
+### Negative LMPs
+
+**Symptoms:** Some buses show negative locational marginal prices
+
+**Interpretation:** This is often correct! Negative LMPs occur when:
+- Curtailment is cheaper than transmission
+- Congestion creates "trapped" low-cost generation
+- Renewable must-run constraints
+
+**Verification:**
+```bash
+# Check which constraints are binding
+gat opf dc grid.arrow --out r.parquet --format json | \
+  jq '.branches[] | select(.binding == true) | {from, to, flow, limit}'
+```
+
+### Memory/Performance Issues
+
+**Large systems (>10k buses):**
+
+```bash
+# Use DC-OPF for screening
+gat opf dc grid.arrow --threads 8 --out results.parquet
+
+# For AC-OPF, use sparse linear algebra
+gat opf ac grid.arrow --solver ipopt-ma57 --out results.parquet
+```
+
+**Batch scenarios:**
+```bash
+# Process in parallel batches
+gat batch opf grid.arrow \
+  --scenarios scenarios.yaml \
+  --threads 4 \
+  --out batch_results/
+```
+
 ## Related Documentation
 
 * **Benchmarks**: [Complete PGLib-OPF validation results](@/internals/benchmarks.md) — 67 cases, 100% convergence
