@@ -1,6 +1,6 @@
 [package]
 name = "gat-gui-desktop"
-version = "0.5.3"
+version = "0.5.4"
 description = "GAT GUI Desktop - Interactive Tauri-based power grid visualization and analysis"
 authors = ["GAT Team"]
 edition = "2021"

@@ -1,6 +1,6 @@
 [package]
 name = "iocraft"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 authors = ["Grid Team <grid@example.com>"]
 description = "Lightweight terminal and input utilities for gat-tui"

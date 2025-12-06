@@ -1,6 +1,6 @@
 [package]
 name = "gat-cbc"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2021"
 description = "CBC MIP solver wrapper for GAT native solver plugin system"
 license = "MIT OR Apache-2.0"
