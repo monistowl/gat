@@ -22,7 +22,7 @@ each table is optimized for vectorized access and multi-language consumption.
    hacks.
 4. **loads.arrow** — loads preserve only active/reactive demand, status, and bus references.
 5. **branches.arrow** — lines and transformers share one schema that records element type, impedance,
-   transformer parameters (`tap_ratio`, `phase_shift_rad`), thermal ratings `rate_a/b/c`, and angle limits.
+   transformer parameters (`tap_ratio`, `phase_shift`), thermal ratings `rate_a/b/c`, and angle limits.
    This ensures both AC and DC solvers can read the same orbitals while retaining the graph topology.
 
 ## Schema Guarantees
