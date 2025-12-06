@@ -299,6 +299,22 @@ pub fn dc_power_flow(
     Ok(())
 }
 
+/// Compute DC power flow and return the DataFrame without writing to file.
+///
+/// This is useful for programmatic access to power flow results (e.g., for stdout output).
+pub fn dc_power_flow_dataframe(
+    network: &Network,
+    solver: &dyn LinearSystemBackend,
+) -> Result<(DataFrame, f64, f64)> {
+    // Extract net injections (generation - load) for each bus
+    let injections = default_pf_injections(network);
+
+    // Solve DC power flow: B'θ = P → compute branch flows from bus angles
+    branch_flow_dataframe(network, &injections, None, solver)
+        .context("building branch flow table for DC power flow")
+        .map_err(|e| anyhow!(e))
+}
+
 /// Compute Power Transfer Distribution Factors (PTDF) for a source→sink transfer.
 ///
 /// **PTDF Definition:** PTDF_ℓ measures the change in flow on branch ℓ per 1 MW transfer
@@ -1061,7 +1077,7 @@ pub(crate) fn branch_flow_dataframe_with_angles(
             let reactance = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
             let theta_from = *angles.get(&branch.from_bus.value()).unwrap_or(&0.0);
             let theta_to = *angles.get(&branch.to_bus.value()).unwrap_or(&0.0);
-            let flow = ((theta_from - theta_to) - branch.phase_shift_rad) / reactance;
+            let flow = ((theta_from - theta_to) - branch.phase_shift.value()) / reactance;
             ids.push(branch.id.value() as i64);
             from_bus.push(branch.from_bus.value() as i64);
             to_bus.push(branch.to_bus.value() as i64);
@@ -1098,7 +1114,7 @@ fn bus_result_dataframe(network: &Network) -> PolarsResult<DataFrame> {
         if let Node::Bus(bus) = &network.graph[node_idx] {
             ids.push(bus.id.value() as i64);
             names.push(bus.name.clone());
-            voltages.push(bus.voltage_kv);
+            voltages.push(bus.base_kv.value());
             angles.push((bus.id.value() % 360) as f64);
         }
     }
@@ -1182,10 +1198,10 @@ fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {
     for node_idx in network.graph.node_indices() {
         match &network.graph[node_idx] {
             Node::Gen(gen) => {
-                *injections.entry(gen.bus.value()).or_insert(0.0) += gen.active_power_mw;
+                *injections.entry(gen.bus.value()).or_insert(0.0) += gen.active_power.value();
             }
             Node::Load(load) => {
-                *injections.entry(load.bus.value()).or_insert(0.0) -= load.active_power_mw;
+                *injections.entry(load.bus.value()).or_insert(0.0) -= load.active_power.value();
             }
             _ => {}
         }
@@ -1420,7 +1436,7 @@ struct BranchDescriptor {
     from_bus: usize,
     to_bus: usize,
     gain: f64,
-    phase_shift_rad: f64,
+    phase_shift: f64,
 }
 
 fn build_measurement_rows(
@@ -1448,7 +1464,7 @@ fn build_measurement_rows(
                     from_bus: branch.from_bus.value(),
                     to_bus: branch.to_bus.value(),
                     gain: 1.0 / x_eff,
-                    phase_shift_rad: branch.phase_shift_rad,
+                    phase_shift: branch.phase_shift.value(),
                 },
             );
         }
@@ -1476,7 +1492,7 @@ fn build_measurement_rows(
                     .get(&branch_id)
                     .ok_or_else(|| anyhow!("branch {} not found for measurement", branch_id))?;
                 let gain = branch.gain;
-                offset = -branch.phase_shift_rad * gain;
+                offset = -branch.phase_shift * gain;
                 let mut add_bus = |bus_id: usize, sign: f64| {
                     if bus_id == slack_bus {
                         return;
@@ -1739,13 +1755,13 @@ mod tests {
         let b0 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(0),
             name: "Bus 0".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let b1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         network.graph.add_edge(
@@ -1770,13 +1786,13 @@ mod tests {
         let b0 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(0),
             name: "Bus 0".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let b1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         network.graph.add_edge(

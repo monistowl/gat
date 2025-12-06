@@ -689,6 +689,9 @@ pub enum PowerFlowCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Output format when writing to stdout (-o -)
+        #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+        stdout_format: OutputFormat,
     },
     /// Run AC power flow.
     ///
