@@ -207,32 +207,37 @@ impl MonteCarlo {
             .scenario_gen
             .generate_scenarios(network, self.num_scenarios);
 
-        // Analyze scenarios in parallel (embarrassingly parallel workload)
-        // Each scenario is independent - we compute shortfall metrics and aggregate
+        // Each parallel task gets its own arena context
         let results: Result<Vec<(f64, f64, bool)>> = scenarios
             .par_iter()
-            .map(|scenario| {
-                let available_gen = self.calculate_deliverable_generation(
-                    network,
-                    scenario,
-                    &bus_id_to_node,
-                    &load_buses,
-                )?;
+            .map_init(
+                || ArenaContext::new(),
+                |ctx, scenario| {
+                    let available_gen = self.calculate_deliverable_generation_arena(
+                        network,
+                        scenario,
+                        &bus_id_to_node,
+                        &load_buses,
+                        ctx,
+                    )?;
 
-                let demand = total_demand * scenario.demand_scale;
-                let has_shortfall = available_gen < demand;
-                let shortfall = if has_shortfall {
-                    demand - available_gen
-                } else {
-                    0.0
-                };
+                    let demand = total_demand * scenario.demand_scale;
+                    let has_shortfall = available_gen < demand;
+                    let shortfall = if has_shortfall {
+                        demand - available_gen
+                    } else {
+                        0.0
+                    };
 
-                Ok((
-                    scenario.probability,
-                    shortfall * scenario.probability,
-                    has_shortfall,
-                ))
-            })
+                    ctx.reset(); // O(1) reset for next scenario
+
+                    Ok((
+                        scenario.probability,
+                        shortfall * scenario.probability,
+                        has_shortfall,
+                    ))
+                },
+            )
             .collect();
 
         let results = results?;
