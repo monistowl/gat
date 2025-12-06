@@ -5,6 +5,18 @@ use std::path::PathBuf;
 
 use crate::common::{FlowMode, OpfMethod, OutputFormat, RatingType};
 
+/// GPU floating-point precision mode for GPU-accelerated operations.
+#[derive(Debug, Clone, Copy, Default, ValueEnum)]
+pub enum GpuPrecisionArg {
+    /// Automatic: use f32 for safe workloads, warn for precision-sensitive ones
+    #[default]
+    Auto,
+    /// Force f32 everywhere (fastest, may lose precision in sensitive workloads)
+    F32,
+    /// Force emulated f64 (slower but accurate for all workloads)
+    F64,
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
@@ -23,6 +35,10 @@ pub struct Cli {
     /// Enable GPU acceleration for supported operations (requires `gpu` feature)
     #[arg(long, global = true)]
     pub gpu: bool,
+
+    /// GPU floating-point precision mode (only effective with --gpu)
+    #[arg(long, value_enum, default_value = "auto", global = true)]
+    pub gpu_precision: GpuPrecisionArg,
 
     #[command(subcommand)]
     pub command: Option<Commands>,
