@@ -4,6 +4,8 @@
 //! consistent flag naming and behavior across all gat CLI commands.
 
 use clap::ValueEnum;
+use serde::Serialize;
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 /// Output format for tabular/structured data.
@@ -177,6 +179,74 @@ impl Default for SolverParams {
     }
 }
 
+/// Write data as JSON to the given writer.
+pub fn write_json<W: Write, T: Serialize>(data: &T, writer: &mut W, pretty: bool) -> io::Result<()> {
+    if pretty {
+        serde_json::to_writer_pretty(&mut *writer, data)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    } else {
+        serde_json::to_writer(&mut *writer, data)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    }
+    writeln!(writer)?;
+    Ok(())
+}
+
+/// Write data as JSON Lines (one JSON object per line) to the given writer.
+pub fn write_jsonl<W: Write, T: Serialize>(data: &[T], writer: &mut W) -> io::Result<()> {
+    for item in data {
+        serde_json::to_writer(&mut *writer, item)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        writeln!(writer)?;
+    }
+    Ok(())
+}
+
+/// Write JSON array data as CSV to the given writer.
+/// Assumes all objects have the same keys.
+pub fn write_csv_from_json<W: Write>(data: &[serde_json::Value], writer: &mut W) -> io::Result<()> {
+    if data.is_empty() {
+        return Ok(());
+    }
+
+    // Extract headers from first object
+    let first = &data[0];
+    let headers: Vec<&str> = match first.as_object() {
+        Some(obj) => obj.keys().map(|s| s.as_str()).collect(),
+        None => return Err(io::Error::new(io::ErrorKind::InvalidData, "Expected JSON objects")),
+    };
+
+    // Write header row
+    writeln!(writer, "{}", headers.join(","))?;
+
+    // Write data rows
+    for item in data {
+        if let Some(obj) = item.as_object() {
+            let values: Vec<String> = headers
+                .iter()
+                .map(|h| {
+                    obj.get(*h)
+                        .map(|v| match v {
+                            serde_json::Value::String(s) => {
+                                // Escape quotes and wrap in quotes if contains comma
+                                if s.contains(',') || s.contains('"') {
+                                    format!("\"{}\"", s.replace('"', "\"\""))
+                                } else {
+                                    s.clone()
+                                }
+                            }
+                            serde_json::Value::Null => String::new(),
+                            other => other.to_string(),
+                        })
+                        .unwrap_or_default()
+                })
+                .collect();
+            writeln!(writer, "{}", values.join(","))?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,5 +273,50 @@ mod tests {
         assert!(OutputFormat::Json.is_machine_readable());
         assert!(OutputFormat::Jsonl.is_machine_readable());
         assert!(OutputFormat::Csv.is_machine_readable());
+    }
+}
+
+#[cfg(test)]
+mod format_writer_tests {
+    use super::*;
+
+    #[test]
+    fn test_write_json_to_string() {
+        let data = vec![
+            serde_json::json!({"id": 1, "name": "Gen1"}),
+            serde_json::json!({"id": 2, "name": "Gen2"}),
+        ];
+        let mut output = Vec::new();
+        write_json(&data, &mut output, false).unwrap();
+        let result = String::from_utf8(output).unwrap();
+        assert!(result.contains("Gen1"));
+        assert!(result.contains("Gen2"));
+    }
+
+    #[test]
+    fn test_write_jsonl_to_string() {
+        let data = vec![
+            serde_json::json!({"id": 1}),
+            serde_json::json!({"id": 2}),
+        ];
+        let mut output = Vec::new();
+        write_jsonl(&data, &mut output).unwrap();
+        let result = String::from_utf8(output).unwrap();
+        let lines: Vec<&str> = result.trim().lines().collect();
+        assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn test_write_csv_from_json() {
+        let data = vec![
+            serde_json::json!({"id": 1, "name": "A"}),
+            serde_json::json!({"id": 2, "name": "B"}),
+        ];
+        let mut output = Vec::new();
+        write_csv_from_json(&data, &mut output).unwrap();
+        let result = String::from_utf8(output).unwrap();
+        assert!(result.contains("id,name") || result.contains("name,id"));
+        assert!(result.contains("1"));
+        assert!(result.contains("A"));
     }
 }
