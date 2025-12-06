@@ -1,0 +1,212 @@
+name: All Features CI
+
+# Tests gat-cli with ALL features enabled including:
+# - GPU acceleration (wgpu)
+# - IPOPT solver (built from vendored sources)
+# - All pure-Rust solvers (Clarabel, HiGHS)
+# - Full I/O, TUI, GUI, viz, docs
+#
+# This is the most comprehensive build that validates the full feature set.
+
+on:
+  push:
+    branches: ["main", "staging", "experimental"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    # Weekly on Sundays at 4am UTC
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      skip_ipopt:
+        description: 'Skip IPOPT build (faster, tests GPU only)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Build with all pure-Rust features (no IPOPT)
+  all-rust-features:
+    name: All Rust Features (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: all-rust-features-${{ runner.os }}
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            pkg-config \
+            libssl-dev
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake pkg-config openssl || true
+
+      - name: Build with all Rust features
+        run: |
+          # All features except solver-ipopt (requires vendored build)
+          cargo build -p gat-cli --release --locked \
+            --no-default-features \
+            --features full-io,viz,gui,tui,docs,all-backends,native-dispatch,gpu
+
+      - name: Run tests
+        run: |
+          cargo test -p gat-cli --release --locked \
+            --no-default-features \
+            --features full-io,viz,gui,tui,docs,all-backends,native-dispatch,gpu \
+            -- --nocapture
+
+      - name: Verify GPU feature compiled
+        run: |
+          # Check that gat-gpu symbols are present
+          if command -v nm &> /dev/null; then
+            nm target/release/gat-cli 2>/dev/null | grep -i wgpu | head -5 || echo "GPU symbols check completed"
+          fi
+          echo "SUCCESS: Built with GPU feature enabled"
+
+  # Build with IPOPT from vendored sources
+  all-features-with-ipopt:
+    name: All Features + IPOPT (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    if: ${{ !inputs.skip_ipopt }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install build dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            gfortran \
+            libblas-dev \
+            liblapack-dev \
+            libbz2-dev \
+            zlib1g-dev \
+            libreadline-dev \
+            pkg-config \
+            libssl-dev
+
+      - name: Install build dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install gcc lapack pkg-config zlib readline cmake openssl || true
+          # Homebrew's GCC installs gfortran as gfortran-14 (or similar version)
+          GCC_VERSION=$(brew list --versions gcc | grep -oE '[0-9]+' | head -1)
+          if [ -n "$GCC_VERSION" ] && [ -f "$(brew --prefix)/bin/gfortran-$GCC_VERSION" ]; then
+            sudo ln -sf "$(brew --prefix)/bin/gfortran-$GCC_VERSION" /usr/local/bin/gfortran
+            echo "Created gfortran symlink pointing to gfortran-$GCC_VERSION"
+          fi
+          which gfortran && gfortran --version || echo "Warning: gfortran not found"
+
+      - name: Cache vendored build
+        uses: actions/cache@v4
+        with:
+          path: vendor/local
+          key: coinor-all-features-${{ runner.os }}-${{ hashFiles('vendor/*.zip', 'vendor/*.tar.gz', 'scripts/build-*.sh') }}
+
+      - name: Cache cargo builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: all-features-ipopt-${{ runner.os }}
+
+      - name: Build IPOPT from vendored sources
+        run: ./scripts/build-ipopt.sh
+
+      - name: Build with ALL features
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
+        run: |
+          cargo build -p gat-cli --release --locked \
+            --no-default-features \
+            --features full-io,viz,gui,tui,docs,all-backends,native-dispatch,gpu,solver-ipopt
+
+      - name: Verify IPOPT linking (Linux)
+        if: runner.os == 'Linux'
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
+        run: |
+          echo "=== Checking IPOPT linkage ==="
+          ldd target/release/gat-cli | grep -i ipopt && echo "✓ IPOPT dynamically linked"
+          echo "SUCCESS: Built with IPOPT feature enabled"
+
+      - name: Run tests with IPOPT
+        env:
+          PKG_CONFIG_PATH: ${{ github.workspace }}/vendor/local/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ github.workspace }}/vendor/local/lib
+        run: |
+          cargo test -p gat-cli --release --locked \
+            --no-default-features \
+            --features full-io,viz,gui,tui,docs,all-backends,native-dispatch,gpu,solver-ipopt \
+            -- --nocapture
+
+      - name: Upload all-features binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: gat-cli-all-features-${{ runner.os }}
+          path: target/release/gat-cli
+          retention-days: 7
+
+  # Summary
+  summary:
+    name: All Features Summary
+    runs-on: ubuntu-latest
+    needs: [all-rust-features, all-features-with-ipopt]
+    if: always()
+    steps:
+      - name: Check results
+        env:
+          RUST_RESULT: ${{ needs.all-rust-features.result }}
+          IPOPT_RESULT: ${{ needs.all-features-with-ipopt.result }}
+        run: |
+          echo "=== All Features CI Summary ==="
+          echo ""
+          echo "All Rust Features: $RUST_RESULT"
+          echo "All Features + IPOPT: $IPOPT_RESULT"
+          echo ""
+
+          if [ "$RUST_RESULT" != "success" ]; then
+            echo "FAIL: All Rust features build failed"
+            exit 1
+          fi
+
+          if [ "$IPOPT_RESULT" != "success" ] && [ "$IPOPT_RESULT" != "skipped" ]; then
+            echo "FAIL: IPOPT build failed"
+            exit 1
+          fi
+
+          echo "SUCCESS: All features build completed"

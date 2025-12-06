@@ -73,6 +73,8 @@ jobs:
             features: minimal,full-io,viz
           - matrix-name: all-backends
             features: all-backends
+          - matrix-name: all-backends+gpu
+            features: all-backends,gpu
 
     steps:
       - uses: actions/checkout@v4

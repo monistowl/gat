@@ -32,7 +32,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        variant: [headless, full]
+        variant: [headless, full, full-gpu]
 
     outputs:
       summary: ${{ steps.summary.outputs.json }}
@@ -85,6 +85,10 @@ jobs:
               # Use explicit features instead of --all-features to avoid embedded solver
               # crates that require system libraries. Native solvers use native-dispatch.
               echo "flags=--no-default-features --features full-io,viz,gui,tui,docs,all-backends,native-dispatch" >> $GITHUB_OUTPUT
+              ;;
+            full-gpu)
+              # Full features plus GPU acceleration (wgpu - pure Rust, no external deps)
+              echo "flags=--no-default-features --features full-io,viz,gui,tui,docs,all-backends,native-dispatch,gpu" >> $GITHUB_OUTPUT
               ;;
           esac
 
