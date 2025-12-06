@@ -8,6 +8,7 @@
 ✅ **Generator Cost Models** (CostModel enum with polynomial and piecewise-linear support)
 ✅ **Economic Dispatch** (Merit-order optimization with generator limits and cost functions)
 ✅ **Monte Carlo Reliability Analysis** (LOLE, EUE, Deliverability Score)
+✅ **Arena Allocation for Monte Carlo** (bumpalo + hashbrown for O(1) scenario reset)
 ✅ **Multi-Area Coordination** (CANOS framework with zone-to-zone metrics)
 ✅ **FLISR Integration** (Fault Location, Isolation, Service Restoration with reliability tracking)
 ✅ **VVO with Reliability Constraints** (Volt-Var Optimization respecting min deliverability scores)

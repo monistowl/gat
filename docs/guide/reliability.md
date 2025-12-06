@@ -335,11 +335,51 @@ Zone-to-zone LOLE = LOLE contribution when one area fails and must rely on other
 - **Memory**: O(N scenarios × buses × branches)
 - **Time**: O(N × AC_OPF_iterations) per evaluation
 - **Parallelism**: Rayon work-stealing over scenarios
+- **Arena Allocation** (v0.5.0+): O(1) bulk deallocation between scenarios
 
 For 859,800 PFDelta instances (IEEE 14/30/57/118-bus cases):
 - 500 scenarios × 118 buses ≈ 59k power flows
 - ~500ms per case on 16-core system = ~8 hours full suite
 - Use `--max-cases N` to sample subset
+
+### Arena-Based Monte Carlo (v0.5.0+)
+
+The Monte Carlo reliability engine uses **arena allocation** (bumpalo) to minimize allocation overhead in the scenario evaluation hot loop:
+
+```rust
+// Each rayon thread gets its own arena context
+scenarios.par_iter().map_init(
+    || ArenaContext::new(),
+    |ctx, scenario| {
+        // Arena-backed collections for graph traversal
+        let mut visited_buses = ctx.alloc_hashset::<BusId>();
+        let mut queue = ctx.alloc_vec::<BusId>();
+        let mut bus_reachable = ctx.alloc_hashmap::<BusId, _>();
+
+        // ... BFS to compute deliverable generation ...
+
+        ctx.reset();  // O(1) bulk deallocation
+        result
+    }
+).collect();
+```
+
+**Why Arena Allocation?**
+
+Each Monte Carlo scenario requires temporary HashSet, HashMap, and Vec allocations for BFS graph traversal. With standard allocation:
+- Each scenario: ~10-20 allocations + deallocations
+- 5000 scenarios × 16 threads = 80k-160k allocator calls
+
+With arena allocation:
+- Each thread: 1 arena creation
+- Between scenarios: O(1) `reset()` instead of individual frees
+- Result: Reduced allocator contention, better cache locality
+
+The `ArenaContext` wrapper provides:
+- `alloc_vec<T>()` → `bumpalo::collections::Vec`
+- `alloc_hashset<T>()` → `hashbrown::HashSet` with arena allocator
+- `alloc_hashmap<K, V>()` → `hashbrown::HashMap` with arena allocator
+- `reset()` → O(1) bulk deallocation
 
 ## References
 
