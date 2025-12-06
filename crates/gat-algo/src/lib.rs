@@ -103,6 +103,7 @@ pub use featurize_kpi::*;
 pub use geo_join::*;
 pub use io::*;
 pub use opf::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution, OpfSolver};
+pub use arena::ArenaContext;
 pub use power_flow::*;
 pub use sparse::{
     IncrementalSolver, LodfMatrix, PtdfMatrix, SparsePtdf, SparseSusceptance, SparseYBus,
