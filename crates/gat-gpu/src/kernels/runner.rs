@@ -112,13 +112,25 @@ impl KernelRunner {
 
 /// Kernel runner supporting multiple input/output buffers
 pub struct MultiBufferKernel {
-    pipeline: wgpu::ComputePipeline,
-    bind_group_layout: wgpu::BindGroupLayout,
-    bindings: Vec<BufferBinding>,
+    /// The compiled compute pipeline
+    pub pipeline: wgpu::ComputePipeline,
+    /// Layout defining how buffers are bound to the shader
+    pub bind_group_layout: wgpu::BindGroupLayout,
+    /// Buffer binding types (read-only, read-write, uniform)
+    pub bindings: Vec<BufferBinding>,
 }
 
 impl MultiBufferKernel {
-    /// Create a new multi-buffer kernel from WGSL source
+    /// Create a new multi-buffer kernel from WGSL source code.
+    ///
+    /// # Arguments
+    /// * `ctx` - GPU context for device access
+    /// * `wgsl_source` - WGSL shader source code
+    /// * `entry_point` - Shader entry point function name
+    /// * `bindings` - Buffer binding types in order of shader bindings
+    ///
+    /// # Returns
+    /// A configured kernel ready to dispatch with the specified buffer layout
     pub fn new(
         ctx: &GpuContext,
         wgsl_source: &str,
@@ -190,7 +202,21 @@ impl MultiBufferKernel {
         })
     }
 
-    /// Dispatch kernel with multiple buffers
+    /// Dispatch the kernel with multiple buffers.
+    ///
+    /// # Arguments
+    /// * `ctx` - GPU context for device and queue access
+    /// * `buffers` - Slice of buffer references matching the binding layout
+    /// * `element_count` - Total number of elements to process
+    /// * `workgroup_size` - Number of threads per workgroup (must match shader)
+    ///
+    /// # Returns
+    /// Ok(()) on success, error if buffer count mismatches binding layout
+    ///
+    /// # Example
+    /// ```ignore
+    /// kernel.dispatch(&ctx, &[&buf_a.buffer, &buf_b.buffer], 1024, 64)?;
+    /// ```
     pub fn dispatch(
         &self,
         ctx: &GpuContext,
