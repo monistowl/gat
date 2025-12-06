@@ -31,8 +31,30 @@ impl SolverRegistry {
     /// - Formulations: dc-opf, socp, ac-opf, economic-dispatch
     /// - Backends: clarabel, lbfgs (+ ipopt if available)
     pub fn with_defaults() -> Self {
-        let registry = Self::new();
-        // TODO: Register built-in formulations and backends in Task 5
+        use super::backends::{ClarabelBackend, LbfgsBackend};
+        use super::formulations::{
+            AcOpfFormulation, DcOpfFormulation, EconomicDispatchFormulation, SocpFormulation,
+        };
+
+        let mut registry = Self::new();
+
+        // Register built-in formulations
+        registry.register_formulation(Arc::new(DcOpfFormulation));
+        registry.register_formulation(Arc::new(SocpFormulation));
+        registry.register_formulation(Arc::new(AcOpfFormulation));
+        registry.register_formulation(Arc::new(EconomicDispatchFormulation));
+
+        // Register built-in backends
+        registry.register_backend(Arc::new(ClarabelBackend));
+        registry.register_backend(Arc::new(LbfgsBackend));
+
+        // Register IPOPT if feature enabled
+        #[cfg(feature = "solver-ipopt")]
+        {
+            use super::backends::IpoptBackend;
+            registry.register_backend(Arc::new(IpoptBackend));
+        }
+
         registry
     }
 
@@ -279,5 +301,23 @@ mod tests {
         assert_eq!(ids.len(), 2);
         assert!(ids.contains(&"form-a"));
         assert!(ids.contains(&"form-b"));
+    }
+
+    #[test]
+    fn test_with_defaults_has_builtin_formulations() {
+        let registry = SolverRegistry::with_defaults();
+
+        assert!(registry.get_formulation("dc-opf").is_some());
+        assert!(registry.get_formulation("socp").is_some());
+        assert!(registry.get_formulation("ac-opf").is_some());
+        assert!(registry.get_formulation("economic-dispatch").is_some());
+    }
+
+    #[test]
+    fn test_with_defaults_has_builtin_backends() {
+        let registry = SolverRegistry::with_defaults();
+
+        assert!(registry.get_backend("clarabel").is_some());
+        assert!(registry.get_backend("lbfgs").is_some());
     }
 }
