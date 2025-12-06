@@ -16,6 +16,10 @@ pub struct Cli {
     #[arg(long, default_value = "dev")]
     pub profile: String,
 
+    /// System base MVA for per-unit calculations (default: 100.0)
+    #[arg(long, global = true, default_value = "100.0")]
+    pub base_mva: f64,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
