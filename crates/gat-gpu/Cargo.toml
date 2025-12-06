@@ -1,0 +1,26 @@
+[package]
+name = "gat-gpu"
+version = "0.5.4"
+edition = "2021"
+description = "GPU acceleration for GAT using rust-gpu"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# GPU runtime
+wgpu = { version = "27.0", features = ["spirv"] }
+pollster = "0.4"
+bytemuck = { version = "1.14", features = ["derive"] }
+
+# Shared types from gat-core
+gat-core = { path = "../gat-core" }
+
+# Error handling
+anyhow = "1.0"
+thiserror.workspace = true
+
+# Build dependencies for shader compilation - uncomment when shader crate exists
+# [build-dependencies]
+# spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu", tag = "v0.9.0" }
+
+[features]
+default = []
