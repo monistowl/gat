@@ -3,7 +3,7 @@ use clap_complete::Shell;
 use gat_io::importers::Format;
 use std::path::PathBuf;
 
-use crate::common::OutputFormat;
+use crate::common::{OpfMethod, OutputFormat};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -535,9 +535,9 @@ pub enum BenchmarkCommands {
         /// Number of parallel solver threads (auto = CPU count)
         #[arg(short = 't', long, default_value = "auto")]
         threads: String,
-        /// OPF method: ac, socp, dc, economic (default: socp)
-        #[arg(long, default_value = "socp")]
-        method: String,
+        /// OPF solution method
+        #[arg(short = 'm', long, value_enum, default_value_t = OpfMethod::Socp)]
+        method: OpfMethod,
         /// Convergence tolerance
         #[arg(long, default_value = "1e-6")]
         tol: f64,
@@ -571,9 +571,9 @@ pub enum BenchmarkCommands {
         /// Number of parallel solver threads (auto = CPU count)
         #[arg(short = 't', long, default_value = "auto")]
         threads: String,
-        /// OPF method: ac, socp, dc, economic (default: socp)
-        #[arg(long, default_value = "socp")]
-        method: String,
+        /// OPF solution method
+        #[arg(short = 'm', long, value_enum, default_value_t = OpfMethod::Socp)]
+        method: OpfMethod,
         /// Convergence tolerance
         #[arg(long, default_value = "1e-6")]
         tol: f64,
@@ -1610,9 +1610,9 @@ pub enum OpfCommands {
     Run {
         /// Path to MATPOWER (.m) file or directory containing .m file
         input: String,
-        /// OPF method: economic, dc, socp, ac [default: socp]
-        #[arg(long, default_value = "socp")]
-        method: String,
+        /// OPF solution method
+        #[arg(short = 'm', long, value_enum, default_value_t = OpfMethod::Socp)]
+        method: OpfMethod,
         /// NLP solver for AC-OPF: lbfgs, ipopt [default: lbfgs]
         #[arg(long, default_value = "lbfgs")]
         solver: String,

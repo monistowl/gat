@@ -7,7 +7,7 @@ use std::time::Instant;
 use anyhow::{bail, Context, Result};
 use gat_algo::opf::ac_nlp::{solve_ac_opf, AcOpfProblem};
 use gat_algo::opf::{
-    solve_cascaded, CascadedConfig, CascadedResult, OpfMethod, OpfSolution, OpfSolver,
+    solve_cascaded, CascadedConfig, CascadedResult, OpfMethod as AlgoOpfMethod, OpfSolution, OpfSolver,
 };
 use gat_algo::validation::ObjectiveGap;
 
@@ -24,6 +24,21 @@ use serde::Serialize;
 use crate::commands::benchmark::baseline::{load_baseline_objectives, normalize_case_name};
 use crate::commands::telemetry::record_run;
 use crate::commands::util::{configure_threads, parse_partitions};
+use gat_cli::common::OpfMethod;
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/// Convert CLI OpfMethod enum to algo crate's OpfMethod enum
+fn cli_method_to_algo(method: OpfMethod) -> AlgoOpfMethod {
+    match method {
+        OpfMethod::Economic => AlgoOpfMethod::EconomicDispatch,
+        OpfMethod::Dc => AlgoOpfMethod::DcOpf,
+        OpfMethod::Socp => AlgoOpfMethod::SocpRelaxation,
+        OpfMethod::Ac => AlgoOpfMethod::AcOpf,
+    }
+}
 
 // ============================================================================
 // JSON Output Types for `opf run`
@@ -290,7 +305,7 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
             configure_threads(threads);
             handle_run(
                 input,
-                method,
+                *method,
                 solver,
                 warm_start,
                 *enhanced,
@@ -401,20 +416,20 @@ fn collect_violations(network: &Network, solution: &OpfSolution) -> Vec<Violatio
                 continue;
             }
             if let Some(&pg) = solution.generator_p.get(&gen.name) {
-                if gen.pmax_mw.is_finite() && pg > gen.pmax_mw + 0.01 {
+                if gen.pmax.value().is_finite() && pg > gen.pmax.value() + 0.01 {
                     violations.push(ViolationEntry {
                         violation_type: "generator_pmax".to_string(),
                         element: gen.name.clone(),
                         value: pg,
-                        limit: gen.pmax_mw,
+                        limit: gen.pmax.value(),
                     });
                 }
-                if pg < gen.pmin_mw - 0.01 {
+                if pg < gen.pmin.value() - 0.01 {
                     violations.push(ViolationEntry {
                         violation_type: "generator_pmin".to_string(),
                         element: gen.name.clone(),
                         value: pg,
-                        limit: gen.pmin_mw,
+                        limit: gen.pmin.value(),
                     });
                 }
             }
@@ -426,6 +441,7 @@ fn collect_violations(network: &Network, solution: &OpfSolution) -> Vec<Violatio
         if let Node::Bus(bus) = node {
             if let Some(&vm) = solution.bus_voltage_mag.get(&bus.name) {
                 if let Some(vmax) = bus.vmax_pu {
+                    let vmax = vmax.value();
                     if vm > vmax + 0.001 {
                         violations.push(ViolationEntry {
                             violation_type: "voltage_max".to_string(),
@@ -436,6 +452,7 @@ fn collect_violations(network: &Network, solution: &OpfSolution) -> Vec<Violatio
                     }
                 }
                 if let Some(vmin) = bus.vmin_pu {
+                    let vmin = vmin.value();
                     if vm < vmin - 0.001 {
                         violations.push(ViolationEntry {
                             violation_type: "voltage_min".to_string(),
@@ -465,14 +482,14 @@ fn collect_violations(network: &Network, solution: &OpfSolution) -> Vec<Violatio
                 .unwrap_or(0.0);
             let s_flow = (p_flow.powi(2) + q_flow.powi(2)).sqrt();
 
-            let s_limit = branch.s_max_mva.or(branch.rating_a_mva);
+            let s_limit = branch.s_max.or(branch.rating_a);
             if let Some(s_max) = s_limit {
-                if s_max > 0.0 && s_flow > s_max + 0.1 {
+                if s_max.value() > 0.0 && s_flow > s_max.value() + 0.1 {
                     violations.push(ViolationEntry {
                         violation_type: "branch_flow".to_string(),
                         element: branch.name.clone(),
                         value: s_flow,
-                        limit: s_max,
+                        limit: s_max.value(),
                     });
                 }
             }
@@ -623,7 +640,7 @@ fn print_console_output(
 #[allow(clippy::too_many_arguments)]
 fn handle_run(
     input: &str,
-    method: &str,
+    method: OpfMethod,
     solver: &str,
     warm_start: &str,
     enhanced: bool,
@@ -634,18 +651,16 @@ fn handle_run(
     output_violations: bool,
     out: Option<&str>,
 ) -> Result<()> {
-    // Parse method
-    let opf_method = method
-        .parse::<OpfMethod>()
-        .map_err(|e| anyhow::anyhow!("Invalid OPF method '{}': {}", method, e))?;
+    // Convert CLI enum to algo enum
+    let opf_method = cli_method_to_algo(method);
 
     // Parse warm-start
     let warm_start_strategy = WarmStartStrategy::from_str(warm_start)?;
 
     // Warn if warm-start specified for non-AC method
-    if opf_method != OpfMethod::AcOpf && warm_start_strategy != WarmStartStrategy::Flat {
+    if opf_method != AlgoOpfMethod::AcOpf && warm_start_strategy != WarmStartStrategy::Flat {
         eprintln!(
-            "Warning: --warm-start '{}' is ignored for method '{}' (only applies to AC-OPF)",
+            "Warning: --warm-start '{}' is ignored for method '{:?}' (only applies to AC-OPF)",
             warm_start, method
         );
     }
@@ -664,7 +679,7 @@ fn handle_run(
     // Solve based on method and warm-start
     let start = Instant::now();
     let (solution, cascaded_result): (OpfSolution, Option<CascadedResult>) =
-        if opf_method == OpfMethod::AcOpf && warm_start_strategy == WarmStartStrategy::Cascaded {
+        if opf_method == AlgoOpfMethod::AcOpf && warm_start_strategy == WarmStartStrategy::Cascaded {
             // Use cascaded solver
             let config = CascadedConfig {
                 max_iterations: max_iter as usize,
@@ -674,7 +689,7 @@ fn handle_run(
                 use_enhanced_socp: enhanced,
                 timeout_seconds: timeout,
             };
-            let result = solve_cascaded(&network, OpfMethod::AcOpf, &config)
+            let result = solve_cascaded(&network, AlgoOpfMethod::AcOpf, &config)
                 .context("cascaded OPF solve failed")?;
             let sol = result.final_solution.clone();
             (sol, Some(result))
@@ -688,7 +703,7 @@ fn handle_run(
                 .enhanced_socp(enhanced);
 
             // Configure native solver preference for AC
-            if opf_method == OpfMethod::AcOpf {
+            if opf_method == AlgoOpfMethod::AcOpf {
                 opf_solver = opf_solver.prefer_native(solver == "ipopt");
             }
 
@@ -713,10 +728,16 @@ fn handle_run(
     let baseline_gap = baseline_objective.map(|ref_obj| ObjectiveGap::new(solution.objective_value, ref_obj));
 
     // Print console output
+    let method_str = match method {
+        OpfMethod::Economic => "economic",
+        OpfMethod::Dc => "dc",
+        OpfMethod::Socp => "socp",
+        OpfMethod::Ac => "ac",
+    };
     print_console_output(
         &case_name,
         &network_summary,
-        method,
+        method_str,
         solver,
         warm_start,
         cascaded_result.as_ref(),
@@ -771,7 +792,7 @@ fn handle_run(
 
         let output = OpfRunOutput {
             case_name: case_name.clone(),
-            method: method.to_string(),
+            method: method_str.to_string(),
             solver: solver.to_string(),
             warm_start: warm_start.to_string(),
             status: SolutionStatus {

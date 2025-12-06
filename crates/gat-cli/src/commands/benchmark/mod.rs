@@ -1,5 +1,6 @@
 use anyhow::Result;
 use gat_cli::cli::BenchmarkCommands;
+use gat_cli::common::OpfMethod;
 
 pub mod baseline;
 pub mod common;
@@ -8,6 +9,16 @@ pub mod opfdata;
 pub mod pfdelta;
 pub mod pglib;
 pub mod summary;
+
+/// Convert CLI OpfMethod enum to algo crate's OpfMethod enum
+fn cli_method_to_algo(method: OpfMethod) -> gat_algo::opf::OpfMethod {
+    match method {
+        OpfMethod::Economic => gat_algo::opf::OpfMethod::EconomicDispatch,
+        OpfMethod::Dc => gat_algo::opf::OpfMethod::DcOpf,
+        OpfMethod::Socp => gat_algo::opf::OpfMethod::SocpRelaxation,
+        OpfMethod::Ac => gat_algo::opf::OpfMethod::AcOpf,
+    }
+}
 
 pub fn handle(command: &BenchmarkCommands) -> Result<()> {
     match command {
@@ -55,7 +66,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             *max_cases,
             out,
             threads,
-            method,
+            cli_method_to_algo(*method),
             *tol,
             *max_iter,
             *enhanced,
@@ -79,7 +90,7 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
             *max_cases,
             out,
             threads,
-            method,
+            cli_method_to_algo(*method),
             *tol,
             *max_iter,
             diagnostics_log.as_deref(),
