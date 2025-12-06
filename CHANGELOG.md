@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.4] - 2025-12-06
+
+### Security
+
+- **Command injection hardening** in TUI command runner
+  - Added command allowlisting (only `gat` and `echo` permitted)
+  - Shell metacharacters blocked in all command arguments
+  - Defense-in-depth approach prevents arbitrary command execution
+
+- **Content Security Policy enabled** for Tauri GUI
+  - Strict CSP policy prevents XSS attacks
+  - Only allows necessary external resources (jsdelivr for KaTeX)
+  - `script-src 'self'` blocks inline and external scripts
+
+### Changed
+
+- **Type-safe event dispatcher** in TUI
+  - `AsyncEvent` variants now use `PathBuf` instead of `String` for file paths
+  - `AnalyticsType` enum replaces stringly-typed analytics parameters
+  - Compile-time validation prevents invalid path/type combinations
+
+### Fixed
+
+- Various clippy warnings across workspace
+- `Vec::with_capacity` hints for hot allocation paths
+
+---
+
 ## [Unreleased]
 
 ### Changed

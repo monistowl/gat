@@ -62,7 +62,7 @@ GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-m
 - Full physics accuracy required
 - Regulatory compliance
 
-## Architecture Overview (v0.5.3)
+## Architecture Overview (v0.5.4)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods:
 
@@ -93,6 +93,12 @@ The SOCP solver has been validated against all 67 PGLib-OPF cases:
 | Median Objective Gap | < 1% |
 
 → [View complete benchmark results](@/internals/benchmarks.md)
+
+### What's New in 0.5.4
+
+- **Security hardening** for TUI command execution — command allowlisting and metacharacter blocking.
+- **Content Security Policy** enabled in Tauri GUI — XSS protection for desktop app.
+- **Type-safe event dispatcher** — `PathBuf` and enums replace stringly-typed parameters.
 
 ### What's New in 0.5.3
 
