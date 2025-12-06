@@ -53,8 +53,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{GpuBuffer, GpuContext};
     use crate::kernels::{BufferBinding, MultiBufferKernel};
+    use crate::{GpuBuffer, GpuContext};
     use bytemuck::{Pod, Zeroable};
 
     #[repr(C)]
@@ -81,17 +81,17 @@ mod tests {
 
         // X matrix (B' inverse) - identity-like for simple test
         let x_matrix: Vec<f32> = vec![
-            1.0, 0.2, 0.1,   // row 0
-            0.2, 1.0, 0.3,   // row 1
-            0.1, 0.3, 1.0,   // row 2
+            1.0, 0.2, 0.1, // row 0
+            0.2, 1.0, 0.3, // row 1
+            0.1, 0.3, 1.0, // row 2
         ];
 
         // Branch data: [from, to, reactance]
         // Branch 0: bus 0 -> bus 1, x=0.1
         // Branch 1: bus 1 -> bus 2, x=0.2
         let branch_data: Vec<f32> = vec![
-            0.0, 1.0, 0.1,   // branch 0
-            1.0, 2.0, 0.2,   // branch 1
+            0.0, 1.0, 0.1, // branch 0
+            1.0, 2.0, 0.2, // branch 1
         ];
 
         let ptdf: Vec<f32> = vec![0.0; (n_branches * n_buses) as usize];
@@ -119,7 +119,8 @@ mod tests {
                 BufferBinding::ReadOnly,
                 BufferBinding::ReadWrite,
             ],
-        ).unwrap();
+        )
+        .unwrap();
 
         // 2D dispatch for branches × buses
         // Use manual dispatch for 2D workgroups (8,8)
@@ -129,10 +130,22 @@ mod tests {
                 label: Some("ptdf_bind_group"),
                 layout: &kernel.bind_group_layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: buf_uniforms.buffer.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 1, resource: buf_x.buffer.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 2, resource: buf_branch.buffer.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 3, resource: buf_ptdf.buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: buf_uniforms.buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: buf_x.buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: buf_branch.buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: buf_ptdf.buffer.as_entire_binding(),
+                    },
                 ],
             });
 
@@ -140,7 +153,7 @@ mod tests {
             pass.set_pipeline(&kernel.pipeline);
             pass.set_bind_group(0, &bind_group, &[]);
             // Dispatch enough workgroups for n_branches × n_buses
-            pass.dispatch_workgroups(1, 1, 1);  // (8,8) is enough for 2×3
+            pass.dispatch_workgroups(1, 1, 1); // (8,8) is enough for 2×3
         }
         ctx.queue.submit(Some(encoder.finish()));
         let _ = ctx.device.poll(wgpu::PollType::Wait {
@@ -154,16 +167,40 @@ mod tests {
         // PTDF[0,0] = (X[0,0] - X[1,0]) / 0.1 = (1.0 - 0.2) / 0.1 = 8.0
         // PTDF[0,1] = (X[0,1] - X[1,1]) / 0.1 = (0.2 - 1.0) / 0.1 = -8.0
         // PTDF[0,2] = (X[0,2] - X[1,2]) / 0.1 = (0.1 - 0.3) / 0.1 = -2.0
-        assert!((result[0] - 8.0).abs() < 0.01, "PTDF[0,0] expected 8.0, got {}", result[0]);
-        assert!((result[1] - (-8.0)).abs() < 0.01, "PTDF[0,1] expected -8.0, got {}", result[1]);
-        assert!((result[2] - (-2.0)).abs() < 0.01, "PTDF[0,2] expected -2.0, got {}", result[2]);
+        assert!(
+            (result[0] - 8.0).abs() < 0.01,
+            "PTDF[0,0] expected 8.0, got {}",
+            result[0]
+        );
+        assert!(
+            (result[1] - (-8.0)).abs() < 0.01,
+            "PTDF[0,1] expected -8.0, got {}",
+            result[1]
+        );
+        assert!(
+            (result[2] - (-2.0)).abs() < 0.01,
+            "PTDF[0,2] expected -2.0, got {}",
+            result[2]
+        );
 
         // Branch 1 (1->2, x=0.2):
         // PTDF[1,0] = (X[1,0] - X[2,0]) / 0.2 = (0.2 - 0.1) / 0.2 = 0.5
         // PTDF[1,1] = (X[1,1] - X[2,1]) / 0.2 = (1.0 - 0.3) / 0.2 = 3.5
         // PTDF[1,2] = (X[1,2] - X[2,2]) / 0.2 = (0.3 - 1.0) / 0.2 = -3.5
-        assert!((result[3] - 0.5).abs() < 0.01, "PTDF[1,0] expected 0.5, got {}", result[3]);
-        assert!((result[4] - 3.5).abs() < 0.01, "PTDF[1,1] expected 3.5, got {}", result[4]);
-        assert!((result[5] - (-3.5)).abs() < 0.01, "PTDF[1,2] expected -3.5, got {}", result[5]);
+        assert!(
+            (result[3] - 0.5).abs() < 0.01,
+            "PTDF[1,0] expected 0.5, got {}",
+            result[3]
+        );
+        assert!(
+            (result[4] - 3.5).abs() < 0.01,
+            "PTDF[1,1] expected 3.5, got {}",
+            result[4]
+        );
+        assert!(
+            (result[5] - (-3.5)).abs() < 0.01,
+            "PTDF[1,2] expected -3.5, got {}",
+            result[5]
+        );
     }
 }

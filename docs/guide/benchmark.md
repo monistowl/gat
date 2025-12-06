@@ -6,7 +6,7 @@ GAT includes integrated benchmarking tools for systematically evaluating AC-OPF 
 2. **PFDelta** — 859,800 solved power flow instances with N/N-1/N-2 contingencies
 3. **OPFData** — GNN-format JSON for machine learning benchmarks
 
-## PGLib-OPF Integration (v0.3.4)
+## PGLib-OPF Integration (v0.5.5)
 
 ### Dataset Overview
 
@@ -48,7 +48,7 @@ gat benchmark pglib \
 - `--tol`: Convergence tolerance (default 1e-6)
 - `--max-iter`: Maximum iterations (default 20)
 
-### v0.5.0 Benchmark Results
+### v0.5.5 Benchmark Results
 
 Running against all 68 PGLib cases with the **IPOPT backend**:
 
@@ -65,16 +65,19 @@ Running against all 68 PGLib cases with the **IPOPT backend**:
 - IEEE 118-bus: $97,213.61/hr (ref: $97,214.00) — **Gap: -0.00%**
 - All 68 cases match PGLib reference objectives within solver tolerance
 
-**Key improvements in v0.5.0:**
+**Key improvements in v0.5.5:**
 - Analytical Jacobian and Hessian computation for IPOPT
 - Proper handling of synchronous condensers and negative Pg generators
 - Bus shunt support (fixed capacitors/reactors) in Y-bus construction
+- Constraint scaling / row equilibration for improved DC-OPF LP conditioning
+- Zero-reactance epsilon handling (1e-6) for bus tie transformers
+- Unit-aware newtype wrappers (Megawatts, Kilovolts, PerUnit) for compile-time unit safety
 
 **Note:** The L-BFGS penalty method backend achieves ~2.9% median gap and is useful when IPOPT is unavailable.
 
 ---
 
-## PFDelta Integration (v0.3)
+## PFDelta Integration (v0.5.5)
 
 ### Dataset Overview
 

@@ -1,6 +1,6 @@
 ![image](./screenshot.png)
 
-# GRID ANALYSIS TOOLKIT (GAT) — v0.5.4
+# GRID ANALYSIS TOOLKIT (GAT) — v0.5.5
 
 *A fast Rust-powered command-line toolkit for power-system modeling, flows, dispatch, and time-series analysis.*
 
@@ -35,6 +35,7 @@ If you're comfortable running simple CLI commands and want to start doing *real*
   - L-BFGS penalty method (pure Rust, portable, no external dependencies)
   - IPOPT interior-point (analytical Jacobian/Hessian, **all 68 PGLib cases validated with <0.01% gap**)
 * N-1/N-2 contingency analysis and screening
+* **GPU acceleration** for Monte Carlo, contingency screening, and sensitivity analysis (wgpu)
 * Time-series resampling, joining, aggregation
 * State estimation (weighted least squares)
 * **Distribution automation** (FLISR/VVO/outage coordination via ADMS)
@@ -62,7 +63,7 @@ GAT scales with you:
 The modular installer lets you choose components on the fly and installs to `~/.gat` with no dependency on Rust:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.4/scripts/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.5/scripts/install-modular.sh | bash
 ```
 
 Then add to your PATH:
@@ -77,13 +78,13 @@ By default, only the CLI is installed. Choose additional components:
 
 ```bash
 # CLI + TUI (interactive dashboard)
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.5/scripts/install-modular.sh)
 
 # CLI + TUI + GUI dashboard (future)
-GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui,gui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.5/scripts/install-modular.sh)
 
 # Everything (CLI + TUI + GUI + native solvers)
-GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui,gui,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.5/scripts/install-modular.sh)
 ```
 
 Or from the downloaded script:
@@ -111,13 +112,13 @@ If you prefer bundled releases with docs, download and unpack a variant:
 
 ```bash
 # Full variant (CLI + TUI + all features)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.5.4/gat-0.5.4-linux-x86_64-full.tar.gz | tar xz
-cd gat-0.5.4-linux-x86_64-full
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.5.5/gat-0.5.5-linux-x86_64-full.tar.gz | tar xz
+cd gat-0.5.5-linux-x86_64-full
 ./install.sh
 
 # Headless variant (CLI only, minimal footprint)
-curl -fsSL https://github.com/monistowl/gat/releases/download/v0.5.4/gat-0.5.4-linux-x86_64-headless.tar.gz | tar xz
-cd gat-0.5.4-linux-x86_64-headless
+curl -fsSL https://github.com/monistowl/gat/releases/download/v0.5.5/gat-0.5.5-linux-x86_64-headless.tar.gz | tar xz
+cd gat-0.5.5-linux-x86_64-headless
 ./install.sh --variant headless
 ```
 
@@ -168,7 +169,7 @@ cargo build -p gat-cli --release --no-default-features --features "solver-clarab
 
 ### Native Solvers (Optional)
 
-GAT v0.5.4 includes vendored COIN-OR solver binaries that run as isolated subprocesses, communicating via Arrow IPC. This eliminates unsafe FFI from the main codebase while providing access to industrial-strength solvers.
+GAT v0.5.5 includes vendored COIN-OR solver binaries that run as isolated subprocesses, communicating via Arrow IPC. This eliminates unsafe FFI from the main codebase while providing access to industrial-strength solvers.
 
 **Available native solvers:**
 
@@ -631,12 +632,12 @@ Available datasets include:
 
 ### Installation & Upgrades
 
-**Q: I have v0.1, v0.3.x, or v0.4.x. How do I upgrade to v0.5.4?**
+**Q: I have v0.1, v0.3.x, or v0.4.x. How do I upgrade to v0.5.5?**
 
-A: v0.5.4 adds vendored COIN-OR solvers (CLP, CBC) as isolated binaries, eliminates unsafe FFI from the main codebase, and introduces the `prefer_native()` API for solver dispatch. Upgrade by re-running the installer:
+A: v0.5.5 adds vendored COIN-OR solvers (CLP, CBC) as isolated binaries, eliminates unsafe FFI from the main codebase, and introduces the `prefer_native()` API for solver dispatch. Upgrade by re-running the installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.4/scripts/install-modular.sh | bash
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.5/scripts/install-modular.sh | bash
 ```
 
 This installs to `~/.gat/bin/` by default (changed from `~/.local/bin/` in v0.1). Update your PATH:
@@ -647,15 +648,15 @@ export PATH="$HOME/.gat/bin:$PATH"
 
 **Q: Can I keep multiple versions installed?**
 
-A: Yes. Use the `--prefix` flag to install v0.5.4 elsewhere:
+A: Yes. Use the `--prefix` flag to install v0.5.5 elsewhere:
 
 ```bash
-bash scripts/install-modular.sh --prefix /opt/gat-0.5.4
+bash scripts/install-modular.sh --prefix /opt/gat-0.5.5
 ```
 
 Then choose which to use in your PATH by ordering the paths or using full paths.
 
-**Q: What changed in v0.5.4?**
+**Q: What changed in v0.5.5?**
 
 A: Major improvements include:
 
@@ -681,7 +682,7 @@ A: No. The CLI is fully featured and standalone. The TUI is optional and great f
 Install it with:
 
 ```bash
-GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.5/scripts/install-modular.sh)
 ```
 
 **Q: What are the solver components for?**
@@ -689,7 +690,7 @@ GAT_COMPONENTS=cli,tui bash <(curl -fsSL https://raw.githubusercontent.com/monis
 A: The `solvers` component includes native solver binaries (gat-clp, gat-cbc, gat-ipopt) built from vendored COIN-OR sources. These run as isolated subprocesses and provide industrial-strength optimization. Install with:
 
 ```bash
-GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.5/scripts/install-modular.sh)
 ```
 
 Or build from source:
@@ -810,7 +811,7 @@ rm -rf /opt/gat/  # Or whatever prefix you used
 A: Install the solver binaries:
 
 ```bash
-GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.4/scripts/install-modular.sh)
+GAT_COMPONENTS=cli,solvers bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.5/scripts/install-modular.sh)
 ```
 
 Or build from source (slower but self-contained):
@@ -849,7 +850,7 @@ bash scripts/install.sh
 - `docs/guide/feature-matrix.md` — CI/CD matrix testing with solver combinations
 - `docs/guide/mcp-onboarding.md` — MCP server setup for agent integration
 - `docs/guide/packaging.md` — Binary distribution and installation
-- `docs/guide/scaling.md` — Multi-horizon scaling roadmap and performance tuning
+- `docs/guide/scaling.md` — GPU acceleration and multi-horizon scaling roadmap
 
 ### Auto-Generated Documentation
 
@@ -903,13 +904,20 @@ gat-mcp-docs --docs docs --addr 127.0.0.1:4321
 - **`gat-ts`** — Time-series resampling, joining, aggregation
 - **`gat-viz`** — Visualization and graph layout tools
 
-### Solver Crates (v0.5.4+)
+### Solver Crates (v0.5.5+)
 
 - **`gat-solver-common`** — Arrow IPC protocol, subprocess management, shared types
 - **`gat-coinor-build`** — Build infrastructure for vendored COIN-OR libraries
 - **`gat-clp`** — CLP linear programming solver binary (DC-OPF, economic dispatch)
 - **`gat-cbc`** — CBC mixed-integer programming solver binary (unit commitment)
 - **`gat-ipopt`** — IPOPT nonlinear programming solver binary (AC-OPF)
+
+### GPU Crate
+
+- **`gat-gpu`** — Cross-platform GPU compute using wgpu (Vulkan/Metal/DX12/WebGPU)
+  - WGSL shaders for power mismatch, Monte Carlo, LODF screening, PTDF
+  - Automatic CPU fallback when no GPU available
+  - `--gpu` and `--gpu-precision` CLI flags for acceleration control
 
 For details on any crate, see its `README.md` in `crates/<crate>/`.
 

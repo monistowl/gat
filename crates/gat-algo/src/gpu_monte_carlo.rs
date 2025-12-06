@@ -4,9 +4,9 @@
 //! When the `gpu` feature is enabled, scenarios can be evaluated in parallel on the GPU.
 
 #[cfg(feature = "gpu")]
-use gat_gpu::{Backend, ExecutionMode, GpuContext, GpuBuffer, BufferBinding, MultiBufferKernel};
-#[cfg(feature = "gpu")]
 use gat_gpu::shaders::CAPACITY_CHECK_SHADER;
+#[cfg(feature = "gpu")]
+use gat_gpu::{Backend, BufferBinding, ExecutionMode, GpuBuffer, GpuContext, MultiBufferKernel};
 
 use crate::reliability_monte_carlo::{MonteCarlo, OutageScenario, ReliabilityMetrics};
 use anyhow::Result;
@@ -83,9 +83,7 @@ impl GpuMonteCarlo {
                         // For now, log that GPU is available but use CPU path
                         // Full GPU dispatch will be added when we have batched
                         // power flow kernels ready
-                        eprintln!(
-                            "[gat-gpu] GPU available, using hybrid CPU/GPU analysis"
-                        );
+                        eprintln!("[gat-gpu] GPU available, using hybrid CPU/GPU analysis");
                     }
                     self.inner.compute_reliability(network)
                 }
@@ -165,7 +163,12 @@ impl GpuMonteCarlo {
         // Respect execution mode
         match self.execution_mode {
             ExecutionMode::CpuOnly => {
-                return self.cpu_capacity_check(&gen_capacities, &outage_state, demand as f32, n_scenarios);
+                return self.cpu_capacity_check(
+                    &gen_capacities,
+                    &outage_state,
+                    demand as f32,
+                    n_scenarios,
+                );
             }
             ExecutionMode::GpuOnly => {
                 if self.gpu_context.is_none() {
@@ -177,13 +180,15 @@ impl GpuMonteCarlo {
                     }
                 }
                 // Must succeed - no fallback
-                return self.run_gpu_capacity_check(
-                    self.gpu_context.as_ref().unwrap(),
-                    &gen_capacities,
-                    &outage_state,
-                    demand as f32,
-                    n_scenarios,
-                ).expect("GPU execution failed and GpuOnly mode was requested");
+                return self
+                    .run_gpu_capacity_check(
+                        self.gpu_context.as_ref().unwrap(),
+                        &gen_capacities,
+                        &outage_state,
+                        demand as f32,
+                        n_scenarios,
+                    )
+                    .expect("GPU execution failed and GpuOnly mode was requested");
             }
             ExecutionMode::Auto => {
                 // Try GPU, fallback to CPU
@@ -192,16 +197,30 @@ impl GpuMonteCarlo {
                         Ok(ctx) => self.gpu_context = Some(ctx),
                         Err(e) => {
                             eprintln!("[gat-gpu] Failed to initialize GPU: {}", e);
-                            return self.cpu_capacity_check(&gen_capacities, &outage_state, demand as f32, n_scenarios);
+                            return self.cpu_capacity_check(
+                                &gen_capacities,
+                                &outage_state,
+                                demand as f32,
+                                n_scenarios,
+                            );
                         }
                     }
                 }
 
                 if let Some(ref ctx) = self.gpu_context {
-                    match self.run_gpu_capacity_check(ctx, &gen_capacities, &outage_state, demand as f32, n_scenarios) {
+                    match self.run_gpu_capacity_check(
+                        ctx,
+                        &gen_capacities,
+                        &outage_state,
+                        demand as f32,
+                        n_scenarios,
+                    ) {
                         Ok(fraction) => return fraction,
                         Err(e) => {
-                            eprintln!("[gat-gpu] GPU capacity check failed, falling back to CPU: {}", e);
+                            eprintln!(
+                                "[gat-gpu] GPU capacity check failed, falling back to CPU: {}",
+                                e
+                            );
                         }
                     }
                 }

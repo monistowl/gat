@@ -287,8 +287,8 @@ pub fn solve_with_ipopt(
             let mut solution = OpfSolution {
                 converged: true,
                 method_used: OpfMethod::AcOpf,
-                iterations: 0,    // TODO: Track via intermediate callback
-                solve_time_ms: 0, // IPOPT doesn't expose timing easily
+                iterations: result.iterations as usize,
+                solve_time_ms: result.solve_time_ms.round() as u128,
                 objective_value: problem.objective(x),
                 ..Default::default()
             };
@@ -665,7 +665,7 @@ pub fn solve_with_dc_warm_start(
     match result.status {
         SolveStatus::SolveSucceeded | SolveStatus::SolvedToAcceptableLevel => {
             let x = &result.solver_data.solution.primal_variables;
-            extract_solution(problem, x)
+            extract_solution(problem, x, result.iterations, result.solve_time_ms)
         }
         _ => Err(OpfError::NumericalIssue(format!(
             "IPOPT failed with status: {:?}",
@@ -765,7 +765,7 @@ pub fn solve_with_socp_warm_start(
     match result.status {
         SolveStatus::SolveSucceeded | SolveStatus::SolvedToAcceptableLevel => {
             let x = &result.solver_data.solution.primal_variables;
-            extract_solution(problem, x)
+            extract_solution(problem, x, result.iterations, result.solve_time_ms)
         }
         _ => Err(OpfError::NumericalIssue(format!(
             "IPOPT failed with status: {:?}",
@@ -774,16 +774,21 @@ pub fn solve_with_socp_warm_start(
     }
 }
 
-/// Helper to extract OpfSolution from IPOPT result vector.
+/// Helper to extract OpfSolution from IPOPT result.
 #[cfg(feature = "solver-ipopt")]
-fn extract_solution(problem: &AcOpfProblem, x: &[f64]) -> Result<OpfSolution, OpfError> {
+fn extract_solution(
+    problem: &AcOpfProblem,
+    x: &[f64],
+    iterations: u32,
+    solve_time_ms: f64,
+) -> Result<OpfSolution, OpfError> {
     let (v, theta) = problem.extract_v_theta(x);
 
     let mut solution = OpfSolution {
         converged: true,
         method_used: OpfMethod::AcOpf,
-        iterations: 0,
-        solve_time_ms: 0,
+        iterations: iterations as usize,
+        solve_time_ms: solve_time_ms.round() as u128,
         objective_value: problem.objective(x),
         ..Default::default()
     };

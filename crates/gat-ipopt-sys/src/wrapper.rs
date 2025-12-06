@@ -30,10 +30,19 @@
 
 use crate::{
     AddIpoptIntOption, AddIpoptNumOption, AddIpoptStrOption, ApplicationReturnStatus,
-    CreateIpoptProblem, FreeIpoptProblem, Index, IpoptProblem, IpoptSolve, Number, UserDataPtr,
+    CreateIpoptProblem, FreeIpoptProblem, Index, IpoptProblem, IpoptSolve, Number,
+    SetIntermediateCallback, UserDataPtr,
 };
+use std::cell::Cell;
 use std::ffi::CString;
 use std::os::raw::c_int;
+use std::time::Instant;
+
+/// Thread-local storage for iteration count during solve.
+/// IPOPT callbacks are single-threaded within a solve, so this is safe.
+thread_local! {
+    static ITERATION_COUNT: Cell<u32> = const { Cell::new(0) };
+}
 
 /// Trait for defining the basic NLP problem structure.
 ///
@@ -277,6 +286,10 @@ pub struct SolveResult {
     pub objective_value: Number,
     /// Solution data
     pub solver_data: SolverData,
+    /// Number of iterations performed
+    pub iterations: u32,
+    /// Solve time in milliseconds
+    pub solve_time_ms: f64,
 }
 
 /// IPOPT solver wrapper.
@@ -416,11 +429,22 @@ impl<P: ConstrainedProblem> Ipopt<P> {
                         upper_bound_multipliers: mult_x_u,
                     },
                 },
+                iterations: 0,
+                solve_time_ms: 0.0,
             };
         }
 
         // Get pointer to user problem for callbacks
         let user_data = self.user_problem.as_ref() as *const P as UserDataPtr;
+
+        // Reset iteration counter and set intermediate callback for tracking
+        ITERATION_COUNT.with(|c| c.set(0));
+        unsafe {
+            SetIntermediateCallback(self.problem, Some(intermediate_callback));
+        }
+
+        // Start timing
+        let start_time = Instant::now();
 
         // Solve
         let status = unsafe {
@@ -436,6 +460,10 @@ impl<P: ConstrainedProblem> Ipopt<P> {
             )
         };
 
+        // Record timing and iteration count
+        let solve_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+        let iterations = ITERATION_COUNT.with(|c| c.get());
+
         SolveResult {
             status: status.into(),
             objective_value: obj_val,
@@ -448,8 +476,34 @@ impl<P: ConstrainedProblem> Ipopt<P> {
                     upper_bound_multipliers: mult_x_u,
                 },
             },
+            iterations,
+            solve_time_ms,
         }
     }
+}
+
+/// Intermediate callback for tracking iteration count.
+///
+/// This callback is called by IPOPT at each iteration and increments
+/// our thread-local iteration counter.
+extern "C" fn intermediate_callback(
+    _alg_mod: Index,
+    iter_count: Index,
+    _obj_value: Number,
+    _inf_pr: Number,
+    _inf_du: Number,
+    _mu: Number,
+    _d_norm: Number,
+    _regularization_size: Number,
+    _alpha_du: Number,
+    _alpha_pr: Number,
+    _ls_trials: Index,
+    _user_data: UserDataPtr,
+) -> c_int {
+    // Store the current iteration count
+    ITERATION_COUNT.with(|c| c.set(iter_count as u32));
+    // Return 1 to continue (0 would terminate)
+    1
 }
 
 impl<P: ConstrainedProblem> Drop for Ipopt<P> {

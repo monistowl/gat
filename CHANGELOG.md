@@ -37,6 +37,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### GPU Acceleration Phase 2
+
+- **`gat-gpu` crate** — Cross-platform GPU compute using wgpu (Vulkan/Metal/DX12/WebGPU)
+  - `GpuContext` for device and queue management
+  - `GpuBuffer` for zero-copy host↔GPU data transfer
+  - `KernelRunner` for single-buffer compute dispatch
+  - `MultiBufferKernel` for multi-buffer workloads with variable binding layouts
+
+- **WGSL Shaders** for power system analysis
+  - `POWER_MISMATCH_SHADER` — AC power flow mismatch computation (f32)
+  - `CAPACITY_CHECK_SHADER` — Monte Carlo capacity adequacy screening (f32)
+  - `LODF_SCREENING_SHADER` — N-1 contingency LODF-based screening (f32)
+  - `PTDF_SHADER` — Power Transfer Distribution Factors (f32)
+
+- **GPU Monte Carlo integration** in `gat-algo`
+  - `GpuMonteCarlo::batch_capacity_check()` for GPU-accelerated capacity screening
+  - Automatic CPU fallback when GPU unavailable
+  - Execution mode support (Auto/CpuOnly/GpuOnly)
+
+- **CLI precision control**
+  - `--gpu-precision` flag (auto, f32, f64) for controlling GPU precision mode
+  - `GpuPrecision` enum: Single, SingleWithWarning, EmulatedDouble, Hybrid
+
+- **Benchmarks** for GPU workloads
+  - Monte Carlo capacity check: 1K, 10K, 100K scenarios
+  - LODF screening: 100×50, 500×100, 1000×200 matrix sizes
+
 ### Changed
 
 #### CLI Ergonomics Enhancement

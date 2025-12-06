@@ -33,16 +33,16 @@
 //! Note: First GPU operation may be slower due to shader compilation.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use gat_gpu::{BufferBinding, GpuBuffer, GpuContext, KernelRunner, MultiBufferKernel};
 use gat_gpu::shaders::{CAPACITY_CHECK_SHADER, LODF_SCREENING_SHADER};
+use gat_gpu::{BufferBinding, GpuBuffer, GpuContext, KernelRunner, MultiBufferKernel};
 
 /// Buffer sizes to benchmark (in number of f32 elements)
 const BUFFER_SIZES: &[usize] = &[
-    1_024,      // 4 KB
-    16_384,     // 64 KB
-    262_144,    // 1 MB
-    1_048_576,  // 4 MB
-    4_194_304,  // 16 MB
+    1_024,     // 4 KB
+    16_384,    // 64 KB
+    262_144,   // 1 MB
+    1_048_576, // 4 MB
+    4_194_304, // 16 MB
 ];
 
 /// Bus counts for power flow benchmarks
@@ -241,7 +241,9 @@ fn bench_cpu_vs_gpu(c: &mut Criterion) {
     // CPU parallel baseline using rayon
     fn cpu_scale_parallel(data: &mut [f32]) {
         use std::thread;
-        let threads = thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+        let threads = thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
         let chunk_size = (data.len() + threads - 1) / threads;
 
         // Simple parallel using scoped threads
@@ -450,7 +452,8 @@ fn bench_monte_carlo_capacity(c: &mut Criterion) {
                 BufferBinding::ReadOnly,
                 BufferBinding::ReadWrite,
             ],
-        ).expect("kernel");
+        )
+        .expect("kernel");
 
         group.throughput(Throughput::Elements(n_scenarios as u64));
         group.bench_with_input(
@@ -458,12 +461,19 @@ fn bench_monte_carlo_capacity(c: &mut Criterion) {
             &n_scenarios,
             |b, &n_scenarios| {
                 b.iter(|| {
-                    kernel.dispatch(
-                        &ctx,
-                        &[&buf_uniforms.buffer, &buf_capacity.buffer, &buf_outage.buffer, &buf_adequate.buffer],
-                        n_scenarios as u32,
-                        64,
-                    ).expect("dispatch failed");
+                    kernel
+                        .dispatch(
+                            &ctx,
+                            &[
+                                &buf_uniforms.buffer,
+                                &buf_capacity.buffer,
+                                &buf_outage.buffer,
+                                &buf_adequate.buffer,
+                            ],
+                            n_scenarios as u32,
+                            64,
+                        )
+                        .expect("dispatch failed");
                 })
             },
         );
@@ -536,14 +546,18 @@ fn bench_lodf_screening(c: &mut Criterion) {
                 BufferBinding::ReadOnly,
                 BufferBinding::ReadWrite,
             ],
-        ).expect("kernel");
+        )
+        .expect("kernel");
 
         // Total computations = contingencies × branches
         let total_elements = n_contingencies * n_branches;
         group.throughput(Throughput::Elements(total_elements as u64));
 
         group.bench_with_input(
-            BenchmarkId::new("contingencies_x_branches", format!("{}x{}", n_contingencies, n_branches)),
+            BenchmarkId::new(
+                "contingencies_x_branches",
+                format!("{}x{}", n_contingencies, n_branches),
+            ),
             &(n_contingencies, n_branches),
             |b, _| {
                 b.iter(|| {
@@ -554,11 +568,26 @@ fn bench_lodf_screening(c: &mut Criterion) {
                             label: Some("lodf_bench_bind_group"),
                             layout: &kernel.bind_group_layout,
                             entries: &[
-                                wgpu::BindGroupEntry { binding: 0, resource: buf_uniforms.buffer.as_entire_binding() },
-                                wgpu::BindGroupEntry { binding: 1, resource: buf_flow_pre.buffer.as_entire_binding() },
-                                wgpu::BindGroupEntry { binding: 2, resource: buf_lodf.buffer.as_entire_binding() },
-                                wgpu::BindGroupEntry { binding: 3, resource: buf_contingencies.buffer.as_entire_binding() },
-                                wgpu::BindGroupEntry { binding: 4, resource: buf_flow_post.buffer.as_entire_binding() },
+                                wgpu::BindGroupEntry {
+                                    binding: 0,
+                                    resource: buf_uniforms.buffer.as_entire_binding(),
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding: 1,
+                                    resource: buf_flow_pre.buffer.as_entire_binding(),
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding: 2,
+                                    resource: buf_lodf.buffer.as_entire_binding(),
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding: 3,
+                                    resource: buf_contingencies.buffer.as_entire_binding(),
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding: 4,
+                                    resource: buf_flow_post.buffer.as_entire_binding(),
+                                },
                             ],
                         });
 

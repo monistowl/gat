@@ -45,8 +45,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{GpuBuffer, GpuContext};
     use crate::kernels::{BufferBinding, MultiBufferKernel};
+    use crate::{GpuBuffer, GpuContext};
     use bytemuck::{Pod, Zeroable};
 
     #[repr(C)]
@@ -76,10 +76,10 @@ mod tests {
         // 2: gen 1 offline (100 MW available)
         // 3: both offline (0 MW available)
         let outage_state: Vec<f32> = vec![
-            1.0, 1.0,  // scenario 0
-            0.0, 1.0,  // scenario 1
-            1.0, 0.0,  // scenario 2
-            0.0, 0.0,  // scenario 3
+            1.0, 1.0, // scenario 0
+            0.0, 1.0, // scenario 1
+            1.0, 0.0, // scenario 2
+            0.0, 0.0, // scenario 3
         ];
 
         let adequate: Vec<f32> = vec![0.0; 4];
@@ -87,7 +87,7 @@ mod tests {
         let uniforms = CapacityUniforms {
             n_scenarios: 4,
             n_generators: 2,
-            demand: 80.0,  // Need 80 MW
+            demand: 80.0, // Need 80 MW
             _padding: 0,
         };
 
@@ -101,19 +101,27 @@ mod tests {
             CAPACITY_CHECK_SHADER,
             "main",
             &[
-                BufferBinding::Uniform,    // uniforms
-                BufferBinding::ReadOnly,   // gen_capacity
-                BufferBinding::ReadOnly,   // outage_state
-                BufferBinding::ReadWrite,  // adequate
+                BufferBinding::Uniform,   // uniforms
+                BufferBinding::ReadOnly,  // gen_capacity
+                BufferBinding::ReadOnly,  // outage_state
+                BufferBinding::ReadWrite, // adequate
             ],
-        ).unwrap();
+        )
+        .unwrap();
 
-        kernel.dispatch(
-            &ctx,
-            &[&buf_uniforms.buffer, &buf_capacity.buffer, &buf_outage.buffer, &buf_adequate.buffer],
-            4,  // 4 scenarios
-            64,
-        ).unwrap();
+        kernel
+            .dispatch(
+                &ctx,
+                &[
+                    &buf_uniforms.buffer,
+                    &buf_capacity.buffer,
+                    &buf_outage.buffer,
+                    &buf_adequate.buffer,
+                ],
+                4, // 4 scenarios
+                64,
+            )
+            .unwrap();
 
         let result = buf_adequate.read(&ctx);
         // Scenario 0: 150 >= 80 -> adequate (1.0)

@@ -77,11 +77,22 @@ impl SparseSusceptance {
                 }
 
                 let x_eff = branch.reactance * branch.tap_ratio;
-                if x_eff.abs() < 1e-12 {
-                    return Err(SusceptanceError::ZeroReactance(branch.name.clone()));
-                }
 
-                let b = 1.0 / x_eff;
+                // Handle zero or near-zero reactance branches (bus ties, very short cables)
+                // Instead of failing, use a small epsilon to approximate very low impedance.
+                // This models the branch as having very high susceptance (tight angle coupling).
+                const EPSILON_REACTANCE: f64 = 1e-6;
+                let x_for_b = if x_eff.abs() < 1e-12 {
+                    if x_eff >= 0.0 {
+                        EPSILON_REACTANCE
+                    } else {
+                        -EPSILON_REACTANCE
+                    }
+                } else {
+                    x_eff
+                };
+
+                let b = 1.0 / x_for_b;
                 let i = *bus_to_idx
                     .get(&branch.from_bus)
                     .ok_or(SusceptanceError::UnknownBus(branch.from_bus.value()))?;

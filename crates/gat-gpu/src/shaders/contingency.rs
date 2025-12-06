@@ -55,8 +55,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{GpuBuffer, GpuContext};
     use crate::kernels::{BufferBinding, MultiBufferKernel};
+    use crate::{GpuBuffer, GpuContext};
     use bytemuck::{Pod, Zeroable};
 
     #[repr(C)]
@@ -91,9 +91,9 @@ mod tests {
         // l=1   0.4   -1.0    0.2
         // l=2   0.2    0.1   -1.0
         let lodf: Vec<f32> = vec![
-            -1.0, 0.3, 0.1,   // row 0
-            0.4, -1.0, 0.2,   // row 1
-            0.2, 0.1, -1.0,   // row 2
+            -1.0, 0.3, 0.1, // row 0
+            0.4, -1.0, 0.2, // row 1
+            0.2, 0.1, -1.0, // row 2
         ];
 
         // Contingency branches: [0, 1] (trip branch 0, then trip branch 1)
@@ -126,7 +126,8 @@ mod tests {
                 BufferBinding::ReadOnly,
                 BufferBinding::ReadWrite,
             ],
-        ).unwrap();
+        )
+        .unwrap();
 
         // Dispatch with 2D workgroups: (n_contingencies, n_branches)
         // Using workgroup_size(8,8), we need dispatch_workgroups(1, 1, 1) for this small case
@@ -136,11 +137,26 @@ mod tests {
                 label: Some("lodf_bind_group"),
                 layout: &kernel.bind_group_layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: buf_uniforms.buffer.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 1, resource: buf_flow_pre.buffer.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 2, resource: buf_lodf.buffer.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 3, resource: buf_contingencies.buffer.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 4, resource: buf_flow_post.buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: buf_uniforms.buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: buf_flow_pre.buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: buf_lodf.buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: buf_contingencies.buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: buf_flow_post.buffer.as_entire_binding(),
+                    },
                 ],
             });
 
@@ -167,11 +183,11 @@ mod tests {
         // Branch 1: 0 (outaged)
         // Branch 2: 75 + 0.1 * 50 = 80
 
-        assert_eq!(result[0], 0.0);    // C0, B0
-        assert!((result[1] - 90.0).abs() < 0.01);   // C0, B1
-        assert!((result[2] - 95.0).abs() < 0.01);   // C0, B2
-        assert!((result[3] - 115.0).abs() < 0.01);  // C1, B0
-        assert_eq!(result[4], 0.0);    // C1, B1
-        assert!((result[5] - 80.0).abs() < 0.01);   // C1, B2
+        assert_eq!(result[0], 0.0); // C0, B0
+        assert!((result[1] - 90.0).abs() < 0.01); // C0, B1
+        assert!((result[2] - 95.0).abs() < 0.01); // C0, B2
+        assert!((result[3] - 115.0).abs() < 0.01); // C1, B0
+        assert_eq!(result[4], 0.0); // C1, B1
+        assert!((result[5] - 80.0).abs() < 0.01); // C1, B2
     }
 }

@@ -18,7 +18,7 @@ Topology commands (`gat graph stats`, `gat graph islands`, `gat graph export`) a
 
 `gat pf {dc,ac}` is documented in `docs/guide/pf.md`; the CLI supports solver selection, threading hints, tolerances, and Parquet output that lives under `pf-dc/` or `pf-ac/` for manifest-driven automation.
 
-## Optimal Power Flow (v0.5.0)
+## Optimal Power Flow (v0.5.5)
 
 GAT provides a unified `OpfSolver` with multiple solution methods, all fully implemented:
 
@@ -39,11 +39,11 @@ Generators support polynomial and piecewise-linear cost functions via the `CostM
 
 Every heavy command writes into a stage-named directory (for example `pf-dc`, `opf-dc`, `nminus1-dc`, or `se-wls`) so dashboards and artifact stores can tell where work was produced. Use `--out-partitions <comma-separated-columns>` to split the Parquet output inside that stage directory by column values (e.g., `--out-partitions run_id,date/contingency` writes `stage/run_id=.../date=.../part-0000.parquet`). The stage-aware helper also respects the `run.json`/manifest layout so `gat runs resume` and downstream tools can follow the same tree.
 
-## Reliability Analysis (v0.3)
+## Reliability Analysis (v0.5.5)
 
 Comprehensive Monte Carlo reliability assessment with LOLE (Loss of Load Expectation), EUE (Energy Unserved), and Deliverability Scores. Multi-area coordination via the CANOS framework. See `docs/guide/reliability.md` for algorithms, usage, and test suite.
 
-## ADMS Integration (v0.3)
+## ADMS Integration (v0.5.5)
 
 Automatic Distribution Management System tools now include:
 - **FLISR**: Fault Location, Isolation, and Service Restoration with reliability impact tracking
@@ -52,7 +52,7 @@ Automatic Distribution Management System tools now include:
 
 See `docs/guide/adms.md` for integration details and reliability metrics.
 
-## Benchmarking Against Public Datasets (v0.3)
+## Benchmarking Against Public Datasets (v0.5.5)
 
 GAT includes the `gat benchmark pfdelta` command for systematic AC OPF evaluation against the PFDelta dataset: 859,800 power flow instances across IEEE 14/30/57/118-bus and GOC 500/2000-bus networks with N/N-1/N-2 contingencies. See `docs/guide/benchmark.md` for usage, performance expectations, and analysis examples.
 

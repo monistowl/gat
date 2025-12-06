@@ -1,6 +1,6 @@
 # GAT CLI Cheatsheet
 
-Quick reference for common GAT commands. Version 0.5.4+.
+Quick reference for common GAT commands. Version 0.5.5+.
 
 ## Import & Convert
 

@@ -28,10 +28,12 @@ pub struct KernelRunner {
 impl KernelRunner {
     /// Create a new kernel runner from WGSL source code
     pub fn from_wgsl(ctx: &GpuContext, wgsl_source: &str, entry_point: &str) -> Result<Self> {
-        let shader = ctx.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(entry_point),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(wgsl_source)),
-        });
+        let shader = ctx
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(entry_point),
+                source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(wgsl_source)),
+            });
 
         let bind_group_layout =
             ctx.device
@@ -137,10 +139,12 @@ impl MultiBufferKernel {
         entry_point: &str,
         bindings: &[BufferBinding],
     ) -> Result<Self> {
-        let shader = ctx.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(entry_point),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(wgsl_source)),
-        });
+        let shader = ctx
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(entry_point),
+                source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(wgsl_source)),
+            });
 
         let entries: Vec<wgpu::BindGroupLayoutEntry> = bindings
             .iter()
@@ -307,13 +311,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             ADD_ARRAYS_SHADER,
             "main",
             &[
-                BufferBinding::ReadOnly,   // a
-                BufferBinding::ReadOnly,   // b
-                BufferBinding::ReadWrite,  // result
+                BufferBinding::ReadOnly,  // a
+                BufferBinding::ReadOnly,  // b
+                BufferBinding::ReadWrite, // result
             ],
-        ).unwrap();
+        )
+        .unwrap();
 
-        runner.dispatch(&ctx, &[&buf_a.buffer, &buf_b.buffer, &buf_result.buffer], 4, 64).unwrap();
+        runner
+            .dispatch(
+                &ctx,
+                &[&buf_a.buffer, &buf_b.buffer, &buf_result.buffer],
+                4,
+                64,
+            )
+            .unwrap();
 
         let output = buf_result.read(&ctx);
         assert_eq!(output, vec![11.0, 22.0, 33.0, 44.0]);

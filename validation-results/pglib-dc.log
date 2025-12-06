@@ -1,0 +1,5 @@
+error: unexpected argument '' found
+
+Usage: gat-cli benchmark pglib [OPTIONS] --pglib-dir <PGLIB_DIR> --out <OUT>
+
+For more information, try '--help'.

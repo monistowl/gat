@@ -1,6 +1,6 @@
 # GAT CLI Cookbook
 
-Practical recipes for common power systems workflows using GAT 0.5.4+.
+Practical recipes for common power systems workflows using GAT 0.5.5+.
 
 ## Table of Contents
 

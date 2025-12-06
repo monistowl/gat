@@ -146,6 +146,82 @@ use good_lp::{constraint, variable, variables, Expression, Solution, SolverModel
 use std::collections::HashMap;
 use std::time::Instant;
 
+/// Constraint scaler for improving LP numerical conditioning.
+///
+/// Computes row scaling factors using the infinity norm of each row
+/// of the B' matrix. This transforms ill-conditioned problems (with
+/// susceptance ratios of 100,000:1 or more) into well-conditioned ones.
+///
+/// # Mathematical Background
+///
+/// The power balance constraint is:
+/// ```text
+/// P_gen - P_load = Σ_j B'[i,j] · θ[j]
+/// ```
+///
+/// When B' has entries spanning many orders of magnitude (e.g., 100,000 to 0.1),
+/// the LP solver may struggle with numerical precision. We scale by:
+/// ```text
+/// scale[i] = 1 / ||B'[i,:]||_∞ = 1 / max_j |B'[i,j]|
+/// ```
+///
+/// This normalizes each row so the largest coefficient is ~1.0.
+#[derive(Debug)]
+struct ConstraintScaler {
+    /// Scaling factor for each bus (indexed by bus index)
+    row_scales: Vec<f64>,
+}
+
+impl ConstraintScaler {
+    /// Compute scaling factors from the B' matrix.
+    ///
+    /// Uses row infinity norm: scale[i] = 1 / max_j |B'[i,j]|
+    /// with a minimum bound to avoid division by very small numbers.
+    fn from_b_prime(b_prime: &SparseSusceptance) -> Self {
+        let n_bus = b_prime.n_bus();
+        let mut row_scales = vec![1.0; n_bus];
+
+        // Minimum scale factor to avoid numerical issues
+        const MIN_SCALE: f64 = 1e-12;
+
+        let matrix = b_prime.view();
+        for i in 0..n_bus {
+            if let Some(row) = matrix.outer_view(i) {
+                // Find the maximum absolute value in this row
+                let max_abs = row.iter().map(|(_, &v)| v.abs()).fold(0.0_f64, f64::max);
+
+                if max_abs > MIN_SCALE {
+                    row_scales[i] = 1.0 / max_abs;
+                }
+                // If max_abs is tiny, keep scale = 1.0 (row is essentially zero)
+            }
+        }
+
+        Self { row_scales }
+    }
+
+    /// Get the scaling factor for constraint at bus index `i`.
+    #[inline]
+    fn scale(&self, bus_idx: usize) -> f64 {
+        self.row_scales.get(bus_idx).copied().unwrap_or(1.0)
+    }
+
+    /// Report scaling statistics for diagnostics.
+    fn stats(&self) -> (f64, f64, f64) {
+        if self.row_scales.is_empty() {
+            return (1.0, 1.0, 1.0);
+        }
+        let min = self
+            .row_scales
+            .iter()
+            .cloned()
+            .fold(f64::INFINITY, f64::min);
+        let max = self.row_scales.iter().cloned().fold(0.0_f64, f64::max);
+        let avg = self.row_scales.iter().sum::<f64>() / self.row_scales.len() as f64;
+        (min, avg, max)
+    }
+}
+
 /// Convert sparse susceptance errors to OPF errors
 impl From<SusceptanceError> for OpfError {
     fn from(err: SusceptanceError) -> Self {
@@ -262,17 +338,29 @@ fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
                 continue;
             }
             let x_eff = branch.reactance * branch.tap_ratio;
-            if x_eff.abs() < 1e-12 {
-                return Err(OpfError::DataValidation(format!(
-                    "Branch {} has zero reactance",
-                    branch.name
-                )));
-            }
+
+            // Handle zero or near-zero reactance branches (bus ties, very short cables)
+            // Instead of failing, use a small epsilon to approximate very low impedance.
+            // This models the branch as having very high susceptance (tight angle coupling).
+            // Zero-reactance branches are typically bus ties or short cables where angles
+            // should be nearly equal - using 1e-6 p.u. gives ~1000 p.u. susceptance.
+            const EPSILON_REACTANCE: f64 = 1e-6;
+            let x_for_dc = if x_eff.abs() < 1e-12 {
+                // Preserve sign if non-zero, default to positive for typical inductive branches
+                if x_eff >= 0.0 {
+                    EPSILON_REACTANCE
+                } else {
+                    -EPSILON_REACTANCE
+                }
+            } else {
+                x_eff
+            };
+
             branches.push(BranchData {
                 name: branch.name.clone(),
                 from_bus: branch.from_bus,
                 to_bus: branch.to_bus,
-                susceptance: 1.0 / x_eff,
+                susceptance: 1.0 / x_for_dc,
                 phase_shift: branch.phase_shift.value(),
             });
         }
@@ -310,8 +398,38 @@ pub fn solve(
     let (buses, generators, branches, loads) = extract_network_data(network)?;
     let bus_map = build_bus_index_map(&buses);
 
+    // === Pre-solve validation ===
+    // Check that total generation capacity can meet total load
+    let total_pmax: f64 = generators.iter().map(|g| g.pmax.min(1e9)).sum();
+    let total_pmin: f64 = generators.iter().map(|g| g.pmin.max(0.0)).sum();
+    let total_load: f64 = loads.values().sum();
+
+    if total_pmax < total_load {
+        return Err(OpfError::DataValidation(format!(
+            "Infeasible: total generation capacity ({:.2} MW) is less than total load ({:.2} MW). \
+             Deficit: {:.2} MW",
+            total_pmax,
+            total_load,
+            total_load - total_pmax
+        )));
+    }
+
+    if total_pmin > total_load {
+        return Err(OpfError::DataValidation(format!(
+            "Infeasible: minimum generation ({:.2} MW) exceeds total load ({:.2} MW). \
+             Cannot back down generators enough. Excess: {:.2} MW",
+            total_pmin,
+            total_load,
+            total_pmin - total_load
+        )));
+    }
+
     // Build B' susceptance matrix using unified sparse module
     let b_prime = build_b_prime_from_network(network)?;
+
+    // Compute row scaling factors for numerical conditioning
+    // This normalizes each constraint row so the largest B' coefficient is ~1.0
+    let scaler = ConstraintScaler::from_b_prime(&b_prime);
 
     // === LP Formulation ===
     // Variables: P_g[i] for each generator, θ[j] for each bus (except reference)
@@ -368,42 +486,75 @@ pub fn solve(
         *bus_gen_expr.get_mut(&bus_idx).unwrap() += *p_var;
     }
 
-    // Add power balance constraints
+    // Add power balance constraints with row scaling for numerical stability
+    // Original constraint: P_gen - P_load = Σ_j B'[i,j] · θ[j]
+    // Scaled constraint:   scale[i] · (P_gen - P_load) = scale[i] · Σ_j B'[i,j] · θ[j]
+    //
+    // This normalizes each constraint row so the largest B' coefficient is ~1.0,
+    // improving LP solver numerical conditioning for networks with extreme
+    // susceptance ratios (e.g., 100,000:1 from X=0.00001 to X=1.58 p.u.)
     let mut problem = problem;
     let b_view = b_prime.view();
     for bus in &buses {
         let i = bus.index;
+        let scale = scaler.scale(i);
 
-        // LHS: net generation - load
+        // LHS: scale * (net generation - load)
         let gen_at_bus = bus_gen_expr
             .get(&i)
             .cloned()
             .unwrap_or_else(|| Expression::from(0.0));
         let load_at_bus = loads.get(&bus.id).copied().unwrap_or(0.0);
-        let net_injection = gen_at_bus - load_at_bus;
+        let scaled_net_injection = scale * gen_at_bus - scale * load_at_bus;
 
-        // RHS: Σ_j B'[i,j] * θ[j]
-        let mut flow_expr = Expression::from(0.0);
+        // RHS: scale * Σ_j B'[i,j] * θ[j]
+        let mut scaled_flow_expr = Expression::from(0.0);
 
         // Get row i of B' matrix
         let row = b_view.outer_view(i);
         if let Some(row_view) = row {
             for (j, &b_ij) in row_view.iter() {
                 if let Some(&theta_j) = theta_vars.get(&j) {
-                    flow_expr += b_ij * theta_j;
+                    // Apply row scaling to B' coefficient
+                    scaled_flow_expr += (scale * b_ij) * theta_j;
                 }
                 // If j is reference bus (not in theta_vars), θ_j = 0, no contribution
             }
         }
 
-        // Constraint: net_injection = flow_expr
-        problem = problem.with(constraint!(net_injection - flow_expr == 0.0));
+        // Scaled constraint: scaled_net_injection = scaled_flow_expr
+        problem = problem.with(constraint!(scaled_net_injection - scaled_flow_expr == 0.0));
     }
 
-    // Solve
-    let solution = problem
-        .solve()
-        .map_err(|e| OpfError::NumericalIssue(format!("LP solver failed: {:?}", e)))?;
+    // Solve with enhanced error diagnostics
+    let solution = problem.solve().map_err(|e| {
+        let err_str = format!("{:?}", e);
+        let (scale_min, scale_avg, scale_max) = scaler.stats();
+        let hint = if err_str.contains("Infeasible") {
+            format!(
+                "Problem likely over-constrained. Network stats: {} buses, {} generators, {} branches, \
+                 total load={:.1} MW, gen capacity={:.1}-{:.1} MW. \
+                 Scaling factors: min={:.2e}, avg={:.2e}, max={:.2e}",
+                buses.len(), generators.len(), branches.len(),
+                total_load, total_pmin, total_pmax,
+                scale_min, scale_avg, scale_max
+            )
+        } else if err_str.contains("Numerical") {
+            format!(
+                "Numerical issues despite scaling. Network: {} buses, {} branches. \
+                 Scaling factors: min={:.2e}, avg={:.2e}, max={:.2e} (ratio={:.2e}). \
+                 Consider checking for extreme impedance values or isolated subnetworks.",
+                buses.len(), branches.len(),
+                scale_min, scale_avg, scale_max, scale_max / scale_min.max(1e-15)
+            )
+        } else {
+            format!(
+                "Network: {} buses, {} gens, {} branches. Scaling: {:.2e}-{:.2e}",
+                buses.len(), generators.len(), branches.len(), scale_min, scale_max
+            )
+        };
+        OpfError::NumericalIssue(format!("LP solver failed: {:?}. {}", e, hint))
+    })?;
 
     // === Extract Results ===
     let mut result = OpfSolution {

@@ -1,0 +1,5 @@
+error: unexpected argument '' found
+
+Usage: gat-cli benchmark pfdelta [OPTIONS] --pfdelta-root <PFDELTA_ROOT> --out <OUT>
+
+For more information, try '--help'.
