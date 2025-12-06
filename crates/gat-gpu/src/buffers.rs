@@ -45,6 +45,38 @@ impl<T: Pod + Zeroable> GpuBuffer<T> {
         }
     }
 
+    /// Create a new GPU uniform buffer with initial data
+    pub fn new_uniform(ctx: &GpuContext, data: &[T], label: &str) -> Self {
+        let size = data.len();
+        let byte_size = std::mem::size_of_val(data) as u64;
+
+        // Uniform buffer for shader constants
+        let buffer = ctx
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(label),
+                contents: bytemuck::cast_slice(data),
+                usage: wgpu::BufferUsages::UNIFORM
+                    | wgpu::BufferUsages::COPY_DST
+                    | wgpu::BufferUsages::COPY_SRC,
+            });
+
+        // Staging buffer for CPU readback
+        let staging = ctx.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some(&format!("{}_staging", label)),
+            size: byte_size,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        Self {
+            buffer,
+            staging,
+            size,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
     /// Read buffer contents back to CPU
     pub fn read(&self, ctx: &GpuContext) -> Vec<T> {
         // Copy from storage to staging
