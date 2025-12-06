@@ -489,6 +489,9 @@ impl IpoptOption for &str {
 // CALLBACK TRAMPOLINES
 // ============================================================================
 
+/// Maximum reasonable problem size to prevent integer overflow in slice creation.
+const MAX_PROBLEM_SIZE: usize = 10_000_000;
+
 /// Callback for objective evaluation.
 extern "C" fn eval_f_callback<P: ConstrainedProblem>(
     n: Index,
@@ -497,8 +500,17 @@ extern "C" fn eval_f_callback<P: ConstrainedProblem>(
     obj_value: *mut Number,
     user_data: UserDataPtr,
 ) -> c_int {
+    // Safety checks for all pointers and sizes
+    if user_data.is_null() || x.is_null() || obj_value.is_null() {
+        return 0;
+    }
+    let n_usize = n as usize;
+    if n < 0 || n_usize > MAX_PROBLEM_SIZE {
+        return 0;
+    }
+
     let problem = unsafe { &*(user_data as *const P) };
-    let x_slice = unsafe { std::slice::from_raw_parts(x, n as usize) };
+    let x_slice = unsafe { std::slice::from_raw_parts(x, n_usize) };
     let mut obj = 0.0;
     let success = problem.objective(x_slice, new_x != 0, &mut obj);
     if success {
@@ -517,9 +529,18 @@ extern "C" fn eval_grad_f_callback<P: ConstrainedProblem>(
     grad_f: *mut Number,
     user_data: UserDataPtr,
 ) -> c_int {
+    // Safety checks for all pointers and sizes
+    if user_data.is_null() || x.is_null() || grad_f.is_null() {
+        return 0;
+    }
+    let n_usize = n as usize;
+    if n < 0 || n_usize > MAX_PROBLEM_SIZE {
+        return 0;
+    }
+
     let problem = unsafe { &*(user_data as *const P) };
-    let x_slice = unsafe { std::slice::from_raw_parts(x, n as usize) };
-    let grad_slice = unsafe { std::slice::from_raw_parts_mut(grad_f, n as usize) };
+    let x_slice = unsafe { std::slice::from_raw_parts(x, n_usize) };
+    let grad_slice = unsafe { std::slice::from_raw_parts_mut(grad_f, n_usize) };
     if problem.objective_grad(x_slice, new_x != 0, grad_slice) {
         1
     } else {
@@ -536,9 +557,19 @@ extern "C" fn eval_g_callback<P: ConstrainedProblem>(
     g: *mut Number,
     user_data: UserDataPtr,
 ) -> c_int {
+    // Safety checks for all pointers and sizes
+    if user_data.is_null() || x.is_null() || g.is_null() {
+        return 0;
+    }
+    let n_usize = n as usize;
+    let m_usize = m as usize;
+    if n < 0 || n_usize > MAX_PROBLEM_SIZE || m < 0 || m_usize > MAX_PROBLEM_SIZE {
+        return 0;
+    }
+
     let problem = unsafe { &*(user_data as *const P) };
-    let x_slice = unsafe { std::slice::from_raw_parts(x, n as usize) };
-    let g_slice = unsafe { std::slice::from_raw_parts_mut(g, m as usize) };
+    let x_slice = unsafe { std::slice::from_raw_parts(x, n_usize) };
+    let g_slice = unsafe { std::slice::from_raw_parts_mut(g, m_usize) };
     if problem.constraint(x_slice, new_x != 0, g_slice) {
         1
     } else {
@@ -558,11 +589,23 @@ extern "C" fn eval_jac_g_callback<P: ConstrainedProblem>(
     values: *mut Number,
     user_data: UserDataPtr,
 ) -> c_int {
-    let problem = unsafe { &*(user_data as *const P) };
+    // Safety checks for user_data and size
+    if user_data.is_null() {
+        return 0;
+    }
     let nnz = nele_jac as usize;
+    let n_usize = n as usize;
+    if nele_jac < 0 || nnz > MAX_PROBLEM_SIZE || n < 0 || n_usize > MAX_PROBLEM_SIZE {
+        return 0;
+    }
+
+    let problem = unsafe { &*(user_data as *const P) };
 
     if values.is_null() {
-        // Structure query
+        // Structure query - iRow and jCol must be valid
+        if iRow.is_null() || jCol.is_null() {
+            return 0;
+        }
         let irow_slice = unsafe { std::slice::from_raw_parts_mut(iRow, nnz) };
         let jcol_slice = unsafe { std::slice::from_raw_parts_mut(jCol, nnz) };
         if problem.constraint_jacobian_indices(irow_slice, jcol_slice) {
@@ -571,8 +614,11 @@ extern "C" fn eval_jac_g_callback<P: ConstrainedProblem>(
             0
         }
     } else {
-        // Value query
-        let x_slice = unsafe { std::slice::from_raw_parts(x, n as usize) };
+        // Value query - x and values must be valid
+        if x.is_null() {
+            return 0;
+        }
+        let x_slice = unsafe { std::slice::from_raw_parts(x, n_usize) };
         let vals_slice = unsafe { std::slice::from_raw_parts_mut(values, nnz) };
         if problem.constraint_jacobian_values(x_slice, new_x != 0, vals_slice) {
             1
@@ -597,11 +643,29 @@ extern "C" fn eval_h_callback<P: ConstrainedProblem>(
     values: *mut Number,
     user_data: UserDataPtr,
 ) -> c_int {
-    let problem = unsafe { &*(user_data as *const P) };
+    // Safety: Validate user_data pointer before dereferencing
+    if user_data.is_null() {
+        return 0;
+    }
+
+    // Safety: Validate size parameters to prevent integer overflow
+    let n_usize = n as usize;
+    let m_usize = m as usize;
     let nnz = nele_hess as usize;
+    if n < 0 || m < 0 || nele_hess < 0 {
+        return 0;
+    }
+    if n_usize > MAX_PROBLEM_SIZE || m_usize > MAX_PROBLEM_SIZE || nnz > MAX_PROBLEM_SIZE {
+        return 0;
+    }
+
+    let problem = unsafe { &*(user_data as *const P) };
 
     if values.is_null() {
-        // Structure query
+        // Structure query - need iRow and jCol
+        if iRow.is_null() || jCol.is_null() {
+            return 0;
+        }
         let irow_slice = unsafe { std::slice::from_raw_parts_mut(iRow, nnz) };
         let jcol_slice = unsafe { std::slice::from_raw_parts_mut(jCol, nnz) };
         if problem.hessian_indices(irow_slice, jcol_slice) {
@@ -610,9 +674,12 @@ extern "C" fn eval_h_callback<P: ConstrainedProblem>(
             0
         }
     } else {
-        // Value query
-        let x_slice = unsafe { std::slice::from_raw_parts(x, n as usize) };
-        let lambda_slice = unsafe { std::slice::from_raw_parts(lambda, m as usize) };
+        // Value query - need x, lambda, and values
+        if x.is_null() || lambda.is_null() {
+            return 0;
+        }
+        let x_slice = unsafe { std::slice::from_raw_parts(x, n_usize) };
+        let lambda_slice = unsafe { std::slice::from_raw_parts(lambda, m_usize) };
         let vals_slice = unsafe { std::slice::from_raw_parts_mut(values, nnz) };
         if problem.hessian_values(x_slice, new_x != 0, obj_factor, lambda_slice, vals_slice) {
             1

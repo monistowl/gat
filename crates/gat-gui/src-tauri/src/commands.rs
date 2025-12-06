@@ -2532,6 +2532,7 @@ pub struct GeneratorExport {
     pub p_max_mw: f64,
     pub q_min_mvar: f64,
     pub q_max_mvar: f64,
+    pub cost_coeffs: Vec<f64>,
     pub status: bool,
 }
 

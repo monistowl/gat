@@ -45,11 +45,13 @@
 
 pub mod error;
 pub mod ipc;
+pub mod plugin;
 pub mod problem;
 pub mod solution;
 pub mod subprocess;
 
 pub use error::{ExitCode, SolverError};
+pub use plugin::{run_solver_plugin, SolverPlugin};
 pub use problem::{ProblemBatch, ProblemType};
 pub use solution::{SolutionBatch, SolutionStatus};
 pub use subprocess::SolverProcess;

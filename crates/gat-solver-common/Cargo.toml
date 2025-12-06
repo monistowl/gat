@@ -11,8 +11,10 @@ default = []
 anyhow = "1.0"
 arrow = { version = "54", default-features = false, features = ["ipc", "prettyprint"] }
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "2.0"
+thiserror.workspace = true
 tokio = { version = "1", features = ["process", "io-util", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dirs = "5.0"
 which = "7.0"
 

@@ -2695,7 +2695,7 @@ dependencies = [
 
 [[package]]
 name = "gat-adms"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -2708,7 +2708,7 @@ dependencies = [
 
 [[package]]
 name = "gat-algo"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "argmin",
@@ -2733,12 +2733,12 @@ dependencies = [
  "serde_json",
  "sprs",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
 name = "gat-batch"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2755,7 +2755,7 @@ dependencies = [
 
 [[package]]
 name = "gat-cbc"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "gat-coinor-build",
@@ -2768,7 +2768,7 @@ dependencies = [
 
 [[package]]
 name = "gat-cli"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -2815,7 +2815,7 @@ dependencies = [
 
 [[package]]
 name = "gat-clp"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "gat-coinor-build",
@@ -2828,7 +2828,7 @@ dependencies = [
 
 [[package]]
 name = "gat-coinor-build"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "cc",
@@ -2838,7 +2838,7 @@ dependencies = [
 
 [[package]]
 name = "gat-core"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "faer",
@@ -2850,7 +2850,7 @@ dependencies = [
 
 [[package]]
 name = "gat-derms"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "polars",
@@ -2859,7 +2859,7 @@ dependencies = [
 
 [[package]]
 name = "gat-dist"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -2872,7 +2872,7 @@ dependencies = [
 
 [[package]]
 name = "gat-gui"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -2884,7 +2884,7 @@ dependencies = [
 
 [[package]]
 name = "gat-gui-desktop"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "dirs 5.0.1",
  "gat-algo",
@@ -2906,7 +2906,7 @@ dependencies = [
 
 [[package]]
 name = "gat-io"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "arrow-schema",
@@ -2923,14 +2923,14 @@ dependencies = [
  "sha2",
  "sophia",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "ureq",
  "zip 0.6.6",
 ]
 
 [[package]]
 name = "gat-ipopt"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "gat-algo",
@@ -2945,11 +2945,11 @@ dependencies = [
 
 [[package]]
 name = "gat-ipopt-sys"
-version = "0.5.3"
+version = "0.5.4"
 
 [[package]]
 name = "gat-mcp-docs"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "axum",
@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "gat-notebook"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "serde",
@@ -2973,7 +2973,7 @@ dependencies = [
 
 [[package]]
 name = "gat-scenarios"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2989,7 +2989,7 @@ dependencies = [
 
 [[package]]
 name = "gat-schemas"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "serde",
  "serde_json",
@@ -2997,7 +2997,7 @@ dependencies = [
 
 [[package]]
 name = "gat-solver-common"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "arrow",
@@ -3006,12 +3006,14 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.17",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "which",
 ]
 
 [[package]]
 name = "gat-ts"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "gat-core",
@@ -3021,7 +3023,7 @@ dependencies = [
 
 [[package]]
 name = "gat-tui"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3032,7 +3034,6 @@ dependencies = [
  "gat-algo",
  "gat-core",
  "gat-io",
- "iocraft",
  "once_cell",
  "parking_lot",
  "serde",
@@ -3051,7 +3052,7 @@ dependencies = [
 
 [[package]]
 name = "gat-ui-common"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3073,7 +3074,7 @@ dependencies = [
 
 [[package]]
 name = "gat-viz"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "fdg-sim",
  "gat-core",
@@ -3962,13 +3963,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "iocraft"
-version = "0.5.3"
-dependencies = [
- "termios",
 ]
 
 [[package]]
@@ -7982,15 +7976,6 @@ dependencies = [
  "futf",
  "mac",
  "utf-8",
-]
-
-[[package]]
-name = "termios"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "411c5bf740737c7918b8b1fe232dca4dc9f8e754b8ad5e20966814001ed0ac6b"
-dependencies = [
- "libc",
 ]
 
 [[package]]

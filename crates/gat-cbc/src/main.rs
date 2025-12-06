@@ -37,6 +37,7 @@ use std::io::{self, Read, Write};
 use tracing::{debug, error, info};
 
 // FFI bindings to CBC C interface
+#[allow(dead_code)]
 mod cbc_ffi {
     use std::os::raw::{c_char, c_double, c_int};
 

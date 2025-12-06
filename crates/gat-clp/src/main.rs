@@ -38,8 +38,9 @@ use std::io::{self, Read, Write};
 use tracing::{debug, error, info, warn};
 
 // FFI bindings to CLP C interface
+#[allow(dead_code)]
 mod clp_ffi {
-    use std::os::raw::{c_char, c_double, c_int};
+    use std::os::raw::{c_double, c_int};
 
     #[repr(C)]
     pub struct Clp_Simplex {
@@ -258,9 +259,7 @@ fn solve_with_clp(problem: &ProblemBatch) -> Result<SolutionBatch> {
 
     // Compute load at each bus
     let mut bus_load: Vec<f64> = vec![0.0; n_bus];
-    for i in 0..n_bus {
-        bus_load[i] = problem.bus_p_load[i];
-    }
+    bus_load[..n_bus].copy_from_slice(&problem.bus_p_load[..n_bus]);
 
     // Build generator bus mapping
     let gen_bus_idx: Vec<usize> = problem

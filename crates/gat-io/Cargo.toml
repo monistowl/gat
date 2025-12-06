@@ -19,7 +19,7 @@ anyhow = "1.0"
 arrow-schema = "54"
 caseformat = { version = "0.1", default-features = false }
 gat-core = { path = "../gat-core" }
-thiserror = "1.0"
+thiserror.workspace = true
 # Note: polars unused when building with feature `wasm`
 polars = { version = "0.35", default-features = false, features = ["lazy", "csv"], optional = true }
 power_flow_data = "0.1"

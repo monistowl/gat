@@ -105,6 +105,7 @@
 //! that construct [`Network`] graphs from external data.
 
 use petgraph::{prelude::*, Undirected};
+use serde::{Deserialize, Serialize};
 
 pub mod diagnostics;
 pub mod graph_utils;
@@ -121,68 +122,86 @@ pub use units::{
 };
 
 // Newtype wrappers for IDs for type safety
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct BusId(usize);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct BranchId(usize);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct GenId(usize);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct LoadId(usize);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct TransformerId(usize);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct ShuntId(usize);
 
 impl BusId {
+    #[inline]
     pub fn new(value: usize) -> Self {
         BusId(value)
     }
+    #[inline]
     pub fn value(&self) -> usize {
         self.0
     }
 }
 
 impl BranchId {
+    #[inline]
     pub fn new(value: usize) -> Self {
         BranchId(value)
     }
+    #[inline]
     pub fn value(&self) -> usize {
         self.0
     }
 }
 
 impl GenId {
+    #[inline]
     pub fn new(value: usize) -> Self {
         GenId(value)
     }
+    #[inline]
     pub fn value(&self) -> usize {
         self.0
     }
 }
 
 impl LoadId {
+    #[inline]
     pub fn new(value: usize) -> Self {
         LoadId(value)
     }
+    #[inline]
     pub fn value(&self) -> usize {
         self.0
     }
 }
 
 impl TransformerId {
+    #[inline]
     pub fn new(value: usize) -> Self {
         TransformerId(value)
     }
+    #[inline]
     pub fn value(&self) -> usize {
         self.0
     }
 }
 
 impl ShuntId {
+    #[inline]
     pub fn new(value: usize) -> Self {
         ShuntId(value)
     }
+    #[inline]
     pub fn value(&self) -> usize {
         self.0
     }

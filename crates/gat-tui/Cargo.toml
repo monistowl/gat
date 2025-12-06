@@ -14,7 +14,6 @@ windows = []   # Windows cross-build
 
 [dependencies]
 anyhow = "1.0"
-iocraft = { path = "../iocraft" }
 once_cell = "1.19"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time", "io-util", "process"] }
 crossterm = "0.27"

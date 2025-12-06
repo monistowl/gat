@@ -974,14 +974,15 @@ pub fn state_estimation_wls(
         angle_map.insert(*bus_id, solution[idx]);
     }
 
-    let mut indexes = Vec::new();
-    let mut types = Vec::new();
-    let mut targets = Vec::new();
-    let mut values = Vec::new();
-    let mut estimates = Vec::new();
-    let mut residuals = Vec::new();
-    let mut normalized_residuals = Vec::new();
-    let mut weights = Vec::new();
+    let n_measurements = measurement_rows.len();
+    let mut indexes = Vec::with_capacity(n_measurements);
+    let mut types = Vec::with_capacity(n_measurements);
+    let mut targets = Vec::with_capacity(n_measurements);
+    let mut values = Vec::with_capacity(n_measurements);
+    let mut estimates = Vec::with_capacity(n_measurements);
+    let mut residuals = Vec::with_capacity(n_measurements);
+    let mut normalized_residuals = Vec::with_capacity(n_measurements);
+    let mut weights = Vec::with_capacity(n_measurements);
     let mut chi2 = 0.0;
 
     for (idx, row) in measurement_rows.iter().enumerate() {
@@ -1025,8 +1026,8 @@ pub fn state_estimation_wls(
     .context("writing state estimation measurements")?;
 
     if let Some(state_path) = state_out {
-        let mut bus_ids_vec = Vec::new();
-        let mut angle_vec = Vec::new();
+        let mut bus_ids_vec = Vec::with_capacity(bus_ids.len());
+        let mut angle_vec = Vec::with_capacity(bus_ids.len());
         for bus_id in &bus_ids {
             bus_ids_vec.push(*bus_id as i64);
             angle_vec.push(*angle_map.get(bus_id).unwrap_or(&0.0));
@@ -1071,10 +1072,11 @@ pub(crate) fn branch_flow_dataframe_with_angles(
     skip_branch: Option<i64>,
 ) -> PolarsResult<(DataFrame, f64, f64)> {
     // Each branch flow is computed directly as the angle difference divided by reactance.
-    let mut ids = Vec::new();
-    let mut from_bus = Vec::new();
-    let mut to_bus = Vec::new();
-    let mut flows = Vec::new();
+    let edge_count = network.graph.edge_count();
+    let mut ids = Vec::with_capacity(edge_count);
+    let mut from_bus = Vec::with_capacity(edge_count);
+    let mut to_bus = Vec::with_capacity(edge_count);
+    let mut flows = Vec::with_capacity(edge_count);
 
     for edge_idx in network.graph.edge_indices() {
         if let Edge::Branch(branch) = &network.graph[edge_idx] {
@@ -1116,10 +1118,11 @@ pub(crate) fn branch_flow_dataframe_with_angles(
 }
 
 fn bus_result_dataframe(network: &Network) -> PolarsResult<DataFrame> {
-    let mut ids = Vec::new();
-    let mut names = Vec::new();
-    let mut voltages = Vec::new();
-    let mut angles = Vec::new();
+    let node_count = network.graph.node_count();
+    let mut ids = Vec::with_capacity(node_count);
+    let mut names = Vec::with_capacity(node_count);
+    let mut voltages = Vec::with_capacity(node_count);
+    let mut angles = Vec::with_capacity(node_count);
 
     for node_idx in network.graph.node_indices() {
         if let Node::Bus(bus) = &network.graph[node_idx] {
@@ -1145,11 +1148,12 @@ pub fn write_ac_pf_solution(
     output_path: &Path,
     partitions: &[String],
 ) -> Result<()> {
-    let mut bus_ids: Vec<u32> = Vec::new();
-    let mut bus_names: Vec<String> = Vec::new();
-    let mut vm_values: Vec<f64> = Vec::new();
-    let mut va_values: Vec<f64> = Vec::new();
-    let mut bus_type_values: Vec<String> = Vec::new();
+    let node_count = network.graph.node_count();
+    let mut bus_ids: Vec<u32> = Vec::with_capacity(node_count);
+    let mut bus_names: Vec<String> = Vec::with_capacity(node_count);
+    let mut vm_values: Vec<f64> = Vec::with_capacity(node_count);
+    let mut va_values: Vec<f64> = Vec::with_capacity(node_count);
+    let mut bus_type_values: Vec<String> = Vec::with_capacity(node_count);
 
     for node in network.graph.node_weights() {
         if let Node::Bus(bus) = node {
