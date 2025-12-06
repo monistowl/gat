@@ -22,6 +22,7 @@
 //! This module uses typed IDs (`BranchId`, `BusId`) throughout for compile-time safety,
 //! leveraging the unified [`crate::sparse::SparsePtdf`] sensitivity matrices.
 
+use crate::arena::ArenaContext;
 use crate::sparse::{LodfMatrix, PtdfMatrix, SparsePtdf};
 use anyhow::Result;
 use gat_core::{BranchId, BusId, Edge, Network, Node};
@@ -714,6 +715,158 @@ impl<'a> NkEvaluator<'a> {
         }
     }
 
+    /// Evaluate contingencies with arena allocation for reduced overhead.
+    ///
+    /// Uses per-thread ArenaContext for O(1) bulk deallocation between
+    /// contingency evaluations, significantly reducing allocator pressure
+    /// for large contingency sets (N-2 with 17k+ combinations).
+    pub fn evaluate_all_with_arena(&self, contingencies: &[Contingency]) -> NkEvaluationResults {
+        let evaluations: Vec<ContingencyEvaluation> = contingencies
+            .par_iter()
+            .map_init(
+                ArenaContext::new,
+                |ctx, c| {
+                    let result = self.evaluate_with_arena(c, ctx);
+                    ctx.reset(); // O(1) bulk deallocation
+                    result
+                },
+            )
+            .collect();
+
+        self.build_evaluation_results(evaluations)
+    }
+
+    /// Evaluate a single contingency using arena-allocated temporaries.
+    fn evaluate_with_arena(
+        &self,
+        contingency: &Contingency,
+        ctx: &ArenaContext,
+    ) -> ContingencyEvaluation {
+        // Assign probability if not already set
+        let prob = contingency.probability.unwrap_or_else(|| {
+            self.prob_config
+                .compute_contingency_probability(&contingency.outaged_branches)
+        });
+        let mut contingency_with_prob = contingency.clone();
+        contingency_with_prob.probability = Some(prob);
+
+        // Use arena-allocated HashSet for outaged branches
+        let mut outaged = ctx.alloc_hashset::<BranchId>();
+        for &branch_id in &contingency.outaged_branches {
+            outaged.insert(branch_id);
+        }
+
+        match self.compute_dc_flows_with_outages_arena(&outaged, ctx) {
+            Ok(flows) => {
+                let mut max_loading = 0.0;
+                let mut critical_branch = None;
+                let mut violations = Vec::new();
+
+                for (&branch_id, &flow) in flows.iter() {
+                    if let Some(&limit) = self.branch_limits.get(&branch_id) {
+                        if limit > 0.0 {
+                            let loading = flow.abs() / limit;
+                            if loading > max_loading {
+                                max_loading = loading;
+                                critical_branch = Some(branch_id);
+                            }
+                            if loading > 1.0 {
+                                violations.push(BranchViolation {
+                                    branch_id,
+                                    flow_mw: flow.abs(),
+                                    limit_mw: limit,
+                                    loading_fraction: loading,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                violations.sort_by(|a, b| {
+                    b.loading_fraction
+                        .partial_cmp(&a.loading_fraction)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+
+                let load_shed_mw: f64 = violations
+                    .iter()
+                    .map(|v| (v.flow_mw - v.limit_mw).max(0.0))
+                    .sum();
+
+                let eue_contribution_mwh = prob * load_shed_mw * self.prob_config.exposure_hours;
+
+                let severity_index = if max_loading > 1.0 {
+                    prob * (max_loading - 1.0) * 100.0
+                } else {
+                    0.0
+                };
+
+                // Convert arena HashMap to standard HashMap for return
+                let branch_flows: HashMap<BranchId, f64> =
+                    flows.iter().map(|(&k, &v)| (k, v)).collect();
+
+                ContingencyEvaluation {
+                    contingency: contingency_with_prob,
+                    converged: true,
+                    branch_flows,
+                    max_loading,
+                    critical_branch,
+                    violations,
+                    load_shed_mw,
+                    eue_contribution_mwh,
+                    severity_index,
+                }
+            }
+            Err(_) => ContingencyEvaluation {
+                contingency: contingency_with_prob,
+                converged: false,
+                branch_flows: HashMap::new(),
+                max_loading: f64::INFINITY,
+                critical_branch: None,
+                violations: vec![],
+                load_shed_mw: 0.0,
+                eue_contribution_mwh: 0.0,
+                severity_index: 0.0,
+            },
+        }
+    }
+
+    /// Build NkEvaluationResults from evaluation vector.
+    fn build_evaluation_results(
+        &self,
+        evaluations: Vec<ContingencyEvaluation>,
+    ) -> NkEvaluationResults {
+        let num_violated = evaluations
+            .iter()
+            .filter(|e| !e.violations.is_empty())
+            .count();
+        let num_non_convergent = evaluations.iter().filter(|e| !e.converged).count();
+
+        let (worst_loading, worst_contingency) = evaluations
+            .iter()
+            .filter(|e| e.converged)
+            .max_by(|a, b| {
+                a.max_loading
+                    .partial_cmp(&b.max_loading)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|e| (e.max_loading, Some(e.contingency.clone())))
+            .unwrap_or((0.0, None));
+
+        let total_eue_mwh: f64 = evaluations.iter().map(|e| e.eue_contribution_mwh).sum();
+        let total_load_shed_mw: f64 = evaluations.iter().map(|e| e.load_shed_mw).sum();
+
+        NkEvaluationResults {
+            evaluations,
+            num_violated,
+            num_non_convergent,
+            worst_loading,
+            worst_contingency,
+            total_eue_mwh,
+            total_load_shed_mw,
+        }
+    }
+
     /// Simplified DC power flow with outaged branches.
     fn compute_dc_flows_with_outages(
         &self,
@@ -795,6 +948,98 @@ impl<'a> NkEvaluator<'a> {
         // Compute branch flows
         let mut flows = HashMap::new();
         for (id, from, to, x) in branches {
+            let i = *bus_to_idx.get(&from).unwrap();
+            let j = *bus_to_idx.get(&to).unwrap();
+            let flow = (theta[i] - theta[j]) / x * 100.0; // Convert to MW (base 100 MVA)
+            flows.insert(id, flow);
+        }
+
+        Ok(flows)
+    }
+
+    /// Compute DC flows with arena-allocated temporaries.
+    ///
+    /// This version uses arena-backed collections for bus_ids, bus_to_idx,
+    /// branches, and flows to reduce allocation overhead in parallel loops.
+    fn compute_dc_flows_with_outages_arena<'b>(
+        &self,
+        outaged: &hashbrown::HashSet<BranchId, hashbrown::DefaultHashBuilder, &bumpalo::Bump>,
+        ctx: &'b ArenaContext,
+    ) -> Result<hashbrown::HashMap<BranchId, f64, hashbrown::DefaultHashBuilder, &'b bumpalo::Bump>>
+    {
+        // Build susceptance matrix excluding outaged branches
+        let mut bus_ids = ctx.alloc_vec::<BusId>();
+        for idx in self.network.graph.node_indices() {
+            if let Node::Bus(bus) = &self.network.graph[idx] {
+                bus_ids.push(bus.id);
+            }
+        }
+        bus_ids.sort_unstable_by_key(|id| id.value());
+
+        let n = bus_ids.len();
+        if n < 2 {
+            return Ok(ctx.alloc_hashmap());
+        }
+
+        let mut bus_to_idx = ctx.alloc_hashmap::<BusId, usize>();
+        for (idx, &id) in bus_ids.iter().enumerate() {
+            bus_to_idx.insert(id, idx);
+        }
+
+        // Build B' matrix (standard Vec - small relative to hash allocations)
+        let mut b_matrix = vec![vec![0.0; n]; n];
+        let mut branches = ctx.alloc_vec::<(BranchId, BusId, BusId, f64)>();
+
+        for edge in self.network.graph.edge_references() {
+            if let Edge::Branch(branch) = edge.weight() {
+                if !branch.status || outaged.contains(&branch.id) {
+                    continue;
+                }
+                let from = branch.from_bus;
+                let to = branch.to_bus;
+                let x = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
+
+                if let (Some(&i), Some(&j)) = (bus_to_idx.get(&from), bus_to_idx.get(&to)) {
+                    let b = 1.0 / x;
+                    b_matrix[i][j] -= b;
+                    b_matrix[j][i] -= b;
+                    b_matrix[i][i] += b;
+                    b_matrix[j][j] += b;
+                }
+                branches.push((branch.id, from, to, x));
+            }
+        }
+
+        // Build RHS from injections
+        let mut rhs = vec![0.0; n];
+        for (&bus_id, &inj) in &self.injections {
+            if let Some(&idx) = bus_to_idx.get(&bus_id) {
+                rhs[idx] = inj;
+            }
+        }
+
+        // Solve reduced system (slack = first bus)
+        let m = n - 1;
+        let mut reduced = vec![vec![0.0; m]; m];
+        let mut reduced_rhs = vec![0.0; m];
+        for i in 0..m {
+            for j in 0..m {
+                reduced[i][j] = b_matrix[i + 1][j + 1];
+            }
+            reduced_rhs[i] = rhs[i + 1];
+        }
+
+        let angles = solve_linear_system(&reduced, &reduced_rhs)?;
+
+        // Full angles (slack = 0)
+        let mut theta = vec![0.0; n];
+        for i in 0..m {
+            theta[i + 1] = angles[i];
+        }
+
+        // Compute branch flows into arena-allocated HashMap
+        let mut flows = ctx.alloc_hashmap::<BranchId, f64>();
+        for &(id, from, to, x) in branches.iter() {
             let i = *bus_to_idx.get(&from).unwrap();
             let j = *bus_to_idx.get(&to).unwrap();
             let flow = (theta[i] - theta[j]) / x * 100.0; // Convert to MW (base 100 MVA)
@@ -1361,6 +1606,38 @@ mod tests {
                 (final_total - results.total_eue_mwh).abs() < 1e-6,
                 "Cumulative EUE should sum to total"
             );
+        }
+    }
+
+    #[test]
+    fn test_nk_evaluator_arena_allocation() {
+        // This test verifies that NkEvaluator can use ArenaContext
+        // for its parallel evaluations, reducing allocation overhead.
+        let network = create_test_network();
+
+        let injections = HashMap::from([(BusId::new(1), 1.0), (BusId::new(3), -1.0)]);
+        let branch_limits = HashMap::from([
+            (BranchId::new(1), 100.0),
+            (BranchId::new(2), 100.0),
+            (BranchId::new(3), 100.0),
+        ]);
+
+        let evaluator = NkEvaluator::new(&network, injections, branch_limits);
+
+        // Create N-1 contingencies
+        let contingencies: Vec<Contingency> = vec![
+            Contingency::single(BranchId::new(1)),
+            Contingency::single(BranchId::new(2)),
+            Contingency::single(BranchId::new(3)),
+        ];
+
+        // Evaluate using arena-backed method
+        let results = evaluator.evaluate_all_with_arena(&contingencies);
+
+        // Should produce same results as non-arena version
+        assert_eq!(results.evaluations.len(), contingencies.len());
+        for eval in &results.evaluations {
+            assert!(eval.converged, "All N-1 contingencies should converge");
         }
     }
 }
