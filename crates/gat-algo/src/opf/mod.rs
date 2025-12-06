@@ -32,6 +32,7 @@ pub mod native_dispatch;
 mod socp;
 mod types;
 pub mod traits;
+pub mod registry;
 
 pub use dispatch::{DispatchConfig, ProblemClass, SolverBackend, SolverDispatcher};
 pub use types::{
@@ -39,6 +40,7 @@ pub use types::{
     SocpWarmStart,
 };
 pub use traits::{OpfBackend, OpfFormulation, OpfProblem, SolverConfig, WarmStartKind};
+pub use registry::SolverRegistry;
 
 use crate::OpfError;
 use gat_core::Network;
