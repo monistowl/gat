@@ -18,6 +18,19 @@ Performs the classical DC approximation (`B' θ = P`) with configurable solver/b
 
 The command prints branch counts, min/max flow, and the `pf-dc/.run.json` manifest for `gat runs resume`.
 
+**New in v0.6:** Stdout piping and additional flags:
+
+```bash
+# Write JSON to stdout for piping
+gat pf dc grid.arrow -o - | jq '.[] | select(.flow_mw > 50)'
+
+# Override slack bus selection
+gat pf dc grid.arrow --out flows.parquet --slack-bus 1
+
+# Set system base MVA (global flag)
+gat pf dc grid.arrow --base-mva 100 --out flows.parquet
+```
+
 ### AC Power Flow
 
 ```bash

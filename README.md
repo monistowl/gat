@@ -243,9 +243,12 @@ For scripting, batch jobs, CI/CD pipelines, and reproducible workflows.
 - See `docs/guide/overview.md` for command reference
 
 ```bash
-gat pf dc grid.arrow --out flows.parquet
-gat opf dc grid.arrow --cost costs.csv --limits limits.csv --out dispatch.parquet
-gat batch pf --manifest scenario_manifest.json --out batch_results
+gat pf dc grid.arrow -o flows.parquet
+gat opf dc grid.arrow --cost costs.csv --limits limits.csv -o dispatch.parquet
+gat batch pf --manifest scenario_manifest.json -d batch_results
+
+# v0.6: Pipe JSON to stdout for downstream tools
+gat pf dc grid.arrow -o - | jq '.[] | select(.flow_mw > 100)'
 ```
 
 ### Terminal UI (TUI)
@@ -315,7 +318,7 @@ See `crates/gat-gui/README.md` for architecture details and keyboard shortcuts.
 
 ```bash
 gat import matpower --m test_data/matpower/edge_cases/case9.m -o grid.arrow
-gat pf dc grid.arrow --out out/dc-flows.parquet
+gat pf dc grid.arrow -o out/dc-flows.parquet
 ```
 
 **What this does:**
@@ -331,7 +334,7 @@ gat opf dc test_data/matpower/case9.arrow \
   --cost test_data/opf/costs.csv \
   --limits test_data/opf/limits.csv \
   --piecewise test_data/opf/piecewise.csv \
-  --out out/dc-opf.parquet
+  -o out/dc-opf.parquet
 ```
 
 **Inputs:**
@@ -472,8 +475,8 @@ Use `gat --help` and `gat <command> --help` for detailed flags and examples.
 ### Import a Grid and Run Power Flow
 
 ```bash
-gat import matpower case9.raw --out grid.arrow
-gat pf dc grid.arrow --out flows.parquet
+gat import matpower case9.raw -o grid.arrow
+gat pf dc grid.arrow -o flows.parquet
 ```
 
 ### Explore Interactively with TUI
@@ -493,12 +496,12 @@ gat scenarios validate --spec rts_nminus1.yaml
 gat scenarios materialize \
   --spec rts_nminus1.yaml \
   --grid-file grid.arrow \
-  --out-dir runs/scenarios
+  -d runs/scenarios
 
 # 3. Execute as batch
 gat batch opf \
   --manifest runs/scenarios/rts_nminus1/scenario_manifest.json \
-  --out runs/batch/rts_opf \
+  -d runs/batch/rts_opf \
   --max-jobs 4
 
 # 4. Inspect results
@@ -508,13 +511,13 @@ gat runs describe $(gat runs list --root runs --format json | jq -r '.[0].id')
 ### Analyze DER Hosting Capacity
 
 ```bash
-gat dist hosting --grid grid.arrow --der-file ders.csv --out hosting_curves.parquet
+gat dist hosting --grid grid.arrow --der-file ders.csv -o hosting_curves.parquet
 ```
 
 ### Extract Reliability Metrics
 
 ```bash
-gat analytics reliability --grid grid.arrow --outages contingencies.yaml --out results.parquet
+gat analytics reliability --grid grid.arrow --outages contingencies.yaml -o results.parquet
 ```
 
 ### Reproduce a Previous Run
@@ -756,17 +759,24 @@ GAT_CONFIG_DIR=/etc/gat  # Custom config location
 
 **Q: Can I pipe data between GAT commands?**
 
-A: Yes. GAT outputs Arrow/Parquet, which is pipe-friendly:
+A: Yes! v0.6 adds full stdout piping with `-o -`:
 
 ```bash
-gat pf dc grid.arrow | gat opf dc --in - --out dispatch.parquet
+# Write JSON to stdout for piping
+gat pf dc grid.arrow -o - | jq '.[] | select(.flow_mw > 50)'
+
+# Inspect generators as JSON Lines
+gat inspect generators grid.arrow -f jsonl | head -5
+
+# Export to CSV
+gat inspect branches grid.arrow -f csv > branches.csv
 ```
 
-However, most workflows use intermediate files (faster, debuggable):
+Most workflows still use intermediate files (faster, debuggable):
 
 ```bash
-gat pf dc grid.arrow --out flows.parquet
-gat opf dc grid.arrow --pf-file flows.parquet --out dispatch.parquet
+gat pf dc grid.arrow -o flows.parquet
+gat opf dc grid.arrow --pf-file flows.parquet -o dispatch.parquet
 ```
 
 ### Troubleshooting

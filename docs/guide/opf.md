@@ -250,12 +250,19 @@ gat opf ac-nlp grid.arrow \
   --tol 1e-4 \
   --max-iter 200 \
   --warm-start dc
+
+# Show per-iteration convergence progress (v0.6+)
+gat opf ac-nlp grid.arrow -o result.json --show-iterations
+
+# Write JSON to stdout for piping (v0.6+)
+gat opf ac-nlp grid.arrow -o - | jq '.generator_p'
 ```
 
 **Options:**
 - `--tol`: Convergence tolerance (default: 1e-4)
 - `--max-iter`: Maximum iterations (default: 200)
 - `--warm-start`: Initialization method: `flat`, `dc`, `socp` (default: `flat`)
+- `--show-iterations`: Display per-iteration convergence progress (v0.6+)
 
 **Output:**
 
@@ -396,9 +403,12 @@ This yields a **linear program** solvable in polynomial time with guaranteed glo
 gat opf dc grid.arrow \
   --cost costs.csv \
   --limits limits.csv \
-  --out dispatch.parquet \
+  -o dispatch.parquet \
   [--branch-limits branch_limits.csv] \
   [--piecewise piecewise.csv]
+
+# Write JSON to stdout for piping (v0.6+)
+gat opf dc grid.arrow --cost costs.csv --limits limits.csv -o - | jq '.[] | select(.flow_mw > 50)'
 ```
 
 **Inputs:**
@@ -409,6 +419,7 @@ gat opf dc grid.arrow \
 
 **Output:**
 - Parquet table with `branch_id`, `from_bus`, `to_bus`, `flow_mw`
+- With `-o -`: JSON to stdout for piping
 
 ---
 
