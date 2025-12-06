@@ -47,6 +47,9 @@ polars-lazy = ["gat-algo/polars-lazy"]
 polars-parquet = ["gat-algo/polars-parquet"]
 polars-ipc = ["gat-algo/polars-ipc"]
 
+# GPU acceleration (optional)
+gpu = ["gat-algo/gpu", "dep:gat-gpu"]
+
 [dependencies]
 gat-core = { path = "../gat-core" }
 gat-io = { path = "../gat-io" }
@@ -62,6 +65,7 @@ gat-viz = { path = "../gat-viz", optional = true }
 gat-gui = { path = "../gat-gui", optional = true }
 gat-notebook = { path = "../gat-notebook", optional = true }
 gat-tui = { path = "../gat-tui", optional = true }
+gat-gpu = { path = "../gat-gpu", optional = true }
 dirs = "4"
 clap = { version = "4.0", features = ["derive"] }
 tracing = "0.1"

@@ -33,6 +33,24 @@ fn main() {
 
     info!("Hello from gat-cli! Running with profile: {}", cli.profile);
 
+    // Handle --gpu flag
+    if cli.gpu {
+        #[cfg(feature = "gpu")]
+        {
+            if gat_gpu::is_gpu_available() {
+                info!("GPU acceleration enabled");
+            } else {
+                error!("GPU requested but no GPU available");
+                std::process::exit(1);
+            }
+        }
+        #[cfg(not(feature = "gpu"))]
+        {
+            error!("GPU requested but gat-cli was not compiled with `gpu` feature. Rebuild with `--features gpu`.");
+            std::process::exit(1);
+        }
+    }
+
     match &cli.command {
         Some(Commands::Import {
             command,

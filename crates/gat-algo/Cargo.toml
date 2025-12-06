@@ -27,6 +27,8 @@ hashbrown = "0.15"
 dirs = { version = "5.0", optional = true }
 # Native IPOPT bindings from vendored sources
 gat-ipopt-sys = { path = "../gat-ipopt-sys", optional = true }
+# GPU acceleration (optional)
+gat-gpu = { path = "../gat-gpu", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -56,6 +58,9 @@ polars-ipc = ["polars/ipc"]
 full = ["all-solvers", "all-polars"]
 # Full feature set WITH native FFI (requires IPOPT at runtime)
 full-native = ["all-solvers-native", "all-polars"]
+
+# GPU acceleration
+gpu = ["gat-gpu"]
 
 # Solver backends
 solver-clarabel = ["good_lp/clarabel"]

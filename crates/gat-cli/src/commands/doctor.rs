@@ -36,12 +36,17 @@ impl Check {
 }
 
 pub fn handle() -> Result<()> {
-    let checks = vec![
+    #[allow(unused_mut)]
+    let mut checks = vec![
         check_path_entries(),
         check_solver_binaries(),
         check_cache_dir(),
         check_test_data(),
     ];
+
+    // GPU check (only if compiled with gpu feature)
+    #[cfg(feature = "gpu")]
+    checks.push(check_gpu());
 
     let mut writer = TabWriter::new(Vec::new()).padding(2);
     writeln!(writer, "Check\tStatus\tDetails")?;
@@ -150,4 +155,13 @@ fn command_on_path(command: &str) -> bool {
                 .find(|candidate| candidate.is_file())
         })
         .is_some()
+}
+
+/// Check GPU availability and report adapter info
+#[cfg(feature = "gpu")]
+fn check_gpu() -> Check {
+    match gat_gpu::GpuContext::new() {
+        Ok(ctx) => Check::ok("gpu", format!("GPU available: {}", ctx.adapter_name())),
+        Err(_) => Check::warn("gpu", "No GPU detected (CPU fallback will be used)"),
+    }
 }

@@ -20,6 +20,10 @@ pub struct Cli {
     #[arg(long, global = true, default_value = "100.0")]
     pub base_mva: f64,
 
+    /// Enable GPU acceleration for supported operations (requires `gpu` feature)
+    #[arg(long, global = true)]
+    pub gpu: bool,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }

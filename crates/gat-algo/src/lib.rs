@@ -83,6 +83,12 @@ pub mod opf;
 pub mod power_flow;
 pub mod reliability_monte_carlo;
 pub mod sparse;
+
+// GPU-accelerated modules (optional feature)
+#[cfg(feature = "gpu")]
+pub mod gpu_monte_carlo;
+#[cfg(feature = "gpu")]
+pub use gpu_monte_carlo::GpuMonteCarlo;
 pub mod tep;
 pub mod test_utils;
 pub mod validation;
