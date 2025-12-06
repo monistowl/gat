@@ -187,45 +187,45 @@ pub enum ImportCommands {
     Auto {
         /// Path to the input file
         input: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
     /// Import PSS/E RAW file
     Psse {
         /// Path to the RAW file
         #[arg(long)]
         raw: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
     /// Import MATPOWER case file
     Matpower {
         /// Path to the MATPOWER .m file
         #[arg(long)]
         m: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
     /// Import CIM RDF file
     Cim {
         /// Path to the CIM RDF file
         #[arg(long)]
         rdf: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
     /// Import pandapower JSON file
     Pandapower {
         /// Path to the pandapower JSON file
         #[arg(long)]
         json: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
 }
 

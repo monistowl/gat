@@ -40,7 +40,7 @@ pub fn handle(
 
     // Extract format and input path from command
     let (format, input_path, output) = match command {
-        ImportCommands::Auto { input, output } => {
+        ImportCommands::Auto { input, out } => {
             // Auto-detect format from file
             let path = Path::new(input);
             let (detected_format, confidence) = Format::detect(path)
@@ -56,13 +56,13 @@ pub fn handle(
             };
             eprintln!("Detected format: {} ({})", detected_format, confidence_str);
 
-            (detected_format, input.as_str(), output.as_deref())
+            (detected_format, input.as_str(), out.as_deref())
         }
-        ImportCommands::Psse { raw, output } => (Format::Psse, raw.as_str(), output.as_deref()),
-        ImportCommands::Matpower { m, output } => (Format::Matpower, m.as_str(), output.as_deref()),
-        ImportCommands::Cim { rdf, output } => (Format::Cim, rdf.as_str(), output.as_deref()),
-        ImportCommands::Pandapower { json, output } => {
-            (Format::Pandapower, json.as_str(), output.as_deref())
+        ImportCommands::Psse { raw, out } => (Format::Psse, raw.as_str(), out.as_deref()),
+        ImportCommands::Matpower { m, out } => (Format::Matpower, m.as_str(), out.as_deref()),
+        ImportCommands::Cim { rdf, out } => (Format::Cim, rdf.as_str(), out.as_deref()),
+        ImportCommands::Pandapower { json, out } => {
+            (Format::Pandapower, json.as_str(), out.as_deref())
         }
     };
 
