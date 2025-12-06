@@ -10,14 +10,14 @@ fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Net
     let bus1_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: format!("{}_bus1", name),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: format!("{}_bus2", name),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -25,12 +25,12 @@ fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Net
         id: GenId::new(0),
         name: format!("{}_gen", name),
         bus: BusId::new(0),
-        active_power_mw: gen_capacity,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: gen_capacity,
-        qmin_mvar: f64::NEG_INFINITY,
-        qmax_mvar: f64::INFINITY,
+        active_power: gat_core::Megawatts(gen_capacity),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(gen_capacity),
+        qmin: gat_core::Megavars(f64::NEG_INFINITY),
+        qmax: gat_core::Megavars(f64::INFINITY),
         cost_model: gat_core::CostModel::NoCost,
         is_synchronous_condenser: false,
         ..Gen::default()
@@ -40,8 +40,8 @@ fn create_test_network(name: &str, gen_capacity: f64, load_capacity: f64) -> Net
         id: LoadId::new(0),
         name: format!("{}_load", name),
         bus: BusId::new(1),
-        active_power_mw: load_capacity,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(load_capacity),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     network.graph.add_edge(

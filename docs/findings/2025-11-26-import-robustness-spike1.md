@@ -134,7 +134,7 @@ Ran baseline tests against the existing test corpus. **Critical bug found in PSS
 
 1. Added `parse_psse_transformer_v33()` - parses multi-line transformer records (4 lines for 2-winding)
 2. Updated main parsing loop to collect transformer lines and detect record boundaries
-3. Transformers are converted to `PsseBranch` with `tap_ratio` and `phase_shift_rad` values
+3. Transformers are converted to `PsseBranch` with `tap_ratio` and `phase_shift` values
 
 **Verification Results (with transformers):**
 

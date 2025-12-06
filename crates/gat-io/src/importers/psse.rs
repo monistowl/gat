@@ -691,7 +691,7 @@ fn build_network_from_psse(
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id,
             name: bus.name,
-            voltage_kv: bus.voltage_kv,
+            base_kv: gat_core::Kilovolts(bus.voltage_kv),
             ..Bus::default()
         }));
         bus_index_map.insert(bus.id, node_idx);
@@ -715,8 +715,8 @@ fn build_network_from_psse(
             id: LoadId::new(load_id),
             name: format!("PSSE load @ bus {}", bus_idx),
             bus: BusId::new(bus_idx),
-            active_power_mw: pd,
-            reactive_power_mvar: qd,
+            active_power: gat_core::Megawatts(pd),
+            reactive_power: gat_core::Megavars(qd),
         }));
         load_id += 1;
     }
@@ -730,12 +730,12 @@ fn build_network_from_psse(
             id: GenId::new(gen_id),
             name: format!("PSSE gen @ bus {}", gen.bus),
             bus: BusId::new(gen.bus),
-            active_power_mw: gen.pg,
-            reactive_power_mvar: gen.qg,
-            pmin_mw: 0.0,
-            pmax_mw: f64::INFINITY,
-            qmin_mvar: f64::NEG_INFINITY,
-            qmax_mvar: f64::INFINITY,
+            active_power: gat_core::Megawatts(gen.pg),
+            reactive_power: gat_core::Megavars(gen.qg),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(f64::INFINITY),
+            qmin: gat_core::Megavars(f64::NEG_INFINITY),
+            qmax: gat_core::Megavars(f64::INFINITY),
             cost_model: gat_core::CostModel::NoCost,
             is_synchronous_condenser: false,
             ..Gen::default()
@@ -759,11 +759,11 @@ fn build_network_from_psse(
             resistance: branch.resistance,
             reactance: branch.reactance,
             tap_ratio: branch.tap_ratio,
-            phase_shift_rad: branch.phase_shift_rad,
-            charging_b_pu: branch.charging_b,
-            s_max_mva: branch.rate_a,
+            phase_shift: gat_core::Radians(branch.phase_shift_rad),
+            charging_b: gat_core::PerUnit(branch.charging_b),
+            s_max: branch.rate_a.map(gat_core::MegavoltAmperes),
             status: branch.in_service,
-            rating_a_mva: branch.rate_a,
+            rating_a: branch.rate_a.map(gat_core::MegavoltAmperes),
             ..Branch::default()
         };
 

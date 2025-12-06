@@ -145,14 +145,14 @@ mod opf_solver_require_native {
         let bus1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(0),
             name: "slack".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
 
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "load_bus".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
 
@@ -176,12 +176,12 @@ mod opf_solver_require_native {
             id: GenId::new(0),
             name: "gen1".to_string(),
             bus: BusId::new(0),
-            active_power_mw: 0.0,
-            reactive_power_mvar: 0.0,
-            pmin_mw: 0.0,
-            pmax_mw: 100.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            active_power: gat_core::Megawatts(0.0),
+            reactive_power: gat_core::Megavars(0.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(100.0),
+            qmin: gat_core::Megavars(-50.0),
+            qmax: gat_core::Megavars(50.0),
             is_synchronous_condenser: false,
             cost_model: CostModel::linear(0.0, 10.0),
             ..Gen::default()
@@ -192,8 +192,8 @@ mod opf_solver_require_native {
             id: LoadId::new(0),
             name: "load1".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 10.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(10.0),
         }));
 
         network
@@ -371,13 +371,13 @@ mod native_dispatch_tests {
         let bus1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(0),
             name: "slack".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "load".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
         network.graph.add_edge(
@@ -397,12 +397,12 @@ mod native_dispatch_tests {
             id: GenId::new(0),
             name: "gen".to_string(),
             bus: BusId::new(0),
-            active_power_mw: 0.0,
-            reactive_power_mvar: 0.0,
-            pmin_mw: 0.0,
-            pmax_mw: 100.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            active_power: gat_core::Megawatts(0.0),
+            reactive_power: gat_core::Megavars(0.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(100.0),
+            qmin: gat_core::Megavars(-50.0),
+            qmax: gat_core::Megavars(50.0),
             is_synchronous_condenser: false,
             cost_model: CostModel::linear(0.0, 10.0),
             ..Gen::default()
@@ -411,8 +411,8 @@ mod native_dispatch_tests {
             id: LoadId::new(0),
             name: "load".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 10.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(10.0),
         }));
 
         let solver = OpfSolver::new()
@@ -440,5 +440,71 @@ mod native_dispatch_tests {
                 );
             }
         }
+    }
+}
+
+// =============================================================================
+// Strategy Pattern (PROJ-2) Tests
+// =============================================================================
+
+mod strategy_pattern {
+    use gat_algo::opf::{OpfDispatcher, SolverRegistry};
+    use std::sync::Arc;
+
+    /// Test that the new dispatcher-based system can be constructed.
+    #[test]
+    fn test_opf_dispatcher_construction() {
+        let registry = SolverRegistry::with_defaults();
+        let _dispatcher = OpfDispatcher::new(Arc::new(registry));
+
+        // Just verify the path compiles and constructs
+    }
+
+    /// Verify that registry with_defaults() registers all expected formulations.
+    #[test]
+    fn test_registry_has_all_formulations() {
+        let registry = SolverRegistry::with_defaults();
+
+        let formulations = registry.list_formulations();
+        assert!(formulations.contains(&"dc-opf"), "missing dc-opf");
+        assert!(formulations.contains(&"socp"), "missing socp");
+        assert!(formulations.contains(&"ac-opf"), "missing ac-opf");
+        assert!(
+            formulations.contains(&"economic-dispatch"),
+            "missing economic-dispatch"
+        );
+    }
+
+    /// Verify that registry with_defaults() registers expected backends.
+    #[test]
+    fn test_registry_has_backends() {
+        let registry = SolverRegistry::with_defaults();
+
+        let backends = registry.list_backends();
+        // At minimum, we should have clarabel and lbfgs
+        assert!(backends.contains(&"clarabel"), "missing clarabel");
+        assert!(backends.contains(&"lbfgs"), "missing lbfgs");
+    }
+
+    /// Test formulation lookup by ID.
+    #[test]
+    fn test_formulation_lookup() {
+        let registry = SolverRegistry::with_defaults();
+
+        assert!(registry.get_formulation("dc-opf").is_some());
+        assert!(registry.get_formulation("ac-opf").is_some());
+        assert!(registry.get_formulation("socp").is_some());
+        assert!(registry.get_formulation("economic-dispatch").is_some());
+        assert!(registry.get_formulation("unknown").is_none());
+    }
+
+    /// Test backend lookup by ID.
+    #[test]
+    fn test_backend_lookup() {
+        let registry = SolverRegistry::with_defaults();
+
+        assert!(registry.get_backend("clarabel").is_some());
+        assert!(registry.get_backend("lbfgs").is_some());
+        assert!(registry.get_backend("unknown").is_none());
     }
 }

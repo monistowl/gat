@@ -138,11 +138,11 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: Some(1),
             zone_id: Some(1),
         }));
@@ -150,11 +150,11 @@ mod tests {
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: Some(1),
             zone_id: Some(1),
         }));
@@ -164,14 +164,14 @@ mod tests {
             id: GenId::new(1),
             name: "Gen 1".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 100.0,
-            reactive_power_mvar: 50.0,
-            pmin_mw: 0.0,
-            pmax_mw: 200.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 100.0,
+            active_power: gat_core::Megawatts(100.0),
+            reactive_power: gat_core::Megavars(50.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(200.0),
+            qmin: gat_core::Megavars(-50.0),
+            qmax: gat_core::Megavars(100.0),
             status: true,
-            voltage_setpoint_pu: Some(1.05),
+            voltage_setpoint: Some(gat_core::PerUnit(1.05)),
             cost_model: CostModel::quadratic(100.0, 20.0, 0.01),
             ..Gen::default()
         }));
@@ -181,8 +181,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Load 1".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 80.0,
-            reactive_power_mvar: 40.0,
+            active_power: gat_core::Megawatts(80.0),
+            reactive_power: gat_core::Megavars(40.0),
         }));
 
         // Add branch
@@ -196,11 +196,11 @@ mod tests {
                 to_bus: BusId::new(2),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
+                charging_b: gat_core::PerUnit(0.02),
                 tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
+                phase_shift: gat_core::Radians(0.0),
                 status: true,
-                rating_a_mva: Some(250.0),
+                rating_a: Some(gat_core::MegavoltAmperes(250.0)),
                 ..Branch::default()
             }),
         );
@@ -297,18 +297,18 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
             ..Default::default()
         }));
 
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
             ..Default::default()
         }));
 
@@ -316,12 +316,12 @@ mod tests {
             id: GenId::new(1),
             name: "Export Gen".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 100.0,
-            reactive_power_mvar: 30.0,
-            pmin_mw: 0.0,
-            pmax_mw: 120.0,
-            qmin_mvar: -40.0,
-            qmax_mvar: 80.0,
+            active_power: gat_core::Megawatts(100.0),
+            reactive_power: gat_core::Megavars(30.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(120.0),
+            qmin: gat_core::Megavars(-40.0),
+            qmax: gat_core::Megavars(80.0),
             status: true,
             cost_model: CostModel::NoCost,
             ..Gen::default()
@@ -331,8 +331,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Export Load".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 85.0,
-            reactive_power_mvar: 35.0,
+            active_power: gat_core::Megawatts(85.0),
+            reactive_power: gat_core::Megavars(35.0),
         }));
 
         network.graph.add_edge(
@@ -345,9 +345,9 @@ mod tests {
                 to_bus: BusId::new(2),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
+                charging_b: gat_core::PerUnit(0.02),
                 status: true,
-                rating_a_mva: Some(200.0),
+                rating_a: Some(gat_core::MegavoltAmperes(200.0)),
                 ..Branch::default()
             }),
         );
@@ -811,11 +811,11 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Slack Bus".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: Some(1),
             zone_id: Some(1),
         }));
@@ -823,11 +823,11 @@ mod tests {
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Load Bus".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: Some(1),
             zone_id: Some(1),
         }));
@@ -837,15 +837,15 @@ mod tests {
             id: GenId::new(1),
             name: "Gen 1".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 100.0,
-            reactive_power_mvar: 50.0,
-            pmin_mw: 10.0,
-            pmax_mw: 200.0,
-            qmin_mvar: -100.0,
-            qmax_mvar: 100.0,
+            active_power: gat_core::Megawatts(100.0),
+            reactive_power: gat_core::Megavars(50.0),
+            pmin: gat_core::Megawatts(10.0),
+            pmax: gat_core::Megawatts(200.0),
+            qmin: gat_core::Megavars(-100.0),
+            qmax: gat_core::Megavars(100.0),
             status: true,
-            voltage_setpoint_pu: Some(1.0),
-            mbase_mva: Some(100.0),
+            voltage_setpoint: Some(gat_core::PerUnit(1.0)),
+            mbase: Some(gat_core::MegavoltAmperes(100.0)),
             cost_model: CostModel::Polynomial(vec![100.0, 20.0, 0.05]), // c0 + c1*P + c2*P^2
             ..Gen::default()
         }));
@@ -855,8 +855,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Load 1".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 90.0,
-            reactive_power_mvar: 40.0,
+            active_power: gat_core::Megawatts(90.0),
+            reactive_power: gat_core::Megavars(40.0),
         }));
 
         // Branch
@@ -870,11 +870,11 @@ mod tests {
                 to_bus: BusId::new(2),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
+                charging_b: gat_core::PerUnit(0.02),
                 tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
+                phase_shift: gat_core::Radians(0.0),
                 status: true,
-                rating_a_mva: Some(100.0),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
                 element_type: "line".to_string(),
                 ..Branch::default()
             }),

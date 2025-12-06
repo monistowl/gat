@@ -112,7 +112,7 @@ pub fn interpolate_q_limits(
         return (default_qmin, default_qmax);
     }
     if curve.len() == 1 {
-        return (curve[0].qmin_mvar, curve[0].qmax_mvar);
+        return (curve[0].qmin, curve[0].qmax);
     }
 
     // Find bracketing points
@@ -120,18 +120,18 @@ pub fn interpolate_q_limits(
         if p_mw >= curve[i].p_mw && p_mw <= curve[i + 1].p_mw {
             // Linear interpolation
             let t = (p_mw - curve[i].p_mw) / (curve[i + 1].p_mw - curve[i].p_mw);
-            let qmin = curve[i].qmin_mvar + t * (curve[i + 1].qmin_mvar - curve[i].qmin_mvar);
-            let qmax = curve[i].qmax_mvar + t * (curve[i + 1].qmax_mvar - curve[i].qmax_mvar);
+            let qmin = curve[i].qmin + t * (curve[i + 1].qmin - curve[i].qmin);
+            let qmax = curve[i].qmax + t * (curve[i + 1].qmax - curve[i].qmax);
             return (qmin, qmax);
         }
     }
 
     // Extrapolate from endpoints
     if p_mw < curve[0].p_mw {
-        (curve[0].qmin_mvar, curve[0].qmax_mvar)
+        (curve[0].qmin, curve[0].qmax)
     } else {
         let last = curve.last().unwrap();
-        (last.qmin_mvar, last.qmax_mvar)
+        (last.qmin, last.qmax)
     }
 }
 
@@ -149,9 +149,9 @@ pub struct CapabilityCurvePoint {
     /// Real power output (MW)
     pub p_mw: f64,
     /// Minimum reactive power at this P (MVAr)
-    pub qmin_mvar: f64,
+    pub qmin: f64,
     /// Maximum reactive power at this P (MVAr)
-    pub qmax_mvar: f64,
+    pub qmax: f64,
 }
 
 /// Generator data extracted from network for OPF optimization.
@@ -168,19 +168,19 @@ pub struct GenData {
 
     /// Minimum real power output (MW).
     /// Below this, the generator must shut down (minimum stable operation).
-    pub pmin_mw: f64,
+    pub pmin: f64,
 
     /// Maximum real power output (MW).
     /// Limited by turbine size, boiler capacity, or heat rate degradation.
-    pub pmax_mw: f64,
+    pub pmax: f64,
 
     /// Minimum reactive power output (MVAr).
     /// Limited by under-excitation (leading power factor) capability.
-    pub qmin_mvar: f64,
+    pub qmin: f64,
 
     /// Maximum reactive power output (MVAr).
     /// Limited by field current heating (lagging power factor).
-    pub qmax_mvar: f64,
+    pub qmax: f64,
 
     /// Cost function coefficients [c₀, c₁, c₂, ...] for polynomial costs.
     /// Cost = c₀ + c₁·P + c₂·P² + ...
@@ -408,8 +408,8 @@ impl AcOpfProblem {
                 Node::Bus(bus) => {
                     // Use actual voltage limits from case data, with sensible defaults
                     // PGLib cases typically use 0.94-1.06 for IEEE cases
-                    let v_min = bus.vmin_pu.unwrap_or(0.9);
-                    let v_max = bus.vmax_pu.unwrap_or(1.1);
+                    let v_min = bus.vmin_pu.map(|v| v.value()).unwrap_or(0.9);
+                    let v_max = bus.vmax_pu.map(|v| v.value()).unwrap_or(1.1);
                     buses.push(BusData {
                         id: bus.id,
                         name: bus.name.clone(),
@@ -427,8 +427,8 @@ impl AcOpfProblem {
                     // Accumulate loads at each bus (there may be multiple)
                     // This handles distributed loads modeled as separate entities
                     let entry = loads.entry(load.bus).or_insert((0.0, 0.0));
-                    entry.0 += load.active_power_mw;
-                    entry.1 += load.reactive_power_mvar;
+                    entry.0 += load.active_power.value();
+                    entry.1 += load.reactive_power.value();
                 }
                 Node::Shunt(shunt) => {
                     // Accumulate shunts at each bus (there may be multiple)
@@ -487,10 +487,10 @@ impl AcOpfProblem {
                 generators.push(GenData {
                     name: gen.name.clone(),
                     bus_id: gen.bus,
-                    pmin_mw: gen.pmin_mw,
-                    pmax_mw: gen.pmax_mw,
-                    qmin_mvar: gen.qmin_mvar,
-                    qmax_mvar: gen.qmax_mvar,
+                    pmin: gen.pmin.value(),
+                    pmax: gen.pmax.value(),
+                    qmin: gen.qmin.value(),
+                    qmax: gen.qmax.value(),
                     cost_coeffs,
                     cost_model: gen.cost_model.clone(),
                     capability_curve: Vec::new(), // Default: use rectangular limits
@@ -551,10 +551,10 @@ impl AcOpfProblem {
                     to_idx,
                     r: branch.resistance,
                     x: branch.reactance,
-                    b_charging: branch.charging_b_pu,
+                    b_charging: branch.charging_b.value(),
                     tap: branch.tap_ratio,
-                    shift: branch.phase_shift_rad,
-                    rate_mva: branch.rating_a_mva.unwrap_or(0.0),
+                    shift: branch.phase_shift.value(),
+                    rate_mva: branch.rating_a.and_then(|v| Some(v.value())).unwrap_or(0.0),
                     angle_diff_max: 0.0, // Default: no limit (could be extracted from Branch if available)
                 });
             }
@@ -644,26 +644,10 @@ impl AcOpfProblem {
         let target_q_gen = total_q_load * 1.10;
 
         // Compute total capacity ranges
-        let total_pmin: f64 = self
-            .generators
-            .iter()
-            .map(|g| g.pmin_mw / self.base_mva)
-            .sum();
-        let total_pmax: f64 = self
-            .generators
-            .iter()
-            .map(|g| g.pmax_mw / self.base_mva)
-            .sum();
-        let total_qmin: f64 = self
-            .generators
-            .iter()
-            .map(|g| g.qmin_mvar / self.base_mva)
-            .sum();
-        let total_qmax: f64 = self
-            .generators
-            .iter()
-            .map(|g| g.qmax_mvar / self.base_mva)
-            .sum();
+        let total_pmin: f64 = self.generators.iter().map(|g| g.pmin / self.base_mva).sum();
+        let total_pmax: f64 = self.generators.iter().map(|g| g.pmax / self.base_mva).sum();
+        let total_qmin: f64 = self.generators.iter().map(|g| g.qmin / self.base_mva).sum();
+        let total_qmax: f64 = self.generators.iter().map(|g| g.qmax / self.base_mva).sum();
 
         let total_p_headroom = total_pmax - total_pmin;
         let total_q_headroom = total_qmax - total_qmin;
@@ -683,10 +667,10 @@ impl AcOpfProblem {
 
         // Set each generator's output proportionally
         for (i, gen) in self.generators.iter().enumerate() {
-            let pmin_pu = gen.pmin_mw / self.base_mva;
-            let pmax_pu = gen.pmax_mw / self.base_mva;
-            let qmin_pu = gen.qmin_mvar / self.base_mva;
-            let qmax_pu = gen.qmax_mvar / self.base_mva;
+            let pmin_pu = gen.pmin / self.base_mva;
+            let pmax_pu = gen.pmax / self.base_mva;
+            let qmin_pu = gen.qmin / self.base_mva;
+            let qmax_pu = gen.qmax / self.base_mva;
 
             x[self.pg_offset + i] = pmin_pu + p_frac * (pmax_pu - pmin_pu);
             x[self.qg_offset + i] = qmin_pu + q_frac * (qmax_pu - qmin_pu);
@@ -772,7 +756,7 @@ impl AcOpfProblem {
 
         for (i, gen) in self.generators.iter().enumerate() {
             if let Some(&pg_mw) = solution.generator_p.get(&gen.name) {
-                let pg_clamped = pg_mw.max(gen.pmin_mw).min(gen.pmax_mw);
+                let pg_clamped = pg_mw.max(gen.pmin).min(gen.pmax);
                 x[self.pg_offset + i] = pg_clamped / self.base_mva;
             }
         }
@@ -786,7 +770,7 @@ impl AcOpfProblem {
 
         for (i, gen) in self.generators.iter().enumerate() {
             if let Some(&qg_mvar) = solution.generator_q.get(&gen.name) {
-                let qg_clamped = qg_mvar.max(gen.qmin_mvar).min(gen.qmax_mvar);
+                let qg_clamped = qg_mvar.max(gen.qmin).min(gen.qmax);
                 x[self.qg_offset + i] = qg_clamped / self.base_mva;
             }
             // If Q not available (DC-OPF), keep the midpoint from flat-start
@@ -1038,7 +1022,8 @@ impl AcOpfProblem {
     /// Length = 2 * number of branches with thermal limits.
     pub fn thermal_constraints(&self, x: &[f64]) -> Vec<f64> {
         let (v, theta) = self.extract_v_theta(x);
-        let mut h = Vec::new();
+        // Pre-allocate: 2 constraints per thermally-limited branch (from + to sides)
+        let mut h = Vec::with_capacity(2 * self.n_thermal_constrained_branches());
 
         for branch in &self.branches {
             // Skip branches without thermal limits
@@ -1221,8 +1206,8 @@ impl AcOpfProblem {
         // P_max: Maximum capacity (turbine/boiler limit)
 
         for (i, gen) in self.generators.iter().enumerate() {
-            lb[self.pg_offset + i] = gen.pmin_mw / self.base_mva;
-            ub[self.pg_offset + i] = gen.pmax_mw / self.base_mva;
+            lb[self.pg_offset + i] = gen.pmin / self.base_mva;
+            ub[self.pg_offset + i] = gen.pmax / self.base_mva;
         }
 
         // ====================================================================
@@ -1237,8 +1222,8 @@ impl AcOpfProblem {
         // These limits form the generator capability curve (D-curve).
 
         for (i, gen) in self.generators.iter().enumerate() {
-            lb[self.qg_offset + i] = gen.qmin_mvar / self.base_mva;
-            ub[self.qg_offset + i] = gen.qmax_mvar / self.base_mva;
+            lb[self.qg_offset + i] = gen.qmin / self.base_mva;
+            ub[self.qg_offset + i] = gen.qmax / self.base_mva;
         }
 
         (lb, ub)
@@ -1287,10 +1272,10 @@ mod tests {
         let pwl_gen = GenData {
             name: "PWL_Gen".to_string(),
             bus_id: BusId::new(1),
-            pmin_mw: 0.0,
-            pmax_mw: 100.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            pmin: 0.0,
+            pmax: 100.0,
+            qmin: -50.0,
+            qmax: 50.0,
             cost_coeffs: vec![], // Ignored for PWL
             cost_model: CostModel::PiecewiseLinear(vec![
                 (0.0, 100.0),    // $100/hr no-load cost
@@ -1303,10 +1288,10 @@ mod tests {
         let poly_gen = GenData {
             name: "Poly_Gen".to_string(),
             bus_id: BusId::new(1),
-            pmin_mw: 0.0,
-            pmax_mw: 100.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            pmin: 0.0,
+            pmax: 100.0,
+            qmin: -50.0,
+            qmax: 50.0,
             cost_coeffs: vec![100.0, 10.0, 0.0],
             cost_model: CostModel::linear(100.0, 10.0),
             capability_curve: Vec::new(),
@@ -1343,7 +1328,7 @@ mod tests {
         let bus_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1352,10 +1337,10 @@ mod tests {
             id: GenId::new(1),
             name: "Gen1".to_string(),
             bus: BusId::new(1),
-            pmin_mw: 10.0,
-            pmax_mw: 100.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            pmin: gat_core::Megawatts(10.0),
+            pmax: gat_core::Megawatts(100.0),
+            qmin: gat_core::Megavars(-50.0),
+            qmax: gat_core::Megavars(50.0),
             cost_model: CostModel::linear(0.0, 10.0),
             ..Gen::default()
         }));
@@ -1364,7 +1349,7 @@ mod tests {
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1418,7 +1403,7 @@ mod tests {
 
         // Q should be midpoint since DC doesn't solve Q
         let gen = &problem.generators[0];
-        let q_midpoint = (gen.qmin_mvar + gen.qmax_mvar) / 2.0 / problem.base_mva;
+        let q_midpoint = (gen.qmin + gen.qmax) / 2.0 / problem.base_mva;
         assert!((x0[problem.qg_offset] - q_midpoint).abs() < 1e-9);
     }
 }

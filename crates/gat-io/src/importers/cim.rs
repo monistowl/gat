@@ -532,7 +532,7 @@ fn build_network_from_cim(
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id: bus_id,
             name: bus.name,
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         node_map.insert(bus.id, (bus_id, node_idx));
@@ -553,8 +553,8 @@ fn build_network_from_cim(
                 id: LoadId::new(load_counter),
                 name,
                 bus: *bus_id,
-                active_power_mw: load.active_power_mw,
-                reactive_power_mvar: load.reactive_power_mvar,
+                active_power: gat_core::Megawatts(load.active_power_mw),
+                reactive_power: gat_core::Megavars(load.reactive_power_mvar),
             }));
             load_counter += 1;
         }
@@ -575,12 +575,12 @@ fn build_network_from_cim(
                 id: GenId::new(gen_counter),
                 name,
                 bus: *bus_id,
-                active_power_mw: gen.active_power_mw,
-                reactive_power_mvar: gen.reactive_power_mvar,
-                pmin_mw: 0.0,
-                pmax_mw: f64::INFINITY,
-                qmin_mvar: f64::NEG_INFINITY,
-                qmax_mvar: f64::INFINITY,
+                active_power: gat_core::Megawatts(gen.active_power_mw),
+                reactive_power: gat_core::Megavars(gen.reactive_power_mvar),
+                pmin: gat_core::Megawatts(0.0),
+                pmax: gat_core::Megawatts(f64::INFINITY),
+                qmin: gat_core::Megavars(f64::NEG_INFINITY),
+                qmax: gat_core::Megavars(f64::INFINITY),
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
                 ..Gen::default()
@@ -667,7 +667,7 @@ fn build_network_from_cim_with_diagnostics(
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id: bus_id,
             name: bus.name,
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         node_map.insert(bus.id, (bus_id, node_idx));
@@ -690,8 +690,8 @@ fn build_network_from_cim_with_diagnostics(
                 id: LoadId::new(load_counter),
                 name,
                 bus: *bus_id,
-                active_power_mw: load.active_power_mw,
-                reactive_power_mvar: load.reactive_power_mvar,
+                active_power: gat_core::Megawatts(load.active_power_mw),
+                reactive_power: gat_core::Megavars(load.reactive_power_mvar),
             }));
             load_counter += 1;
             diag.stats.loads += 1;
@@ -722,12 +722,12 @@ fn build_network_from_cim_with_diagnostics(
                 id: GenId::new(gen_counter),
                 name,
                 bus: *bus_id,
-                active_power_mw: gen.active_power_mw,
-                reactive_power_mvar: gen.reactive_power_mvar,
-                pmin_mw: 0.0,
-                pmax_mw: f64::INFINITY,
-                qmin_mvar: f64::NEG_INFINITY,
-                qmax_mvar: f64::INFINITY,
+                active_power: gat_core::Megawatts(gen.active_power_mw),
+                reactive_power: gat_core::Megavars(gen.reactive_power_mvar),
+                pmin: gat_core::Megawatts(0.0),
+                pmax: gat_core::Megawatts(f64::INFINITY),
+                qmin: gat_core::Megavars(f64::NEG_INFINITY),
+                qmax: gat_core::Megavars(f64::INFINITY),
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
                 ..Gen::default()

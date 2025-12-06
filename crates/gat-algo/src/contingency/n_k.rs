@@ -16,10 +16,16 @@
 //! ```
 //!
 //! This linear approximation is conservative for screening purposes.
+//!
+//! ## Type Safety
+//!
+//! This module uses typed IDs (`BranchId`, `BusId`) throughout for compile-time safety,
+//! leveraging the unified [`crate::sparse::SparsePtdf`] sensitivity matrices.
 
-use super::lodf::{compute_lodf_matrix, compute_ptdf_matrix, LodfMatrix, PtdfMatrix};
+use crate::arena::ArenaContext;
+use crate::sparse::{LodfMatrix, PtdfMatrix, SparsePtdf};
 use anyhow::Result;
-use gat_core::{Edge, Network, Node};
+use gat_core::{BranchId, BusId, Edge, Network, Node};
 use rayon::prelude::*;
 use std::collections::HashMap;
 
@@ -30,8 +36,8 @@ pub struct NkScreeningConfig {
     pub max_k: usize,
     /// Flag threshold as fraction of limit (e.g., 0.9 = 90%)
     pub threshold_fraction: f64,
-    /// Branch thermal limits (branch_id → MVA limit)
-    pub branch_limits: HashMap<usize, f64>,
+    /// Branch thermal limits (BranchId → MVA limit)
+    pub branch_limits: HashMap<BranchId, f64>,
     /// Default limit if not specified (0 = no limit)
     pub default_limit_mva: f64,
 }
@@ -51,7 +57,7 @@ impl Default for NkScreeningConfig {
 #[derive(Debug, Clone)]
 pub struct Contingency {
     /// Branch IDs that are out in this contingency
-    pub outaged_branches: Vec<usize>,
+    pub outaged_branches: Vec<BranchId>,
     /// Probability of this contingency occurring (per year or per exposure time)
     pub probability: Option<f64>,
     /// Human-readable label
@@ -60,7 +66,7 @@ pub struct Contingency {
 
 impl Contingency {
     /// Create an N-1 contingency (single branch outage).
-    pub fn single(branch_id: usize) -> Self {
+    pub fn single(branch_id: BranchId) -> Self {
         Self {
             outaged_branches: vec![branch_id],
             probability: None,
@@ -69,7 +75,7 @@ impl Contingency {
     }
 
     /// Create an N-2 contingency (two branches out).
-    pub fn double(branch_id1: usize, branch_id2: usize) -> Self {
+    pub fn double(branch_id1: BranchId, branch_id2: BranchId) -> Self {
         Self {
             outaged_branches: vec![branch_id1, branch_id2],
             probability: None,
@@ -98,7 +104,7 @@ impl Contingency {
     ///
     /// For N-k contingencies, probability = FOR₁ × FOR₂ × ... × FORₖ
     /// where FOR is typically in the range 0.001-0.05 per year.
-    pub fn compute_probability(&mut self, for_rates: &HashMap<usize, f64>) {
+    pub fn compute_probability(&mut self, for_rates: &HashMap<BranchId, f64>) {
         let prob = self
             .outaged_branches
             .iter()
@@ -111,8 +117,8 @@ impl Contingency {
 /// Configuration for outage probability computation.
 #[derive(Debug, Clone)]
 pub struct OutageProbabilityConfig {
-    /// Forced Outage Rate per branch (branch_id → FOR per year)
-    pub for_rates: HashMap<usize, f64>,
+    /// Forced Outage Rate per branch (BranchId → FOR per year)
+    pub for_rates: HashMap<BranchId, f64>,
     /// Default FOR if not specified (typical: 0.01 = 1% per year)
     pub default_for: f64,
     /// Exposure time in hours (default: 8760 = 1 year)
@@ -131,7 +137,7 @@ impl Default for OutageProbabilityConfig {
 
 impl OutageProbabilityConfig {
     /// Get FOR for a specific branch.
-    pub fn get_for(&self, branch_id: usize) -> f64 {
+    pub fn get_for(&self, branch_id: BranchId) -> f64 {
         self.for_rates
             .get(&branch_id)
             .copied()
@@ -139,7 +145,7 @@ impl OutageProbabilityConfig {
     }
 
     /// Compute probability for a contingency (assuming independence).
-    pub fn compute_contingency_probability(&self, outaged_branches: &[usize]) -> f64 {
+    pub fn compute_contingency_probability(&self, outaged_branches: &[BranchId]) -> f64 {
         outaged_branches
             .iter()
             .map(|&id| self.get_for(id))
@@ -155,11 +161,11 @@ pub struct ScreeningResult {
     /// Estimated maximum loading fraction (flow / limit)
     pub max_loading_fraction: f64,
     /// Branch with highest loading
-    pub most_loaded_branch: Option<usize>,
+    pub most_loaded_branch: Option<BranchId>,
     /// Whether this contingency exceeds the screening threshold
     pub flagged: bool,
-    /// Estimated violations (branch_id, estimated_flow, limit)
-    pub violations: Vec<(usize, f64, f64)>,
+    /// Estimated violations (BranchId, estimated_flow, limit)
+    pub violations: Vec<(BranchId, f64, f64)>,
 }
 
 /// Results from N-k screening.
@@ -198,8 +204,8 @@ pub struct NkScreener {
     #[allow(dead_code)] // Kept for future debugging/analysis
     ptdf: PtdfMatrix,
     lodf: LodfMatrix,
-    branch_ids: Vec<usize>,
-    base_flows: HashMap<usize, f64>,
+    branch_ids: Vec<BranchId>,
+    base_flows: HashMap<BranchId, f64>,
     config: NkScreeningConfig,
 }
 
@@ -209,11 +215,11 @@ impl NkScreener {
     /// `base_flows` should contain pre-contingency flow on each branch (from DC power flow).
     pub fn new(
         network: &Network,
-        base_flows: HashMap<usize, f64>,
+        base_flows: HashMap<BranchId, f64>,
         config: NkScreeningConfig,
     ) -> Result<Self> {
-        let ptdf = compute_ptdf_matrix(network)?;
-        let lodf = compute_lodf_matrix(network, &ptdf)?;
+        let ptdf = SparsePtdf::compute_ptdf(network)?;
+        let lodf = SparsePtdf::compute_lodf(network, &ptdf)?;
         let branch_ids = ptdf.branch_ids.clone();
 
         Ok(Self {
@@ -334,7 +340,7 @@ impl NkScreener {
 /// Convenience function: run N-k screening on a network with base case flows.
 pub fn screen_nk_contingencies(
     network: &Network,
-    base_flows: HashMap<usize, f64>,
+    base_flows: HashMap<BranchId, f64>,
     config: NkScreeningConfig,
 ) -> Result<NkScreeningResults> {
     let screener = NkScreener::new(network, base_flows, config)?;
@@ -352,13 +358,13 @@ pub struct ContingencyEvaluation {
     pub contingency: Contingency,
     /// Whether DC power flow converged
     pub converged: bool,
-    /// Actual branch flows (branch_id → MW)
-    pub branch_flows: HashMap<usize, f64>,
+    /// Actual branch flows (BranchId → MW)
+    pub branch_flows: HashMap<BranchId, f64>,
     /// Maximum loading fraction (flow / limit)
     pub max_loading: f64,
     /// Branch with highest loading
-    pub critical_branch: Option<usize>,
-    /// List of violations (branch_id, flow_mw, limit_mw, loading_fraction)
+    pub critical_branch: Option<BranchId>,
+    /// List of violations
     pub violations: Vec<BranchViolation>,
     /// Load shed required (MW), if any
     pub load_shed_mw: f64,
@@ -388,7 +394,7 @@ impl ContingencyEvaluation {
 /// A thermal limit violation on a specific branch.
 #[derive(Debug, Clone)]
 pub struct BranchViolation {
-    pub branch_id: usize,
+    pub branch_id: BranchId,
     pub flow_mw: f64,
     pub limit_mw: f64,
     pub loading_fraction: f64,
@@ -499,8 +505,8 @@ impl NkEvaluationResults {
 /// Full N-k evaluator that runs DC power flow for flagged contingencies.
 pub struct NkEvaluator<'a> {
     network: &'a Network,
-    injections: HashMap<usize, f64>,
-    branch_limits: HashMap<usize, f64>,
+    injections: HashMap<BusId, f64>,
+    branch_limits: HashMap<BranchId, f64>,
     prob_config: OutageProbabilityConfig,
 }
 
@@ -508,8 +514,8 @@ impl<'a> NkEvaluator<'a> {
     /// Create evaluator with bus injections (from base case).
     pub fn new(
         network: &'a Network,
-        injections: HashMap<usize, f64>,
-        branch_limits: HashMap<usize, f64>,
+        injections: HashMap<BusId, f64>,
+        branch_limits: HashMap<BranchId, f64>,
     ) -> Self {
         Self {
             network,
@@ -545,7 +551,7 @@ impl<'a> NkEvaluator<'a> {
     pub fn evaluate(&self, contingency: &Contingency) -> ContingencyEvaluation {
         // For simplicity, we'll use the existing DC power flow infrastructure
         // by computing angles with outaged branches, then calculating flows.
-        let outaged_set: std::collections::HashSet<usize> =
+        let outaged_set: std::collections::HashSet<BranchId> =
             contingency.outaged_branches.iter().cloned().collect();
 
         // Assign probability if not already set
@@ -709,44 +715,193 @@ impl<'a> NkEvaluator<'a> {
         }
     }
 
+    /// Evaluate contingencies with arena allocation for reduced overhead.
+    ///
+    /// Uses per-thread ArenaContext for O(1) bulk deallocation between
+    /// contingency evaluations, significantly reducing allocator pressure
+    /// for large contingency sets (N-2 with 17k+ combinations).
+    pub fn evaluate_all_with_arena(&self, contingencies: &[Contingency]) -> NkEvaluationResults {
+        let evaluations: Vec<ContingencyEvaluation> = contingencies
+            .par_iter()
+            .map_init(ArenaContext::new, |ctx, c| {
+                let result = self.evaluate_with_arena(c, ctx);
+                ctx.reset(); // O(1) bulk deallocation
+                result
+            })
+            .collect();
+
+        self.build_evaluation_results(evaluations)
+    }
+
+    /// Evaluate a single contingency using arena-allocated temporaries.
+    fn evaluate_with_arena(
+        &self,
+        contingency: &Contingency,
+        ctx: &ArenaContext,
+    ) -> ContingencyEvaluation {
+        // Assign probability if not already set
+        let prob = contingency.probability.unwrap_or_else(|| {
+            self.prob_config
+                .compute_contingency_probability(&contingency.outaged_branches)
+        });
+        let mut contingency_with_prob = contingency.clone();
+        contingency_with_prob.probability = Some(prob);
+
+        // Use arena-allocated HashSet for outaged branches
+        let mut outaged = ctx.alloc_hashset::<BranchId>();
+        for &branch_id in &contingency.outaged_branches {
+            outaged.insert(branch_id);
+        }
+
+        match self.compute_dc_flows_with_outages_arena(&outaged, ctx) {
+            Ok(flows) => {
+                let mut max_loading = 0.0;
+                let mut critical_branch = None;
+                let mut violations = Vec::new();
+
+                for (&branch_id, &flow) in flows.iter() {
+                    if let Some(&limit) = self.branch_limits.get(&branch_id) {
+                        if limit > 0.0 {
+                            let loading = flow.abs() / limit;
+                            if loading > max_loading {
+                                max_loading = loading;
+                                critical_branch = Some(branch_id);
+                            }
+                            if loading > 1.0 {
+                                violations.push(BranchViolation {
+                                    branch_id,
+                                    flow_mw: flow.abs(),
+                                    limit_mw: limit,
+                                    loading_fraction: loading,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                violations.sort_by(|a, b| {
+                    b.loading_fraction
+                        .partial_cmp(&a.loading_fraction)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+
+                let load_shed_mw: f64 = violations
+                    .iter()
+                    .map(|v| (v.flow_mw - v.limit_mw).max(0.0))
+                    .sum();
+
+                let eue_contribution_mwh = prob * load_shed_mw * self.prob_config.exposure_hours;
+
+                let severity_index = if max_loading > 1.0 {
+                    prob * (max_loading - 1.0) * 100.0
+                } else {
+                    0.0
+                };
+
+                // Convert arena HashMap to standard HashMap for return
+                let branch_flows: HashMap<BranchId, f64> =
+                    flows.iter().map(|(&k, &v)| (k, v)).collect();
+
+                ContingencyEvaluation {
+                    contingency: contingency_with_prob,
+                    converged: true,
+                    branch_flows,
+                    max_loading,
+                    critical_branch,
+                    violations,
+                    load_shed_mw,
+                    eue_contribution_mwh,
+                    severity_index,
+                }
+            }
+            Err(_) => ContingencyEvaluation {
+                contingency: contingency_with_prob,
+                converged: false,
+                branch_flows: HashMap::new(),
+                max_loading: f64::INFINITY,
+                critical_branch: None,
+                violations: vec![],
+                load_shed_mw: 0.0,
+                eue_contribution_mwh: 0.0,
+                severity_index: 0.0,
+            },
+        }
+    }
+
+    /// Build NkEvaluationResults from evaluation vector.
+    fn build_evaluation_results(
+        &self,
+        evaluations: Vec<ContingencyEvaluation>,
+    ) -> NkEvaluationResults {
+        let num_violated = evaluations
+            .iter()
+            .filter(|e| !e.violations.is_empty())
+            .count();
+        let num_non_convergent = evaluations.iter().filter(|e| !e.converged).count();
+
+        let (worst_loading, worst_contingency) = evaluations
+            .iter()
+            .filter(|e| e.converged)
+            .max_by(|a, b| {
+                a.max_loading
+                    .partial_cmp(&b.max_loading)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|e| (e.max_loading, Some(e.contingency.clone())))
+            .unwrap_or((0.0, None));
+
+        let total_eue_mwh: f64 = evaluations.iter().map(|e| e.eue_contribution_mwh).sum();
+        let total_load_shed_mw: f64 = evaluations.iter().map(|e| e.load_shed_mw).sum();
+
+        NkEvaluationResults {
+            evaluations,
+            num_violated,
+            num_non_convergent,
+            worst_loading,
+            worst_contingency,
+            total_eue_mwh,
+            total_load_shed_mw,
+        }
+    }
+
     /// Simplified DC power flow with outaged branches.
     fn compute_dc_flows_with_outages(
         &self,
-        outaged: &std::collections::HashSet<usize>,
-    ) -> Result<HashMap<usize, f64>> {
+        outaged: &std::collections::HashSet<BranchId>,
+    ) -> Result<HashMap<BranchId, f64>> {
         // Build susceptance matrix excluding outaged branches
-        let mut bus_ids: Vec<usize> = self
+        let mut bus_ids: Vec<BusId> = self
             .network
             .graph
             .node_indices()
             .filter_map(|idx| match &self.network.graph[idx] {
-                gat_core::Node::Bus(bus) => Some(bus.id.value()),
+                Node::Bus(bus) => Some(bus.id),
                 _ => None,
             })
             .collect();
-        bus_ids.sort_unstable();
+        bus_ids.sort_unstable_by_key(|id| id.value());
 
         let n = bus_ids.len();
         if n < 2 {
             return Ok(HashMap::new());
         }
 
-        let mut bus_to_idx: HashMap<usize, usize> = HashMap::new();
+        let mut bus_to_idx: HashMap<BusId, usize> = HashMap::new();
         for (idx, &id) in bus_ids.iter().enumerate() {
             bus_to_idx.insert(id, idx);
         }
 
         // Build B' matrix
         let mut b_matrix = vec![vec![0.0; n]; n];
-        let mut branches: Vec<(usize, usize, usize, f64)> = Vec::new();
+        let mut branches: Vec<(BranchId, BusId, BusId, f64)> = Vec::new();
 
         for edge in self.network.graph.edge_references() {
             if let Edge::Branch(branch) = edge.weight() {
-                if !branch.status || outaged.contains(&branch.id.value()) {
+                if !branch.status || outaged.contains(&branch.id) {
                     continue;
                 }
-                let from = branch.from_bus.value();
-                let to = branch.to_bus.value();
+                let from = branch.from_bus;
+                let to = branch.to_bus;
                 let x = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
 
                 if let (Some(&i), Some(&j)) = (bus_to_idx.get(&from), bus_to_idx.get(&to)) {
@@ -756,7 +911,7 @@ impl<'a> NkEvaluator<'a> {
                     b_matrix[i][i] += b;
                     b_matrix[j][j] += b;
                 }
-                branches.push((branch.id.value(), from, to, x));
+                branches.push((branch.id, from, to, x));
             }
         }
 
@@ -790,6 +945,98 @@ impl<'a> NkEvaluator<'a> {
         // Compute branch flows
         let mut flows = HashMap::new();
         for (id, from, to, x) in branches {
+            let i = *bus_to_idx.get(&from).unwrap();
+            let j = *bus_to_idx.get(&to).unwrap();
+            let flow = (theta[i] - theta[j]) / x * 100.0; // Convert to MW (base 100 MVA)
+            flows.insert(id, flow);
+        }
+
+        Ok(flows)
+    }
+
+    /// Compute DC flows with arena-allocated temporaries.
+    ///
+    /// This version uses arena-backed collections for bus_ids, bus_to_idx,
+    /// branches, and flows to reduce allocation overhead in parallel loops.
+    fn compute_dc_flows_with_outages_arena<'b>(
+        &self,
+        outaged: &hashbrown::HashSet<BranchId, hashbrown::DefaultHashBuilder, &bumpalo::Bump>,
+        ctx: &'b ArenaContext,
+    ) -> Result<hashbrown::HashMap<BranchId, f64, hashbrown::DefaultHashBuilder, &'b bumpalo::Bump>>
+    {
+        // Build susceptance matrix excluding outaged branches
+        let mut bus_ids = ctx.alloc_vec::<BusId>();
+        for idx in self.network.graph.node_indices() {
+            if let Node::Bus(bus) = &self.network.graph[idx] {
+                bus_ids.push(bus.id);
+            }
+        }
+        bus_ids.sort_unstable_by_key(|id| id.value());
+
+        let n = bus_ids.len();
+        if n < 2 {
+            return Ok(ctx.alloc_hashmap());
+        }
+
+        let mut bus_to_idx = ctx.alloc_hashmap::<BusId, usize>();
+        for (idx, &id) in bus_ids.iter().enumerate() {
+            bus_to_idx.insert(id, idx);
+        }
+
+        // Build B' matrix (standard Vec - small relative to hash allocations)
+        let mut b_matrix = vec![vec![0.0; n]; n];
+        let mut branches = ctx.alloc_vec::<(BranchId, BusId, BusId, f64)>();
+
+        for edge in self.network.graph.edge_references() {
+            if let Edge::Branch(branch) = edge.weight() {
+                if !branch.status || outaged.contains(&branch.id) {
+                    continue;
+                }
+                let from = branch.from_bus;
+                let to = branch.to_bus;
+                let x = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
+
+                if let (Some(&i), Some(&j)) = (bus_to_idx.get(&from), bus_to_idx.get(&to)) {
+                    let b = 1.0 / x;
+                    b_matrix[i][j] -= b;
+                    b_matrix[j][i] -= b;
+                    b_matrix[i][i] += b;
+                    b_matrix[j][j] += b;
+                }
+                branches.push((branch.id, from, to, x));
+            }
+        }
+
+        // Build RHS from injections
+        let mut rhs = vec![0.0; n];
+        for (&bus_id, &inj) in &self.injections {
+            if let Some(&idx) = bus_to_idx.get(&bus_id) {
+                rhs[idx] = inj;
+            }
+        }
+
+        // Solve reduced system (slack = first bus)
+        let m = n - 1;
+        let mut reduced = vec![vec![0.0; m]; m];
+        let mut reduced_rhs = vec![0.0; m];
+        for i in 0..m {
+            for j in 0..m {
+                reduced[i][j] = b_matrix[i + 1][j + 1];
+            }
+            reduced_rhs[i] = rhs[i + 1];
+        }
+
+        let angles = solve_linear_system(&reduced, &reduced_rhs)?;
+
+        // Full angles (slack = 0)
+        let mut theta = vec![0.0; n];
+        for i in 0..m {
+            theta[i + 1] = angles[i];
+        }
+
+        // Compute branch flows into arena-allocated HashMap
+        let mut flows = ctx.alloc_hashmap::<BranchId, f64>();
+        for &(id, from, to, x) in branches.iter() {
             let i = *bus_to_idx.get(&from).unwrap();
             let j = *bus_to_idx.get(&to).unwrap();
             let flow = (theta[i] - theta[j]) / x * 100.0; // Convert to MW (base 100 MVA)
@@ -874,16 +1121,16 @@ fn solve_linear_system(a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>> {
 /// Extract net power injections (generation - load) per bus in MW.
 ///
 /// This is the standard input format for N-k screening and DC power flow.
-/// Returns a map of bus_id → net injection in MW (positive = generation surplus).
-pub fn collect_injections(network: &Network) -> HashMap<usize, f64> {
+/// Returns a map of BusId → net injection in MW (positive = generation surplus).
+pub fn collect_injections(network: &Network) -> HashMap<BusId, f64> {
     let mut injections = HashMap::new();
     for node_idx in network.graph.node_indices() {
         match &network.graph[node_idx] {
             Node::Gen(gen) => {
-                *injections.entry(gen.bus.value()).or_insert(0.0) += gen.active_power_mw;
+                *injections.entry(gen.bus).or_insert(0.0) += gen.active_power.value();
             }
             Node::Load(load) => {
-                *injections.entry(load.bus.value()).or_insert(0.0) -= load.active_power_mw;
+                *injections.entry(load.bus).or_insert(0.0) -= load.active_power.value();
             }
             _ => {}
         }
@@ -893,17 +1140,17 @@ pub fn collect_injections(network: &Network) -> HashMap<usize, f64> {
 
 /// Extract branch thermal limits (rating_a_mva) per branch.
 ///
-/// Returns a map of branch_id → thermal limit in MVA.
+/// Returns a map of BranchId → thermal limit in MVA.
 /// Branches without ratings or with very small ratings (< 0.1 MVA) are excluded.
-pub fn collect_branch_limits(network: &Network) -> HashMap<usize, f64> {
+pub fn collect_branch_limits(network: &Network) -> HashMap<BranchId, f64> {
     let mut limits = HashMap::new();
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
             if branch.status {
-                if let Some(rating) = branch.rating_a_mva {
+                if let Some(rating) = branch.rating_a {
                     // Skip very small ratings to avoid numerical issues
-                    if rating > 0.1 {
-                        limits.insert(branch.id.value(), rating);
+                    if rating.value() > 0.1 {
+                        limits.insert(branch.id, rating.value());
                     }
                 }
             }
@@ -914,16 +1161,13 @@ pub fn collect_branch_limits(network: &Network) -> HashMap<usize, f64> {
 
 /// Collect branch terminal buses for result mapping.
 ///
-/// Returns a map of branch_id → (from_bus, to_bus).
-pub fn collect_branch_terminals(network: &Network) -> HashMap<usize, (usize, usize)> {
+/// Returns a map of BranchId → (from_bus, to_bus).
+pub fn collect_branch_terminals(network: &Network) -> HashMap<BranchId, (BusId, BusId)> {
     let mut terminals = HashMap::new();
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
             if branch.status {
-                terminals.insert(
-                    branch.id.value(),
-                    (branch.from_bus.value(), branch.to_bus.value()),
-                );
+                terminals.insert(branch.id, (branch.from_bus, branch.to_bus));
             }
         }
     }
@@ -941,19 +1185,19 @@ mod tests {
         let b1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let b2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let b3 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(3),
             name: "Bus3".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -965,7 +1209,7 @@ mod tests {
                 from_bus: BusId::new(1),
                 to_bus: BusId::new(2),
                 reactance: 0.1,
-                rating_a_mva: Some(100.0),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
                 ..Branch::default()
             }),
         );
@@ -977,7 +1221,7 @@ mod tests {
                 from_bus: BusId::new(2),
                 to_bus: BusId::new(3),
                 reactance: 0.1,
-                rating_a_mva: Some(100.0),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
                 ..Branch::default()
             }),
         );
@@ -989,7 +1233,7 @@ mod tests {
                 from_bus: BusId::new(1),
                 to_bus: BusId::new(3),
                 reactance: 0.2,
-                rating_a_mva: Some(100.0),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
                 ..Branch::default()
             }),
         );
@@ -1000,7 +1244,11 @@ mod tests {
     #[test]
     fn test_generate_n1_contingencies() {
         let network = create_test_network();
-        let base_flows = HashMap::from([(1, 50.0), (2, 30.0), (3, 20.0)]);
+        let base_flows = HashMap::from([
+            (BranchId::new(1), 50.0),
+            (BranchId::new(2), 30.0),
+            (BranchId::new(3), 20.0),
+        ]);
         let config = NkScreeningConfig::default();
         let screener = NkScreener::new(&network, base_flows, config).unwrap();
 
@@ -1012,7 +1260,11 @@ mod tests {
     #[test]
     fn test_generate_n2_contingencies() {
         let network = create_test_network();
-        let base_flows = HashMap::from([(1, 50.0), (2, 30.0), (3, 20.0)]);
+        let base_flows = HashMap::from([
+            (BranchId::new(1), 50.0),
+            (BranchId::new(2), 30.0),
+            (BranchId::new(3), 20.0),
+        ]);
         let config = NkScreeningConfig::default();
         let screener = NkScreener::new(&network, base_flows, config).unwrap();
 
@@ -1026,9 +1278,17 @@ mod tests {
     fn test_screen_n1_no_violations() {
         let network = create_test_network();
         // Low base flows, well below limits
-        let base_flows = HashMap::from([(1, 20.0), (2, 15.0), (3, 10.0)]);
+        let base_flows = HashMap::from([
+            (BranchId::new(1), 20.0),
+            (BranchId::new(2), 15.0),
+            (BranchId::new(3), 10.0),
+        ]);
         let mut config = NkScreeningConfig::default();
-        config.branch_limits = HashMap::from([(1, 100.0), (2, 100.0), (3, 100.0)]);
+        config.branch_limits = HashMap::from([
+            (BranchId::new(1), 100.0),
+            (BranchId::new(2), 100.0),
+            (BranchId::new(3), 100.0),
+        ]);
         config.threshold_fraction = 0.9;
 
         let screener = NkScreener::new(&network, base_flows, config).unwrap();
@@ -1049,9 +1309,17 @@ mod tests {
     fn test_screen_n1_with_violation() {
         let network = create_test_network();
         // High base flow on branch 1, which will redistribute when branch 3 trips
-        let base_flows = HashMap::from([(1, 80.0), (2, 60.0), (3, 40.0)]);
+        let base_flows = HashMap::from([
+            (BranchId::new(1), 80.0),
+            (BranchId::new(2), 60.0),
+            (BranchId::new(3), 40.0),
+        ]);
         let mut config = NkScreeningConfig::default();
-        config.branch_limits = HashMap::from([(1, 100.0), (2, 100.0), (3, 100.0)]);
+        config.branch_limits = HashMap::from([
+            (BranchId::new(1), 100.0),
+            (BranchId::new(2), 100.0),
+            (BranchId::new(3), 100.0),
+        ]);
         config.threshold_fraction = 0.9;
 
         let screener = NkScreener::new(&network, base_flows, config).unwrap();
@@ -1072,9 +1340,17 @@ mod tests {
     #[test]
     fn test_screen_n2() {
         let network = create_test_network();
-        let base_flows = HashMap::from([(1, 50.0), (2, 30.0), (3, 20.0)]);
+        let base_flows = HashMap::from([
+            (BranchId::new(1), 50.0),
+            (BranchId::new(2), 30.0),
+            (BranchId::new(3), 20.0),
+        ]);
         let mut config = NkScreeningConfig::default();
-        config.branch_limits = HashMap::from([(1, 100.0), (2, 100.0), (3, 100.0)]);
+        config.branch_limits = HashMap::from([
+            (BranchId::new(1), 100.0),
+            (BranchId::new(2), 100.0),
+            (BranchId::new(3), 100.0),
+        ]);
         config.max_k = 2;
 
         let screener = NkScreener::new(&network, base_flows, config).unwrap();
@@ -1090,13 +1366,17 @@ mod tests {
         let network = create_test_network();
 
         // Bus injections: 100 MW at bus 1, -100 MW at bus 3 (simplified)
-        let injections = HashMap::from([(1, 1.0), (3, -1.0)]); // in pu (100 MW base)
-        let branch_limits = HashMap::from([(1, 100.0), (2, 100.0), (3, 100.0)]);
+        let injections = HashMap::from([(BusId::new(1), 1.0), (BusId::new(3), -1.0)]); // in pu (100 MW base)
+        let branch_limits = HashMap::from([
+            (BranchId::new(1), 100.0),
+            (BranchId::new(2), 100.0),
+            (BranchId::new(3), 100.0),
+        ]);
 
         let evaluator = NkEvaluator::new(&network, injections, branch_limits);
 
         // Evaluate a single N-1 contingency
-        let contingency = Contingency::single(3); // Take out branch 3
+        let contingency = Contingency::single(BranchId::new(3)); // Take out branch 3
         let result = evaluator.evaluate(&contingency);
 
         assert!(result.converged, "DC power flow should converge");
@@ -1115,9 +1395,17 @@ mod tests {
         let network = create_test_network();
 
         // High flows to trigger flagging (N-1 only to avoid singular N-2 cases)
-        let base_flows = HashMap::from([(1, 80.0), (2, 60.0), (3, 40.0)]);
+        let base_flows = HashMap::from([
+            (BranchId::new(1), 80.0),
+            (BranchId::new(2), 60.0),
+            (BranchId::new(3), 40.0),
+        ]);
         let mut config = NkScreeningConfig::default();
-        config.branch_limits = HashMap::from([(1, 100.0), (2, 100.0), (3, 100.0)]);
+        config.branch_limits = HashMap::from([
+            (BranchId::new(1), 100.0),
+            (BranchId::new(2), 100.0),
+            (BranchId::new(3), 100.0),
+        ]);
         config.threshold_fraction = 0.5; // Low threshold to flag more cases
         config.max_k = 1; // Only N-1 to avoid island-creating N-2 cases
 
@@ -1125,11 +1413,15 @@ mod tests {
         let screening = screener.screen_all(&screener.generate_n1());
 
         // Now evaluate flagged cases
-        let injections = HashMap::from([(1, 0.8), (3, -0.8)]); // Matching base flows roughly
+        let injections = HashMap::from([(BusId::new(1), 0.8), (BusId::new(3), -0.8)]); // Matching base flows roughly
         let evaluator = NkEvaluator::new(
             &network,
             injections,
-            HashMap::from([(1, 100.0), (2, 100.0), (3, 100.0)]),
+            HashMap::from([
+                (BranchId::new(1), 100.0),
+                (BranchId::new(2), 100.0),
+                (BranchId::new(3), 100.0),
+            ]),
         );
 
         let eval_results = evaluator.evaluate_flagged(&screening);
@@ -1153,20 +1445,24 @@ mod tests {
     #[test]
     fn test_contingency_probability() {
         // Test probability computation from FOR rates
-        let for_rates = HashMap::from([(1, 0.02), (2, 0.03), (3, 0.01)]);
+        let for_rates = HashMap::from([
+            (BranchId::new(1), 0.02),
+            (BranchId::new(2), 0.03),
+            (BranchId::new(3), 0.01),
+        ]);
 
         // N-1: probability = FOR
-        let mut c1 = Contingency::single(1);
+        let mut c1 = Contingency::single(BranchId::new(1));
         c1.compute_probability(&for_rates);
         assert!((c1.probability.unwrap() - 0.02).abs() < 1e-10);
 
         // N-2: probability = FOR₁ × FOR₂
-        let mut c2 = Contingency::double(1, 2);
+        let mut c2 = Contingency::double(BranchId::new(1), BranchId::new(2));
         c2.compute_probability(&for_rates);
         assert!((c2.probability.unwrap() - 0.02 * 0.03).abs() < 1e-10);
 
         // Test builder pattern
-        let c3 = Contingency::single(3)
+        let c3 = Contingency::single(BranchId::new(3))
             .with_probability(0.05)
             .with_label("Test contingency");
         assert_eq!(c3.probability, Some(0.05));
@@ -1176,22 +1472,22 @@ mod tests {
     #[test]
     fn test_outage_probability_config() {
         let mut config = OutageProbabilityConfig::default();
-        config.for_rates.insert(1, 0.02);
-        config.for_rates.insert(2, 0.03);
+        config.for_rates.insert(BranchId::new(1), 0.02);
+        config.for_rates.insert(BranchId::new(2), 0.03);
         config.default_for = 0.01;
 
         // Known branch
-        assert!((config.get_for(1) - 0.02).abs() < 1e-10);
+        assert!((config.get_for(BranchId::new(1)) - 0.02).abs() < 1e-10);
 
         // Unknown branch uses default
-        assert!((config.get_for(99) - 0.01).abs() < 1e-10);
+        assert!((config.get_for(BranchId::new(99)) - 0.01).abs() < 1e-10);
 
         // N-1 probability
-        let prob1 = config.compute_contingency_probability(&[1]);
+        let prob1 = config.compute_contingency_probability(&[BranchId::new(1)]);
         assert!((prob1 - 0.02).abs() < 1e-10);
 
         // N-2 probability
-        let prob2 = config.compute_contingency_probability(&[1, 2]);
+        let prob2 = config.compute_contingency_probability(&[BranchId::new(1), BranchId::new(2)]);
         assert!((prob2 - 0.0006).abs() < 1e-10); // 0.02 × 0.03
     }
 
@@ -1200,8 +1496,12 @@ mod tests {
         let network = create_test_network();
 
         // Setup with known probability configuration
-        let injections = HashMap::from([(1, 1.5), (3, -1.5)]); // Higher flow to cause violations
-        let branch_limits = HashMap::from([(1, 50.0), (2, 50.0), (3, 50.0)]); // Lower limits
+        let injections = HashMap::from([(BusId::new(1), 1.5), (BusId::new(3), -1.5)]); // Higher flow to cause violations
+        let branch_limits = HashMap::from([
+            (BranchId::new(1), 50.0),
+            (BranchId::new(2), 50.0),
+            (BranchId::new(3), 50.0),
+        ]); // Lower limits
 
         let mut prob_config = OutageProbabilityConfig::default();
         prob_config.default_for = 0.01; // 1% FOR
@@ -1211,7 +1511,7 @@ mod tests {
             .with_probability_config(prob_config);
 
         // Evaluate a contingency
-        let contingency = Contingency::single(3);
+        let contingency = Contingency::single(BranchId::new(3));
         let result = evaluator.evaluate(&contingency);
 
         println!("EUE test evaluation:");
@@ -1235,14 +1535,18 @@ mod tests {
     fn test_eue_ranking() {
         let network = create_test_network();
 
-        let injections = HashMap::from([(1, 1.2), (3, -1.2)]); // Moderate flow
-        let branch_limits = HashMap::from([(1, 60.0), (2, 60.0), (3, 60.0)]);
+        let injections = HashMap::from([(BusId::new(1), 1.2), (BusId::new(3), -1.2)]); // Moderate flow
+        let branch_limits = HashMap::from([
+            (BranchId::new(1), 60.0),
+            (BranchId::new(2), 60.0),
+            (BranchId::new(3), 60.0),
+        ]);
 
         let mut prob_config = OutageProbabilityConfig::default();
         prob_config.for_rates = HashMap::from([
-            (1, 0.05), // 5% FOR - high failure rate
-            (2, 0.01), // 1% FOR
-            (3, 0.02), // 2% FOR
+            (BranchId::new(1), 0.05), // 5% FOR - high failure rate
+            (BranchId::new(2), 0.01), // 1% FOR
+            (BranchId::new(3), 0.02), // 2% FOR
         ]);
         prob_config.exposure_hours = 8760.0;
 
@@ -1251,9 +1555,9 @@ mod tests {
 
         // Evaluate all N-1 contingencies
         let contingencies: Vec<Contingency> = vec![
-            Contingency::single(1),
-            Contingency::single(2),
-            Contingency::single(3),
+            Contingency::single(BranchId::new(1)),
+            Contingency::single(BranchId::new(2)),
+            Contingency::single(BranchId::new(3)),
         ];
         let results = evaluator.evaluate_all(&contingencies);
 
@@ -1293,6 +1597,38 @@ mod tests {
                 (final_total - results.total_eue_mwh).abs() < 1e-6,
                 "Cumulative EUE should sum to total"
             );
+        }
+    }
+
+    #[test]
+    fn test_nk_evaluator_arena_allocation() {
+        // This test verifies that NkEvaluator can use ArenaContext
+        // for its parallel evaluations, reducing allocation overhead.
+        let network = create_test_network();
+
+        let injections = HashMap::from([(BusId::new(1), 1.0), (BusId::new(3), -1.0)]);
+        let branch_limits = HashMap::from([
+            (BranchId::new(1), 100.0),
+            (BranchId::new(2), 100.0),
+            (BranchId::new(3), 100.0),
+        ]);
+
+        let evaluator = NkEvaluator::new(&network, injections, branch_limits);
+
+        // Create N-1 contingencies
+        let contingencies: Vec<Contingency> = vec![
+            Contingency::single(BranchId::new(1)),
+            Contingency::single(BranchId::new(2)),
+            Contingency::single(BranchId::new(3)),
+        ];
+
+        // Evaluate using arena-backed method
+        let results = evaluator.evaluate_all_with_arena(&contingencies);
+
+        // Should produce same results as non-arena version
+        assert_eq!(results.evaluations.len(), contingencies.len());
+        for eval in &results.evaluations {
+            assert!(eval.converged, "All N-1 contingencies should converge");
         }
     }
 }

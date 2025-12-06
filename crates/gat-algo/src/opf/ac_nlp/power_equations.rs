@@ -184,6 +184,12 @@ impl PowerEquations {
                 let g_ij = y_ij.re; // Conductance (real part)
                 let b_ij = y_ij.im; // Susceptance (imaginary part)
 
+                // Skip zero entries for sparsity (Y-bus is typically ~2-5% dense)
+                // This avoids expensive trig computations for the ~95% of elements that are zero
+                if g_ij.abs() < 1e-15 && b_ij.abs() < 1e-15 {
+                    continue;
+                }
+
                 let vj = v[j];
                 let theta_ij = theta_i - theta[j];
 
@@ -324,15 +330,24 @@ impl PowerEquations {
                     // The θ_i appears in EVERY term of the sum, so we must sum
                     // the partial derivatives over all j.
 
-                    // Compute sums for ∂P/∂θ and ∂Q/∂θ
-                    let mut sum_p = 0.0;
-                    let mut sum_q = 0.0;
+                    // Fused loop: compute all four diagonal sums in a single pass
+                    // to avoid redundant trig computations (50% fewer cos/sin calls)
+                    let mut sum_p = 0.0; // for ∂P/∂θ
+                    let mut sum_q = 0.0; // for ∂Q/∂θ
+                    let mut sum_pv = 0.0; // for ∂P/∂V
+                    let mut sum_qv = 0.0; // for ∂Q/∂V
 
                     for k in 0..n {
                         if k != i {
                             let y_ik = ybus.get(i, k);
                             let g_ik = y_ik.re;
                             let b_ik = y_ik.im;
+
+                            // Skip zero entries for sparsity
+                            if g_ik.abs() < 1e-15 && b_ik.abs() < 1e-15 {
+                                continue;
+                            }
+
                             let vk = v[k];
                             let theta_ik = theta_i - theta[k];
                             let cos_ik = theta_ik.cos();
@@ -343,6 +358,12 @@ impl PowerEquations {
 
                             // ∂(Q term)/∂θ_i = V_k · (G_ik·cos(θ_ik) + B_ik·sin(θ_ik))
                             sum_q += vk * (g_ik * cos_ik + b_ik * sin_ik);
+
+                            // ∂P/∂V sum: V_k · (G_ik·cos(θ_ik) + B_ik·sin(θ_ik))
+                            sum_pv += vk * (g_ik * cos_ik + b_ik * sin_ik);
+
+                            // ∂Q/∂V sum: V_k · (G_ik·sin(θ_ik) - B_ik·cos(θ_ik))
+                            sum_qv += vk * (g_ik * sin_ik - b_ik * cos_ik);
                         }
                     }
 
@@ -351,20 +372,6 @@ impl PowerEquations {
 
                     // J₃[i,i] = ∂Q_i/∂θ_i = V_i · Σ_{k≠i} V_k · (G_ik·cos + B_ik·sin)
                     dq_dtheta[idx] = vi * sum_q;
-
-                    // Compute sums for ∂P/∂V and ∂Q/∂V
-                    let mut sum_pv = 0.0;
-                    let mut sum_qv = 0.0;
-
-                    for k in 0..n {
-                        if k != i {
-                            let y_ik = ybus.get(i, k);
-                            let vk = v[k];
-                            let theta_ik = theta_i - theta[k];
-                            sum_pv += vk * (y_ik.re * theta_ik.cos() + y_ik.im * theta_ik.sin());
-                            sum_qv += vk * (y_ik.re * theta_ik.sin() - y_ik.im * theta_ik.cos());
-                        }
-                    }
 
                     // J₂[i,i] = ∂P_i/∂V_i = 2·V_i·G_ii + Σ_{k≠i}...
                     // The 2·V_i·G_ii comes from ∂/∂V_i (V_i² · G_ii) = 2·V_i·G_ii
@@ -495,11 +502,11 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: None,
             zone_id: None,
         }));
@@ -507,11 +514,11 @@ mod tests {
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus2".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: None,
             zone_id: None,
         }));
@@ -519,11 +526,11 @@ mod tests {
         let bus3_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(3),
             name: "Bus3".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: None,
             zone_id: None,
         }));
@@ -539,13 +546,10 @@ mod tests {
                 to_bus: BusId::new(2),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
-                s_max_mva: Some(100.0),
-                rating_a_mva: Some(100.0),
-                tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                status: true,
-                ..Default::default()
+                charging_b: gat_core::PerUnit(0.02),
+                s_max: Some(gat_core::MegavoltAmperes(100.0)),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
+                ..Branch::default()
             }),
         );
 
@@ -559,13 +563,10 @@ mod tests {
                 to_bus: BusId::new(3),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
-                s_max_mva: Some(100.0),
-                rating_a_mva: Some(100.0),
-                tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                status: true,
-                ..Default::default()
+                charging_b: gat_core::PerUnit(0.02),
+                s_max: Some(gat_core::MegavoltAmperes(100.0)),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
+                ..Branch::default()
             }),
         );
 
@@ -579,13 +580,10 @@ mod tests {
                 to_bus: BusId::new(3),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
-                s_max_mva: Some(100.0),
-                rating_a_mva: Some(100.0),
-                tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                status: true,
-                ..Default::default()
+                charging_b: gat_core::PerUnit(0.02),
+                s_max: Some(gat_core::MegavoltAmperes(100.0)),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
+                ..Branch::default()
             }),
         );
 

@@ -1,3 +1,4 @@
+use crate::arena::ArenaContext;
 use anyhow::{anyhow, Result};
 use gat_core::{BusId, Network, Node, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -36,7 +37,7 @@ impl OutageScenario {
         for node_idx in network.graph.node_indices() {
             if let Some(Node::Gen(gen)) = network.graph.node_weight(node_idx) {
                 if !self.offline_generators.contains(&node_idx) {
-                    available_capacity += gen.active_power_mw;
+                    available_capacity += gen.active_power.value();
                 }
             }
         }
@@ -190,7 +191,7 @@ impl MonteCarlo {
                     bus_id_to_node.insert(bus.id, node_idx);
                 }
                 Some(Node::Load(load)) => {
-                    total_demand += load.active_power_mw;
+                    total_demand += load.active_power.value();
                     load_buses.insert(load.bus);
                 }
                 _ => {}
@@ -206,32 +207,37 @@ impl MonteCarlo {
             .scenario_gen
             .generate_scenarios(network, self.num_scenarios);
 
-        // Analyze scenarios in parallel (embarrassingly parallel workload)
-        // Each scenario is independent - we compute shortfall metrics and aggregate
+        // Each parallel task gets its own arena context
         let results: Result<Vec<(f64, f64, bool)>> = scenarios
             .par_iter()
-            .map(|scenario| {
-                let available_gen = self.calculate_deliverable_generation(
-                    network,
-                    scenario,
-                    &bus_id_to_node,
-                    &load_buses,
-                )?;
+            .map_init(
+                || ArenaContext::new(),
+                |ctx, scenario| {
+                    let available_gen = self.calculate_deliverable_generation_arena(
+                        network,
+                        scenario,
+                        &bus_id_to_node,
+                        &load_buses,
+                        ctx,
+                    )?;
 
-                let demand = total_demand * scenario.demand_scale;
-                let has_shortfall = available_gen < demand;
-                let shortfall = if has_shortfall {
-                    demand - available_gen
-                } else {
-                    0.0
-                };
+                    let demand = total_demand * scenario.demand_scale;
+                    let has_shortfall = available_gen < demand;
+                    let shortfall = if has_shortfall {
+                        demand - available_gen
+                    } else {
+                        0.0
+                    };
 
-                Ok((
-                    scenario.probability,
-                    shortfall * scenario.probability,
-                    has_shortfall,
-                ))
-            })
+                    ctx.reset(); // O(1) reset for next scenario
+
+                    Ok((
+                        scenario.probability,
+                        shortfall * scenario.probability,
+                        has_shortfall,
+                    ))
+                },
+            )
             .collect();
 
         let results = results?;
@@ -277,6 +283,7 @@ impl MonteCarlo {
     /// 1. Using pre-built map from BusId to NodeIndex for bus nodes (passed in)
     /// 2. Determining bus-level connectivity through online branches
     /// 3. Checking if each generator's bus can reach any load's bus
+    #[allow(dead_code)]
     fn calculate_deliverable_generation(
         &self,
         network: &Network,
@@ -295,7 +302,7 @@ impl MonteCarlo {
         for node_idx in network.graph.node_indices() {
             if let Some(Node::Gen(gen)) = network.graph.node_weight(node_idx) {
                 if !scenario.offline_generators.contains(&node_idx) {
-                    gen_bus_capacity.push((gen.bus, gen.active_power_mw));
+                    gen_bus_capacity.push((gen.bus, gen.active_power.value()));
                 }
             }
         }
@@ -366,6 +373,101 @@ impl MonteCarlo {
 
         for (gen_bus, capacity) in gen_bus_capacity {
             if let Some(reachable_buses) = bus_reachable.get(&gen_bus) {
+                if reachable_buses.iter().any(|b| load_buses.contains(b)) {
+                    total_deliverable += capacity;
+                }
+            }
+        }
+
+        Ok(total_deliverable)
+    }
+
+    /// Arena-allocated version of calculate_deliverable_generation.
+    ///
+    /// Uses arena-backed collections for temporary allocations,
+    /// enabling O(1) bulk deallocation between scenarios.
+    fn calculate_deliverable_generation_arena(
+        &self,
+        network: &Network,
+        scenario: &OutageScenario,
+        bus_id_to_node: &std::collections::HashMap<BusId, NodeIndex>,
+        load_buses: &std::collections::HashSet<BusId>,
+        ctx: &ArenaContext,
+    ) -> Result<f64> {
+        if load_buses.is_empty() {
+            return Ok(0.0);
+        }
+
+        // Step 3: Find all online generators and their buses
+        let mut gen_bus_capacity = ctx.alloc_vec::<(BusId, f64)>();
+        for node_idx in network.graph.node_indices() {
+            if let Some(Node::Gen(gen)) = network.graph.node_weight(node_idx) {
+                if !scenario.offline_generators.contains(&node_idx) {
+                    gen_bus_capacity.push((gen.bus, gen.active_power.value()));
+                }
+            }
+        }
+
+        if gen_bus_capacity.is_empty() {
+            return Ok(0.0);
+        }
+
+        // Step 4: Build bus connectivity through online branches
+        let mut bus_reachable =
+            ctx.alloc_hashmap::<BusId, hashbrown::HashSet<BusId, _, &bumpalo::Bump>>();
+
+        // Get all unique generator buses as starting points
+        let mut gen_buses = ctx.alloc_hashset::<BusId>();
+        for (b, _) in gen_bus_capacity.iter() {
+            gen_buses.insert(*b);
+        }
+
+        for &start_bus in gen_buses.iter() {
+            if !bus_id_to_node.contains_key(&start_bus) {
+                continue;
+            }
+
+            let mut visited_buses = ctx.alloc_hashset::<BusId>();
+            let mut queue = ctx.alloc_vec::<BusId>();
+            queue.push(start_bus);
+            visited_buses.insert(start_bus);
+
+            while let Some(current_bus) = queue.pop() {
+                let Some(&current_node) = bus_id_to_node.get(&current_bus) else {
+                    continue;
+                };
+
+                for edge_ref in network.graph.edges(current_node) {
+                    let edge_idx = edge_ref.id();
+
+                    if scenario.offline_branches.contains(&edge_idx.index()) {
+                        continue;
+                    }
+
+                    let neighbor = edge_ref.target();
+                    let neighbor = if neighbor == current_node {
+                        edge_ref.source()
+                    } else {
+                        neighbor
+                    };
+
+                    if let Some(Node::Bus(neighbor_bus)) = network.graph.node_weight(neighbor) {
+                        if !visited_buses.contains(&neighbor_bus.id) {
+                            visited_buses.insert(neighbor_bus.id);
+                            queue.push(neighbor_bus.id);
+                        }
+                    }
+                }
+            }
+
+            bus_reachable.insert(start_bus, visited_buses);
+        }
+
+        // Step 5: Calculate deliverable generation
+        let mut total_deliverable = 0.0;
+
+        for (gen_bus, capacity) in gen_bus_capacity.iter() {
+            if let Some(reachable_buses) = bus_reachable.get(gen_bus) {
                 if reachable_buses.iter().any(|b| load_buses.contains(b)) {
                     total_deliverable += capacity;
                 }

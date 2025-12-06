@@ -25,22 +25,22 @@ fn two_bus_network() -> Network {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
-        voltage_pu: 1.0,
-        angle_rad: 0.0,
-        vmin_pu: Some(0.9),
-        vmax_pu: Some(1.1),
+        base_kv: gat_core::Kilovolts(138.0),
+        voltage_pu: gat_core::PerUnit(1.0),
+        angle_rad: gat_core::Radians(0.0),
+        vmin_pu: Some(gat_core::PerUnit(0.9)),
+        vmax_pu: Some(gat_core::PerUnit(1.1)),
         ..Bus::default()
     }));
 
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
-        voltage_pu: 1.0,
-        angle_rad: 0.0,
-        vmin_pu: Some(0.9),
-        vmax_pu: Some(1.1),
+        base_kv: gat_core::Kilovolts(138.0),
+        voltage_pu: gat_core::PerUnit(1.0),
+        angle_rad: gat_core::Radians(0.0),
+        vmin_pu: Some(gat_core::PerUnit(0.9)),
+        vmax_pu: Some(gat_core::PerUnit(1.1)),
         ..Bus::default()
     }));
 
@@ -54,10 +54,10 @@ fn two_bus_network() -> Network {
             to_bus: BusId::new(1),
             resistance: 0.01,
             reactance: 0.1,
-            charging_b_pu: 0.0,
-            rating_a_mva: Some(100.0),
+            charging_b: gat_core::PerUnit(0.0),
+            rating_a: Some(gat_core::MegavoltAmperes(100.0)),
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
+            phase_shift: gat_core::Radians(0.0),
             status: true,
             ..Branch::default()
         }),
@@ -67,12 +67,12 @@ fn two_bus_network() -> Network {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        pmin_mw: 0.0,
-        pmax_mw: 100.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(100.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         cost_model: CostModel::linear(0.0, 10.0),
-        voltage_setpoint_pu: Some(1.0),
+        voltage_setpoint: Some(gat_core::PerUnit(1.0)),
         status: true,
         ..Gen::default()
     }));
@@ -81,8 +81,8 @@ fn two_bus_network() -> Network {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     network
@@ -291,7 +291,7 @@ fn test_network_to_problem_with_offline_components() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        pmax_mw: 100.0,
+        pmax: gat_core::Megawatts(100.0),
         status: true,
         ..Gen::default()
     }));
@@ -301,7 +301,7 @@ fn test_network_to_problem_with_offline_components() {
         id: GenId::new(1),
         name: "gen2".to_string(),
         bus: BusId::new(1),
-        pmax_mw: 50.0,
+        pmax: gat_core::Megawatts(50.0),
         status: false, // OFFLINE
         ..Gen::default()
     }));
@@ -332,7 +332,7 @@ fn test_network_to_problem_polynomial_cost() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        pmax_mw: 100.0,
+        pmax: gat_core::Megawatts(100.0),
         cost_model: CostModel::Polynomial(vec![100.0, 20.0, 0.5]), // c0, c1, c2
         status: true,
         ..Gen::default()

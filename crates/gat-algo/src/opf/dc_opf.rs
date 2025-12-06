@@ -138,13 +138,32 @@
 //! Typically converges in 2-3 iterations, reducing gap from ~6% to ~4%.
 
 use crate::opf::{OpfMethod, OpfSolution};
+use crate::sparse::{SparseSusceptance, SusceptanceError};
 use crate::OpfError;
 use gat_core::{BusId, Edge, Network, Node};
 use good_lp::solvers::clarabel::clarabel;
 use good_lp::{constraint, variable, variables, Expression, Solution, SolverModel, Variable};
-use sprs::{CsMat, TriMat};
 use std::collections::HashMap;
 use std::time::Instant;
+
+/// Convert sparse susceptance errors to OPF errors
+impl From<SusceptanceError> for OpfError {
+    fn from(err: SusceptanceError) -> Self {
+        match err {
+            SusceptanceError::NoBuses => OpfError::DataValidation("No buses in network".into()),
+            SusceptanceError::NoBranches => {
+                OpfError::DataValidation("No branches in network".into())
+            }
+            SusceptanceError::ZeroReactance(name) => {
+                OpfError::DataValidation(format!("Branch {} has zero reactance", name))
+            }
+            SusceptanceError::UnknownBus(id) => {
+                OpfError::DataValidation(format!("Unknown bus ID: {}", id))
+            }
+            SusceptanceError::FactorizationFailed(msg) => OpfError::NumericalIssue(msg),
+        }
+    }
+}
 
 /// Internal representation of a bus for DC-OPF
 #[derive(Debug, Clone)]
@@ -159,8 +178,8 @@ struct BusData {
 struct GenData {
     name: String,
     bus_id: BusId,
-    pmin_mw: f64,
-    pmax_mw: f64,
+    pmin: f64,
+    pmax: f64,
     cost_coeffs: Vec<f64>, // [c0, c1, c2, ...] for polynomial
 }
 
@@ -171,7 +190,7 @@ struct BranchData {
     from_bus: BusId,
     to_bus: BusId,
     susceptance: f64, // b = 1/x (per unit)
-    phase_shift_rad: f64,
+    phase_shift: f64,
 }
 
 /// Return type for network data extraction
@@ -206,20 +225,20 @@ fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
                     gat_core::CostModel::Polynomial(c) => c.clone(),
                     gat_core::CostModel::PiecewiseLinear(_) => {
                         // Approximate with marginal cost at midpoint
-                        let mid = (gen.pmin_mw + gen.pmax_mw) / 2.0;
+                        let mid = (gen.pmin.value() + gen.pmax.value()) / 2.0;
                         vec![0.0, gen.cost_model.marginal_cost(mid)]
                     }
                 };
                 generators.push(GenData {
                     name: gen.name.clone(),
                     bus_id: gen.bus,
-                    pmin_mw: gen.pmin_mw,
-                    pmax_mw: gen.pmax_mw,
+                    pmin: gen.pmin.value(),
+                    pmax: gen.pmax.value(),
                     cost_coeffs,
                 });
             }
             Node::Load(load) => {
-                *loads.entry(load.bus).or_insert(0.0) += load.active_power_mw;
+                *loads.entry(load.bus).or_insert(0.0) += load.active_power.value();
             }
             Node::Shunt(_) => {
                 // Shunts are not used in DC-OPF (no reactive power)
@@ -254,7 +273,7 @@ fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
                 from_bus: branch.from_bus,
                 to_bus: branch.to_bus,
                 susceptance: 1.0 / x_eff,
-                phase_shift_rad: branch.phase_shift_rad,
+                phase_shift: branch.phase_shift.value(),
             });
         }
     }
@@ -267,32 +286,16 @@ fn build_bus_index_map(buses: &[BusData]) -> HashMap<BusId, usize> {
     buses.iter().map(|b| (b.id, b.index)).collect()
 }
 
-/// Build the B' susceptance matrix (sparse)
+/// Build the B' susceptance matrix using the unified sparse module.
+///
+/// This delegates to `SparseSusceptance::from_network()` which builds the matrix
+/// with the same bus ordering as `extract_network_data()` (both iterate over
+/// `network.graph.node_indices()` in order).
 ///
 /// B'[i,j] = -b_ij for i ≠ j (off-diagonal = -susceptance of branch i-j)
 /// B'[i,i] = Σ b_ik for all k (diagonal = sum of susceptances of all branches at bus i)
-fn build_b_prime_matrix(
-    n_bus: usize,
-    branches: &[BranchData],
-    bus_map: &HashMap<BusId, usize>,
-) -> CsMat<f64> {
-    let mut triplets = TriMat::new((n_bus, n_bus));
-
-    for branch in branches {
-        let i = *bus_map.get(&branch.from_bus).expect("from_bus in map");
-        let j = *bus_map.get(&branch.to_bus).expect("to_bus in map");
-        let b = branch.susceptance;
-
-        // Off-diagonal: B'[i,j] = B'[j,i] = -b
-        triplets.add_triplet(i, j, -b);
-        triplets.add_triplet(j, i, -b);
-
-        // Diagonal: B'[i,i] += b, B'[j,j] += b
-        triplets.add_triplet(i, i, b);
-        triplets.add_triplet(j, j, b);
-    }
-
-    triplets.to_csr()
+fn build_b_prime_from_network(network: &Network) -> Result<SparseSusceptance, OpfError> {
+    SparseSusceptance::from_network(network).map_err(|e| e.into())
 }
 
 /// Solve DC-OPF for the given network
@@ -306,10 +309,9 @@ pub fn solve(
     // Extract network data
     let (buses, generators, branches, loads) = extract_network_data(network)?;
     let bus_map = build_bus_index_map(&buses);
-    let n_bus = buses.len();
 
-    // Build B' susceptance matrix
-    let b_prime = build_b_prime_matrix(n_bus, &branches, &bus_map);
+    // Build B' susceptance matrix using unified sparse module
+    let b_prime = build_b_prime_from_network(network)?;
 
     // === LP Formulation ===
     // Variables: P_g[i] for each generator, θ[j] for each bus (except reference)
@@ -326,12 +328,8 @@ pub fn solve(
     let mut cost_terms: Vec<Expression> = Vec::new();
 
     for gen in &generators {
-        let pmin = gen.pmin_mw.max(0.0);
-        let pmax = if gen.pmax_mw.is_finite() {
-            gen.pmax_mw
-        } else {
-            1e6
-        };
+        let pmin = gen.pmin.max(0.0);
+        let pmax = if gen.pmax.is_finite() { gen.pmax } else { 1e6 };
         let p_var = vars.add(variable().min(pmin).max(pmax));
         gen_vars.push((gen.name.clone(), gen.bus_id, p_var));
 
@@ -372,6 +370,7 @@ pub fn solve(
 
     // Add power balance constraints
     let mut problem = problem;
+    let b_view = b_prime.view();
     for bus in &buses {
         let i = bus.index;
 
@@ -387,7 +386,7 @@ pub fn solve(
         let mut flow_expr = Expression::from(0.0);
 
         // Get row i of B' matrix
-        let row = b_prime.outer_view(i);
+        let row = b_view.outer_view(i);
         if let Some(row_view) = row {
             for (j, &b_ij) in row_view.iter() {
                 if let Some(&theta_j) = theta_vars.get(&j) {
@@ -468,7 +467,7 @@ pub fn solve(
                 .unwrap_or(0.0)
         };
 
-        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift_rad);
+        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift);
         result.branch_p_flow.insert(branch.name.clone(), flow);
     }
 
@@ -489,8 +488,8 @@ pub fn solve(
     for (name, _, p_var) in &gen_vars {
         let p = solution.value(*p_var);
         if let Some(gen) = generators.iter().find(|g| &g.name == name) {
-            let at_min = (p - gen.pmin_mw).abs() < 1e-3;
-            let at_max = (p - gen.pmax_mw).abs() < 1e-3;
+            let at_min = (p - gen.pmin).abs() < 1e-3;
+            let at_max = (p - gen.pmax).abs() < 1e-3;
             if !at_min && !at_max {
                 // This is the marginal generator
                 let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
@@ -670,8 +669,8 @@ fn solve_with_loss_factors(
     let bus_map = build_bus_index_map(&buses);
     let n_bus = buses.len();
 
-    // Build B' susceptance matrix
-    let b_prime = build_b_prime_matrix(n_bus, &branches, &bus_map);
+    // Build B' susceptance matrix using unified sparse module
+    let b_prime = build_b_prime_from_network(network)?;
 
     let mut vars = variables!();
 
@@ -680,12 +679,8 @@ fn solve_with_loss_factors(
     let mut cost_terms: Vec<Expression> = Vec::new();
 
     for gen in &generators {
-        let pmin = gen.pmin_mw.max(0.0);
-        let pmax = if gen.pmax_mw.is_finite() {
-            gen.pmax_mw
-        } else {
-            1e6
-        };
+        let pmin = gen.pmin.max(0.0);
+        let pmax = if gen.pmax.is_finite() { gen.pmax } else { 1e6 };
         let p_var = vars.add(variable().min(pmin).max(pmax));
         gen_vars.push((gen.name.clone(), gen.bus_id, p_var));
 
@@ -735,6 +730,7 @@ fn solve_with_loss_factors(
 
     // Add power balance constraints
     let mut problem = problem;
+    let b_view = b_prime.view();
     for bus in &buses {
         let i = bus.index;
 
@@ -747,7 +743,7 @@ fn solve_with_loss_factors(
         let net_injection = gen_at_bus - (load_at_bus + loss_per_bus);
 
         let mut flow_expr = Expression::from(0.0);
-        let row = b_prime.outer_view(i);
+        let row = b_view.outer_view(i);
         if let Some(row_view) = row {
             for (j, &b_ij) in row_view.iter() {
                 if let Some(&theta_j) = theta_vars.get(&j) {
@@ -824,7 +820,7 @@ fn solve_with_loss_factors(
                 .unwrap_or(0.0)
         };
 
-        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift_rad);
+        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift);
         result.branch_p_flow.insert(branch.name.clone(), flow);
     }
 

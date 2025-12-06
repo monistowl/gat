@@ -80,14 +80,13 @@ fn network_from_directory_reader(
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(usize::try_from(id_value).context("bus id must be non-negative")?),
             name: name.to_string(),
-            voltage_kv,
-            voltage_pu,
-            angle_rad,
-            vmin_pu,
-            vmax_pu,
+            base_kv: gat_core::Kilovolts(voltage_kv),
+            voltage_pu: gat_core::PerUnit(voltage_pu),
+            angle_rad: gat_core::Radians(angle_rad),
+            vmin_pu: vmin_pu.map(gat_core::PerUnit),
+            vmax_pu: vmax_pu.map(gat_core::PerUnit),
             area_id: area_id.map(|v| v as i64),
             zone_id: zone_id.map(|v| v as i64),
-            ..Bus::default()
         }));
         bus_node_map.insert(id_value, node_idx);
     }
@@ -194,14 +193,14 @@ fn network_from_directory_reader(
             name: name.to_string(),
             bus: BusId::new(usize::try_from(bus_value).context("gen bus id must be non-negative")?),
             status,
-            active_power_mw,
-            reactive_power_mvar,
-            pmin_mw,
-            pmax_mw,
-            qmin_mvar,
-            qmax_mvar,
-            voltage_setpoint_pu,
-            mbase_mva,
+            active_power: gat_core::Megawatts(active_power_mw),
+            reactive_power: gat_core::Megavars(reactive_power_mvar),
+            pmin: gat_core::Megawatts(pmin_mw),
+            pmax: gat_core::Megawatts(pmax_mw),
+            qmin: gat_core::Megavars(qmin_mvar),
+            qmax: gat_core::Megavars(qmax_mvar),
+            voltage_setpoint: voltage_setpoint_pu.map(gat_core::PerUnit),
+            mbase: mbase_mva.map(gat_core::MegavoltAmperes),
             cost_model,
             cost_startup,
             cost_shutdown,
@@ -251,8 +250,8 @@ fn network_from_directory_reader(
             bus: BusId::new(
                 usize::try_from(bus_value).context("load bus id must be non-negative")?,
             ),
-            active_power_mw,
-            reactive_power_mvar,
+            active_power: gat_core::Megawatts(active_power_mw),
+            reactive_power: gat_core::Megavars(reactive_power_mvar),
         }));
     }
 
@@ -343,15 +342,15 @@ fn network_from_directory_reader(
                     status,
                     resistance: resistance_pu,
                     reactance: reactance_pu,
-                    charging_b_pu,
+                    charging_b: gat_core::PerUnit(charging_b_pu),
                     tap_ratio,
-                    phase_shift_rad,
-                    s_max_mva: rating_a_mva, // Use rating_a_mva as s_max_mva for now
-                    rating_a_mva,
-                    rating_b_mva,
-                    rating_c_mva,
-                    angle_min_rad,
-                    angle_max_rad,
+                    phase_shift: gat_core::Radians(phase_shift_rad),
+                    s_max: rating_a_mva.map(gat_core::MegavoltAmperes), // Use rating_a_mva as s_max for now
+                    rating_a: rating_a_mva.map(gat_core::MegavoltAmperes),
+                    rating_b: rating_b_mva.map(gat_core::MegavoltAmperes),
+                    rating_c: rating_c_mva.map(gat_core::MegavoltAmperes),
+                    angle_min: angle_min_rad.map(gat_core::Radians),
+                    angle_max: angle_max_rad.map(gat_core::Radians),
                     ..Branch::default()
                 };
                 network

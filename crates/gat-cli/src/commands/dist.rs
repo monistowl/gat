@@ -13,18 +13,18 @@ pub fn handle(command: &DistCommands) -> Result<()> {
     match command {
         DistCommands::Import {
             m,
-            output_dir,
+            out_dir,
             feeder_id,
         } => {
-            info!("Importing MATPOWER {} into {}", m, output_dir);
+            info!("Importing MATPOWER {} into {}", m, out_dir);
             let start = Instant::now();
-            let res = import_matpower_case(m, Path::new(output_dir), feeder_id.as_deref());
+            let res = import_matpower_case(m, Path::new(out_dir), feeder_id.as_deref());
             record_run_timed(
-                output_dir,
+                out_dir,
                 "dist import matpower",
                 &[
                     ("matpower", m),
-                    ("output_dir", output_dir),
+                    ("out_dir", out_dir),
                     ("feeder_id", feeder_id.as_deref().unwrap_or("default")),
                 ],
                 start,

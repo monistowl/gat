@@ -383,16 +383,16 @@ fn import_bus(data: &BusData) -> Result<Bus> {
     Ok(Bus {
         id: BusId::new(bus_id),
         name,
-        voltage_kv: if data.base_kv > 0.0 {
+        base_kv: gat_core::Kilovolts(if data.base_kv > 0.0 {
             data.base_kv
         } else {
             // Default to 138 kV if not specified
             138.0
-        },
-        voltage_pu: data.vm,
-        angle_rad: data.va,
-        vmax_pu: Some(data.vmax),
-        vmin_pu: Some(data.vmin),
+        }),
+        voltage_pu: gat_core::PerUnit(data.vm),
+        angle_rad: gat_core::Radians(data.va),
+        vmax_pu: Some(gat_core::PerUnit(data.vmax)),
+        vmin_pu: Some(gat_core::PerUnit(data.vmin)),
         area_id: data.area,
         zone_id: data.zone,
     })
@@ -442,14 +442,14 @@ fn import_gen(data: &GenData, bus_map: &HashMap<i64, NodeIndex>) -> Result<Gen> 
         id: GenId::new(gen_id),
         name,
         bus: BusId::new(data.gen_bus as usize),
-        active_power_mw: data.pg,
-        reactive_power_mvar: data.qg,
-        pmax_mw: data.pmax,
-        pmin_mw: data.pmin,
-        qmax_mvar: data.qmax,
-        qmin_mvar: data.qmin,
-        voltage_setpoint_pu: Some(data.vg),
-        mbase_mva: Some(data.mbase),
+        active_power: gat_core::Megawatts(data.pg),
+        reactive_power: gat_core::Megavars(data.qg),
+        pmax: gat_core::Megawatts(data.pmax),
+        pmin: gat_core::Megawatts(data.pmin),
+        qmax: gat_core::Megavars(data.qmax),
+        qmin: gat_core::Megavars(data.qmin),
+        voltage_setpoint: Some(gat_core::PerUnit(data.vg)),
+        mbase: Some(gat_core::MegavoltAmperes(data.mbase)),
         status: data.gen_status == 1,
         cost_model,
         ..Gen::default()
@@ -473,8 +473,8 @@ fn import_load(data: &LoadData, bus_map: &HashMap<i64, NodeIndex>) -> Result<Loa
         id: LoadId::new(load_id),
         name,
         bus: BusId::new(data.load_bus as usize),
-        active_power_mw: data.pd,
-        reactive_power_mvar: data.qd,
+        active_power: gat_core::Megawatts(data.pd),
+        reactive_power: gat_core::Megavars(data.qd),
     })
 }
 
@@ -511,15 +511,15 @@ fn import_branch(
             to_bus: BusId::new(data.t_bus as usize),
             resistance: data.br_r,
             reactance: data.br_x,
-            charging_b_pu: charging_b,
+            charging_b: gat_core::PerUnit(charging_b),
             tap_ratio: tap,
-            phase_shift_rad: data.shift, // Already in radians from PowerModels
-            rating_a_mva: data.rate_a,
-            rating_b_mva: data.rate_b,
-            rating_c_mva: data.rate_c,
+            phase_shift: gat_core::Radians(data.shift), // Already in radians from PowerModels
+            rating_a: data.rate_a.map(gat_core::MegavoltAmperes),
+            rating_b: data.rate_b.map(gat_core::MegavoltAmperes),
+            rating_c: data.rate_c.map(gat_core::MegavoltAmperes),
             status: data.br_status == 1,
-            angle_min_rad: Some(data.angmin),
-            angle_max_rad: Some(data.angmax),
+            angle_min: Some(gat_core::Radians(data.angmin)),
+            angle_max: Some(gat_core::Radians(data.angmax)),
             element_type: if data.transformer {
                 "transformer".to_string()
             } else {
@@ -644,7 +644,7 @@ mod tests {
             if let Edge::Branch(branch) = &network.graph[edge_idx] {
                 assert_eq!(branch.tap_ratio, 0.95);
                 assert_eq!(branch.element_type, "transformer");
-                assert_eq!(branch.rating_a_mva, Some(100.0));
+                assert_eq!(branch.rating_a.map(|v| v.value()), Some(100.0));
             }
         }
     }

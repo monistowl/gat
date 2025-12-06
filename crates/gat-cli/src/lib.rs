@@ -122,6 +122,7 @@
 //! - Detailed error messages to stderr
 
 pub mod cli;
+pub mod common;
 #[cfg(feature = "docs")]
 pub mod docs;
 pub mod install;

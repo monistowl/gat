@@ -310,12 +310,8 @@ impl<'a> CostFunction for PenaltyProblem<'a> {
             let pg_mw = x[self.problem.pg_offset + i] * self.problem.base_mva;
             let qg_mvar = x[self.problem.qg_offset + i] * self.problem.base_mva;
 
-            let (qmin, qmax) = super::interpolate_q_limits(
-                &gen.capability_curve,
-                pg_mw,
-                gen.qmin_mvar,
-                gen.qmax_mvar,
-            );
+            let (qmin, qmax) =
+                super::interpolate_q_limits(&gen.capability_curve, pg_mw, gen.qmin, gen.qmax);
 
             // Q > Qmax violation
             if qg_mvar > qmax {
@@ -668,8 +664,8 @@ pub fn solve_with_start(
     let mut system_lmp = 0.0;
     for (i, gen) in problem.generators.iter().enumerate() {
         let pg_mw = x[problem.pg_offset + i] * problem.base_mva;
-        let at_min = (pg_mw - gen.pmin_mw).abs() < 1.0;
-        let at_max = (pg_mw - gen.pmax_mw).abs() < 1.0;
+        let at_min = (pg_mw - gen.pmin).abs() < 1.0;
+        let at_max = (pg_mw - gen.pmax).abs() < 1.0;
 
         // Marginal generator: not at either limit
         if !at_min && !at_max {
@@ -707,33 +703,28 @@ mod tests {
         let bus1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
         network.graph.add_edge(
             bus1,
             bus2,
-            Edge::Branch(Branch {
-                id: BranchId::new(0),
-                name: "Line1-2".to_string(),
-                from_bus: BusId::new(1),
-                to_bus: BusId::new(2),
-                resistance: 0.01,
-                reactance: 0.1,
-                charging_b_pu: 0.0,
-                tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                status: true,
-                ..Branch::default()
-            }),
+            Edge::Branch(Branch::new(
+                BranchId::new(0),
+                "Line1-2".to_string(),
+                BusId::new(1),
+                BusId::new(2),
+                0.01,
+                0.1,
+            )),
         );
 
         // Build Y-bus from network
@@ -767,10 +758,10 @@ mod tests {
         let generators = vec![GenData {
             name: "Gen1".to_string(),
             bus_id: BusId::new(1),
-            pmin_mw: 0.0,
-            pmax_mw: 100.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            pmin: 0.0,
+            pmax: 100.0,
+            qmin: -50.0,
+            qmax: 50.0,
             cost_coeffs: vec![0.0, 10.0, 0.0],
             cost_model: gat_core::CostModel::linear(0.0, 10.0),
             capability_curve: Vec::new(),

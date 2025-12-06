@@ -475,23 +475,23 @@ pub fn solve_multiperiod_sequential(
                 let prev_p = prev_dispatch
                     .get(&gen.name)
                     .copied()
-                    .unwrap_or((gen.pmin_mw + gen.pmax_mw) / 2.0);
+                    .unwrap_or((gen.pmin + gen.pmax) / 2.0);
 
                 // Compute ramping-constrained bounds
                 let (p_min_eff, p_max_eff) =
-                    ramp.effective_bounds(prev_p, period.duration_hr, gen.pmin_mw, gen.pmax_mw);
+                    ramp.effective_bounds(prev_p, period.duration_hr, gen.pmin, gen.pmax);
 
                 // Update generator limits
-                gen.pmin_mw = p_min_eff;
-                gen.pmax_mw = p_max_eff;
+                gen.pmin = p_min_eff;
+                gen.pmax = p_max_eff;
 
                 // Sanity check: ensure pmin <= pmax
-                if gen.pmin_mw > gen.pmax_mw {
+                if gen.pmin > gen.pmax {
                     // Infeasible due to ramping - this shouldn't happen with good data
                     // Use midpoint as fallback
-                    let mid = (gen.pmin_mw + gen.pmax_mw) / 2.0;
-                    gen.pmin_mw = mid;
-                    gen.pmax_mw = mid;
+                    let mid = (gen.pmin + gen.pmax) / 2.0;
+                    gen.pmin = mid;
+                    gen.pmax = mid;
                 }
             }
         }
@@ -510,7 +510,7 @@ pub fn solve_multiperiod_sequential(
             for (i, gen) in period_problem.generators.iter().enumerate() {
                 if let Some(&p_mw) = prev_dispatch.get(&gen.name) {
                     // Clamp to new bounds
-                    let p_clamped = p_mw.max(gen.pmin_mw).min(gen.pmax_mw);
+                    let p_clamped = p_mw.max(gen.pmin).min(gen.pmax);
                     warm_x[period_problem.pg_offset + i] = p_clamped / period_problem.base_mva;
                 }
             }
@@ -696,8 +696,8 @@ mod tests {
             id: GenId::new(1),
             name: "Gen1".to_string(),
             bus: BusId::new(1),
-            pmin_mw: 10.0,
-            pmax_mw: 100.0,
+            pmin: gat_core::Megawatts(10.0),
+            pmax: gat_core::Megawatts(100.0),
             cost_model: CostModel::linear(0.0, 20.0),
             ..Gen::default()
         }));

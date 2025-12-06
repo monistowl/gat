@@ -20,6 +20,7 @@ pub fn handle(command: &Nminus1Commands) -> Result<()> {
             threads,
             solver,
             out_partitions,
+            rating_type: _,
         } => {
             let start = Instant::now();
             configure_threads(threads);

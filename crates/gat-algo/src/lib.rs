@@ -8,12 +8,23 @@
 //!
 //! The [`OpfSolver`] provides a unified interface to multiple OPF solution methods:
 //!
-//! | Method | Description | Module |
-//! |--------|-------------|--------|
-//! | [`OpfMethod::EconomicDispatch`] | Merit-order dispatch without network constraints | [`opf`] |
-//! | [`OpfMethod::DcOpf`] | Linear DC approximation with PTDF-based flows | [`opf`] |
-//! | [`OpfMethod::SocpRelaxation`] | Convex SOCP relaxation of AC-OPF | [`opf::socp`](opf/socp.rs) |
-//! | [`OpfMethod::AcOpf`] | Full nonlinear AC-OPF (planned) | [`ac_opf`] |
+//! | Method | Description | Problem Class |
+//! |--------|-------------|---------------|
+//! | [`OpfMethod::EconomicDispatch`] | Merit-order dispatch without network | Linear |
+//! | [`OpfMethod::DcOpf`] | Linear DC approximation with PTDF flows | Linear |
+//! | [`OpfMethod::SocpRelaxation`] | Convex SOCP relaxation of AC-OPF | Conic |
+//! | [`OpfMethod::AcOpf`] | Full nonlinear AC-OPF | Nonlinear |
+//!
+//! ### Architecture
+//!
+//! The OPF system uses a Strategy Pattern for extensibility:
+//!
+//! - **[`opf::OpfFormulation`]**: Defines the mathematical problem (what to solve)
+//! - **[`opf::OpfBackend`]**: Implements the solver algorithm (how to solve it)
+//! - **[`opf::SolverRegistry`]**: Service locator for registered components
+//! - **[`opf::OpfDispatcher`]**: Orchestrates solving with fallback chains
+//!
+//! This separation allows adding new formulations or backends without modifying existing code.
 //!
 //! ### SOCP Relaxation
 //!
@@ -59,6 +70,7 @@ pub mod alloc_kpi;
 pub mod alloc_rents;
 pub mod analytics_ds;
 pub mod analytics_reliability;
+pub mod arena;
 pub mod canos_multiarea;
 pub mod contingency;
 pub mod elcc;
@@ -70,6 +82,7 @@ pub mod io;
 pub mod opf;
 pub mod power_flow;
 pub mod reliability_monte_carlo;
+pub mod sparse;
 pub mod tep;
 pub mod test_utils;
 pub mod validation;
@@ -79,6 +92,7 @@ pub use alloc_kpi::*;
 pub use alloc_rents::*;
 pub use analytics_ds::*;
 pub use analytics_reliability::*;
+pub use arena::ArenaContext;
 pub use canos_multiarea::{
     AreaId, AreaLoleMetrics, Corridor, MultiAreaMonteCarlo, MultiAreaOutageScenario,
     MultiAreaSystem,
@@ -94,6 +108,10 @@ pub use power_flow::*;
 pub use reliability_monte_carlo::{
     DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
     ReliabilityMetrics,
+};
+pub use sparse::{
+    IncrementalSolver, LodfMatrix, PtdfMatrix, SparsePtdf, SparseSusceptance, SparseYBus,
+    SusceptanceError, WoodburyUpdate, YBusError,
 };
 pub use tep::{
     solve_tep, CandidateId, CandidateLine, LineBuildDecision, TepError, TepProblem,

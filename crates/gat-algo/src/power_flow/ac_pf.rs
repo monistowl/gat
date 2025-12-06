@@ -268,7 +268,7 @@ impl AcPowerFlowSolver {
         for gen in &generators {
             if gen.status {
                 // Use generator's voltage setpoint if specified, otherwise use solver default
-                let v_set = gen.voltage_setpoint_pu.unwrap_or(self.pv_voltage_setpoint);
+                let v_set = gen.voltage_setpoint.unwrap_or(self.pv_voltage_setpoint);
                 pv_setpoints.insert(gen.bus, v_set);
             }
         }
@@ -299,7 +299,7 @@ impl AcPowerFlowSolver {
         // Generator Q limits
         let gen_q_limits: HashMap<GenId, (f64, f64)> = generators
             .iter()
-            .map(|g| (g.id, (g.qmin_mvar, g.qmax_mvar)))
+            .map(|g| (g.id, (g.qmin, g.qmax)))
             .collect();
 
         // Generator to bus mapping
@@ -421,12 +421,12 @@ impl AcPowerFlowSolver {
                 generators.push(GeneratorData {
                     id: gen.id,
                     bus: gen.bus,
-                    p_mw: gen.active_power_mw,
-                    q_mvar: gen.reactive_power_mvar,
-                    qmin_mvar: gen.qmin_mvar,
-                    qmax_mvar: gen.qmax_mvar,
+                    p_mw: gen.active_power.value(),
+                    q_mvar: gen.reactive_power.value(),
+                    qmin: gen.qmin.value(),
+                    qmax: gen.qmax.value(),
                     status: gen.status,
-                    voltage_setpoint_pu: gen.voltage_setpoint_pu,
+                    voltage_setpoint: gen.voltage_setpoint.map(|v| v.value()),
                 });
             }
         }
@@ -440,8 +440,8 @@ impl AcPowerFlowSolver {
             if let Node::Load(load) = node {
                 loads.push(LoadData {
                     bus: load.bus,
-                    p_mw: load.active_power_mw,
-                    q_mvar: load.reactive_power_mvar,
+                    p_mw: load.active_power.value(),
+                    q_mvar: load.reactive_power.value(),
                 });
             }
         }
@@ -459,9 +459,9 @@ impl AcPowerFlowSolver {
                         to_bus: branch.to_bus,
                         r_pu: branch.resistance,
                         x_pu: branch.reactance,
-                        b_pu: branch.charging_b_pu,
+                        b_pu: branch.charging_b.value(),
                         tap: branch.tap_ratio,
-                        shift: branch.phase_shift_rad,
+                        shift: branch.phase_shift.value(),
                     });
                 }
             }
@@ -1247,10 +1247,10 @@ struct GeneratorData {
     p_mw: f64,
     q_mvar: f64,
     // P limits intentionally omitted: AC PF solves feasibility without redispatch.
-    qmin_mvar: f64,
-    qmax_mvar: f64,
+    qmin: f64,
+    qmax: f64,
     status: bool,
-    voltage_setpoint_pu: Option<f64>,
+    voltage_setpoint: Option<f64>,
 }
 
 /// Internal load data structure
@@ -1373,14 +1373,14 @@ mod sparse_tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(0),
             name: "bus1".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
 
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "bus2".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
 
@@ -1408,8 +1408,8 @@ mod sparse_tests {
             id: LoadId::new(0),
             name: "load".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 10.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(10.0),
         }));
 
         let solver = AcPowerFlowSolver::new()
@@ -1495,14 +1495,14 @@ mod sparse_tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(0),
             name: "bus1".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
 
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "bus2".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
 
@@ -1533,8 +1533,8 @@ mod sparse_tests {
             id: LoadId::new(0),
             name: "load".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 30.0, // Inductive load
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(30.0), // Inductive load
         }));
 
         // Solve without shunt

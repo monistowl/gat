@@ -22,6 +22,7 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         out,
         out_partitions,
         unserved_threshold,
+        rating_type: _,
     } = command
     else {
         unreachable!();

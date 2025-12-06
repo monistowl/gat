@@ -6,6 +6,11 @@
 //! ```
 //!
 //! This enables fast N-k screening without re-solving power flow for each contingency.
+//!
+//! # Note
+//!
+//! For new code, consider using [`crate::sparse::SparsePtdf`] which provides
+//! typed `BranchId`/`BusId` accessors and integrates with the unified sparse module.
 
 use anyhow::{anyhow, Result};
 use gat_core::{Edge, Network, Node};
@@ -373,19 +378,19 @@ mod tests {
         let b1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let b2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let b3 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(3),
             name: "Bus3".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 

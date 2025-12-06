@@ -148,10 +148,25 @@ This prioritizes contingencies that are both likely and impactful.
 - **PTDF/LODF computation**: O(n³) where n = number of buses (one-time)
 - **Screening**: O(C(m,k)) where m = branches, k = contingency order
 - **Full evaluation**: Only ~1-5% of screened cases require full power flow
+- **Arena Allocation** (v0.5.0+): O(1) bulk deallocation between contingency evaluations
 
 For IEEE 118-bus network with 186 branches:
 - N-1: 186 contingencies → all evaluated
 - N-2: 17,205 combinations → ~500-800 flagged for full evaluation
+
+#### Arena-Based N-k Evaluation
+
+The `NkEvaluator` uses arena allocation for parallel contingency evaluation:
+
+```rust
+// Parallel evaluation with per-thread arenas
+let results = evaluator.evaluate_all_with_arena(&contingencies);
+
+// Or via evaluate_flagged() which uses arena internally
+let results = evaluator.evaluate_flagged(&screening_results);
+```
+
+This reduces 17,205 × 7 ≈ 120k allocator calls to O(threads) arena resets for N-2 analysis.
 
 ### References
 
@@ -335,11 +350,77 @@ Zone-to-zone LOLE = LOLE contribution when one area fails and must rely on other
 - **Memory**: O(N scenarios × buses × branches)
 - **Time**: O(N × AC_OPF_iterations) per evaluation
 - **Parallelism**: Rayon work-stealing over scenarios
+- **Arena Allocation** (v0.5.0+): O(1) bulk deallocation between scenarios
 
 For 859,800 PFDelta instances (IEEE 14/30/57/118-bus cases):
 - 500 scenarios × 118 buses ≈ 59k power flows
 - ~500ms per case on 16-core system = ~8 hours full suite
 - Use `--max-cases N` to sample subset
+
+### Arena-Based Parallel Evaluation (v0.5.0+)
+
+GAT uses **arena allocation** (bumpalo + hashbrown) across multiple parallel algorithms to minimize allocation overhead. The pattern uses `rayon::par_iter().map_init()` with per-thread `ArenaContext`:
+
+```rust
+// Each rayon thread gets its own arena context
+scenarios.par_iter().map_init(
+    ArenaContext::new,
+    |ctx, scenario| {
+        // Arena-backed collections for graph traversal
+        let mut visited_buses = ctx.alloc_hashset::<BusId>();
+        let mut queue = ctx.alloc_vec::<BusId>();
+        let mut bus_reachable = ctx.alloc_hashmap::<BusId, _>();
+
+        // ... BFS to compute deliverable generation ...
+
+        ctx.reset();  // O(1) bulk deallocation
+        result
+    }
+).collect();
+```
+
+#### Algorithms Using Arena Allocation
+
+| Algorithm | Method | Allocations/Iter | Typical Iterations |
+|-----------|--------|------------------|-------------------|
+| Monte Carlo Reliability | `compute_reliability()` | ~10-20 | 5,000 scenarios |
+| N-k Contingency Evaluation | `evaluate_all_with_arena()` | ~7 | 17,205 (N-2) |
+| CANOS Multi-Area | `compute_multiarea_reliability_parallel()` | ~2-4 | 500 × areas |
+
+**Why Arena Allocation?**
+
+Each parallel iteration requires temporary HashSet, HashMap, and Vec allocations. With standard allocation:
+- N-2 contingency analysis: 17,205 × 7 ≈ 120k allocator calls
+- Multi-area Monte Carlo: 500 scenarios × 2+ areas × 4 ≈ 4k allocator calls
+
+With arena allocation:
+- Each thread: 1 arena creation
+- Between iterations: O(1) `reset()` instead of individual frees
+- Result: Reduced allocator contention, better cache locality
+
+#### ArenaContext API
+
+The `ArenaContext` wrapper provides:
+- `alloc_vec<T>()` → `bumpalo::collections::Vec`
+- `alloc_hashset<T>()` → `hashbrown::HashSet` with arena allocator
+- `alloc_hashmap<K, V>()` → `hashbrown::HashMap` with arena allocator
+- `reset()` → O(1) bulk deallocation
+
+#### CANOS Multi-Area Arena Evaluation
+
+For multi-area reliability with parallel scenario evaluation:
+
+```rust
+let mc = MultiAreaMonteCarlo::new(500);
+
+// Use parallel arena-based evaluation
+let metrics = mc.compute_multiarea_reliability_parallel(&system)?;
+
+// Access per-area LOLE
+for (area_id, lole) in &metrics.area_lole {
+    println!("Area {:?}: LOLE = {:.2} hours/year", area_id, lole);
+}
+```
 
 ## References
 

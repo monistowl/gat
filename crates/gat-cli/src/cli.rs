@@ -3,6 +3,8 @@ use clap_complete::Shell;
 use gat_io::importers::Format;
 use std::path::PathBuf;
 
+use crate::common::{FlowMode, OpfMethod, OutputFormat, RatingType};
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
@@ -13,6 +15,10 @@ pub struct Cli {
     /// Set the profile (e.g., "dev", "release")
     #[arg(long, default_value = "dev")]
     pub profile: String,
+
+    /// System base MVA for per-unit calculations (default: 100.0)
+    #[arg(long, global = true, default_value = "100.0")]
+    pub base_mva: f64,
 
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -187,45 +193,45 @@ pub enum ImportCommands {
     Auto {
         /// Path to the input file
         input: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
     /// Import PSS/E RAW file
     Psse {
         /// Path to the RAW file
         #[arg(long)]
         raw: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
     /// Import MATPOWER case file
     Matpower {
         /// Path to the MATPOWER .m file
         #[arg(long)]
         m: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
     /// Import CIM RDF file
     Cim {
         /// Path to the CIM RDF file
         #[arg(long)]
         rdf: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
     /// Import pandapower JSON file
     Pandapower {
         /// Path to the pandapower JSON file
         #[arg(long)]
         json: String,
-        /// Output file path (Arrow format)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory path (Arrow format). Defaults to input filename with .arrow extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
     },
 }
 
@@ -241,9 +247,9 @@ pub enum ConvertCommands {
         /// Target format for conversion
         #[arg(long, value_enum)]
         to: ConvertFormat,
-        /// Output directory/file (default inferred from input + target)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory/file. Defaults to input filename with target format extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
         /// Overwrite existing output without prompting
         #[arg(long)]
         force: bool,
@@ -293,15 +299,32 @@ pub enum InspectCommands {
         input: String,
     },
     /// List all generators with their bus assignments and limits
+    ///
+    /// # Examples
+    ///
+    /// Default table output:
+    /// ```sh
+    /// gat inspect generators grid.arrow
+    /// ```
+    ///
+    /// JSON format for piping:
+    /// ```sh
+    /// gat inspect generators grid.arrow --format json | jq '.[0]'
+    /// ```
+    ///
+    /// CSV format:
+    /// ```sh
+    /// gat inspect generators grid.arrow --format csv > generators.csv
+    /// ```
     Generators {
         /// Path to Arrow directory or importable file
         input: String,
         /// Filter by bus ID
         #[arg(long)]
         bus: Option<usize>,
-        /// Output format (table or json)
-        #[arg(long, default_value = "table")]
-        format: String,
+        /// Output format
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// List all branches with their endpoints and parameters
     Branches {
@@ -310,9 +333,9 @@ pub enum InspectCommands {
         /// Filter by rating less than threshold (MVA)
         #[arg(long)]
         rating_lt: Option<f64>,
-        /// Output format (table or json)
-        #[arg(long, default_value = "table")]
-        format: String,
+        /// Output format
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// Show power balance analysis (total generation capacity vs load)
     PowerBalance {
@@ -334,9 +357,9 @@ pub enum InspectCommands {
         /// Only show branches with rating below this threshold (MVA)
         #[arg(long)]
         threshold: Option<f64>,
-        /// Output format (table or json)
-        #[arg(long, default_value = "table")]
-        format: String,
+        /// Output format
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
 }
 
@@ -353,9 +376,9 @@ pub enum ScenariosCommands {
         /// Path to the scenario spec
         #[arg(long, value_hint = ValueHint::FilePath)]
         spec: String,
-        /// Output format (table or json)
-        #[arg(long, default_value = "table")]
-        format: String,
+        /// Output format
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// Expand templated scenarios into fully resolved definitions
     Expand {
@@ -378,7 +401,7 @@ pub enum ScenariosCommands {
         #[arg(long, value_hint = ValueHint::FilePath)]
         grid_file: Option<String>,
         /// Directory where scenario grids and manifest are written
-        #[arg(short, long, value_hint = ValueHint::DirPath)]
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir", value_hint = ValueHint::DirPath)]
         out_dir: String,
         /// Drop outaged components from the exported grids
         #[arg(long, default_value_t = true)]
@@ -401,14 +424,14 @@ pub enum BatchCommands {
         /// Output directory root for job outputs
         #[arg(short, long, value_hint = ValueHint::DirPath)]
         out: String,
-        /// Flow mode (`dc` or `ac`)
-        #[arg(long, default_value = "dc")]
-        mode: String,
+        /// Power flow mode (dc or ac)
+        #[arg(long, value_enum, default_value_t = FlowMode::Dc)]
+        mode: FlowMode,
         /// Linear solver (`gauss`/`faer`, etc.)
         #[arg(long, default_value = "gauss")]
         solver: String,
         /// Threading hint for global Rayon pool
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Maximum number of jobs to execute in parallel (0 = auto)
         #[arg(long, default_value_t = 0)]
@@ -436,9 +459,9 @@ pub enum BatchCommands {
         /// Output directory root
         #[arg(short, long, value_hint = ValueHint::DirPath)]
         out: String,
-        /// OPF mode (`dc` or `ac`)
-        #[arg(long, default_value = "dc")]
-        mode: String,
+        /// Power flow mode (dc or ac)
+        #[arg(long, value_enum, default_value_t = FlowMode::Dc)]
+        mode: FlowMode,
         /// Main solver (gauss/faer)
         #[arg(long, default_value = "gauss")]
         solver: String,
@@ -458,7 +481,7 @@ pub enum BatchCommands {
         #[arg(long, value_hint = ValueHint::FilePath)]
         piecewise: Option<String>,
         /// Threading hint for global pool
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Maximum concurrent OPF jobs (0 = auto)
         #[arg(long, default_value_t = 0)]
@@ -495,7 +518,7 @@ pub enum BenchmarkCommands {
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         out: String,
         /// Number of parallel solver threads (auto = CPU count)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solve mode: pf (power flow) or opf (optimal power flow)
         #[arg(long, default_value = "opf")]
@@ -531,11 +554,11 @@ pub enum BenchmarkCommands {
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         out: String,
         /// Number of parallel solver threads (auto = CPU count)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
-        /// OPF method: ac, socp, dc, economic (default: socp)
-        #[arg(long, default_value = "socp")]
-        method: String,
+        /// OPF solution method
+        #[arg(short = 'm', long, value_enum, default_value_t = OpfMethod::Socp)]
+        method: OpfMethod,
         /// Convergence tolerance
         #[arg(long, default_value = "1e-6")]
         tol: f64,
@@ -567,11 +590,11 @@ pub enum BenchmarkCommands {
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         out: String,
         /// Number of parallel solver threads (auto = CPU count)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
-        /// OPF method: ac, socp, dc, economic (default: socp)
-        #[arg(long, default_value = "socp")]
-        method: String,
+        /// OPF solution method
+        #[arg(short = 'm', long, value_enum, default_value_t = OpfMethod::Socp)]
+        method: OpfMethod,
         /// Convergence tolerance
         #[arg(long, default_value = "1e-6")]
         tol: f64,
@@ -669,6 +692,23 @@ pub enum PowerFlowCommands {
     /// Solves the linearized DC power flow equations (B'θ = P) and outputs branch flows
     /// to Parquet. Console output shows a rich summary with bus counts, generation/load
     /// totals, and branch flow statistics (range, max absolute flow).
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```sh
+    /// gat pf dc grid.arrow -o flows.parquet
+    /// ```
+    ///
+    /// With custom threads:
+    /// ```sh
+    /// gat pf dc grid.arrow -o flows.parquet -t 4
+    /// ```
+    ///
+    /// Output to stdout as JSON:
+    /// ```sh
+    /// gat pf dc grid.arrow -o - | jq '.[] | select(.flow_mw > 50)'
+    /// ```
     Dc {
         /// Path to the grid data file (Arrow format)
         grid_file: String,
@@ -676,7 +716,7 @@ pub enum PowerFlowCommands {
         #[arg(short, long)]
         out: String,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -687,6 +727,12 @@ pub enum PowerFlowCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Output format when writing to stdout (-o -)
+        #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+        stdout_format: OutputFormat,
+        /// Override slack bus selection (default: auto-select from network data)
+        #[arg(long)]
+        slack_bus: Option<usize>,
     },
     /// Run AC power flow.
     ///
@@ -706,7 +752,7 @@ pub enum PowerFlowCommands {
         #[arg(long, default_value = "20")]
         max_iter: u32,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -720,6 +766,12 @@ pub enum PowerFlowCommands {
         /// Enforce generator Q limits (PV-PQ bus switching)
         #[arg(long)]
         q_limits: bool,
+        /// Override slack bus selection (default: auto-select from network data)
+        #[arg(long)]
+        slack_bus: Option<usize>,
+        /// Show per-iteration convergence progress
+        #[arg(long)]
+        show_iterations: bool,
     },
 }
 
@@ -739,7 +791,7 @@ pub enum Nminus1Commands {
         #[arg(long)]
         branch_limits: Option<String>,
         /// Threads: `auto` or numeric
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -747,6 +799,9 @@ pub enum Nminus1Commands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Which thermal rating to use for limit checks
+        #[arg(long, value_enum, default_value_t = RatingType::RateA)]
+        rating_type: RatingType,
     },
 }
 
@@ -818,8 +873,8 @@ pub enum DistCommands {
         #[arg(long)]
         m: String,
         /// Output directory for dist tables
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Optional feeder identifier to annotate the tables
         #[arg(long)]
         feeder_id: Option<String>,
@@ -869,7 +924,7 @@ pub enum DistCommands {
         #[arg(long)]
         grid_file: String,
         /// Output directory for artifacts
-        #[arg(long)]
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
         out_dir: String,
         /// Bus IDs to target (comma-separated or repeated)
         #[arg(long, value_delimiter = ',')]
@@ -927,8 +982,8 @@ pub enum DermsCommands {
         #[arg(long)]
         price_series: String,
         /// Output directory for scans
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Number of scenarios to sample
         #[arg(long, default_value = "16")]
         scenarios: usize,
@@ -949,8 +1004,8 @@ pub enum AdmsCommands {
         #[arg(long)]
         reliability: String,
         /// Output directory for FLISR artifacts
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Number of scenarios to sample
         #[arg(long, default_value = "3")]
         scenarios: usize,
@@ -970,8 +1025,8 @@ pub enum AdmsCommands {
         #[arg(long)]
         grid_file: String,
         /// Output directory for day-type artifacts
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Day types (comma-separated)
         #[arg(long, default_value = "low,high")]
         day_types: String,
@@ -991,8 +1046,8 @@ pub enum AdmsCommands {
         #[arg(long)]
         reliability: String,
         /// Output directory
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Sample count
         #[arg(long, default_value = "20")]
         samples: usize,
@@ -1144,11 +1199,14 @@ pub enum AnalyticsCommands {
         #[arg(long, default_value = "gauss")]
         solver: String,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Which thermal rating to use for limit checks
+        #[arg(long, value_enum, default_value_t = RatingType::RateA)]
+        rating_type: RatingType,
     },
     /// Reliability metrics (LOLE, EUE, thermal violations) from batch outputs
     ///
@@ -1177,6 +1235,9 @@ pub enum AnalyticsCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Which thermal rating to use for limit checks
+        #[arg(long, value_enum, default_value_t = RatingType::RateA)]
+        rating_type: RatingType,
     },
     /// Estimate Equivalent Load Carrying Capability (ELCC)
     Elcc {
@@ -1375,8 +1436,8 @@ pub enum RunsCommands {
         #[arg(long, default_value = ".")]
         root: PathBuf,
         /// Output format for the listing
-        #[arg(long, value_enum, default_value_t = RunFormat::Plain)]
-        format: RunFormat,
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// Describe a recorded run
     Describe {
@@ -1386,8 +1447,8 @@ pub enum RunsCommands {
         #[arg(long, default_value = ".")]
         root: PathBuf,
         /// Output format for the description
-        #[arg(long, value_enum, default_value_t = RunFormat::Plain)]
-        format: RunFormat,
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// Resume a long run from a manifest
     Resume {
@@ -1537,7 +1598,7 @@ pub enum OpfCommands {
         #[arg(long)]
         piecewise: Option<String>,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -1563,7 +1624,7 @@ pub enum OpfCommands {
         #[arg(long, default_value = "20")]
         max_iter: u32,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -1571,6 +1632,9 @@ pub enum OpfCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Show per-iteration convergence progress
+        #[arg(long)]
+        show_iterations: bool,
     },
     /// Run full nonlinear AC-OPF with cost optimization
     ///
@@ -1593,11 +1657,77 @@ pub enum OpfCommands {
         #[arg(long, default_value = "flat")]
         warm_start: String,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// NLP solver to use: lbfgs (default), ipopt (requires solver-ipopt feature)
         #[arg(long, default_value = "lbfgs")]
         solver: String,
+        /// Show per-iteration convergence progress
+        #[arg(long)]
+        show_iterations: bool,
+    },
+    /// Run OPF directly on a MATPOWER file with full solver options.
+    ///
+    /// Swiss-army-knife command for validation and testing. Accepts MATPOWER files
+    /// directly (no separate cost/limits CSV needed), supports all solver methods
+    /// and warm-start strategies, and provides rich console output with optional
+    /// JSON export.
+    ///
+    /// # Examples
+    ///
+    /// DC optimal power flow:
+    /// ```sh
+    /// gat opf run case9.m --method dc
+    /// ```
+    ///
+    /// SOCP relaxation with enhanced bounds:
+    /// ```sh
+    /// gat opf run case118.m --method socp --enhanced
+    /// ```
+    ///
+    /// AC-OPF with SOCP warm-start:
+    /// ```sh
+    /// gat opf run case300.m --method ac --warm-start socp
+    /// ```
+    Run {
+        /// Path to MATPOWER (.m) file or directory containing .m file
+        input: String,
+        /// OPF solution method
+        #[arg(short = 'm', long, value_enum, default_value_t = OpfMethod::Socp)]
+        method: OpfMethod,
+        /// NLP solver for AC-OPF: lbfgs, ipopt [default: lbfgs]
+        #[arg(long, default_value = "lbfgs")]
+        solver: String,
+        /// Warm-start strategy for AC-OPF: flat, dc, socp, cascaded [default: flat]
+        #[arg(long, default_value = "flat")]
+        warm_start: String,
+        /// Enable OBBT + QC envelopes for tighter SOCP relaxation
+        #[arg(long)]
+        enhanced: bool,
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum iterations
+        #[arg(long, default_value = "200")]
+        max_iter: u32,
+        /// Solver timeout in seconds
+        #[arg(long, default_value = "300")]
+        timeout: u64,
+        /// Compare objective against PGLib baseline CSV
+        #[arg(long)]
+        baseline: Option<String>,
+        /// Include constraint violation details in output
+        #[arg(long)]
+        output_violations: bool,
+        /// Write JSON solution to file
+        #[arg(short, long)]
+        out: Option<String>,
+        /// Threading hint (`auto` or integer)
+        #[arg(short = 't', long, default_value = "auto")]
+        threads: String,
+        /// Show per-iteration convergence progress
+        #[arg(long)]
+        show_iterations: bool,
     },
 }
 
@@ -1617,7 +1747,7 @@ pub enum SeCommands {
         #[arg(long)]
         state_out: Option<String>,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -1650,12 +1780,6 @@ pub enum SolverCommands {
     },
     /// Show solver configuration status
     Status,
-}
-
-#[derive(Copy, Clone, Debug, ValueEnum)]
-pub enum RunFormat {
-    Plain,
-    Json,
 }
 
 pub fn build_cli_command() -> clap::Command {

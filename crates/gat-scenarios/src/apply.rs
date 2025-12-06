@@ -79,14 +79,18 @@ pub fn apply_scenario_to_network(
             match node {
                 Node::Load(load) => {
                     // Scale load by scenario's load_scale (e.g., 1.1 = 10% demand growth)
-                    load.active_power_mw *= scenario.load_scale;
-                    load.reactive_power_mvar *= scenario.load_scale;
+                    load.active_power =
+                        gat_core::Megawatts(load.active_power.value() * scenario.load_scale);
+                    load.reactive_power =
+                        gat_core::Megavars(load.reactive_power.value() * scenario.load_scale);
                 }
                 Node::Gen(gen) => {
                     // Scale renewable generation by scenario's renewable_scale
                     // Note: This applies to all generators; in v1 we may want per-generator scaling
-                    gen.active_power_mw *= scenario.renewable_scale;
-                    gen.reactive_power_mvar *= scenario.renewable_scale;
+                    gen.active_power =
+                        gat_core::Megawatts(gen.active_power.value() * scenario.renewable_scale);
+                    gen.reactive_power =
+                        gat_core::Megavars(gen.reactive_power.value() * scenario.renewable_scale);
                 }
                 _ => {}
             }
@@ -120,8 +124,8 @@ fn disable_generator(network: &mut Network, needle: &str) {
     for node_idx in network.graph.node_indices() {
         if let Some(Node::Gen(gen)) = network.graph.node_weight_mut(node_idx) {
             if generator_matches(gen, needle) {
-                gen.active_power_mw = 0.0;
-                gen.reactive_power_mvar = 0.0;
+                gen.active_power = gat_core::Megawatts(0.0);
+                gen.reactive_power = gat_core::Megavars(0.0);
             }
         }
     }

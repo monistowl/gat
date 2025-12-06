@@ -15,14 +15,14 @@ fn create_2bus_network() -> Network {
     let bus1_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -44,12 +44,12 @@ fn create_2bus_network() -> Network {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 100.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(100.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
@@ -59,8 +59,8 @@ fn create_2bus_network() -> Network {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     network
@@ -160,21 +160,21 @@ fn create_3bus_network() -> Network {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus3".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -226,12 +226,12 @@ fn create_3bus_network() -> Network {
         id: GenId::new(0),
         name: "gen1_cheap".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 100.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(100.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
@@ -242,12 +242,12 @@ fn create_3bus_network() -> Network {
         id: GenId::new(1),
         name: "gen2_expensive".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 100.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(100.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 30.0),
         ..Gen::default()
@@ -258,8 +258,8 @@ fn create_3bus_network() -> Network {
         id: LoadId::new(0),
         name: "load3".to_string(),
         bus: BusId::new(2),
-        active_power_mw: 80.0,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(80.0),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     network

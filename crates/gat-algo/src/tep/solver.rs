@@ -69,8 +69,8 @@ struct BusData {
 struct GenData {
     name: String,
     bus_id: BusId,
-    pmin_mw: f64,
-    pmax_mw: f64,
+    pmin: f64,
+    pmax: f64,
     cost_per_mw: f64,
 }
 
@@ -133,12 +133,8 @@ pub fn solve_tep(problem: &TepProblem, _config: &TepSolverConfig) -> Result<TepS
     let mut operating_cost_expr = Expression::from(0.0);
 
     for gen in &generators {
-        let pmin = gen.pmin_mw.max(0.0);
-        let pmax = if gen.pmax_mw.is_finite() {
-            gen.pmax_mw
-        } else {
-            1e6
-        };
+        let pmin = gen.pmin.max(0.0);
+        let pmax = if gen.pmax.is_finite() { gen.pmax } else { 1e6 };
         let p_var = vars.add(variable().min(pmin).max(pmax));
         gen_vars.push((gen.name.clone(), gen.bus_id, p_var));
 
@@ -427,17 +423,17 @@ fn extract_network_data(
                 bus_index += 1;
             }
             Node::Gen(gen) if gen.status => {
-                let cost_per_mw = gen.cost_model.marginal_cost(gen.pmax_mw / 2.0);
+                let cost_per_mw = gen.cost_model.marginal_cost(gen.pmax.value() / 2.0);
                 generators.push(GenData {
                     name: gen.name.clone(),
                     bus_id: gen.bus,
-                    pmin_mw: gen.pmin_mw,
-                    pmax_mw: gen.pmax_mw,
+                    pmin: gen.pmin.value(),
+                    pmax: gen.pmax.value(),
                     cost_per_mw,
                 });
             }
             Node::Load(load) => {
-                *loads.entry(load.bus).or_insert(0.0) += load.active_power_mw;
+                *loads.entry(load.bus).or_insert(0.0) += load.active_power.value();
             }
             _ => {}
         }
@@ -469,7 +465,7 @@ fn extract_network_data(
                 from_bus: branch.from_bus,
                 to_bus: branch.to_bus,
                 susceptance: 1.0 / x_eff,
-                capacity_mw: branch.rating_a_mva.or(branch.s_max_mva),
+                capacity_mw: branch.rating_a.or(branch.s_max).map(|v| v.value()),
             });
         }
     }
@@ -491,9 +487,9 @@ mod tests {
             network.graph.add_node(Node::Bus(Bus {
                 id: BusId::new(i),
                 name: format!("Bus {}", i),
-                voltage_kv: 230.0,
-                voltage_pu: 1.0,
-                angle_rad: 0.0,
+                base_kv: gat_core::Kilovolts(230.0),
+                voltage_pu: gat_core::PerUnit(1.0),
+                angle_rad: gat_core::Radians(0.0),
                 ..Bus::default()
             }));
         }
@@ -504,8 +500,8 @@ mod tests {
             id: GenId::new(1),
             name: "Gen 1".to_string(),
             bus: BusId::new(1),
-            pmax_mw: 150.0,
-            pmin_mw: 0.0,
+            pmax: gat_core::Megawatts(150.0),
+            pmin: gat_core::Megawatts(0.0),
             cost_model: CostModel::Polynomial(vec![0.0, 10.0]), // $10/MWh
             status: true,
             ..Gen::default()
@@ -516,8 +512,8 @@ mod tests {
             id: GenId::new(2),
             name: "Gen 3".to_string(),
             bus: BusId::new(3),
-            pmax_mw: 360.0,
-            pmin_mw: 0.0,
+            pmax: gat_core::Megawatts(360.0),
+            pmin: gat_core::Megawatts(0.0),
             cost_model: CostModel::Polynomial(vec![0.0, 20.0]), // $20/MWh
             status: true,
             ..Gen::default()
@@ -528,8 +524,8 @@ mod tests {
             id: GenId::new(3),
             name: "Gen 6".to_string(),
             bus: BusId::new(6),
-            pmax_mw: 600.0,
-            pmin_mw: 0.0,
+            pmax: gat_core::Megawatts(600.0),
+            pmin: gat_core::Megawatts(0.0),
             cost_model: CostModel::Polynomial(vec![0.0, 30.0]), // $30/MWh
             status: true,
             ..Gen::default()
@@ -542,8 +538,8 @@ mod tests {
                 id: LoadId::new(i + 1),
                 name: format!("Load {}", bus),
                 bus: BusId::new(*bus),
-                active_power_mw: *mw,
-                reactive_power_mvar: 0.0,
+                active_power: gat_core::Megawatts(*mw),
+                reactive_power: gat_core::Megavars(0.0),
             }));
         }
 

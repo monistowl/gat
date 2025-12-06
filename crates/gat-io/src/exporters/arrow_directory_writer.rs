@@ -216,14 +216,14 @@ impl ArrowDirectoryWriter {
             if let Node::Bus(bus) = node {
                 id.push(bus.id.value() as i64);
                 name.push(bus.name.clone());
-                voltage_kv.push(bus.voltage_kv);
-                voltage_pu.push(1.0_f64); // placeholder until model expands
-                angle_rad.push(0.0_f64); // placeholder
+                voltage_kv.push(bus.base_kv.value());
+                voltage_pu.push(bus.voltage_pu.value());
+                angle_rad.push(bus.angle_rad.value());
                 bus_type.push(BUS_TYPES[0].to_string()); // PQ default
-                vmin_pu.push(None::<f64>);
-                vmax_pu.push(None::<f64>);
-                area_id.push(None::<i64>);
-                zone_id.push(None::<i64>);
+                vmin_pu.push(bus.vmin_pu.map(|v| v.value()));
+                vmax_pu.push(bus.vmax_pu.map(|v| v.value()));
+                area_id.push(bus.area_id);
+                zone_id.push(bus.zone_id);
             }
         }
 
@@ -276,14 +276,14 @@ impl ArrowDirectoryWriter {
                 name.push(gen.name.clone());
                 bus.push(gen.bus.value() as i64);
                 status.push(true); // Network Gen has no status flag; assume in service
-                active_power_mw.push(gen.active_power_mw);
-                reactive_power_mvar.push(gen.reactive_power_mvar);
-                pmin_mw.push(gen.pmin_mw);
-                pmax_mw.push(gen.pmax_mw);
-                qmin_mvar.push(gen.qmin_mvar);
-                qmax_mvar.push(gen.qmax_mvar);
-                voltage_setpoint_pu.push(None::<f64>);
-                mbase_mva.push(None::<f64>);
+                active_power_mw.push(gen.active_power.value());
+                reactive_power_mvar.push(gen.reactive_power.value());
+                pmin_mw.push(gen.pmin.value());
+                pmax_mw.push(gen.pmax.value());
+                qmin_mvar.push(gen.qmin.value());
+                qmax_mvar.push(gen.qmax.value());
+                voltage_setpoint_pu.push(gen.voltage_setpoint.map(|v| v.value()));
+                mbase_mva.push(gen.mbase.map(|v| v.value()));
                 is_syncon.push(gen.is_synchronous_condenser);
 
                 match &gen.cost_model {
@@ -369,8 +369,8 @@ impl ArrowDirectoryWriter {
                 name.push(load.name.clone());
                 bus.push(load.bus.value() as i64);
                 status.push(true); // No status flag in core model
-                active_power_mw.push(load.active_power_mw);
-                reactive_power_mvar.push(load.reactive_power_mvar);
+                active_power_mw.push(load.active_power.value());
+                reactive_power_mvar.push(load.reactive_power.value());
             }
         }
 
@@ -414,14 +414,14 @@ impl ArrowDirectoryWriter {
                 status.push(branch.status);
                 resistance_pu.push(branch.resistance);
                 reactance_pu.push(branch.reactance);
-                charging_b_pu.push(branch.charging_b_pu);
+                charging_b_pu.push(branch.charging_b.value());
                 tap_ratio.push(branch.tap_ratio);
-                phase_shift_rad.push(branch.phase_shift_rad);
-                rate_a_mva.push(branch.rating_a_mva);
-                rate_b_mva.push(None::<f64>);
-                rate_c_mva.push(None::<f64>);
-                angle_min_rad.push(None::<f64>);
-                angle_max_rad.push(None::<f64>);
+                phase_shift_rad.push(branch.phase_shift.value());
+                rate_a_mva.push(branch.rating_a.map(|v| v.value()));
+                rate_b_mva.push(branch.rating_b.map(|v| v.value()));
+                rate_c_mva.push(branch.rating_c.map(|v| v.value()));
+                angle_min_rad.push(branch.angle_min.map(|v| v.value()));
+                angle_max_rad.push(branch.angle_max.map(|v| v.value()));
             }
         }
 

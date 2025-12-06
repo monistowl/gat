@@ -1,8 +1,20 @@
+/// Quickstart Pane - Help and onboarding guide
+///
+/// The quickstart pane provides:
+/// - Setup overview and prerequisites
+/// - Standard workflow guidance
+/// - First run checklist
+/// - FAQ and how-to sections
 use crate::ui::{
     Collapsible, ContextButton, Pane, PaneContext, PaneLayout, PaneView, ResponsiveRules, Sidebar,
     TableView, Tooltip,
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PaneView Implementation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Quickstart pane for the TUI registry
 pub struct QuickstartPane;
 
 impl QuickstartPane {

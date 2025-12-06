@@ -10,7 +10,6 @@ use std::time::Instant;
 use gat_algo::validation::{compute_opf_violations_from_solution, ObjectiveGap};
 use gat_algo::{OpfMethod, OpfSolver};
 use gat_io::importers::load_matpower_network;
-use std::str::FromStr;
 
 use super::baseline::{load_baseline_objectives, normalize_case_name};
 
@@ -88,15 +87,14 @@ pub fn handle(
     max_cases: usize,
     out: &str,
     threads: &str,
-    method: &str,
+    method: OpfMethod,
     tol: f64,
     max_iter: u32,
     enhanced: bool,
     solver: &str,
 ) -> Result<()> {
-    // Parse OPF method
-    let opf_method = OpfMethod::from_str(method)
-        .map_err(|e| anyhow!("Invalid OPF method '{}': {}", method, e))?;
+    // Method already converted from CLI enum to algo enum
+    let opf_method = method;
 
     // Parse solver preference
     let solver_pref = SolverPreference::from_str(solver)?;

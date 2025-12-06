@@ -317,30 +317,25 @@ mod tests {
             network.graph.add_node(Node::Bus(Bus {
                 id: BusId::new(i),
                 name: format!("Bus {}", i),
-                voltage_kv: 138.0,
-                voltage_pu: 1.0,
-                angle_rad: 0.0,
+                base_kv: gat_core::Kilovolts(138.0),
+                voltage_pu: gat_core::PerUnit(1.0),
+                angle_rad: gat_core::Radians(0.0),
                 ..Bus::default()
             }));
         }
 
         // Add generator at bus 1
-        network.graph.add_node(Node::Gen(Gen {
-            id: GenId::new(1),
-            name: "Gen 1".to_string(),
-            bus: BusId::new(1),
-            pmax_mw: 100.0,
-            pmin_mw: 0.0,
-            ..Gen::default()
-        }));
+        network.graph.add_node(Node::Gen(
+            Gen::new(GenId::new(1), "Gen 1".to_string(), BusId::new(1)).with_p_limits(0.0, 100.0),
+        ));
 
         // Add load at bus 3
         network.graph.add_node(Node::Load(Load {
             id: LoadId::new(1),
             name: "Load 1".to_string(),
             bus: BusId::new(3),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 0.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(0.0),
         }));
 
         network

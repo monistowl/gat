@@ -50,10 +50,14 @@ pub fn network_to_problem(
 
             problem.bus_id.push(bus.id.value() as i64);
             problem.bus_name.push(bus.name.clone());
-            problem.bus_v_min.push(bus.vmin_pu.unwrap_or(0.9));
-            problem.bus_v_max.push(bus.vmax_pu.unwrap_or(1.1));
-            problem.bus_v_mag.push(bus.voltage_pu);
-            problem.bus_v_ang.push(bus.angle_rad);
+            problem
+                .bus_v_min
+                .push(bus.vmin_pu.map(|v| v.value()).unwrap_or(0.9));
+            problem
+                .bus_v_max
+                .push(bus.vmax_pu.map(|v| v.value()).unwrap_or(1.1));
+            problem.bus_v_mag.push(bus.voltage_pu.value());
+            problem.bus_v_ang.push(bus.angle_rad.value());
             problem.bus_p_load.push(0.0); // Will be aggregated from loads
             problem.bus_q_load.push(0.0);
             // First bus is slack, rest are PQ
@@ -66,8 +70,8 @@ pub fn network_to_problem(
     for node_idx in network.graph.node_indices() {
         if let Node::Load(load) = &network.graph[node_idx] {
             if let Some(&bus_idx) = bus_id_to_idx.get(&load.bus) {
-                problem.bus_p_load[bus_idx] += load.active_power_mw;
-                problem.bus_q_load[bus_idx] += load.reactive_power_mvar;
+                problem.bus_p_load[bus_idx] += load.active_power.value();
+                problem.bus_q_load[bus_idx] += load.reactive_power.value();
             }
         }
     }
@@ -81,10 +85,10 @@ pub fn network_to_problem(
 
             problem.gen_id.push(gen.id.value() as i64);
             problem.gen_bus_id.push(gen.bus.value() as i64);
-            problem.gen_p_min.push(gen.pmin_mw);
-            problem.gen_p_max.push(gen.pmax_mw);
-            problem.gen_q_min.push(gen.qmin_mvar);
-            problem.gen_q_max.push(gen.qmax_mvar);
+            problem.gen_p_min.push(gen.pmin.value());
+            problem.gen_p_max.push(gen.pmax.value());
+            problem.gen_q_min.push(gen.qmin.value());
+            problem.gen_q_max.push(gen.qmax.value());
 
             // Extract polynomial cost coefficients
             let (c0, c1, c2) = match &gen.cost_model {
@@ -98,7 +102,7 @@ pub fn network_to_problem(
                 gat_core::CostModel::PiecewiseLinear(segments) => {
                     // Approximate with marginal cost at midpoint
                     if !segments.is_empty() {
-                        let mid = (gen.pmin_mw + gen.pmax_mw) / 2.0;
+                        let mid = (gen.pmin.value() + gen.pmax.value()) / 2.0;
                         let mc = gen.cost_model.marginal_cost(mid);
                         (0.0, mc, 0.0)
                     } else {
@@ -112,7 +116,7 @@ pub fn network_to_problem(
             problem.gen_cost_c2.push(c2);
             problem
                 .gen_v_setpoint
-                .push(gen.voltage_setpoint_pu.unwrap_or(1.0));
+                .push(gen.voltage_setpoint.map(|v| v.value()).unwrap_or(1.0));
             problem.gen_status.push(1);
         }
     }
@@ -129,10 +133,12 @@ pub fn network_to_problem(
             problem.branch_to.push(branch.to_bus.value() as i64);
             problem.branch_r.push(branch.resistance);
             problem.branch_x.push(branch.reactance);
-            problem.branch_b.push(branch.charging_b_pu);
-            problem.branch_rate.push(branch.rating_a_mva.unwrap_or(0.0));
+            problem.branch_b.push(branch.charging_b.value());
+            problem
+                .branch_rate
+                .push(branch.rating_a.map(|r| r.value()).unwrap_or(0.0));
             problem.branch_tap.push(branch.tap_ratio);
-            problem.branch_shift.push(branch.phase_shift_rad);
+            problem.branch_shift.push(branch.phase_shift.value());
             problem.branch_status.push(1);
         }
     }
@@ -384,23 +390,18 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
             ..Bus::default()
         }));
 
         // Add a generator
-        network.graph.add_node(Node::Gen(Gen {
-            id: GenId::new(1),
-            name: "Gen1".to_string(),
-            bus: BusId::new(1),
-            pmin_mw: 0.0,
-            pmax_mw: 100.0,
-            cost_model: CostModel::Polynomial(vec![0.0, 10.0]),
-            status: true,
-            ..Gen::default()
-        }));
+        network.graph.add_node(Node::Gen(
+            Gen::new(GenId::new(1), "Gen1".to_string(), BusId::new(1))
+                .with_p_limits(0.0, 100.0)
+                .with_cost(CostModel::Polynomial(vec![0.0, 10.0])),
+        ));
 
         network
     }

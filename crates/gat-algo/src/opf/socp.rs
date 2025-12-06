@@ -222,19 +222,19 @@ struct GenData {
     /// Minimum real power output in MW.
     /// For thermal units: minimum stable generation (often 20-40% of Pmax)
     /// Below this, flame stability and emissions become problematic.
-    pmin_mw: f64,
+    pmin: f64,
 
     /// Maximum real power output in MW (nameplate capacity).
     /// May be derated for temperature, elevation, or maintenance.
-    pmax_mw: f64,
+    pmax: f64,
 
     /// Minimum reactive power in MVAr (absorbing/underexcited).
     /// Limited by stator end-region heating and stability margins.
-    qmin_mvar: f64,
+    qmin: f64,
 
     /// Maximum reactive power in MVAr (producing/overexcited).
     /// Limited by field winding heating (I²R losses in rotor).
-    qmax_mvar: f64,
+    qmax: f64,
 
     /// Polynomial cost coefficients [c₀, c₁, c₂, ...].
     /// - c₀: Fixed cost ($/hr) - incurred whenever unit is on
@@ -326,7 +326,7 @@ struct BranchData {
     /// Phase shift angle in radians (for phase-shifting transformers).
     /// Positive φ advances the secondary voltage phasor.
     /// Typical range: -30° to +30° (-0.52 to +0.52 rad)
-    phase_shift_rad: f64,
+    phase_shift: f64,
 
     /// Maximum apparent power flow in MVA (thermal limit).
     /// Set by the thermal capacity of:
@@ -336,7 +336,7 @@ struct BranchData {
     ///
     /// Usually rated for continuous operation at 40°C ambient.
     /// Short-term emergency ratings may be 10-25% higher.
-    s_max_mva: Option<f64>,
+    s_max: Option<f64>,
 }
 
 /// Map from bus ID to aggregated (P, Q) load at that bus.
@@ -405,11 +405,12 @@ fn extract_network_data(
         match &network.graph[node_idx] {
             Node::Bus(bus) => {
                 // Validate positive voltage (sanity check on input data)
-                if bus.voltage_kv <= 0.0 {
+                if bus.base_kv.value() <= 0.0 {
                     return Err(OpfError::DataValidation(format!(
-                        "Bus {} has non-positive voltage_kv ({}). \
+                        "Bus {} has non-positive base_kv ({}). \
                          Check input data - voltage must be a positive value in kV.",
-                        bus.name, bus.voltage_kv
+                        bus.name,
+                        bus.base_kv.value()
                     )));
                 }
 
@@ -417,8 +418,8 @@ fn extract_network_data(
                 // These are typical NERC/FERC requirements for bulk transmission
                 // Distribution systems may use tighter bounds (±5%)
                 // Use actual case file bounds to produce warm-starts compatible with AC-OPF
-                let v_min = bus.vmin_pu.unwrap_or(0.9);
-                let v_max = bus.vmax_pu.unwrap_or(1.1);
+                let v_min = bus.vmin_pu.map(|v| v.value()).unwrap_or(0.9);
+                let v_max = bus.vmax_pu.map(|v| v.value()).unwrap_or(1.1);
 
                 buses.push(BusData {
                     id: bus.id,
@@ -426,7 +427,7 @@ fn extract_network_data(
                     index: bus_index,
                     v_min,
                     v_max,
-                    base_kv: bus.voltage_kv,
+                    base_kv: bus.base_kv.value(),
                 });
                 bus_index += 1;
             }
@@ -447,7 +448,7 @@ fn extract_network_data(
                         // See: Carrion & Arroyo (2006), "A computationally efficient
                         // mixed-integer linear formulation for the thermal unit commitment"
                         // DOI: 10.1109/TPWRS.2006.876672
-                        let mid = (gen.pmin_mw + gen.pmax_mw) / 2.0;
+                        let mid = (gen.pmin.value() + gen.pmax.value()) / 2.0;
                         vec![0.0, gen.cost_model.marginal_cost(mid)]
                     }
                 };
@@ -455,10 +456,10 @@ fn extract_network_data(
                 generators.push(GenData {
                     name: gen.name.clone(),
                     bus_id: gen.bus,
-                    pmin_mw: gen.pmin_mw,
-                    pmax_mw: gen.pmax_mw,
-                    qmin_mvar: gen.qmin_mvar,
-                    qmax_mvar: gen.qmax_mvar,
+                    pmin: gen.pmin.value(),
+                    pmax: gen.pmax.value(),
+                    qmin: gen.qmin.value(),
+                    qmax: gen.qmax.value(),
                     cost_coeffs,
                 });
             }
@@ -467,8 +468,8 @@ fn extract_network_data(
                 // Aggregate multiple loads at the same bus
                 // This is physically correct: loads in parallel have additive power
                 let entry = loads.entry(load.bus).or_insert((0.0, 0.0));
-                entry.0 += load.active_power_mw;
-                entry.1 += load.reactive_power_mvar;
+                entry.0 += load.active_power.value();
+                entry.1 += load.reactive_power.value();
             }
             Node::Shunt(shunt) => {
                 // Shunts add to bus admittance: P = G*V², Q = -B*V²
@@ -527,11 +528,11 @@ fn extract_network_data(
                 to_bus: branch.to_bus,
                 r: branch.resistance,
                 x: branch.reactance,
-                b_shunt: branch.charging_b_pu,
+                b_shunt: branch.charging_b.value(),
                 tap_ratio: branch.tap_ratio,
-                phase_shift_rad: branch.phase_shift_rad,
-                // Use s_max_mva if available, otherwise fall back to rating_a_mva
-                s_max_mva: branch.s_max_mva.or(branch.rating_a_mva),
+                phase_shift: branch.phase_shift.value(),
+                // Use s_max if available, otherwise fall back to rating_a
+                s_max: branch.s_max.or(branch.rating_a).map(|v| v.value()),
             });
         }
     }
@@ -976,7 +977,7 @@ pub fn solve(
         // P ≤ Pmax/BASE_MVA
         row_gen_pmax.push(push_leq(
             &[(p_var, 1.0)],
-            gen.pmax_mw / BASE_MVA,
+            gen.pmax / BASE_MVA,
             &mut rows,
             &mut rhs,
             &mut cones,
@@ -985,7 +986,7 @@ pub fn solve(
         // P ≥ Pmin/BASE_MVA  →  -P ≤ -Pmin/BASE_MVA
         row_gen_pmin.push(push_leq(
             &[(p_var, -1.0)],
-            -gen.pmin_mw / BASE_MVA,
+            -gen.pmin / BASE_MVA,
             &mut rows,
             &mut rhs,
             &mut cones,
@@ -996,7 +997,7 @@ pub fn solve(
         // Q ≤ Qmax/BASE_MVA
         row_gen_qmax.push(push_leq(
             &[(q_var, 1.0)],
-            gen.qmax_mvar / BASE_MVA,
+            gen.qmax / BASE_MVA,
             &mut rows,
             &mut rhs,
             &mut cones,
@@ -1005,7 +1006,7 @@ pub fn solve(
         // Q ≥ Qmin/BASE_MVA
         row_gen_qmin.push(push_leq(
             &[(q_var, -1.0)],
-            -gen.qmin_mvar / BASE_MVA,
+            -gen.qmin / BASE_MVA,
             &mut rows,
             &mut rhs,
             &mut cones,
@@ -1032,7 +1033,7 @@ pub fn solve(
     for (i, br) in branches.iter().enumerate() {
         let l_var = var_l_start + i;
 
-        if let Some(smax) = br.s_max_mva {
+        if let Some(smax) = br.s_max {
             // ℓ ≤ (S_max/BASE_MVA)²
             let smax_pu = smax / BASE_MVA;
             let row = push_leq(
@@ -1219,7 +1220,7 @@ pub fn solve(
         // We include this for all branches with non-zero impedance,
         // which provides angle estimation even without phase shifters.
         // --------------------------------------------------------------------
-        if br.phase_shift_rad.abs() > 1e-12 || z2 > 1e-12 {
+        if br.phase_shift.abs() > 1e-12 || z2 > 1e-12 {
             let mut theta_coeffs: Vec<(usize, f64)> = Vec::new();
 
             theta_coeffs.push((var_theta_start + to, 1.0)); // θⱼ
@@ -1229,7 +1230,7 @@ pub fn solve(
 
             push_eq(
                 &theta_coeffs,
-                -br.phase_shift_rad, // = -φ
+                -br.phase_shift, // = -φ
                 &mut rows,
                 &mut rhs,
                 &mut cones,
@@ -1477,8 +1478,8 @@ pub fn solve(
 
         // Check if thermal limit is binding
         if let Some(row) = row_branch_thermal[idx] {
-            if row < z.len() && br.s_max_mva.is_some() {
-                let smax = br.s_max_mva.unwrap();
+            if row < z.len() && br.s_max.is_some() {
+                let smax = br.s_max.unwrap();
                 let limit_pu_sq = (smax / BASE_MVA).powi(2);
                 let slack = limit_pu_sq - l;
 
@@ -1524,8 +1525,8 @@ pub fn solve(
         let p_pu = x[var_pgen_start + idx];
         let p_mw = p_pu * BASE_MVA;
 
-        let at_min = (p_mw - gen.pmin_mw).abs() < 1e-3;
-        let at_max = (p_mw - gen.pmax_mw).abs() < 1e-3;
+        let at_min = (p_mw - gen.pmin).abs() < 1e-3;
+        let at_max = (p_mw - gen.pmax).abs() < 1e-3;
 
         if !at_min && !at_max {
             // This generator is marginal (not at its limits)
@@ -1595,24 +1596,24 @@ pub fn solve(
         let p = *result.generator_p.get(&gen.name).unwrap_or(&0.0);
 
         if let Some(&row) = row_gen_pmax.get(i) {
-            if row < z.len() && (p - gen.pmax_mw).abs() < 1e-3 {
+            if row < z.len() && (p - gen.pmax).abs() < 1e-3 {
                 result.binding_constraints.push(ConstraintInfo {
                     name: gen.name.clone(),
                     constraint_type: ConstraintType::GeneratorPMax,
                     value: p,
-                    limit: gen.pmax_mw,
+                    limit: gen.pmax,
                     shadow_price: z[row],
                 });
             }
         }
 
         if let Some(&row) = row_gen_pmin.get(i) {
-            if row < z.len() && (p - gen.pmin_mw).abs() < 1e-3 {
+            if row < z.len() && (p - gen.pmin).abs() < 1e-3 {
                 result.binding_constraints.push(ConstraintInfo {
                     name: gen.name.clone(),
                     constraint_type: ConstraintType::GeneratorPMin,
                     value: p,
-                    limit: gen.pmin_mw,
+                    limit: gen.pmin,
                     shadow_price: z[row],
                 });
             }
@@ -1621,24 +1622,24 @@ pub fn solve(
         let q = *result.generator_q.get(&gen.name).unwrap_or(&0.0);
 
         if let Some(&row) = row_gen_qmax.get(i) {
-            if row < z.len() && (q - gen.qmax_mvar).abs() < 1e-3 {
+            if row < z.len() && (q - gen.qmax).abs() < 1e-3 {
                 result.binding_constraints.push(ConstraintInfo {
                     name: gen.name.clone(),
                     constraint_type: ConstraintType::GeneratorQMax,
                     value: q,
-                    limit: gen.qmax_mvar,
+                    limit: gen.qmax,
                     shadow_price: z[row],
                 });
             }
         }
 
         if let Some(&row) = row_gen_qmin.get(i) {
-            if row < z.len() && (q - gen.qmin_mvar).abs() < 1e-3 {
+            if row < z.len() && (q - gen.qmin).abs() < 1e-3 {
                 result.binding_constraints.push(ConstraintInfo {
                     name: gen.name.clone(),
                     constraint_type: ConstraintType::GeneratorQMin,
                     value: q,
-                    limit: gen.qmin_mvar,
+                    limit: gen.qmin,
                     shadow_price: z[row],
                 });
             }
@@ -1974,14 +1975,14 @@ pub fn solve_with_config(
         let p_var = var_pgen_start + i;
         push_leq(
             &[(p_var, 1.0)],
-            gen.pmax_mw / BASE_MVA,
+            gen.pmax / BASE_MVA,
             &mut rows,
             &mut rhs,
             &mut cones,
         );
         push_leq(
             &[(p_var, -1.0)],
-            -gen.pmin_mw / BASE_MVA,
+            -gen.pmin / BASE_MVA,
             &mut rows,
             &mut rhs,
             &mut cones,
@@ -1990,14 +1991,14 @@ pub fn solve_with_config(
         let q_var = var_qgen_start + i;
         push_leq(
             &[(q_var, 1.0)],
-            gen.qmax_mvar / BASE_MVA,
+            gen.qmax / BASE_MVA,
             &mut rows,
             &mut rhs,
             &mut cones,
         );
         push_leq(
             &[(q_var, -1.0)],
-            -gen.qmin_mvar / BASE_MVA,
+            -gen.qmin / BASE_MVA,
             &mut rows,
             &mut rhs,
             &mut cones,
@@ -2007,7 +2008,7 @@ pub fn solve_with_config(
     // Branch thermal limits
     for (i, br) in branches.iter().enumerate() {
         let l_var = var_l_start + i;
-        if let Some(smax) = br.s_max_mva {
+        if let Some(smax) = br.s_max {
             let smax_pu = smax / BASE_MVA;
             push_leq(
                 &[(l_var, 1.0)],
@@ -2096,7 +2097,7 @@ pub fn solve_with_config(
         v_coeffs.push((var_l_start + i, -z2));
         push_eq(&v_coeffs, 0.0, &mut rows, &mut rhs, &mut cones);
 
-        if br.phase_shift_rad.abs() > 1e-12 || z2 > 1e-12 {
+        if br.phase_shift.abs() > 1e-12 || z2 > 1e-12 {
             let mut theta_coeffs: Vec<(usize, f64)> = Vec::new();
             theta_coeffs.push((var_theta_start + to, 1.0));
             theta_coeffs.push((var_theta_start + from, -1.0));
@@ -2104,7 +2105,7 @@ pub fn solve_with_config(
             theta_coeffs.push((var_qflow_start + i, -br.r / br.tap_ratio));
             push_eq(
                 &theta_coeffs,
-                -br.phase_shift_rad,
+                -br.phase_shift,
                 &mut rows,
                 &mut rhs,
                 &mut cones,
@@ -2636,15 +2637,15 @@ pub fn solve_enhanced(
     let v_limits: Vec<(f64, f64)> = buses.iter().map(|b| (b.v_min, b.v_max)).collect();
     let pg_limits: Vec<(f64, f64)> = generators
         .iter()
-        .map(|g| (g.pmin_mw / BASE_MVA, g.pmax_mw / BASE_MVA))
+        .map(|g| (g.pmin / BASE_MVA, g.pmax / BASE_MVA))
         .collect();
     let qg_limits: Vec<(f64, f64)> = generators
         .iter()
-        .map(|g| (g.qmin_mvar / BASE_MVA, g.qmax_mvar / BASE_MVA))
+        .map(|g| (g.qmin / BASE_MVA, g.qmax / BASE_MVA))
         .collect();
     let thermal_limits: Vec<Option<f64>> = branches
         .iter()
-        .map(|b| b.s_max_mva.map(|s| s / BASE_MVA))
+        .map(|b| b.s_max.map(|s| s / BASE_MVA))
         .collect();
 
     let mut bounds = VariableBounds::from_network(

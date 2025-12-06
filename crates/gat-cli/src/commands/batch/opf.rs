@@ -7,6 +7,7 @@ use crate::commands::util::{configure_threads, parse_partitions};
 use anyhow::{anyhow, Result};
 use gat_batch::{jobs_from_artifacts, run_batch, BatchRunnerConfig, BatchSummary, TaskKind};
 use gat_cli::cli::BatchCommands;
+use gat_cli::common::FlowMode;
 use gat_core::solver::SolverKind;
 use gat_scenarios::manifest::load_manifest;
 
@@ -119,10 +120,9 @@ pub fn handle(command: &BatchCommands) -> Result<()> {
             manifest
         ));
     }
-    let task = match mode.as_str() {
-        "dc" => TaskKind::OpfDc,
-        "ac" => TaskKind::OpfAc,
-        other => return Err(anyhow!("unknown opf mode '{}'; use 'dc' or 'ac'", other)),
+    let task = match mode {
+        FlowMode::Dc => TaskKind::OpfDc,
+        FlowMode::Ac => TaskKind::OpfAc,
     };
     let jobs = jobs_from_artifacts(&artifacts, task);
     if jobs.is_empty() {
@@ -156,15 +156,22 @@ pub fn handle(command: &BatchCommands) -> Result<()> {
     let mut summary = None;
     let res = (|| -> Result<()> {
         let batch_summary = run_batch(&config)?;
-        let task_name = if *mode == "dc" { "OPF-DC" } else { "OPF-AC" };
+        let task_name = match mode {
+            FlowMode::Dc => "OPF-DC",
+            FlowMode::Ac => "OPF-AC",
+        };
         print_batch_summary(&batch_summary, task_name);
         summary = Some(batch_summary);
         Ok(())
     })();
+    let mode_str = match mode {
+        FlowMode::Dc => "dc",
+        FlowMode::Ac => "ac",
+    };
     let mut params = vec![
         ("manifest".to_string(), manifest.to_string()),
         ("solver".to_string(), solver_kind.as_str().to_string()),
-        ("mode".to_string(), mode.clone()),
+        ("mode".to_string(), mode_str.to_string()),
         ("lp_solver".to_string(), lp_solver.clone()),
         (
             "out_partitions".to_string(),

@@ -149,9 +149,9 @@ Rust's abstractions (iterators, traits, generics) compile to the same machine co
 
 \begin{lstlisting}[language=Rust,caption={Iterator fusion eliminates intermediate allocations}]
 // This compiles to a single loop with no heap allocations
-let total_gen: f64 = network.generators()
+let total_gen: Megawatts = network.generators()
     .filter(|g| g.status)
-    .map(|g| g.pmax_mw)
+    .map(|g| g.pmax)
     .sum();
 \end{lstlisting}
 

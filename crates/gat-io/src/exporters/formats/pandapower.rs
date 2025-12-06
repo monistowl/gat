@@ -50,7 +50,11 @@ fn make_dataframe(
 }
 
 fn branch_current_limit(branch: &Branch, bus_voltage_kv: f64) -> Value {
-    let rating = branch.rating_a_mva.or(branch.s_max_mva).unwrap_or(0.0);
+    let rating = branch
+        .rating_a
+        .or(branch.s_max)
+        .map(|v| v.value())
+        .unwrap_or(0.0);
     if rating <= 0.0 || bus_voltage_kv <= 0.0 {
         return Value::Null;
     }
@@ -111,7 +115,7 @@ pub fn export_network_to_pandapower(
         .map(|bus| {
             vec![
                 Value::String(bus.name.clone()),
-                f64_value(bus.voltage_kv),
+                f64_value(bus.base_kv.value()),
                 Value::Bool(true),
             ]
         })
@@ -136,8 +140,8 @@ pub fn export_network_to_pandapower(
             vec![
                 Value::String(load.name.clone()),
                 Value::Number(Number::from(load.bus.value())),
-                f64_value(load.active_power_mw),
-                f64_value(load.reactive_power_mvar),
+                f64_value(load.active_power.value()),
+                f64_value(load.reactive_power.value()),
                 Value::Bool(true),
             ]
         })
@@ -162,11 +166,11 @@ pub fn export_network_to_pandapower(
             vec![
                 Value::String(gen.name.clone()),
                 Value::Number(Number::from(gen.bus.value())),
-                f64_value(gen.active_power_mw),
-                opt_f64_value(Some(gen.pmax_mw)),
-                opt_f64_value(Some(gen.pmin_mw)),
-                opt_f64_value(Some(gen.qmax_mvar)),
-                opt_f64_value(Some(gen.qmin_mvar)),
+                f64_value(gen.active_power.value()),
+                opt_f64_value(Some(gen.pmax.value())),
+                opt_f64_value(Some(gen.pmin.value())),
+                opt_f64_value(Some(gen.qmax.value())),
+                opt_f64_value(Some(gen.qmin.value())),
                 Value::Bool(true),
             ]
         })
@@ -202,7 +206,7 @@ pub fn export_network_to_pandapower(
         .map(|branch| {
             let from_voltage = bus_map
                 .get(&branch.from_bus.value())
-                .map(|bus| bus.voltage_kv)
+                .map(|bus| bus.base_kv.value())
                 .unwrap_or(1.0);
             vec![
                 Value::String(branch.name.clone()),
@@ -259,13 +263,13 @@ pub fn export_network_to_pandapower(
                 f64_value(
                     bus_map
                         .get(&tx.from_bus.value())
-                        .map(|bus| bus.voltage_kv)
+                        .map(|bus| bus.base_kv.value())
                         .unwrap_or(1.0),
                 ),
                 f64_value(
                     bus_map
                         .get(&tx.to_bus.value())
-                        .map(|bus| bus.voltage_kv)
+                        .map(|bus| bus.base_kv.value())
                         .unwrap_or(1.0),
                 ),
                 f64_value(0.0),

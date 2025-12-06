@@ -47,18 +47,18 @@ fn write_bus_section(network: &Network, output: &mut String) {
         let ide = 1; // PQ bus by default
         let area = bus.area_id.unwrap_or(1);
         let zone = bus.zone_id.unwrap_or(1);
-        let vmax = bus.vmax_pu.unwrap_or(1.1);
-        let vmin = bus.vmin_pu.unwrap_or(0.9);
+        let vmax = bus.vmax_pu.map(|v| v.value()).unwrap_or(1.1);
+        let vmin = bus.vmin_pu.map(|v| v.value()).unwrap_or(0.9);
 
         output.push_str(&format!(
             "{},'{:12}',{:.1},{},{},{},1,{:.4},{:.2},{:.4},{:.4},{:.4},{:.4}\n",
             bus.id.value(),
             &bus.name[..bus.name.len().min(12)],
-            bus.voltage_kv,
+            bus.base_kv.value(),
             ide,
             area,
             zone,
-            bus.voltage_pu,
+            bus.voltage_pu.value(),
             0.0, // voltage angle
             vmax,
             vmin,
@@ -98,8 +98,8 @@ fn write_load_section(network: &Network, output: &mut String) {
             "{},{},1,1,1,{:.1},{:.1},0.0,0.0,0.0,0.0,1,1,0\n",
             load.bus.value(),
             idx + 1,
-            load.active_power_mw,
-            load.reactive_power_mvar,
+            load.active_power.value(),
+            load.reactive_power.value(),
         ));
     }
     output.push_str("0 / END OF LOAD DATA, BEGIN FIXED SHUNT DATA\n");
@@ -135,23 +135,23 @@ fn write_generator_section(network: &Network, output: &mut String) {
         // PT = Pmax
         // PB = Pmin
 
-        let vs = gen.voltage_setpoint_pu.unwrap_or(1.0);
-        let mbase = gen.mbase_mva.unwrap_or(100.0);
+        let vs = gen.voltage_setpoint.map(|v| v.value()).unwrap_or(1.0);
+        let mbase = gen.mbase.map(|v| v.value()).unwrap_or(100.0);
         let stat = if gen.status { 1 } else { 0 };
 
         output.push_str(&format!(
             "{},{},{:.1},{:.1},{:.1},{:.1},{:.2},0,{:.1},0.0,0.0,0.0,0.0,1.0,{},100.0,{:.1},{:.1}\n",
             gen.bus.value(),
             idx + 1,
-            gen.active_power_mw,
-            gen.reactive_power_mvar,
-            gen.qmax_mvar,
-            gen.qmin_mvar,
+            gen.active_power.value(),
+            gen.reactive_power.value(),
+            gen.qmax.value(),
+            gen.qmin.value(),
             vs,
             mbase,
             stat,
-            gen.pmax_mw,
-            gen.pmin_mw,
+            gen.pmax.value(),
+            gen.pmin.value(),
         ));
     }
     output.push_str("0 / END OF GENERATOR DATA, BEGIN FIXED SHUNT DATA\n");
@@ -196,9 +196,9 @@ fn write_branch_section(network: &Network, output: &mut String) {
         // MET = metered end (1)
         // LEN = length (0.0 if unknown)
 
-        let rate_a = branch.rating_a_mva.unwrap_or(0.0);
-        let rate_b = branch.rating_b_mva.unwrap_or(rate_a);
-        let rate_c = branch.rating_c_mva.unwrap_or(rate_a);
+        let rate_a = branch.rating_a.map(|v| v.value()).unwrap_or(0.0);
+        let rate_b = branch.rating_b.map(|v| v.value()).unwrap_or(rate_a);
+        let rate_c = branch.rating_c.map(|v| v.value()).unwrap_or(rate_a);
         let status = if branch.status { 1 } else { 0 };
 
         output.push_str(&format!(
@@ -207,7 +207,7 @@ fn write_branch_section(network: &Network, output: &mut String) {
             branch.to_bus.value(),
             branch.resistance,
             branch.reactance,
-            branch.charging_b_pu,
+            branch.charging_b.value(),
             rate_a,
             rate_b,
             rate_c,
@@ -235,7 +235,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -250,10 +250,10 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "SLACK".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            vmax_pu: Some(1.05),
-            vmin_pu: Some(0.95),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
             area_id: Some(1),
             zone_id: Some(1),
             ..Bus::default()
@@ -261,7 +261,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "LOAD".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -281,15 +281,15 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         network.graph.add_node(Node::Load(Load {
             id: LoadId::new(1),
             name: "Load1".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 100.0,
-            reactive_power_mvar: 50.0,
+            active_power: gat_core::Megawatts(100.0),
+            reactive_power: gat_core::Megavars(50.0),
         }));
 
         let output = export_to_psse_string(&network, "test").unwrap();
@@ -306,20 +306,20 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         network.graph.add_node(Node::Gen(Gen {
             id: GenId::new(1),
             name: "Gen1".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 25.0,
-            voltage_setpoint_pu: Some(1.02),
-            qmax_mvar: 100.0,
-            qmin_mvar: -50.0,
-            pmax_mw: 100.0,
-            pmin_mw: 10.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(25.0),
+            voltage_setpoint: Some(gat_core::PerUnit(1.02)),
+            qmax: gat_core::Megavars(100.0),
+            qmin: gat_core::Megavars(-50.0),
+            pmax: gat_core::Megawatts(100.0),
+            pmin: gat_core::Megawatts(10.0),
             ..Gen::default()
         }));
 
@@ -339,13 +339,13 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -360,10 +360,10 @@ mod tests {
                 to_bus: BusId::new(2),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.05,
-                rating_a_mva: Some(100.0),
-                rating_b_mva: Some(110.0),
-                rating_c_mva: Some(120.0),
+                charging_b: gat_core::PerUnit(0.05),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
+                rating_b: Some(gat_core::MegavoltAmperes(110.0)),
+                rating_c: Some(gat_core::MegavoltAmperes(120.0)),
                 ..Branch::default()
             }),
         );

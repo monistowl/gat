@@ -1,6 +1,7 @@
-use crate::{OutageScenario, ReliabilityMetrics};
+use crate::{arena::ArenaContext, OutageScenario, ReliabilityMetrics};
 use anyhow::{anyhow, Result};
 use gat_core::{Network, Node, NodeIndex};
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 /// Area identifier for multi-area systems
@@ -155,10 +156,10 @@ impl MultiAreaOutageScenario {
 
                 for node_idx in network.graph.node_indices() {
                     match network.graph.node_weight(node_idx) {
-                        Some(Node::Load(load)) => area_demand += load.active_power_mw,
+                        Some(Node::Load(load)) => area_demand += load.active_power.value(),
                         Some(Node::Gen(gen)) => {
                             if !scenario.offline_generators.contains(&node_idx) {
-                                area_supply += gen.active_power_mw;
+                                area_supply += gen.active_power.value();
                             }
                         }
                         _ => {}
@@ -204,6 +205,35 @@ impl AreaLoleMetrics {
             scenarios_with_shortfall: 0,
             corridor_utilization: HashMap::new(),
         }
+    }
+}
+
+/// Per-scenario result for parallel aggregation
+#[derive(Debug, Clone, Default)]
+struct ScenarioResult {
+    /// Whether this scenario has any shortfall
+    has_shortfall: bool,
+    /// Per-area shortfall contributions: (LOLE contribution, EUE contribution)
+    area_shortfalls: HashMap<AreaId, (f64, f64)>,
+    /// Per-corridor utilization for this scenario
+    corridor_utils: HashMap<usize, f64>,
+}
+
+impl ScenarioResult {
+    /// Create new empty scenario result
+    fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add area shortfall contribution
+    fn add_area_shortfall(&mut self, area_id: AreaId, lole: f64, eue: f64) {
+        self.has_shortfall = true;
+        self.area_shortfalls.insert(area_id, (lole, eue));
+    }
+
+    /// Add corridor utilization
+    fn add_corridor_utilization(&mut self, corridor_id: usize, util: f64) {
+        self.corridor_utils.insert(corridor_id, util);
     }
 }
 
@@ -340,10 +370,10 @@ impl MultiAreaMonteCarlo {
 
                     for node_idx in network.graph.node_indices() {
                         match network.graph.node_weight(node_idx) {
-                            Some(Node::Load(load)) => area_demand += load.active_power_mw,
+                            Some(Node::Load(load)) => area_demand += load.active_power.value(),
                             Some(Node::Gen(gen)) => {
                                 if !area_scenario.offline_generators.contains(&node_idx) {
-                                    area_supply += gen.active_power_mw;
+                                    area_supply += gen.active_power.value();
                                 }
                             }
                             _ => {}
@@ -393,6 +423,163 @@ impl MultiAreaMonteCarlo {
                         .entry(corridor.id)
                         .or_insert(0.0) += 60.0;
                 }
+            }
+        }
+
+        // Convert LOLE from probability to hours/year
+        for lole in metrics.area_lole.values_mut() {
+            *lole *= self.hours_per_year;
+        }
+
+        // Convert EUE from probability-weighted MWh to annual MWh
+        for eue in metrics.area_eue.values_mut() {
+            *eue *= self.hours_per_year;
+        }
+
+        // Convert zone-to-zone LOLE similarly
+        for z2z_lole in metrics.zone_to_zone_lole.values_mut() {
+            *z2z_lole *= self.hours_per_year;
+        }
+
+        // Average corridor utilization across scenarios
+        for util in metrics.corridor_utilization.values_mut() {
+            *util /= self.num_scenarios as f64;
+        }
+
+        Ok(metrics)
+    }
+
+    /// Compute multi-area zone-to-zone LOLE using parallel arena-based evaluation
+    ///
+    /// This version uses `rayon::par_iter().map_init()` with arena allocation
+    /// to reduce allocator pressure in the scenario evaluation hot loop.
+    pub fn compute_multiarea_reliability_parallel(
+        &self,
+        system: &MultiAreaSystem,
+    ) -> Result<AreaLoleMetrics> {
+        system.validate()?;
+
+        // Generate scenarios (this is serial but cheap)
+        let scenarios = self.generate_multiarea_scenarios(system, 42)?;
+
+        // Parallel scenario evaluation with arena allocation
+        let scenario_results: Vec<ScenarioResult> = scenarios
+            .par_iter()
+            .map_init(ArenaContext::new, |ctx, scenario| {
+                let result = self.evaluate_scenario_with_arena(system, scenario, ctx);
+                ctx.reset(); // O(1) bulk deallocation
+                result
+            })
+            .collect();
+
+        // Reduce results into metrics
+        self.reduce_scenario_results(system, scenario_results)
+    }
+
+    /// Evaluate a single multi-area scenario using arena-backed collections
+    fn evaluate_scenario_with_arena(
+        &self,
+        system: &MultiAreaSystem,
+        scenario: &MultiAreaOutageScenario,
+        ctx: &ArenaContext,
+    ) -> ScenarioResult {
+        let mut result = ScenarioResult::new();
+
+        // Use arena-backed HashSet for corridor online checks
+        let mut offline_corridors = ctx.alloc_hashset::<usize>();
+        for &id in &scenario.offline_corridors {
+            offline_corridors.insert(id);
+        }
+
+        // Per-area analysis
+        for (area_id, network) in &system.areas {
+            if let Some(area_scenario) = scenario.area_scenarios.get(area_id) {
+                // Calculate area demand and supply
+                let mut area_demand = 0.0;
+                let mut area_supply = 0.0;
+
+                for node_idx in network.graph.node_indices() {
+                    match network.graph.node_weight(node_idx) {
+                        Some(Node::Load(load)) => area_demand += load.active_power.value(),
+                        Some(Node::Gen(gen)) => {
+                            if !area_scenario.offline_generators.contains(&node_idx) {
+                                area_supply += gen.active_power.value();
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                let required_demand = area_demand * area_scenario.demand_scale;
+
+                // Calculate available inter-area support (through online corridors)
+                let mut available_import = 0.0;
+                for corridor in &system.corridors {
+                    if (corridor.area_a == *area_id || corridor.area_b == *area_id)
+                        && !offline_corridors.contains(&corridor.id)
+                    {
+                        // Assume 50% of corridor capacity is available for import
+                        available_import += corridor.capacity_mw * 0.5;
+                    }
+                }
+
+                let total_available = area_supply + available_import;
+
+                // Check for shortfall
+                if total_available < required_demand {
+                    let shortfall = required_demand - total_available;
+                    let lole_contribution = area_scenario.probability;
+                    let eue_contribution = shortfall * area_scenario.probability;
+
+                    result.add_area_shortfall(*area_id, lole_contribution, eue_contribution);
+                }
+            }
+        }
+
+        // Track corridor utilization (assumed average 60% when online)
+        for corridor in &system.corridors {
+            if !offline_corridors.contains(&corridor.id) {
+                result.add_corridor_utilization(corridor.id, 60.0);
+            }
+        }
+
+        result
+    }
+
+    /// Reduce per-scenario results into final metrics
+    fn reduce_scenario_results(
+        &self,
+        system: &MultiAreaSystem,
+        results: Vec<ScenarioResult>,
+    ) -> Result<AreaLoleMetrics> {
+        let mut metrics = AreaLoleMetrics::new(self.num_scenarios);
+
+        // Initialize area metrics
+        for area_id in system.areas.keys() {
+            metrics.area_lole.insert(*area_id, 0.0);
+            metrics.area_eue.insert(*area_id, 0.0);
+            metrics.zone_to_zone_lole.insert(*area_id, 0.0);
+        }
+
+        // Initialize corridor utilization tracking
+        for corridor in &system.corridors {
+            metrics.corridor_utilization.insert(corridor.id, 0.0);
+        }
+
+        // Aggregate results
+        for result in results {
+            if result.has_shortfall {
+                metrics.scenarios_with_shortfall += 1;
+            }
+
+            for (area_id, (lole, eue)) in &result.area_shortfalls {
+                *metrics.area_lole.get_mut(area_id).unwrap() += lole;
+                *metrics.area_eue.get_mut(area_id).unwrap() += eue;
+                *metrics.zone_to_zone_lole.get_mut(area_id).unwrap() += lole;
+            }
+
+            for (corridor_id, util) in &result.corridor_utils {
+                *metrics.corridor_utilization.get_mut(corridor_id).unwrap() += util;
             }
         }
 

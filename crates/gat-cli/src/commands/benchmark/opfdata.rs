@@ -15,7 +15,6 @@ use std::time::Instant;
 use gat_algo::validation::ObjectiveGap;
 use gat_algo::{OpfMethod, OpfSolver};
 use gat_io::sources::opfdata::{list_sample_refs, load_opfdata_instance, OpfDataSampleRef};
-use std::str::FromStr;
 
 /// Benchmark result for a single OPFData sample
 #[derive(Debug, Clone, Serialize)]
@@ -97,16 +96,15 @@ pub fn handle(
     max_cases: usize,
     out: &str,
     threads: &str,
-    method: &str,
+    method: OpfMethod,
     tol: f64,
     max_iter: u32,
     diagnostics_log: Option<&str>,
     strict: bool,
     solver: &str,
 ) -> Result<()> {
-    // Parse OPF method
-    let opf_method = OpfMethod::from_str(method)
-        .map_err(|e| anyhow::anyhow!("Invalid OPF method '{}': {}", method, e))?;
+    // Method already converted from CLI enum to algo enum
+    let opf_method = method;
 
     // Parse solver preference
     let solver_pref = SolverPreference::from_str(solver)?;

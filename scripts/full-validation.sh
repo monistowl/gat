@@ -267,9 +267,37 @@ for casefile in "${FILTERED_CASES[@]}"; do
         log_info "  [DRY-RUN] Would run: inspect summary/thermal"
     fi
 
-    # NOTE: Per-case OPF is handled by the batch benchmark command in Phase 2
-    # The opf dc/ac/ac-nlp commands require separate cost/limits/output files
-    # and are designed for production workflows, not single-file testing.
+    # Per-case OPF using the new `opf run` command
+    tier_methods=$(get_methods_for_tier "$tier")
+    IFS=',' read -ra CASE_METHODS <<< "$tier_methods"
+    for method in "${CASE_METHODS[@]}"; do
+        opf_out="$case_output_dir/opf-${method}.json"
+        if $DRY_RUN; then
+            log_info "  [DRY-RUN] Would run: opf run --method $method"
+        else
+            opf_args=(
+                "--method" "$method"
+                "--output-violations"
+                "-o" "$opf_out"
+            )
+            # Add cascaded warm-start for AC-OPF
+            if [[ "$method" == "ac" ]]; then
+                opf_args+=("--warm-start" "cascaded")
+            fi
+            # Add baseline comparison
+            if [[ -f "$BASELINE_CSV" ]]; then
+                opf_args+=("--baseline" "$BASELINE_CSV")
+            fi
+
+            if "$GAT_CLI" opf run "$casefile" "${opf_args[@]}" > "$case_output_dir/opf-${method}.txt" 2>&1; then
+                log_success "  opf $method: ok"
+                success_count=$((success_count + 1))
+            else
+                log_warn "  opf $method: failed"
+                fail_count=$((fail_count + 1))
+            fi
+        fi
+    done
 
     # N-1 contingency analysis (tier1 only, unless skipped)
     if [[ "$tier" == "tier1" || "$tier" == "full" ]] && ! $SKIP_N1; then

@@ -1,9 +1,5 @@
 use gat_tui::{
-    panes::commands::CommandsPane,
-    panes::dashboard::DashboardPane,
-    panes::datasets::DatasetsPane,
-    panes::operations::OperationsPane,
-    panes::pipeline::PipelinePane,
+    panes::{CommandsPane, DashboardPane, DatasetsPane, OperationsPane, PipelinePane},
     ui::{CommandModal, PaneContext, PanelRegistry},
 };
 

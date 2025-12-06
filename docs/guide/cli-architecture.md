@@ -2,6 +2,27 @@
 
 `gat-cli`’s entry point is now intentionally small: `crates/gat-cli/src/main.rs` only parses the `cli::Commands` enum, configures `tracing`, and calls `run_and_log` with a handler for each subcommand. This keeps the `match` in `main.rs` short, makes every branch easy to audit, and keeps runtime telemetry uniformly funneled through `crates/gat-cli/src/commands/telemetry.rs`.
 
+## `common.rs` — Shared CLI Types
+
+`crates/gat-cli/src/common.rs` centralizes shared types and utilities for CLI consistency:
+
+**Enums** (all derive `ValueEnum` for clap integration with tab completion):
+- `OutputFormat` — table, json, jsonl, csv for output formatting
+- `OpfMethod` — economic, dc, socp, ac for OPF solver selection
+- `FlowMode` — dc, ac for power flow mode
+- `RatingType` — rate-a, rate-b, rate-c for thermal limit selection
+- `LinearSolver`, `Optimizer`, `NlpSolver` — solver backend selection
+
+**I/O Types**:
+- `InputSource` — file path or stdin (`-`) for piping support
+- `OutputDest` — file path or stdout (`-`) for piping support
+
+**Utilities**:
+- `write_json()`, `write_jsonl()`, `write_csv_from_json()` — format writers for stdout output
+- `load_network()` — load a Network from file or stdin
+
+When adding new CLI flags, prefer using these shared types over raw strings to get type safety, tab completion, and consistent naming across commands.
+
 ## `commands/` modules
 
 All subcommands now live under `crates/gat-cli/src/commands/`. Each file or submodule focuses on a single domain:

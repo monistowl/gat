@@ -6,33 +6,86 @@
 //! - SOCP relaxation (convex AC approximation)
 //! - AC-OPF (full nonlinear)
 //!
-//! # Solver Dispatch
+//! # Architecture
 //!
-//! The [`dispatch`] module handles solver selection between pure-Rust
-//! and native solvers based on availability and user configuration.
+//! The OPF system uses a Strategy Pattern with two levels of abstraction:
 //!
-//! # Native Solver Mode
+//! - **[`OpfFormulation`]**: Defines *what* mathematical problem to solve
+//!   (e.g., DC-OPF, SOCP, AC-OPF). Handles problem construction from a network.
 //!
-//! By default, DC-OPF uses Clarabel and AC-OPF uses L-BFGS. To use native
-//! solvers (CLP for LP, IPOPT for NLP), enable the `native-dispatch` feature
-//! and use `prefer_native(true)`:
+//! - **[`OpfBackend`]**: Defines *how* to solve it (e.g., Clarabel, L-BFGS, IPOPT).
+//!   Handles the actual optimization algorithm.
+//!
+//! This separation allows:
+//! - Adding new formulations without modifying solver code
+//! - Adding new solvers without modifying formulation code
+//! - Runtime solver selection based on availability and problem class
+//!
+//! # Components
+//!
+//! | Component | Description |
+//! |-----------|-------------|
+//! | [`SolverRegistry`] | Holds registered formulations and backends |
+//! | [`OpfDispatcher`] | Orchestrates solving with fallback chains |
+//! | [`OpfSolver`] | High-level API (delegates to dispatcher internally) |
+//!
+//! # Default Solvers
+//!
+//! | Problem Class | Default Backend | Alternative |
+//! |---------------|-----------------|-------------|
+//! | Linear (DC-OPF) | Clarabel | CLP (native) |
+//! | Conic (SOCP) | Clarabel | - |
+//! | Nonlinear (AC-OPF) | L-BFGS | IPOPT (native) |
+//!
+//! # Using the High-Level API
 //!
 //! ```ignore
+//! use gat_algo::{OpfSolver, OpfMethod};
+//!
 //! let solver = OpfSolver::new()
 //!     .with_method(OpfMethod::DcOpf)
 //!     .prefer_native(true);  // Use CLP if available
+//!
+//! let solution = solver.solve(&network)?;
+//! ```
+//!
+//! # Using the Low-Level API (Custom Registration)
+//!
+//! For advanced use cases, use [`OpfDispatcher`] directly:
+//!
+//! ```ignore
+//! use gat_algo::opf::{SolverRegistry, OpfDispatcher, WarmStartKind};
+//! use std::sync::Arc;
+//!
+//! let registry = Arc::new(SolverRegistry::with_defaults());
+//! let dispatcher = OpfDispatcher::new(registry);
+//!
+//! let solution = dispatcher.solve(
+//!     &network,
+//!     "ac-opf",
+//!     Default::default(),
+//!     &[WarmStartKind::Flat, WarmStartKind::Dc],
+//! )?;
 //! ```
 
 pub mod ac_nlp;
+pub mod backends;
 mod dc_opf;
 pub mod dispatch;
+mod dispatcher;
 mod economic;
+pub mod formulations;
 #[cfg(feature = "native-dispatch")]
 pub mod native_dispatch;
+pub mod registry;
 mod socp;
+pub mod traits;
 mod types;
 
 pub use dispatch::{DispatchConfig, ProblemClass, SolverBackend, SolverDispatcher};
+pub use dispatcher::OpfDispatcher;
+pub use registry::SolverRegistry;
+pub use traits::{OpfBackend, OpfFormulation, OpfProblem, SolverConfig, WarmStartKind};
 pub use types::{
     CascadedResult, ConstraintInfo, ConstraintType, DcWarmStart, OpfMethod, OpfSolution,
     SocpWarmStart,
@@ -142,6 +195,43 @@ impl OpfSolver {
     /// Check if native solver is required
     pub fn requires_native(&self) -> bool {
         self.require_native
+    }
+
+    /// Solve using the new dispatcher-based system.
+    ///
+    /// This is the new implementation that delegates to OpfDispatcher.
+    /// Currently used internally; will replace the main solve() method
+    /// once fully tested.
+    #[allow(dead_code)]
+    fn solve_with_dispatcher(&self, network: &Network) -> Result<OpfSolution, OpfError> {
+        use std::sync::Arc;
+
+        let registry = SolverRegistry::with_defaults();
+        let dispatcher = OpfDispatcher::new(Arc::new(registry));
+
+        // Map OpfMethod enum to formulation ID
+        let formulation_id = match self.method {
+            OpfMethod::EconomicDispatch => "economic-dispatch",
+            OpfMethod::DcOpf => "dc-opf",
+            OpfMethod::SocpRelaxation => "socp",
+            OpfMethod::AcOpf => "ac-opf",
+        };
+
+        // Build config
+        let config = SolverConfig {
+            max_iterations: self.max_iterations,
+            tolerance: self.tolerance,
+            timeout_seconds: self.timeout_seconds,
+        };
+
+        // Build fallback chain based on method
+        let fallbacks = if self.method == OpfMethod::AcOpf {
+            vec![WarmStartKind::Flat, WarmStartKind::Dc, WarmStartKind::Socp]
+        } else {
+            vec![WarmStartKind::Flat]
+        };
+
+        dispatcher.solve(network, formulation_id, config, &fallbacks)
     }
 
     /// Solve OPF for the given network

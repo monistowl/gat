@@ -175,11 +175,11 @@ pub fn export_network_to_powermodels_string(
                 BusExport {
                     index: bus.id.value(),
                     bus_type,
-                    vm: bus.voltage_pu,
-                    va: bus.angle_rad,
-                    vmin: bus.vmin_pu.unwrap_or(0.9),
-                    vmax: bus.vmax_pu.unwrap_or(1.1),
-                    base_kv: bus.voltage_kv,
+                    vm: bus.voltage_pu.value(),
+                    va: bus.angle_rad.value(),
+                    vmin: bus.vmin_pu.map(|v| v.value()).unwrap_or(0.9),
+                    vmax: bus.vmax_pu.map(|v| v.value()).unwrap_or(1.1),
+                    base_kv: bus.base_kv.value(),
                     area: bus.area_id,
                     zone: bus.zone_id,
                     name: bus.name.clone(),
@@ -200,14 +200,14 @@ pub fn export_network_to_powermodels_string(
                     index: gen.id.value(),
                     gen_bus: gen.bus.value(),
                     gen_status: if gen.status { 1 } else { 0 },
-                    pg: gen.active_power_mw,
-                    qg: gen.reactive_power_mvar,
-                    pmin: gen.pmin_mw,
-                    pmax: gen.pmax_mw,
-                    qmin: gen.qmin_mvar,
-                    qmax: gen.qmax_mvar,
-                    vg: gen.voltage_setpoint_pu.unwrap_or(1.0),
-                    mbase: gen.mbase_mva.unwrap_or(100.0),
+                    pg: gen.active_power.value(),
+                    qg: gen.reactive_power.value(),
+                    pmin: gen.pmin.value(),
+                    pmax: gen.pmax.value(),
+                    qmin: gen.qmin.value(),
+                    qmax: gen.qmax.value(),
+                    vg: gen.voltage_setpoint.map(|v| v.value()).unwrap_or(1.0),
+                    mbase: gen.mbase.map(|v| v.value()).unwrap_or(100.0),
                     model,
                     ncost,
                     cost,
@@ -227,8 +227,8 @@ pub fn export_network_to_powermodels_string(
                     index: load.id.value(),
                     load_bus: load.bus.value(),
                     status: 1,
-                    pd: load.active_power_mw,
-                    qd: load.reactive_power_mvar,
+                    pd: load.active_power.value(),
+                    qd: load.reactive_power.value(),
                     name: load.name.clone(),
                 },
             )
@@ -240,10 +240,10 @@ pub fn export_network_to_powermodels_string(
         .iter()
         .map(|branch| {
             // Split charging susceptance half/half
-            let b_half = branch.charging_b_pu / 2.0;
+            let b_half = branch.charging_b.value() / 2.0;
             let is_transformer = branch.element_type == "transformer"
                 || branch.tap_ratio != 1.0
-                || branch.phase_shift_rad != 0.0;
+                || branch.phase_shift.value() != 0.0;
 
             (
                 branch.id.value().to_string(),
@@ -255,17 +255,26 @@ pub fn export_network_to_powermodels_string(
                     br_r: branch.resistance,
                     br_x: branch.reactance,
                     tap: branch.tap_ratio,
-                    shift: branch.phase_shift_rad, // PowerModels uses radians
+                    shift: branch.phase_shift.value(), // PowerModels uses radians
                     b_fr: b_half,
                     b_to: b_half,
                     g_fr: 0.0,
                     g_to: 0.0,
                     transformer: is_transformer,
-                    rate_a: branch.rating_a_mva.or(branch.s_max_mva),
-                    rate_b: branch.rating_b_mva,
-                    rate_c: branch.rating_c_mva,
-                    angmin: branch.angle_min_rad.unwrap_or(-std::f64::consts::PI / 3.0),
-                    angmax: branch.angle_max_rad.unwrap_or(std::f64::consts::PI / 3.0),
+                    rate_a: branch
+                        .rating_a
+                        .map(|v| v.value())
+                        .or(branch.s_max.map(|v| v.value())),
+                    rate_b: branch.rating_b.map(|v| v.value()),
+                    rate_c: branch.rating_c.map(|v| v.value()),
+                    angmin: branch
+                        .angle_min
+                        .map(|v| v.value())
+                        .unwrap_or(-std::f64::consts::PI / 3.0),
+                    angmax: branch
+                        .angle_max
+                        .map(|v| v.value())
+                        .unwrap_or(std::f64::consts::PI / 3.0),
                     name: branch.name.clone(),
                 },
             )
@@ -375,22 +384,22 @@ mod tests {
         let bus1 = Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmax_pu: Some(1.1),
-            vmin_pu: Some(0.9),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmax_pu: Some(gat_core::PerUnit(1.1)),
+            vmin_pu: Some(gat_core::PerUnit(0.9)),
             area_id: Some(1),
             zone_id: Some(1),
         };
         let bus2 = Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmax_pu: Some(1.1),
-            vmin_pu: Some(0.9),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmax_pu: Some(gat_core::PerUnit(1.1)),
+            vmin_pu: Some(gat_core::PerUnit(0.9)),
             area_id: Some(1),
             zone_id: Some(1),
         };
@@ -403,15 +412,15 @@ mod tests {
             id: GenId::new(1),
             name: "Gen 1".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 100.0,
-            reactive_power_mvar: 50.0,
-            pmin_mw: 10.0,
-            pmax_mw: 200.0,
-            qmin_mvar: -100.0,
-            qmax_mvar: 100.0,
+            active_power: gat_core::Megawatts(100.0),
+            reactive_power: gat_core::Megavars(50.0),
+            pmin: gat_core::Megawatts(10.0),
+            pmax: gat_core::Megawatts(200.0),
+            qmin: gat_core::Megavars(-100.0),
+            qmax: gat_core::Megavars(100.0),
             status: true,
-            voltage_setpoint_pu: Some(1.0),
-            mbase_mva: Some(100.0),
+            voltage_setpoint: Some(gat_core::PerUnit(1.0)),
+            mbase: Some(gat_core::MegavoltAmperes(100.0)),
             cost_model: CostModel::Polynomial(vec![100.0, 10.0, 0.01]), // c0=100, c1=10, c2=0.01
             ..Gen::default()
         };
@@ -422,8 +431,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Load 1".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 90.0,
-            reactive_power_mvar: 40.0,
+            active_power: gat_core::Megawatts(90.0),
+            reactive_power: gat_core::Megavars(40.0),
         };
         network.graph.add_node(Node::Load(load));
 
@@ -435,11 +444,11 @@ mod tests {
             to_bus: BusId::new(2),
             resistance: 0.01,
             reactance: 0.1,
-            charging_b_pu: 0.02,
+            charging_b: gat_core::PerUnit(0.02),
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
+            phase_shift: gat_core::Radians(0.0),
             status: true,
-            rating_a_mva: Some(100.0),
+            rating_a: Some(gat_core::MegavoltAmperes(100.0)),
             element_type: "line".to_string(),
             ..Branch::default()
         };
