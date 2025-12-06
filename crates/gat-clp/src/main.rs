@@ -310,8 +310,7 @@ fn solve_with_clp(problem: &ProblemBatch) -> Result<SolutionBatch> {
     // Rewritten: Σ P_g(bus i) - Σ_j B'[i,j] * θ[j] = P_load(i)
 
     // Generator contributions to power balance
-    for g in 0..n_gen {
-        let bus_idx = gen_bus_idx[g];
+    for (g, &bus_idx) in gen_bus_idx.iter().enumerate() {
         coo_entries.push((bus_idx, g, 1.0)); // +1 * P_g in row bus_idx
     }
 
@@ -443,18 +442,16 @@ fn solve_with_clp(problem: &ProblemBatch) -> Result<SolutionBatch> {
     }
 
     // Theta variables have zero cost
-    for _ in 0..n_theta {
-        obj.push(0.0);
-    }
+    obj.extend(std::iter::repeat_n(0.0, n_theta));
 
     // === Constraint bounds ===
     let mut row_lb: Vec<f64> = Vec::with_capacity(num_rows);
     let mut row_ub: Vec<f64> = Vec::with_capacity(num_rows);
 
     // Power balance constraints (equality): row = P_load
-    for i in 0..n_bus {
-        row_lb.push(bus_load[i]);
-        row_ub.push(bus_load[i]);
+    for &load in &bus_load {
+        row_lb.push(load);
+        row_ub.push(load);
     }
 
     // Line flow constraints
@@ -560,9 +557,9 @@ fn solve_with_clp(problem: &ProblemBatch) -> Result<SolutionBatch> {
 
         // Extract bus angles
         let mut bus_v_ang: Vec<f64> = vec![0.0; n_bus];
-        for bus_idx in 0..n_bus {
+        for (bus_idx, angle) in bus_v_ang.iter_mut().enumerate() {
             if let Some(col) = theta_col(bus_idx) {
-                bus_v_ang[bus_idx] = primal[col];
+                *angle = primal[col];
             }
             // Reference bus stays at 0
         }

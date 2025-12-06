@@ -318,7 +318,8 @@ fn compute_contributions(
     control_columns: &[String],
     baseline_kpis: &HashMap<String, f64>,
 ) -> Result<Vec<Contribution>> {
-    let mut contributions = Vec::new();
+    let mut contributions = Vec::with_capacity(kpi_columns.len() * control_columns.len());
+    let row_count = df.height();
 
     for kpi_col in kpi_columns {
         let baseline_value = *baseline_kpis.get(kpi_col).unwrap_or(&0.0);
@@ -328,8 +329,8 @@ fn compute_contributions(
             let control_series = df.column(control_col)?.bool()?;
             let kpi_series = df.column(kpi_col)?.f64()?;
 
-            let mut control_on_values = Vec::new();
-            let mut control_off_values = Vec::new();
+            let mut control_on_values = Vec::with_capacity(row_count);
+            let mut control_off_values = Vec::with_capacity(row_count);
 
             for idx in 0..df.height() {
                 if let (Some(control_val), Some(kpi_val)) =
@@ -381,15 +382,16 @@ fn contributions_to_dataframe(mut contributions: Vec<Contribution>) -> Result<Da
     // Compute total absolute delta for contribution percentage
     let total_abs_delta: f64 = contributions.iter().map(|c| c.abs_delta).sum();
 
-    let mut kpi_names = Vec::new();
-    let mut control_names = Vec::new();
-    let mut baseline_values = Vec::new();
-    let mut control_on_means = Vec::new();
-    let mut control_off_means = Vec::new();
-    let mut deltas = Vec::new();
-    let mut abs_deltas = Vec::new();
-    let mut contribution_pcts = Vec::new();
-    let mut ranks = Vec::new();
+    let capacity = contributions.len();
+    let mut kpi_names = Vec::with_capacity(capacity);
+    let mut control_names = Vec::with_capacity(capacity);
+    let mut baseline_values = Vec::with_capacity(capacity);
+    let mut control_on_means = Vec::with_capacity(capacity);
+    let mut control_off_means = Vec::with_capacity(capacity);
+    let mut deltas = Vec::with_capacity(capacity);
+    let mut abs_deltas = Vec::with_capacity(capacity);
+    let mut contribution_pcts = Vec::with_capacity(capacity);
+    let mut ranks = Vec::with_capacity(capacity);
 
     for (rank, contrib) in contributions.iter().enumerate() {
         let contribution_pct = if total_abs_delta > 0.0 {

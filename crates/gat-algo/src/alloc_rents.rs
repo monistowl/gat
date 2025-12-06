@@ -228,13 +228,14 @@ fn compute_branch_rents(opf_df: &DataFrame, network: &gat_core::Network) -> Resu
     let branch_id_col = opf_df.column("branch_id")?.i64()?;
     let flow_col = opf_df.column("flow_mw")?.f64()?;
 
-    let mut output_branch_ids = Vec::new();
-    let mut output_from_bus = Vec::new();
-    let mut output_to_bus = Vec::new();
-    let mut output_flows = Vec::new();
-    let mut output_lmp_from = Vec::new();
-    let mut output_lmp_to = Vec::new();
-    let mut output_rents = Vec::new();
+    let capacity = opf_df.height();
+    let mut output_branch_ids = Vec::with_capacity(capacity);
+    let mut output_from_bus = Vec::with_capacity(capacity);
+    let mut output_to_bus = Vec::with_capacity(capacity);
+    let mut output_flows = Vec::with_capacity(capacity);
+    let mut output_lmp_from = Vec::with_capacity(capacity);
+    let mut output_lmp_to = Vec::with_capacity(capacity);
+    let mut output_rents = Vec::with_capacity(capacity);
 
     for idx in 0..opf_df.height() {
         if let (Some(branch_id), Some(flow_mw)) = (branch_id_col.get(idx), flow_col.get(idx)) {

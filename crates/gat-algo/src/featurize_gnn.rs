@@ -422,9 +422,10 @@ fn build_feature_dataframes(
     flows_df: &DataFrame,
     group_cols: &[String],
 ) -> Result<(DataFrame, DataFrame, DataFrame)> {
-    let mut all_nodes = Vec::new();
-    let mut all_edges = Vec::new();
-    let mut all_graphs = Vec::new();
+    let num_graphs = graph_keys.len();
+    let mut all_nodes = Vec::with_capacity(num_graphs * node_features.len());
+    let mut all_edges = Vec::with_capacity(num_graphs * edge_features.len());
+    let mut all_graphs = Vec::with_capacity(num_graphs);
 
     // Extract flows grouped by graph
     let flows_by_graph = if group_cols.is_empty() {
@@ -434,7 +435,7 @@ fn build_feature_dataframes(
         // Multiple graphs: group by scenario_id/time
         let group_by = flows_df.group_by(group_cols)?;
         let groups = group_by.get_groups();
-        let mut flows_map = Vec::new();
+        let mut flows_map = Vec::with_capacity(groups.len());
 
         for (graph_idx, group) in groups.iter().enumerate() {
             let group_df = match group {
@@ -454,9 +455,9 @@ fn build_feature_dataframes(
     };
 
     // Build flow maps: branch_id -> flow_mw for each graph
-    let mut flow_maps = Vec::new();
+    let mut flow_maps = Vec::with_capacity(flows_by_graph.len());
     for (graph_idx, group_df) in &flows_by_graph {
-        let mut flow_map = HashMap::new();
+        let mut flow_map = HashMap::with_capacity(group_df.height());
         let branch_col = group_df.column("branch_id")?.i64()?;
         let flow_col = group_df.column("flow_mw")?.f64()?;
 
