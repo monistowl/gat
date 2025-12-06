@@ -846,6 +846,9 @@ name = "bumpalo"
 version = "3.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46c5e41b57b8bba42a04676d81cb89e9ee8e859a1a66f80a5a72e1cb76b34d43"
+dependencies = [
+ "allocator-api2",
+]
 
 [[package]]
 name = "bytemuck"
@@ -2696,6 +2699,7 @@ dependencies = [
  "anyhow",
  "argmin",
  "argmin-math",
+ "bumpalo",
  "chrono",
  "clarabel",
  "csv",
@@ -2706,6 +2710,7 @@ dependencies = [
  "gat-ipopt-sys",
  "gat-solver-common",
  "good_lp",
+ "hashbrown 0.15.5",
  "num-complex 0.4.6",
  "petgraph",
  "polars",
