@@ -2,4 +2,4 @@
 
 mod runner;
 
-pub use runner::KernelRunner;
+pub use runner::{BufferBinding, KernelRunner, MultiBufferKernel};
