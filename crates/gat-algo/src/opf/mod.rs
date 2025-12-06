@@ -34,6 +34,7 @@ mod types;
 pub mod traits;
 pub mod registry;
 mod dispatcher;
+pub mod formulations;
 
 pub use dispatch::{DispatchConfig, ProblemClass, SolverBackend, SolverDispatcher};
 pub use types::{
