@@ -184,6 +184,12 @@ impl PowerEquations {
                 let g_ij = y_ij.re; // Conductance (real part)
                 let b_ij = y_ij.im; // Susceptance (imaginary part)
 
+                // Skip zero entries for sparsity (Y-bus is typically ~2-5% dense)
+                // This avoids expensive trig computations for the ~95% of elements that are zero
+                if g_ij.abs() < 1e-15 && b_ij.abs() < 1e-15 {
+                    continue;
+                }
+
                 let vj = v[j];
                 let theta_ij = theta_i - theta[j];
 
@@ -333,6 +339,12 @@ impl PowerEquations {
                             let y_ik = ybus.get(i, k);
                             let g_ik = y_ik.re;
                             let b_ik = y_ik.im;
+
+                            // Skip zero entries for sparsity
+                            if g_ik.abs() < 1e-15 && b_ik.abs() < 1e-15 {
+                                continue;
+                            }
+
                             let vk = v[k];
                             let theta_ik = theta_i - theta[k];
                             let cos_ik = theta_ik.cos();
@@ -359,6 +371,12 @@ impl PowerEquations {
                     for k in 0..n {
                         if k != i {
                             let y_ik = ybus.get(i, k);
+
+                            // Skip zero entries for sparsity
+                            if y_ik.re.abs() < 1e-15 && y_ik.im.abs() < 1e-15 {
+                                continue;
+                            }
+
                             let vk = v[k];
                             let theta_ik = theta_i - theta[k];
                             sum_pv += vk * (y_ik.re * theta_ik.cos() + y_ik.im * theta_ik.sin());

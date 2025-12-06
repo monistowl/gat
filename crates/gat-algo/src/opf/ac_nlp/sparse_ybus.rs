@@ -131,22 +131,28 @@ impl SparseYBus {
         self.bus_map.get(&id).copied()
     }
 
-    /// Iterate over non-zero entries in row i of G matrix
+    /// Iterate over non-zero entries in row i of G matrix (zero-allocation).
+    ///
+    /// Directly accesses CSR arrays to avoid temporary CsVecView allocation.
     pub fn g_row_iter(&self, i: usize) -> impl Iterator<Item = (usize, f64)> + '_ {
-        self.g_matrix
-            .outer_view(i)
-            .map(|row| row.iter().map(|(j, &v)| (j, v)).collect::<Vec<_>>())
-            .unwrap_or_default()
-            .into_iter()
+        let indptr = self.g_matrix.indptr();
+        let start = indptr.index(i);
+        let end = indptr.index(i + 1);
+        let indices = &self.g_matrix.indices()[start..end];
+        let data = &self.g_matrix.data()[start..end];
+        indices.iter().zip(data.iter()).map(|(&j, &v)| (j, v))
     }
 
-    /// Iterate over non-zero entries in row i of B matrix
+    /// Iterate over non-zero entries in row i of B matrix (zero-allocation).
+    ///
+    /// Directly accesses CSR arrays to avoid temporary CsVecView allocation.
     pub fn b_row_iter(&self, i: usize) -> impl Iterator<Item = (usize, f64)> + '_ {
-        self.b_matrix
-            .outer_view(i)
-            .map(|row| row.iter().map(|(j, &v)| (j, v)).collect::<Vec<_>>())
-            .unwrap_or_default()
-            .into_iter()
+        let indptr = self.b_matrix.indptr();
+        let start = indptr.index(i);
+        let end = indptr.index(i + 1);
+        let indices = &self.b_matrix.indices()[start..end];
+        let data = &self.b_matrix.data()[start..end];
+        indices.iter().zip(data.iter()).map(|(&j, &v)| (j, v))
     }
 }
 

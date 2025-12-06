@@ -944,15 +944,26 @@ pub fn state_estimation_wls(
     // Build the weighted normal equations for WLS: (HᵗWH)θ = HᵗWz, where H is the measurement Jacobian
     // and W contains the measurement weights (DOI:10.1109/PWRS.2003.1307674). The loop accumulates
     // each measurement contribution into the `normal` matrix and `rhs` vector.
+    //
+    // Optimization: The normal matrix H'WH is symmetric, so we only compute the upper triangle
+    // (j >= i) and copy to the lower triangle afterward. This halves the inner loop iterations.
     for row in &measurement_rows {
         // Each measurement increments the normal matrix by h_i * w * h_j and the RHS by h_i * w * (z - offset),
         // which enforces the weighted least squares criterion that downplays low-weight data.
         let y_tilde = row.value - row.offset;
         for (i, &h_i) in row.h.iter().enumerate().take(n_vars) {
-            for (j, &h_j) in row.h.iter().enumerate().take(n_vars) {
-                normal[i][j] += h_i * row.weight * h_j;
+            let w_hi = h_i * row.weight;
+            // Only compute upper triangle (j >= i) since H'WH is symmetric
+            for (j, &h_j) in row.h.iter().enumerate().skip(i).take(n_vars - i) {
+                normal[i][j] += w_hi * h_j;
             }
-            rhs[i] += h_i * row.weight * y_tilde;
+            rhs[i] += w_hi * y_tilde;
+        }
+    }
+    // Copy upper triangle to lower triangle (symmetry)
+    for i in 0..n_vars {
+        for j in (i + 1)..n_vars {
+            normal[j][i] = normal[i][j];
         }
     }
 
