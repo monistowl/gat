@@ -367,3 +367,33 @@ fn test_multiarea_system_three_areas() {
     assert!(metrics.corridor_utilization.contains_key(&0));
     assert!(metrics.corridor_utilization.contains_key(&1));
 }
+
+#[test]
+fn test_multiarea_monte_carlo_parallel_arena() {
+    // Test that parallel arena-based evaluation produces consistent results
+    let mut system = MultiAreaSystem::new();
+    let network1 = create_simple_network("area_a", 150.0, 80.0);
+    let network2 = create_simple_network("area_b", 150.0, 90.0);
+
+    system.add_area(AreaId(0), network1).unwrap();
+    system.add_area(AreaId(1), network2).unwrap();
+
+    let corridor = Corridor::new(0, AreaId(0), AreaId(1), 100.0);
+    system.add_corridor(corridor).unwrap();
+
+    let mc = MultiAreaMonteCarlo::new(500);
+
+    // Use the parallel arena-based method
+    let metrics = mc.compute_multiarea_reliability_parallel(&system).unwrap();
+
+    // Both areas should have metrics
+    assert!(metrics.area_lole.contains_key(&AreaId(0)));
+    assert!(metrics.area_lole.contains_key(&AreaId(1)));
+
+    // LOLE should be non-negative
+    assert!(*metrics.area_lole.get(&AreaId(0)).unwrap() >= 0.0);
+    assert!(*metrics.area_lole.get(&AreaId(1)).unwrap() >= 0.0);
+
+    // Corridor should be tracked
+    assert!(metrics.corridor_utilization.contains_key(&0));
+}
