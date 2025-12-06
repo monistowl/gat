@@ -26,18 +26,18 @@
 //! let bus1_idx = network.graph.add_node(Node::Bus(Bus {
 //!     id: BusId::new(1),
 //!     name: "Bus 1".to_string(),
-//!     voltage_kv: 138.0,
-//!     voltage_pu: 1.0,
-//!     angle_rad: 0.0,
+//!     base_kv: Kilovolts(138.0),
+//!     voltage_pu: PerUnit(1.0),
+//!     angle_rad: Radians(0.0),
 //!     ..Bus::default()
 //! }));
 //!
 //! let bus2_idx = network.graph.add_node(Node::Bus(Bus {
 //!     id: BusId::new(2),
 //!     name: "Bus 2".to_string(),
-//!     voltage_kv: 138.0,
-//!     voltage_pu: 1.0,
-//!     angle_rad: 0.0,
+//!     base_kv: Kilovolts(138.0),
+//!     voltage_pu: PerUnit(1.0),
+//!     angle_rad: Radians(0.0),
 //!     ..Bus::default()
 //! }));
 //!
@@ -53,8 +53,8 @@
 //!     id: LoadId::new(1),
 //!     name: "Load 1".to_string(),
 //!     bus: BusId::new(2),
-//!     active_power_mw: 50.0,
-//!     reactive_power_mvar: 10.0,
+//!     active_power: Megawatts(50.0),
+//!     reactive_power: Megavars(10.0),
 //! }));
 //!
 //! // Connect buses with a branch
@@ -193,11 +193,16 @@ impl ShuntId {
 pub struct Bus {
     pub id: BusId,
     pub name: String,
-    pub voltage_kv: f64,
-    pub voltage_pu: f64,
-    pub angle_rad: f64,
-    pub vmin_pu: Option<f64>,
-    pub vmax_pu: Option<f64>,
+    /// Base voltage in kilovolts (for per-unit conversions)
+    pub base_kv: Kilovolts,
+    /// Voltage magnitude in per-unit
+    pub voltage_pu: PerUnit,
+    /// Voltage angle in radians
+    pub angle_rad: Radians,
+    /// Minimum voltage limit in per-unit
+    pub vmin_pu: Option<PerUnit>,
+    /// Maximum voltage limit in per-unit
+    pub vmax_pu: Option<PerUnit>,
     pub area_id: Option<i64>,
     pub zone_id: Option<i64>,
 }
@@ -207,9 +212,9 @@ impl Default for Bus {
         Self {
             id: BusId(0),
             name: String::new(),
-            voltage_kv: 0.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
+            base_kv: Kilovolts(0.0),
+            voltage_pu: PerUnit(1.0),
+            angle_rad: Radians(0.0),
             vmin_pu: None,
             vmax_pu: None,
             area_id: None,
@@ -224,25 +229,30 @@ pub struct Branch {
     pub name: String,
     pub from_bus: BusId,
     pub to_bus: BusId,
+    /// Series resistance (per-unit)
     pub resistance: f64,
+    /// Series reactance (per-unit)
     pub reactance: f64,
     /// Multiplicative tap magnitude applied from from_bus to to_bus
     pub tap_ratio: f64,
-    /// Phase shift in radians applied from from_bus to to_bus
-    pub phase_shift_rad: f64,
-    /// Total line charging susceptance (split half/half)
-    pub charging_b_pu: f64,
-    /// Symmetric thermal limit in MVA
-    pub s_max_mva: Option<f64>,
-    /// Normal/emergency/short-term ratings
-    pub rating_a_mva: Option<f64>,
-    pub rating_b_mva: Option<f64>,
-    pub rating_c_mva: Option<f64>,
+    /// Phase shift applied from from_bus to to_bus
+    pub phase_shift: Radians,
+    /// Total line charging susceptance (per-unit, split half/half)
+    pub charging_b: PerUnit,
+    /// Symmetric thermal limit
+    pub s_max: Option<MegavoltAmperes>,
+    /// Normal rating (Rate A)
+    pub rating_a: Option<MegavoltAmperes>,
+    /// Emergency rating (Rate B)
+    pub rating_b: Option<MegavoltAmperes>,
+    /// Short-term rating (Rate C)
+    pub rating_c: Option<MegavoltAmperes>,
     /// Operational status flag
     pub status: bool,
-    /// Optional angle limits (radians)
-    pub angle_min_rad: Option<f64>,
-    pub angle_max_rad: Option<f64>,
+    /// Minimum angle difference limit
+    pub angle_min: Option<Radians>,
+    /// Maximum angle difference limit
+    pub angle_max: Option<Radians>,
     /// Element type: line or transformer
     pub element_type: String,
     /// Phase-shifting transformer flag (allows negative reactance)
@@ -259,15 +269,15 @@ impl Default for Branch {
             resistance: 0.0,
             reactance: 0.0,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
-            rating_a_mva: None,
-            rating_b_mva: None,
-            rating_c_mva: None,
+            phase_shift: Radians(0.0),
+            charging_b: PerUnit(0.0),
+            s_max: None,
+            rating_a: None,
+            rating_b: None,
+            rating_c: None,
             status: true,
-            angle_min_rad: None,
-            angle_max_rad: None,
+            angle_min: None,
+            angle_max: None,
             element_type: "line".to_string(),
             is_phase_shifter: false,
         }
@@ -297,7 +307,7 @@ impl Branch {
 
     /// Attach a symmetric thermal limit in MVA.
     pub fn with_s_max(mut self, s_max_mva: Option<f64>) -> Self {
-        self.s_max_mva = s_max_mva;
+        self.s_max = s_max_mva.map(MegavoltAmperes);
         self
     }
 
@@ -402,25 +412,27 @@ pub struct Gen {
     pub id: GenId,
     pub name: String,
     pub bus: BusId,
-    pub active_power_mw: f64,
-    pub reactive_power_mvar: f64,
-    /// Minimum active power output (MW)
-    pub pmin_mw: f64,
-    /// Maximum active power output (MW)
-    pub pmax_mw: f64,
-    /// Minimum reactive power output (MVAr)
-    pub qmin_mvar: f64,
-    /// Maximum reactive power output (MVAr)
-    pub qmax_mvar: f64,
+    /// Active power output (MW)
+    pub active_power: Megawatts,
+    /// Reactive power output (Mvar)
+    pub reactive_power: Megavars,
+    /// Minimum active power output
+    pub pmin: Megawatts,
+    /// Maximum active power output
+    pub pmax: Megawatts,
+    /// Minimum reactive power output
+    pub qmin: Megavars,
+    /// Maximum reactive power output
+    pub qmax: Megavars,
     /// In-service status
     pub status: bool,
     /// Voltage setpoint (per-unit)
-    pub voltage_setpoint_pu: Option<f64>,
+    pub voltage_setpoint: Option<PerUnit>,
     /// Machine MVA base
-    pub mbase_mva: Option<f64>,
-    /// Startup cost
+    pub mbase: Option<MegavoltAmperes>,
+    /// Startup cost ($)
     pub cost_startup: Option<f64>,
-    /// Shutdown cost
+    /// Shutdown cost ($)
     pub cost_shutdown: Option<f64>,
     /// Cost function for OPF
     pub cost_model: CostModel,
@@ -434,15 +446,15 @@ impl Default for Gen {
             id: GenId(0),
             name: String::new(),
             bus: BusId(0),
-            active_power_mw: 0.0,
-            reactive_power_mvar: 0.0,
-            pmin_mw: 0.0,
-            pmax_mw: f64::INFINITY,
-            qmin_mvar: f64::NEG_INFINITY,
-            qmax_mvar: f64::INFINITY,
+            active_power: Megawatts(0.0),
+            reactive_power: Megavars(0.0),
+            pmin: Megawatts(0.0),
+            pmax: Megawatts(f64::INFINITY),
+            qmin: Megavars(f64::NEG_INFINITY),
+            qmax: Megavars(f64::INFINITY),
             status: true,
-            voltage_setpoint_pu: None,
-            mbase_mva: None,
+            voltage_setpoint: None,
+            mbase: None,
             cost_startup: None,
             cost_shutdown: None,
             cost_model: CostModel::NoCost,
@@ -458,15 +470,15 @@ impl Gen {
             id,
             name,
             bus,
-            active_power_mw: 0.0,
-            reactive_power_mvar: 0.0,
-            pmin_mw: 0.0,
-            pmax_mw: f64::INFINITY,
-            qmin_mvar: f64::NEG_INFINITY,
-            qmax_mvar: f64::INFINITY,
+            active_power: Megawatts(0.0),
+            reactive_power: Megavars(0.0),
+            pmin: Megawatts(0.0),
+            pmax: Megawatts(f64::INFINITY),
+            qmin: Megavars(f64::NEG_INFINITY),
+            qmax: Megavars(f64::INFINITY),
             status: true,
-            voltage_setpoint_pu: None,
-            mbase_mva: None,
+            voltage_setpoint: None,
+            mbase: None,
             cost_startup: None,
             cost_shutdown: None,
             cost_model: CostModel::NoCost,
@@ -474,17 +486,17 @@ impl Gen {
         }
     }
 
-    /// Set active power limits
+    /// Set active power limits (in MW)
     pub fn with_p_limits(mut self, pmin: f64, pmax: f64) -> Self {
-        self.pmin_mw = pmin;
-        self.pmax_mw = pmax;
+        self.pmin = Megawatts(pmin);
+        self.pmax = Megawatts(pmax);
         self
     }
 
-    /// Set reactive power limits
+    /// Set reactive power limits (in Mvar)
     pub fn with_q_limits(mut self, qmin: f64, qmax: f64) -> Self {
-        self.qmin_mvar = qmin;
-        self.qmax_mvar = qmax;
+        self.qmin = Megavars(qmin);
+        self.qmax = Megavars(qmax);
         self
     }
 
@@ -506,8 +518,10 @@ pub struct Load {
     pub id: LoadId,
     pub name: String,
     pub bus: BusId,
-    pub active_power_mw: f64,
-    pub reactive_power_mvar: f64,
+    /// Active power demand (MW)
+    pub active_power: Megawatts,
+    /// Reactive power demand (Mvar)
+    pub reactive_power: Megavars,
 }
 
 #[derive(Debug, Clone)]
@@ -594,13 +608,13 @@ impl Network {
                 Node::Bus(_) => stats.num_buses += 1,
                 Node::Gen(g) => {
                     stats.num_gens += 1;
-                    stats.total_gen_capacity_mw += g.pmax_mw;
-                    stats.total_gen_pmin_mw += g.pmin_mw;
+                    stats.total_gen_capacity_mw += g.pmax.value();
+                    stats.total_gen_pmin_mw += g.pmin.value();
                 }
                 Node::Load(l) => {
                     stats.num_loads += 1;
-                    stats.total_load_mw += l.active_power_mw;
-                    stats.total_load_mvar += l.reactive_power_mvar;
+                    stats.total_load_mw += l.active_power.value();
+                    stats.total_load_mvar += l.reactive_power.value();
                 }
                 Node::Shunt(_) => stats.num_shunts += 1,
             }
@@ -762,13 +776,13 @@ mod tests {
         let bus1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId(0),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId(1),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -811,7 +825,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId(0),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: Kilovolts(138.0),
             ..Bus::default()
         }));
         network.graph.add_node(Node::Gen(Gen::new(
@@ -832,24 +846,24 @@ mod tests {
         let bus1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId(0),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId(1),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: Kilovolts(138.0),
             ..Bus::default()
         }));
         let mut gen = Gen::new(GenId::new(0), "Gen 1".to_string(), BusId(0));
-        gen.pmax_mw = 100.0;
+        gen.pmax = Megawatts(100.0);
         network.graph.add_node(Node::Gen(gen));
         network.graph.add_node(Node::Load(Load {
             id: LoadId::new(0),
             name: "Load 1".to_string(),
             bus: BusId(1),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 10.0,
+            active_power: Megawatts(50.0),
+            reactive_power: Megavars(10.0),
         }));
         network.graph.add_edge(
             bus1,
@@ -888,7 +902,7 @@ mod tests {
             .as_synchronous_condenser();
 
         assert!(gen.is_synchronous_condenser);
-        assert_eq!(gen.pmin_mw, -10.0);
-        assert_eq!(gen.pmax_mw, 0.0);
+        assert_eq!(gen.pmin.value(), -10.0);
+        assert_eq!(gen.pmax.value(), 0.0);
     }
 }

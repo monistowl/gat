@@ -189,12 +189,12 @@ pub fn export_network_to_cim(
         writeln!(
             writer,
             "    <cim:Load.p>{:.6}</cim:Load.p>",
-            load.active_power_mw
+            load.active_power.value()
         )?;
         writeln!(
             writer,
             "    <cim:Load.q>{:.6}</cim:Load.q>",
-            load.reactive_power_mvar
+            load.reactive_power.value()
         )?;
         writeln!(
             writer,
@@ -215,12 +215,12 @@ pub fn export_network_to_cim(
         writeln!(
             writer,
             "    <cim:SynchronousMachine.p>{:.6}</cim:SynchronousMachine.p>",
-            gen.active_power_mw
+            gen.active_power.value()
         )?;
         writeln!(
             writer,
             "    <cim:SynchronousMachine.q>{:.6}</cim:SynchronousMachine.q>",
-            gen.reactive_power_mvar
+            gen.reactive_power.value()
         )?;
         writeln!(
             writer,

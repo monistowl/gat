@@ -48,11 +48,11 @@ pub fn validate_network_from_cim(network: &Network) -> Result<()> {
                     issue: "Bus has empty name".to_string(),
                 });
             }
-            if bus.voltage_kv <= 0.0 {
+            if bus.base_kv.value() <= 0.0 {
                 errors.push(CimValidationError {
                     entity_type: "Bus".to_string(),
                     entity_id: bus.name.clone(),
-                    issue: format!("Invalid voltage: {} kV", bus.voltage_kv),
+                    issue: format!("Invalid voltage: {} kV", bus.base_kv.value()),
                 });
             }
         }
@@ -130,11 +130,12 @@ pub fn validate_cim_with_warnings(network: &Network) -> Vec<CimValidationError> 
     // Check for unusual but valid configurations
     for node_idx in network.graph.node_indices() {
         if let Node::Bus(bus) = &network.graph[node_idx] {
-            if bus.voltage_kv < 1.0 || bus.voltage_kv > 1000.0 {
+            let kv = bus.base_kv.value();
+            if kv < 1.0 || kv > 1000.0 {
                 warnings.push(CimValidationError {
                     entity_type: "Bus".to_string(),
                     entity_id: bus.name.clone(),
-                    issue: format!("Unusual voltage level: {} kV", bus.voltage_kv),
+                    issue: format!("Unusual voltage level: {} kV", kv),
                 });
             }
         }

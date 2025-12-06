@@ -22,7 +22,7 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Slack".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -30,36 +30,33 @@ mod tests {
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "PV".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
         // Generator at bus 1 (slack, large Q limits)
-        let gen1 = Gen::new(GenId::new(1), "Gen1".to_string(), BusId::new(1))
+        let mut gen1 = Gen::new(GenId::new(1), "Gen1".to_string(), BusId::new(1))
             .with_p_limits(0.0, 200.0)
             .with_q_limits(-100.0, 100.0);
-        let mut gen1_node = gen1;
-        gen1_node.active_power_mw = 100.0; // Slack will adjust
-        network.graph.add_node(Node::Gen(gen1_node));
+        gen1.active_power = gat_core::Megawatts(100.0); // Slack will adjust
+        network.graph.add_node(Node::Gen(gen1));
 
         // Generator at bus 2 with TIGHT Q limits
-        let gen2 = Gen::new(GenId::new(2), "Gen2".to_string(), BusId::new(2))
+        let mut gen2 = Gen::new(GenId::new(2), "Gen2".to_string(), BusId::new(2))
             .with_p_limits(50.0, 50.0) // Fixed P
             .with_q_limits(0.0, 10.0); // Very limited Q: 0 to 10 MVAR
-        let mut gen2_node = gen2;
-        gen2_node.active_power_mw = 50.0;
-        network.graph.add_node(Node::Gen(gen2_node));
+        gen2.active_power = gat_core::Megawatts(50.0);
+        network.graph.add_node(Node::Gen(gen2));
 
         // Heavy reactive load at bus 2 that will exceed gen2's Q limit
         // 40 MW active, 50 MVAR reactive - gen2 can only provide 10 MVAR
-        let load = Load {
+        network.graph.add_node(Node::Load(Load {
             id: LoadId::new(1),
             name: "Load1".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 40.0,
-            reactive_power_mvar: 50.0,
-        };
-        network.graph.add_node(Node::Load(load));
+            active_power: gat_core::Megawatts(40.0),
+            reactive_power: gat_core::Megavars(50.0),
+        }));
 
         // Connect buses with a transmission line
         let branch = Branch::new(

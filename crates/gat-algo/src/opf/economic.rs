@@ -28,7 +28,7 @@ pub fn solve(
                 generators.push(gen.clone());
             }
             Node::Load(load) => {
-                total_load += load.active_power_mw;
+                total_load += load.active_power.value();
             }
             Node::Bus(_) => {}
             Node::Shunt(_) => {}
@@ -46,8 +46,8 @@ pub fn solve(
     let required_generation = total_load + loss_estimate;
 
     // Check total capacity
-    let total_pmax: f64 = generators.iter().map(|g| g.pmax_mw).sum();
-    let total_pmin: f64 = generators.iter().map(|g| g.pmin_mw).sum();
+    let total_pmax: f64 = generators.iter().map(|g| g.pmax.value()).sum();
+    let total_pmin: f64 = generators.iter().map(|g| g.pmin.value()).sum();
 
     if required_generation > total_pmax {
         return Err(OpfError::Infeasible(format!(
@@ -107,11 +107,11 @@ fn economic_dispatch(generators: &[Gen], required_generation: f64) -> Result<Vec
 
     // Start with minimum generation for all units
     for (i, gen) in generators.iter().enumerate() {
-        dispatch[i] = gen.pmin_mw;
+        dispatch[i] = gen.pmin.value();
     }
 
     // Calculate how much more we need beyond minimum
-    let total_pmin: f64 = generators.iter().map(|g| g.pmin_mw).sum();
+    let total_pmin: f64 = generators.iter().map(|g| g.pmin.value()).sum();
     let mut remaining = required_generation - total_pmin;
 
     if remaining < 0.0 {
@@ -123,10 +123,10 @@ fn economic_dispatch(generators: &[Gen], required_generation: f64) -> Result<Vec
     merit_order.sort_by(|&a, &b| {
         let mc_a = generators[a]
             .cost_model
-            .marginal_cost(generators[a].pmin_mw);
+            .marginal_cost(generators[a].pmin.value());
         let mc_b = generators[b]
             .cost_model
-            .marginal_cost(generators[b].pmin_mw);
+            .marginal_cost(generators[b].pmin.value());
         mc_a.partial_cmp(&mc_b).unwrap_or(std::cmp::Ordering::Equal)
     });
 
@@ -138,7 +138,7 @@ fn economic_dispatch(generators: &[Gen], required_generation: f64) -> Result<Vec
 
         let gen = &generators[idx];
         let current = dispatch[idx];
-        let headroom = (gen.pmax_mw - current).max(0.0);
+        let headroom = (gen.pmax.value() - current).max(0.0);
         let increment = remaining.min(headroom);
 
         dispatch[idx] = current + increment;

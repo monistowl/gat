@@ -13,14 +13,14 @@ fn create_simple_network() -> Network {
     let bus1_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -29,12 +29,12 @@ fn create_simple_network() -> Network {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 100.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 1000.0,
-        qmin_mvar: -1000.0,
-        qmax_mvar: 1000.0,
+        active_power: gat_core::Megawatts(100.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(1000.0),
+        qmin: gat_core::Megavars(-1000.0),
+        qmax: gat_core::Megavars(1000.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
         ..Gen::default()
@@ -45,8 +45,8 @@ fn create_simple_network() -> Network {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 80.0,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(80.0),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     // Add branch
@@ -126,14 +126,14 @@ fn test_monte_carlo_perfect_reliability() {
     let bus1_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -142,12 +142,12 @@ fn test_monte_carlo_perfect_reliability() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 200.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 1000.0,
-        qmin_mvar: -1000.0,
-        qmax_mvar: 1000.0,
+        active_power: gat_core::Megawatts(200.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(1000.0),
+        qmin: gat_core::Megavars(-1000.0),
+        qmax: gat_core::Megavars(1000.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
         ..Gen::default()
@@ -157,8 +157,8 @@ fn test_monte_carlo_perfect_reliability() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     network.graph.add_edge(
@@ -194,14 +194,14 @@ fn test_monte_carlo_tight_reliability() {
     let bus1_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -209,12 +209,12 @@ fn test_monte_carlo_tight_reliability() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 100.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 1000.0,
-        qmin_mvar: -1000.0,
-        qmax_mvar: 1000.0,
+        active_power: gat_core::Megawatts(100.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(1000.0),
+        qmin: gat_core::Megavars(-1000.0),
+        qmax: gat_core::Megavars(1000.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
         ..Gen::default()
@@ -224,8 +224,8 @@ fn test_monte_carlo_tight_reliability() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 100.0,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(100.0),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     network.graph.add_edge(
@@ -281,14 +281,14 @@ fn test_monte_carlo_multiple_networks() {
     let bus1_idx = network2.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus2_idx = network2.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -297,12 +297,12 @@ fn test_monte_carlo_multiple_networks() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 200.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 1000.0,
-        qmin_mvar: -1000.0,
-        qmax_mvar: 1000.0,
+        active_power: gat_core::Megawatts(200.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(1000.0),
+        qmin: gat_core::Megavars(-1000.0),
+        qmax: gat_core::Megavars(1000.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::NoCost,
         ..Gen::default()
@@ -312,8 +312,8 @@ fn test_monte_carlo_multiple_networks() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 80.0,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(80.0),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     network2.graph.add_edge(

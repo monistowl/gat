@@ -180,9 +180,9 @@ fn build_network_from_opfdata(
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id: bus_id,
             name: format!("Bus {}", bus_idx + 1),
-            voltage_kv: base_kv,
-            vmin_pu: vmin,
-            vmax_pu: vmax,
+            base_kv: gat_core::Kilovolts(base_kv),
+            vmin_pu: vmin.map(gat_core::PerUnit),
+            vmax_pu: vmax.map(gat_core::PerUnit),
             ..Bus::default()
         }));
         bus_index_map.insert(bus_idx, node_idx);
@@ -294,12 +294,12 @@ fn build_network_from_opfdata(
                 id: GenId::new(gen_idx),
                 name: format!("Gen {}@{}", gen_idx, gen_bus_idx + 1),
                 bus: bus_id,
-                active_power_mw: if is_condenser { 0.0 } else { pg },
-                reactive_power_mvar: qg,
-                pmin_mw: pmin_final,
-                pmax_mw: pmax_final,
-                qmin_mvar: qmin,
-                qmax_mvar: qmax,
+                active_power: gat_core::Megawatts(if is_condenser { 0.0 } else { pg }),
+                reactive_power: gat_core::Megavars(qg),
+                pmin: gat_core::Megawatts(pmin_final),
+                pmax: gat_core::Megawatts(pmax_final),
+                qmin: gat_core::Megavars(qmin),
+                qmax: gat_core::Megavars(qmax),
                 cost_model,
                 is_synchronous_condenser: is_condenser,
                 ..Gen::default()
@@ -359,8 +359,8 @@ fn build_network_from_opfdata(
                     id: LoadId::new(load_idx),
                     name: format!("Load {}@{}", load_idx, bus_idx + 1),
                     bus: BusId::new(bus_idx + 1),
-                    active_power_mw: pd_pu * 100.0, // p.u. to MW
-                    reactive_power_mvar: qd_pu * 100.0,
+                    active_power: gat_core::Megawatts(pd_pu * 100.0), // p.u. to MW
+                    reactive_power: gat_core::Megavars(qd_pu * 100.0),
                 }));
             }
         }
@@ -485,9 +485,9 @@ fn build_network_from_opfdata(
                     to_bus: BusId::new(to_bus + 1),
                     resistance,
                     reactance,
-                    charging_b_pu: b_total,
-                    s_max_mva: None, // DEBUG: disabled
-                    rating_a_mva: rating_a_mva,
+                    charging_b: gat_core::PerUnit(b_total),
+                    s_max: None, // DEBUG: disabled
+                    rating_a: rating_a_mva.map(gat_core::MegavoltAmperes),
                     ..Branch::default()
                 };
                 network
@@ -558,10 +558,10 @@ fn build_network_from_opfdata(
                     resistance,
                     reactance,
                     tap_ratio: tap,
-                    phase_shift_rad: shift_rad,
-                    charging_b_pu: charging_b,
-                    s_max_mva: rating_a_mva,
-                    rating_a_mva: rating_a_mva,
+                    phase_shift: gat_core::Radians(shift_rad),
+                    charging_b: gat_core::PerUnit(charging_b),
+                    s_max: rating_a_mva.map(gat_core::MegavoltAmperes),
+                    rating_a: rating_a_mva.map(gat_core::MegavoltAmperes),
                     ..Branch::default()
                 };
                 network

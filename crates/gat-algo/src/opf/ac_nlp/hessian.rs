@@ -1150,7 +1150,7 @@ mod tests {
             id: GenId::new(1),
             name: "Gen1".to_string(),
             bus: BusId::new(1),
-            pmax_mw: 100.0,
+            pmax: gat_core::Megawatts(100.0),
             cost_model: CostModel::quadratic(0.0, 20.0, 0.01),
             ..Gen::default()
         }));
@@ -1208,7 +1208,7 @@ mod tests {
             id: GenId::new(1),
             name: "Gen1".to_string(),
             bus: BusId::new(1),
-            pmax_mw: 100.0,
+            pmax: gat_core::Megawatts(100.0),
             cost_model: CostModel::quadratic(0.0, 20.0, 0.05), // c2 = 0.05
             ..Gen::default()
         }));

@@ -436,7 +436,7 @@ impl YBusBuilder {
                 //   - Power exchange between interconnected systems
 
                 let tau = branch.tap_ratio;
-                let phi = branch.phase_shift_rad;
+                let phi = branch.phase_shift.value();
                 let tau2 = tau * tau;
 
                 // Phase shift phasor: e^{-jφ}
@@ -461,7 +461,7 @@ impl YBusBuilder {
                 // For long lines at high voltage (>230 kV), it can be significant
                 // and may cause overvoltage under light load (Ferranti effect).
 
-                let y_shunt_half = Complex64::new(0.0, branch.charging_b_pu / 2.0);
+                let y_shunt_half = Complex64::new(0.0, branch.charging_b.value() / 2.0);
 
                 // ============================================================
                 // UPDATE Y-BUS ENTRIES

@@ -18,13 +18,13 @@ fn two_bus_network() -> Network {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
 
@@ -39,11 +39,11 @@ fn two_bus_network() -> Network {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -53,12 +53,12 @@ fn two_bus_network() -> Network {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 100.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(100.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0), // $10/MWh
         ..Gen::default()
@@ -68,8 +68,8 @@ fn two_bus_network() -> Network {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 10.0,
-        reactive_power_mvar: 3.0,
+        active_power: gat_core::Megawatts(10.0),
+        reactive_power: gat_core::Megavars(3.0),
     }));
 
     network
@@ -180,19 +180,19 @@ fn three_bus_network() -> Network {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus3".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
 
@@ -208,11 +208,11 @@ fn three_bus_network() -> Network {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -230,11 +230,11 @@ fn three_bus_network() -> Network {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -252,11 +252,11 @@ fn three_bus_network() -> Network {
             resistance: 0.02,
             reactance: 0.15,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -267,12 +267,12 @@ fn three_bus_network() -> Network {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0), // $10/MWh
         ..Gen::default()
@@ -283,12 +283,12 @@ fn three_bus_network() -> Network {
         id: GenId::new(1),
         name: "gen2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 100.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(100.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 20.0), // $20/MWh (expensive)
         ..Gen::default()
@@ -299,8 +299,8 @@ fn three_bus_network() -> Network {
         id: LoadId::new(0),
         name: "load3".to_string(),
         bus: BusId::new(2),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 15.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(15.0),
     }));
 
     network
@@ -357,13 +357,13 @@ fn ac_opf_polynomial_cost() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
 
@@ -378,11 +378,11 @@ fn ac_opf_polynomial_cost() {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -393,12 +393,12 @@ fn ac_opf_polynomial_cost() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 100.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(100.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::Polynomial(vec![100.0, 10.0, 0.1]), // c0 + c1*P + c2*P^2
         ..Gen::default()
@@ -408,8 +408,8 @@ fn ac_opf_polynomial_cost() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 10.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(10.0),
     }));
 
     let solver = OpfSolver::new()

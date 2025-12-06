@@ -232,7 +232,7 @@ fn extract_node_features(
                 node_id,
                 bus_id: bus.id.value() as i64,
                 name: bus.name.clone(),
-                voltage_kv: bus.voltage_kv,
+                voltage_kv: bus.base_kv.value(),
                 num_gens: 0,
                 p_gen_mw: 0.0,
                 q_gen_mvar: 0.0,
@@ -252,8 +252,8 @@ fn extract_node_features(
                     .find(|n| n.bus_id == gen.bus.value() as i64)
                 {
                     node_feat.num_gens += 1;
-                    node_feat.p_gen_mw += gen.active_power_mw;
-                    node_feat.q_gen_mvar += gen.reactive_power_mvar;
+                    node_feat.p_gen_mw += gen.active_power.value();
+                    node_feat.q_gen_mvar += gen.reactive_power.value();
                 }
             }
             Node::Load(load) => {
@@ -262,8 +262,8 @@ fn extract_node_features(
                     .find(|n| n.bus_id == load.bus.value() as i64)
                 {
                     node_feat.num_loads += 1;
-                    node_feat.p_load_mw += load.active_power_mw;
-                    node_feat.q_load_mvar += load.reactive_power_mvar;
+                    node_feat.p_load_mw += load.active_power.value();
+                    node_feat.q_load_mvar += load.reactive_power.value();
                 }
             }
             _ => {}

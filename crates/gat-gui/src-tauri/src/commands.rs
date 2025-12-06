@@ -96,19 +96,19 @@ fn network_to_json(network: &Network, name: &str) -> NetworkJson {
                     id: bus_id,
                     name: bus.name.clone(),
                     bus_type: "PQ".to_string(), // Will be updated if has generator
-                    vm: bus.voltage_pu,
-                    va: bus.angle_rad.to_degrees(),
+                    vm: bus.voltage_pu.value(),
+                    va: bus.angle_rad.to_degrees().value(),
                     p_load: 0.0,
                     q_load: 0.0,
-                    voltage_kv: bus.voltage_kv,
+                    voltage_kv: bus.base_kv.value(),
                 });
             }
             Node::Gen(gen) => {
                 let bus_id = gen.bus.value();
                 generators.push(GeneratorJson {
                     bus: bus_id,
-                    p_gen: gen.active_power_mw,
-                    q_gen: gen.reactive_power_mvar,
+                    p_gen: gen.active_power.value(),
+                    q_gen: gen.reactive_power.value(),
                     gen_type: "thermal".to_string(),
                 });
                 // Mark bus as PV (assume first gen's bus is slack if it's the largest)
@@ -121,8 +121,8 @@ fn network_to_json(network: &Network, name: &str) -> NetworkJson {
             Node::Load(load) => {
                 let bus_id = load.bus.value();
                 let entry = bus_loads.entry(bus_id).or_insert((0.0, 0.0));
-                entry.0 += load.active_power_mw;
-                entry.1 += load.reactive_power_mvar;
+                entry.0 += load.active_power.value();
+                entry.1 += load.reactive_power.value();
             }
             Node::Shunt(_) => {}
         }
@@ -147,7 +147,7 @@ fn network_to_json(network: &Network, name: &str) -> NetworkJson {
                     to: branch.to_bus.value(),
                     r: branch.resistance,
                     x: branch.reactance,
-                    b: branch.charging_b_pu,
+                    b: branch.charging_b.value(),
                     p_flow: 0.0,      // Filled after power flow solve
                     loading_pct: 0.0, // Filled after power flow solve
                     status: branch.status,
@@ -405,8 +405,8 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
         if let Node::Load(load) = node {
             let bus_id = load.bus.value();
             let entry = bus_loads.entry(bus_id).or_insert((0.0, 0.0));
-            entry.0 += load.active_power_mw;
-            entry.1 += load.reactive_power_mvar;
+            entry.0 += load.active_power.value();
+            entry.1 += load.reactive_power.value();
         }
     }
 
@@ -418,12 +418,12 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
                 .bus_voltage_magnitude
                 .get(&bus_id)
                 .copied()
-                .unwrap_or(bus.voltage_pu);
+                .unwrap_or(bus.voltage_pu.value());
             let va = pf_solution
                 .bus_voltage_angle
                 .get(&bus_id)
                 .copied()
-                .unwrap_or(bus.angle_rad)
+                .unwrap_or(bus.angle_rad.value())
                 .to_degrees();
 
             let bus_type = pf_solution
@@ -450,7 +450,7 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
                 va,
                 p_load,
                 q_load,
-                voltage_kv: bus.voltage_kv,
+                voltage_kv: bus.base_kv.value(),
             });
         }
     }
@@ -469,7 +469,7 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
                     to: branch.to_bus.value(),
                     r: branch.resistance,
                     x: branch.reactance,
-                    b: branch.charging_b_pu,
+                    b: branch.charging_b.value(),
                     p_flow: 0.0,
                     loading_pct: 0.0,
                     status: false,
@@ -516,7 +516,7 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
             };
 
             // Angle difference
-            let theta_ij = theta_from - theta_to - branch.phase_shift_rad;
+            let theta_ij = theta_from - theta_to - branch.phase_shift.value();
             let cos_t = theta_ij.cos();
             let sin_t = theta_ij.sin();
 
@@ -528,8 +528,8 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
             let p_flow = p_flow_pu * base_mva;
 
             // Loading percentage based on rating (skip very small ratings)
-            let loading_pct = match branch.rating_a_mva {
-                Some(rating) if rating > 0.1 => (p_flow.abs() / rating * 100.0).min(999.0),
+            let loading_pct = match branch.rating_a {
+                Some(rating) if rating.value() > 0.1 => (p_flow.abs() / rating.value() * 100.0).min(999.0),
                 _ => 0.0, // No constraint
             };
 
@@ -538,7 +538,7 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
                 to: branch.to_bus.value(),
                 r: branch.resistance,
                 x: branch.reactance,
-                b: branch.charging_b_pu,
+                b: branch.charging_b.value(),
                 p_flow,
                 loading_pct,
                 status: branch.status,
@@ -601,11 +601,11 @@ pub fn solve_dc_power_flow(path: &str) -> Result<DcPowerFlowResult, String> {
         match node {
             Node::Gen(gen) => {
                 let bus_id = gen.bus.value();
-                *injections.entry(bus_id).or_default() += gen.active_power_mw / base_mva;
+                *injections.entry(bus_id).or_default() += gen.active_power.value() / base_mva;
             }
             Node::Load(load) => {
                 let bus_id = load.bus.value();
-                *injections.entry(bus_id).or_default() -= load.active_power_mw / base_mva;
+                *injections.entry(bus_id).or_default() -= load.active_power.value() / base_mva;
             }
             _ => {}
         }
@@ -659,8 +659,8 @@ pub fn solve_dc_power_flow(path: &str) -> Result<DcPowerFlowResult, String> {
         if let Node::Load(load) = node {
             let bus_id = load.bus.value();
             let entry = bus_loads.entry(bus_id).or_insert((0.0, 0.0));
-            entry.0 += load.active_power_mw;
-            entry.1 += load.reactive_power_mvar;
+            entry.0 += load.active_power.value();
+            entry.1 += load.reactive_power.value();
         }
     }
 
@@ -678,7 +678,7 @@ pub fn solve_dc_power_flow(path: &str) -> Result<DcPowerFlowResult, String> {
                 va,
                 p_load,
                 q_load,
-                voltage_kv: bus.voltage_kv,
+                voltage_kv: bus.base_kv.value(),
             });
         }
     }
@@ -695,12 +695,12 @@ pub fn solve_dc_power_flow(path: &str) -> Result<DcPowerFlowResult, String> {
 
             // Flow = (θ_from - θ_to - phase_shift) / x * base_mva
             let reactance = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
-            let flow_pu = ((theta_from - theta_to) - branch.phase_shift_rad) / reactance;
+            let flow_pu = ((theta_from - theta_to) - branch.phase_shift.value()) / reactance;
             let p_flow = flow_pu * base_mva;
 
             // Loading percentage based on rating (skip very small ratings)
-            let loading_pct = match branch.rating_a_mva {
-                Some(rating) if rating > 0.1 => (p_flow.abs() / rating * 100.0).min(999.0),
+            let loading_pct = match branch.rating_a {
+                Some(rating) if rating.value() > 0.1 => (p_flow.abs() / rating.value() * 100.0).min(999.0),
                 _ => 0.0, // No constraint
             };
 
@@ -709,7 +709,7 @@ pub fn solve_dc_power_flow(path: &str) -> Result<DcPowerFlowResult, String> {
                 to: branch.to_bus.value(),
                 r: branch.resistance,
                 x: branch.reactance,
-                b: branch.charging_b_pu,
+                b: branch.charging_b.value(),
                 p_flow,
                 loading_pct,
                 status: branch.status,
@@ -1799,13 +1799,13 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
                 .generator_dispatch
                 .get(&gen.name)
                 .copied()
-                .unwrap_or(gen.active_power_mw);
+                .unwrap_or(gen.active_power.value());
             generators.push(GeneratorDispatch {
                 bus: gen.bus.value(),
                 name: gen.name.clone(),
                 p_dispatch_mw: p_dispatch,
-                p_min_mw: gen.pmin_mw,
-                p_max_mw: gen.pmax_mw,
+                p_min_mw: gen.pmin.value(),
+                p_max_mw: gen.pmax.value(),
                 marginal_cost: gen.cost_coeffs.get(1).copied().unwrap_or(0.0),
             });
         }
@@ -1830,9 +1830,9 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
                 .get(&branch.id)
                 .copied()
                 .unwrap_or(0.0);
-            let rating = branch.rating_a_mva;
+            let rating = branch.rating_a;
             let loading_pct = match rating {
-                Some(r) if r > 0.1 => (flow.abs() / r * 100.0).min(999.0),
+                Some(r) if r.value() > 0.1 => (flow.abs() / r.value() * 100.0).min(999.0),
                 _ => 0.0,
             };
             let congested = loading_pct > 99.0;
@@ -1841,7 +1841,7 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
                 from: branch.from_bus.value(),
                 to: branch.to_bus.value(),
                 p_flow_mw: flow,
-                rating_mva: rating,
+                rating_mva: rating.map(|r| r.value()),
                 loading_pct,
                 congested,
             });
@@ -1938,22 +1938,22 @@ pub fn get_grid_summary(path: &str) -> Result<GridSummary, String> {
         match node {
             Node::Bus(bus) => {
                 bus_count += 1;
-                voltage_min_pu = voltage_min_pu.min(bus.voltage_pu);
-                voltage_max_pu = voltage_max_pu.max(bus.voltage_pu);
-                if bus.voltage_kv > 0.0 {
-                    voltage_min_kv = voltage_min_kv.min(bus.voltage_kv);
-                    voltage_max_kv = voltage_max_kv.max(bus.voltage_kv);
+                voltage_min_pu = voltage_min_pu.min(bus.voltage_pu.value());
+                voltage_max_pu = voltage_max_pu.max(bus.voltage_pu.value());
+                if bus.base_kv.value() > 0.0 {
+                    voltage_min_kv = voltage_min_kv.min(bus.base_kv.value());
+                    voltage_max_kv = voltage_max_kv.max(bus.base_kv.value());
                 }
             }
             Node::Gen(gen) => {
                 generator_count += 1;
-                total_gen_mw += gen.active_power_mw;
-                total_gen_mvar += gen.reactive_power_mvar;
+                total_gen_mw += gen.active_power.value();
+                total_gen_mvar += gen.reactive_power.value();
             }
             Node::Load(load) => {
                 load_count += 1;
-                total_load_mw += load.active_power_mw;
-                total_load_mvar += load.reactive_power_mvar;
+                total_load_mw += load.active_power.value();
+                total_load_mvar += load.reactive_power.value();
             }
             Node::Shunt(_) => {}
         }
@@ -2249,10 +2249,10 @@ pub fn get_thermal_analysis(path: &str) -> Result<ThermalAnalysisResult, String>
     for node in network.graph.node_weights() {
         match node {
             Node::Gen(gen) => {
-                *injections.entry(gen.bus.value()).or_default() += gen.active_power_mw / base_mva;
+                *injections.entry(gen.bus.value()).or_default() += gen.active_power.value() / base_mva;
             }
             Node::Load(load) => {
-                *injections.entry(load.bus.value()).or_default() -= load.active_power_mw / base_mva;
+                *injections.entry(load.bus.value()).or_default() -= load.active_power.value() / base_mva;
             }
             _ => {}
         }
@@ -2307,15 +2307,16 @@ pub fn get_thermal_analysis(path: &str) -> Result<ThermalAnalysisResult, String>
             let theta_from = angles.get(&branch.from_bus.value()).copied().unwrap_or(0.0);
             let theta_to = angles.get(&branch.to_bus.value()).copied().unwrap_or(0.0);
             let reactance = (branch.reactance * branch.tap_ratio).abs().max(1e-6);
-            let flow_pu = ((theta_from - theta_to) - branch.phase_shift_rad) / reactance;
+            let flow_pu = ((theta_from - theta_to) - branch.phase_shift.value()) / reactance;
             let flow_mw = flow_pu.abs() * base_mva;
 
-            if let Some(rating) = branch.rating_a_mva {
-                if rating > 0.1 {
+            if let Some(rating) = branch.rating_a {
+                if rating.value() > 0.1 {
                     branches_with_ratings += 1;
-                    let headroom_mw = rating - flow_mw;
-                    let headroom_pct = (headroom_mw / rating) * 100.0;
-                    let loading_pct = (flow_mw / rating) * 100.0;
+                    let rating_mva = rating.value();
+                    let headroom_mw = rating_mva - flow_mw;
+                    let headroom_pct = (headroom_mw / rating_mva) * 100.0;
+                    let loading_pct = (flow_mw / rating_mva) * 100.0;
 
                     let status = if loading_pct >= 100.0 {
                         critical_count += 1;
@@ -2464,9 +2465,9 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                 buses.push(BusExport {
                     id: bus.id.value(),
                     name: bus.name.clone(),
-                    voltage_kv: bus.voltage_kv,
-                    voltage_pu: bus.voltage_pu,
-                    angle_deg: bus.angle_rad.to_degrees(),
+                    voltage_kv: bus.base_kv.value(),
+                    voltage_pu: bus.voltage_pu.value(),
+                    angle_deg: bus.angle_rad.to_degrees().value(),
                     bus_type: "PQ".to_string(), // Simplified
                 });
             }
@@ -2474,12 +2475,12 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                 generators.push(GeneratorExport {
                     name: gen.name.clone(),
                     bus: gen.bus.value(),
-                    p_mw: gen.active_power_mw,
-                    q_mvar: gen.reactive_power_mvar,
-                    p_min_mw: gen.pmin_mw,
-                    p_max_mw: gen.pmax_mw,
-                    q_min_mvar: gen.qmin_mvar,
-                    q_max_mvar: gen.qmax_mvar,
+                    p_mw: gen.active_power.value(),
+                    q_mvar: gen.reactive_power.value(),
+                    p_min_mw: gen.pmin.value(),
+                    p_max_mw: gen.pmax.value(),
+                    q_min_mvar: gen.qmin.value(),
+                    q_max_mvar: gen.qmax.value(),
                     cost_coeffs: gen.cost_coeffs.clone(),
                     status: gen.status,
                 });
@@ -2488,8 +2489,8 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                 loads.push(LoadExport {
                     name: load.name.clone(),
                     bus: load.bus.value(),
-                    p_mw: load.active_power_mw,
-                    q_mvar: load.reactive_power_mvar,
+                    p_mw: load.active_power.value(),
+                    q_mvar: load.reactive_power.value(),
                     status: load.status,
                 });
             }
@@ -2507,10 +2508,10 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                 to_bus: branch.to_bus.value(),
                 r_pu: branch.resistance,
                 x_pu: branch.reactance,
-                b_pu: branch.charging_b_pu,
-                rating_mva: branch.rating_a_mva,
+                b_pu: branch.charging_b.value(),
+                rating_mva: branch.rating_a.map(|r| r.value()),
                 tap_ratio: branch.tap_ratio,
-                phase_shift_deg: branch.phase_shift_rad.to_degrees(),
+                phase_shift_deg: branch.phase_shift.to_degrees().value(),
                 status: branch.status,
             });
         }

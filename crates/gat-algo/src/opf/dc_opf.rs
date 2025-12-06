@@ -178,8 +178,8 @@ struct BusData {
 struct GenData {
     name: String,
     bus_id: BusId,
-    pmin_mw: f64,
-    pmax_mw: f64,
+    pmin: f64,
+    pmax: f64,
     cost_coeffs: Vec<f64>, // [c0, c1, c2, ...] for polynomial
 }
 
@@ -190,7 +190,7 @@ struct BranchData {
     from_bus: BusId,
     to_bus: BusId,
     susceptance: f64, // b = 1/x (per unit)
-    phase_shift_rad: f64,
+    phase_shift: f64,
 }
 
 /// Return type for network data extraction
@@ -225,20 +225,20 @@ fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
                     gat_core::CostModel::Polynomial(c) => c.clone(),
                     gat_core::CostModel::PiecewiseLinear(_) => {
                         // Approximate with marginal cost at midpoint
-                        let mid = (gen.pmin_mw + gen.pmax_mw) / 2.0;
+                        let mid = (gen.pmin.value() + gen.pmax.value()) / 2.0;
                         vec![0.0, gen.cost_model.marginal_cost(mid)]
                     }
                 };
                 generators.push(GenData {
                     name: gen.name.clone(),
                     bus_id: gen.bus,
-                    pmin_mw: gen.pmin_mw,
-                    pmax_mw: gen.pmax_mw,
+                    pmin: gen.pmin.value(),
+                    pmax: gen.pmax.value(),
                     cost_coeffs,
                 });
             }
             Node::Load(load) => {
-                *loads.entry(load.bus).or_insert(0.0) += load.active_power_mw;
+                *loads.entry(load.bus).or_insert(0.0) += load.active_power.value();
             }
             Node::Shunt(_) => {
                 // Shunts are not used in DC-OPF (no reactive power)
@@ -273,7 +273,7 @@ fn extract_network_data(network: &Network) -> Result<NetworkData, OpfError> {
                 from_bus: branch.from_bus,
                 to_bus: branch.to_bus,
                 susceptance: 1.0 / x_eff,
-                phase_shift_rad: branch.phase_shift_rad,
+                phase_shift: branch.phase_shift.value(),
             });
         }
     }
@@ -328,9 +328,9 @@ pub fn solve(
     let mut cost_terms: Vec<Expression> = Vec::new();
 
     for gen in &generators {
-        let pmin = gen.pmin_mw.max(0.0);
-        let pmax = if gen.pmax_mw.is_finite() {
-            gen.pmax_mw
+        let pmin = gen.pmin.max(0.0);
+        let pmax = if gen.pmax.is_finite() {
+            gen.pmax
         } else {
             1e6
         };
@@ -471,7 +471,7 @@ pub fn solve(
                 .unwrap_or(0.0)
         };
 
-        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift_rad);
+        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift);
         result.branch_p_flow.insert(branch.name.clone(), flow);
     }
 
@@ -492,8 +492,8 @@ pub fn solve(
     for (name, _, p_var) in &gen_vars {
         let p = solution.value(*p_var);
         if let Some(gen) = generators.iter().find(|g| &g.name == name) {
-            let at_min = (p - gen.pmin_mw).abs() < 1e-3;
-            let at_max = (p - gen.pmax_mw).abs() < 1e-3;
+            let at_min = (p - gen.pmin).abs() < 1e-3;
+            let at_max = (p - gen.pmax).abs() < 1e-3;
             if !at_min && !at_max {
                 // This is the marginal generator
                 let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
@@ -683,9 +683,9 @@ fn solve_with_loss_factors(
     let mut cost_terms: Vec<Expression> = Vec::new();
 
     for gen in &generators {
-        let pmin = gen.pmin_mw.max(0.0);
-        let pmax = if gen.pmax_mw.is_finite() {
-            gen.pmax_mw
+        let pmin = gen.pmin.max(0.0);
+        let pmax = if gen.pmax.is_finite() {
+            gen.pmax
         } else {
             1e6
         };
@@ -828,7 +828,7 @@ fn solve_with_loss_factors(
                 .unwrap_or(0.0)
         };
 
-        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift_rad);
+        let flow = branch.susceptance * ((theta_i - theta_j) - branch.phase_shift);
         result.branch_p_flow.insert(branch.name.clone(), flow);
     }
 

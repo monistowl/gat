@@ -234,15 +234,15 @@ fn apply_solved_dispatch(
         if let Node::Gen(gen) = node {
             let gen_id = gen.id.value();
             if let Some(&pg) = solved_pg.get(&gen_id) {
-                gen.active_power_mw = pg;
+                gen.active_power = gat_core::Megawatts(pg);
             }
             if let Some(&qg) = solved_qg.get(&gen_id) {
-                gen.reactive_power_mvar = qg;
+                gen.reactive_power = gat_core::Megavars(qg);
             }
             // Set voltage setpoint from reference solution's bus voltage
             if let Some(&gen_bus) = gen_bus_map.get(&gen_id) {
                 if let Some(&ref_vm) = ref_bus_vm.get(&gen_bus) {
-                    gen.voltage_setpoint_pu = Some(ref_vm);
+                    gen.voltage_setpoint = Some(gat_core::PerUnit(ref_vm));
                 }
             }
         }
@@ -331,7 +331,7 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
         let node_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(bus_idx),
             name: bus_name,
-            voltage_kv,
+            base_kv: gat_core::Kilovolts(voltage_kv),
             ..Bus::default()
         }));
 
@@ -412,12 +412,12 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                 id: GenId::new(gen_idx),
                 name: gen_name,
                 bus: BusId::new(bus_id),
-                active_power_mw: pg,
-                reactive_power_mvar: qg,
-                pmin_mw: pmin,
-                pmax_mw: pmax,
-                qmin_mvar: qmin,
-                qmax_mvar: qmax,
+                active_power: gat_core::Megawatts(pg),
+                reactive_power: gat_core::Megavars(qg),
+                pmin: gat_core::Megawatts(pmin),
+                pmax: gat_core::Megawatts(pmax),
+                qmin: gat_core::Megavars(qmin),
+                qmax: gat_core::Megavars(qmax),
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
                 ..Gen::default()
@@ -449,8 +449,8 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                 id: LoadId::new(load_idx),
                 name: load_name,
                 bus: BusId::new(bus_id),
-                active_power_mw: pd,
-                reactive_power_mvar: qd,
+                active_power: gat_core::Megawatts(pd),
+                reactive_power: gat_core::Megavars(qd),
             }));
         }
     }
@@ -524,12 +524,12 @@ fn convert_pfdelta_to_network(data: &Value) -> Result<Network> {
                         to_bus: BusId::new(to_bus_id),
                         resistance: r,
                         reactance: x,
-                        charging_b_pu: charging_b,
+                        charging_b: gat_core::PerUnit(charging_b),
                         tap_ratio,
-                        phase_shift_rad: shift,
-                        rating_a_mva: rate_a,
-                        rating_b_mva: rate_b,
-                        rating_c_mva: rate_c,
+                        phase_shift: gat_core::Radians(shift),
+                        rating_a: rate_a.map(gat_core::MegavoltAmperes),
+                        rating_b: rate_b.map(gat_core::MegavoltAmperes),
+                        rating_c: rate_c.map(gat_core::MegavoltAmperes),
                         ..Branch::default()
                     }),
                 );

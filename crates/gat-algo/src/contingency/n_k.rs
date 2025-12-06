@@ -885,10 +885,10 @@ pub fn collect_injections(network: &Network) -> HashMap<BusId, f64> {
     for node_idx in network.graph.node_indices() {
         match &network.graph[node_idx] {
             Node::Gen(gen) => {
-                *injections.entry(gen.bus).or_insert(0.0) += gen.active_power_mw;
+                *injections.entry(gen.bus).or_insert(0.0) += gen.active_power.value();
             }
             Node::Load(load) => {
-                *injections.entry(load.bus).or_insert(0.0) -= load.active_power_mw;
+                *injections.entry(load.bus).or_insert(0.0) -= load.active_power.value();
             }
             _ => {}
         }
@@ -905,10 +905,10 @@ pub fn collect_branch_limits(network: &Network) -> HashMap<BranchId, f64> {
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
             if branch.status {
-                if let Some(rating) = branch.rating_a_mva {
+                if let Some(rating) = branch.rating_a {
                     // Skip very small ratings to avoid numerical issues
-                    if rating > 0.1 {
-                        limits.insert(branch.id, rating);
+                    if rating.value() > 0.1 {
+                        limits.insert(branch.id, rating.value());
                     }
                 }
             }
@@ -943,19 +943,19 @@ mod tests {
         let b1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let b2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let b3 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(3),
             name: "Bus3".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -967,7 +967,7 @@ mod tests {
                 from_bus: BusId::new(1),
                 to_bus: BusId::new(2),
                 reactance: 0.1,
-                rating_a_mva: Some(100.0),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
                 ..Branch::default()
             }),
         );
@@ -979,7 +979,7 @@ mod tests {
                 from_bus: BusId::new(2),
                 to_bus: BusId::new(3),
                 reactance: 0.1,
-                rating_a_mva: Some(100.0),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
                 ..Branch::default()
             }),
         );
@@ -991,7 +991,7 @@ mod tests {
                 from_bus: BusId::new(1),
                 to_bus: BusId::new(3),
                 reactance: 0.2,
-                rating_a_mva: Some(100.0),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
                 ..Branch::default()
             }),
         );

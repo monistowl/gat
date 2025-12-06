@@ -388,7 +388,7 @@ fn debug_generator_mapping() {
             let bus_name = &problem.buses[bus_idx].name;
             println!(
                 "{:<20} {:<15} {:>10.2} {:>10.2} {:>10.2} {:>10.2}",
-                gen.name, bus_name, gen.pmin_mw, gen.pmax_mw, gen.qmin_mvar, gen.qmax_mvar
+                gen.name, bus_name, gen.pmin, gen.pmax, gen.qmin, gen.qmax
             );
         }
 

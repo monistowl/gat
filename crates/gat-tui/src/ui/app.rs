@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use crate::panes::{
-    analytics::AnalyticsPane, commands::CommandsPane, dashboard::DashboardPane,
-    datasets::DatasetsPane, operations::OperationsPane, pipeline::PipelinePane,
-    quickstart::QuickstartPane,
+    AnalyticsPane, CommandsPane, DashboardPane, DatasetsPane, OperationsPane, PipelinePane,
+    QuickstartPane,
 };
 use crate::ui::modal::{CommandTemplate, CommandTemplateParameter, ExecutionMode};
 use crate::utils::ConfigManager;

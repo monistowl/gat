@@ -77,11 +77,11 @@ impl SparseYBus {
                 let y_series = z.inv();
 
                 let tau = branch.tap_ratio;
-                let phi = branch.phase_shift_rad;
+                let phi = branch.phase_shift.value();
                 let tau2 = tau * tau;
                 let shift = Complex64::from_polar(1.0, -phi);
 
-                let y_shunt_half = Complex64::new(0.0, branch.charging_b_pu / 2.0);
+                let y_shunt_half = Complex64::new(0.0, branch.charging_b.value() / 2.0);
 
                 // Diagonal entries
                 let y_ii = y_series / tau2 + y_shunt_half;
@@ -163,33 +163,33 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus1".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: None,
             zone_id: None,
         }));
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus2".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: None,
             zone_id: None,
         }));
         let bus3_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(3),
             name: "Bus3".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: None,
             zone_id: None,
         }));
@@ -205,13 +205,10 @@ mod tests {
                 to_bus: BusId::new(2),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
-                s_max_mva: Some(100.0),
-                rating_a_mva: Some(100.0),
-                tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                status: true,
-                ..Default::default()
+                charging_b: gat_core::PerUnit(0.02),
+                s_max: Some(gat_core::MegavoltAmperes(100.0)),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
+                ..Branch::default()
             }),
         );
         network.graph.add_edge(
@@ -224,13 +221,10 @@ mod tests {
                 to_bus: BusId::new(3),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
-                s_max_mva: Some(100.0),
-                rating_a_mva: Some(100.0),
-                tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                status: true,
-                ..Default::default()
+                charging_b: gat_core::PerUnit(0.02),
+                s_max: Some(gat_core::MegavoltAmperes(100.0)),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
+                ..Branch::default()
             }),
         );
         network.graph.add_edge(
@@ -243,13 +237,10 @@ mod tests {
                 to_bus: BusId::new(3),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
-                s_max_mva: Some(100.0),
-                rating_a_mva: Some(100.0),
-                tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                status: true,
-                ..Default::default()
+                charging_b: gat_core::PerUnit(0.02),
+                s_max: Some(gat_core::MegavoltAmperes(100.0)),
+                rating_a: Some(gat_core::MegavoltAmperes(100.0)),
+                ..Branch::default()
             }),
         );
 
@@ -266,8 +257,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Load3".to_string(),
             bus: BusId::new(3),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 20.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(20.0),
         }));
 
         network

@@ -216,7 +216,7 @@ fn build_network_from_pandapower(
             let node_idx = network.graph.add_node(Node::Bus(Bus {
                 id: bus_id,
                 name,
-                voltage_kv: vn_kv,
+                base_kv: gat_core::Kilovolts(vn_kv),
                 ..Default::default()
             }));
             bus_index_map.insert(idx, node_idx);
@@ -258,8 +258,8 @@ fn build_network_from_pandapower(
                 id: LoadId::new(load_id),
                 name,
                 bus: BusId::new(bus),
-                active_power_mw: p_mw,
-                reactive_power_mvar: q_mvar,
+                active_power: gat_core::Megawatts(p_mw),
+                reactive_power: gat_core::Megavars(q_mvar),
             }));
             load_id += 1;
             diag.stats.loads += 1;
@@ -306,12 +306,12 @@ fn build_network_from_pandapower(
                 id: GenId::new(gen_id),
                 name,
                 bus: BusId::new(bus),
-                active_power_mw: 0.0, // Slack determines P from power balance
-                reactive_power_mvar: 0.0,
-                pmin_mw: min_p.unwrap_or(f64::NEG_INFINITY),
-                pmax_mw: max_p.unwrap_or(f64::INFINITY),
-                qmin_mvar: min_q.unwrap_or(f64::NEG_INFINITY),
-                qmax_mvar: max_q.unwrap_or(f64::INFINITY),
+                active_power: gat_core::Megawatts(0.0), // Slack determines P from power balance
+                reactive_power: gat_core::Megavars(0.0),
+                pmin: gat_core::Megawatts(min_p.unwrap_or(f64::NEG_INFINITY)),
+                pmax: gat_core::Megawatts(max_p.unwrap_or(f64::INFINITY)),
+                qmin: gat_core::Megavars(min_q.unwrap_or(f64::NEG_INFINITY)),
+                qmax: gat_core::Megavars(max_q.unwrap_or(f64::INFINITY)),
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
                 ..Gen::default()
@@ -356,12 +356,12 @@ fn build_network_from_pandapower(
                 id: GenId::new(gen_id),
                 name,
                 bus: BusId::new(bus),
-                active_power_mw: p_mw,
-                reactive_power_mvar: 0.0, // Q is determined by power flow
-                pmin_mw: min_p.unwrap_or(0.0),
-                pmax_mw: max_p.unwrap_or(f64::INFINITY),
-                qmin_mvar: min_q.unwrap_or(f64::NEG_INFINITY),
-                qmax_mvar: max_q.unwrap_or(f64::INFINITY),
+                active_power: gat_core::Megawatts(p_mw),
+                reactive_power: gat_core::Megavars(0.0), // Q is determined by power flow
+                pmin: gat_core::Megawatts(min_p.unwrap_or(0.0)),
+                pmax: gat_core::Megawatts(max_p.unwrap_or(f64::INFINITY)),
+                qmin: gat_core::Megavars(min_q.unwrap_or(f64::NEG_INFINITY)),
+                qmax: gat_core::Megavars(max_q.unwrap_or(f64::INFINITY)),
                 cost_model: gat_core::CostModel::NoCost,
                 is_synchronous_condenser: false,
                 ..Gen::default()
@@ -451,11 +451,11 @@ fn build_network_from_pandapower(
                 resistance: r_total,
                 reactance: x_total,
                 tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                charging_b_pu: b_total,
-                s_max_mva: rating_mva,
+                phase_shift: gat_core::Radians(0.0),
+                charging_b: gat_core::PerUnit(b_total),
+                s_max: rating_mva.map(gat_core::MegavoltAmperes),
                 status: true,
-                rating_a_mva: rating_mva,
+                rating_a: rating_mva.map(gat_core::MegavoltAmperes),
                 is_phase_shifter: false,
                 ..Branch::default()
             };
@@ -545,11 +545,11 @@ fn build_network_from_pandapower(
                 resistance: r_pu,
                 reactance: x_pu,
                 tap_ratio,
-                phase_shift_rad: shift_degree.to_radians(),
-                charging_b_pu: 0.0,
-                s_max_mva: Some(sn_mva),
+                phase_shift: gat_core::Radians(shift_degree.to_radians()),
+                charging_b: gat_core::PerUnit(0.0),
+                s_max: Some(gat_core::MegavoltAmperes(sn_mva)),
                 status: true,
-                rating_a_mva: Some(sn_mva),
+                rating_a: Some(gat_core::MegavoltAmperes(sn_mva)),
                 is_phase_shifter: shift_degree.abs() > 1e-6,
                 ..Branch::default()
             };

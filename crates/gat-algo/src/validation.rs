@@ -331,12 +331,14 @@ pub fn compute_opf_violations_from_solution(
             if let Some(&vm) = solution.bus_voltage_mag.get(&bus_name) {
                 // Check upper bound
                 if let Some(vmax) = bus.vmax_pu {
+                    let vmax = vmax.value();
                     if vm > vmax {
                         max_vm_violation = max_vm_violation.max(vm - vmax);
                     }
                 }
                 // Check lower bound
                 if let Some(vmin) = bus.vmin_pu {
+                    let vmin = vmin.value();
                     if vm < vmin {
                         max_vm_violation = max_vm_violation.max(vmin - vm);
                     }
@@ -354,12 +356,12 @@ pub fn compute_opf_violations_from_solution(
             let gen_name = gen.name.clone();
             if let Some(&pg) = solution.generator_p.get(&gen_name) {
                 // Check upper bound (if not infinite)
-                if gen.pmax_mw.is_finite() && pg > gen.pmax_mw {
-                    max_gen_p_violation = max_gen_p_violation.max(pg - gen.pmax_mw);
+                if gen.pmax.value().is_finite() && pg > gen.pmax.value() {
+                    max_gen_p_violation = max_gen_p_violation.max(pg - gen.pmax.value());
                 }
                 // Check lower bound
-                if pg < gen.pmin_mw {
-                    max_gen_p_violation = max_gen_p_violation.max(gen.pmin_mw - pg);
+                if pg < gen.pmin.value() {
+                    max_gen_p_violation = max_gen_p_violation.max(gen.pmin.value() - pg);
                 }
             }
         }
@@ -384,11 +386,11 @@ pub fn compute_opf_violations_from_solution(
                 .unwrap_or(0.0);
             let s_flow = (p_flow.powi(2) + q_flow.powi(2)).sqrt();
 
-            // Get thermal limit (prefer s_max_mva, fall back to rating_a_mva)
-            let s_limit = branch.s_max_mva.or(branch.rating_a_mva);
+            // Get thermal limit (prefer s_max, fall back to rating_a)
+            let s_limit = branch.s_max.or(branch.rating_a);
             if let Some(s_max) = s_limit {
-                if s_max > 0.0 && s_flow > s_max {
-                    max_branch_flow_violation = max_branch_flow_violation.max(s_flow - s_max);
+                if s_max.value() > 0.0 && s_flow > s_max.value() {
+                    max_branch_flow_violation = max_branch_flow_violation.max(s_flow - s_max.value());
                 }
             }
         }

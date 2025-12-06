@@ -273,11 +273,11 @@ fn test_cim_validation_invalid_voltage() {
     let bus = Bus {
         id: BusId::new(1),
         name: "bus1".to_string(),
-        voltage_kv: -10.0, // Invalid negative voltage
-        voltage_pu: 1.0,
-        angle_rad: 0.0,
-        vmin_pu: Some(0.95),
-        vmax_pu: Some(1.05),
+        base_kv: gat_core::Kilovolts(-10.0), // Invalid negative voltage
+        voltage_pu: gat_core::PerUnit(1.0),
+        angle_rad: gat_core::Radians(0.0),
+        vmin_pu: Some(gat_core::PerUnit(0.95)),
+        vmax_pu: Some(gat_core::PerUnit(1.05)),
         area_id: None,
         zone_id: None,
     };
@@ -299,13 +299,13 @@ fn test_cim_validation_passes() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     network.graph.add_edge(
@@ -335,11 +335,11 @@ fn test_cim_validation_warnings() {
     let bus = Bus {
         id: BusId::new(1),
         name: "bus1".to_string(),
-        voltage_kv: 1500.0, // Unusual high voltage, should generate warning
-        voltage_pu: 1.0,
-        angle_rad: 0.0,
-        vmin_pu: Some(0.95),
-        vmax_pu: Some(1.05),
+        base_kv: gat_core::Kilovolts(1500.0), // Unusual high voltage, should generate warning
+        voltage_pu: gat_core::PerUnit(1.0),
+        angle_rad: gat_core::Radians(0.0),
+        vmin_pu: Some(gat_core::PerUnit(0.95)),
+        vmax_pu: Some(gat_core::PerUnit(1.05)),
         area_id: None,
         zone_id: None,
     };

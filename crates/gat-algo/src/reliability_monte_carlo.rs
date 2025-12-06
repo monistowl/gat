@@ -36,7 +36,7 @@ impl OutageScenario {
         for node_idx in network.graph.node_indices() {
             if let Some(Node::Gen(gen)) = network.graph.node_weight(node_idx) {
                 if !self.offline_generators.contains(&node_idx) {
-                    available_capacity += gen.active_power_mw;
+                    available_capacity += gen.active_power.value();
                 }
             }
         }
@@ -190,7 +190,7 @@ impl MonteCarlo {
                     bus_id_to_node.insert(bus.id, node_idx);
                 }
                 Some(Node::Load(load)) => {
-                    total_demand += load.active_power_mw;
+                    total_demand += load.active_power.value();
                     load_buses.insert(load.bus);
                 }
                 _ => {}
@@ -295,7 +295,7 @@ impl MonteCarlo {
         for node_idx in network.graph.node_indices() {
             if let Some(Node::Gen(gen)) = network.graph.node_weight(node_idx) {
                 if !scenario.offline_generators.contains(&node_idx) {
-                    gen_bus_capacity.push((gen.bus, gen.active_power_mw));
+                    gen_bus_capacity.push((gen.bus, gen.active_power.value()));
                 }
             }
         }

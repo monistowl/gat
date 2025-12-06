@@ -96,14 +96,14 @@ pub fn export_network_to_psse(
 
     writeln!(writer, "BUS DATA FOLLOWS")?;
     for bus in &buses {
-        let vm = bus.voltage_pu;
-        let va = bus.angle_rad.to_degrees();
+        let vm = bus.voltage_pu.value();
+        let va = bus.angle_rad.to_degrees().value();
         writeln!(
             writer,
             "{id},{name},{base_kv:.6},1,0,0,1,1,{vm:.6},{va:.6},0.0,1,0,1,1,0,0,0,0",
             id = bus.id.value(),
             name = quote_name(&bus.name),
-            base_kv = bus.voltage_kv,
+            base_kv = bus.base_kv.value(),
             vm = vm,
             va = va
         )?;
@@ -118,8 +118,8 @@ pub fn export_network_to_psse(
             "{bus},{name},{pg:.6},{qg:.6},0,0,0,0,0,0,0,0,0,0,{status}",
             bus = gen.bus.value(),
             name = quote_name(&gen.name),
-            pg = gen.active_power_mw,
-            qg = gen.reactive_power_mvar,
+            pg = gen.active_power.value(),
+            qg = gen.reactive_power.value(),
             status = status
         )?;
     }
@@ -133,8 +133,8 @@ pub fn export_network_to_psse(
                 "{bus},{name},0,{p:.6},{q:.6},0,0,0,0,0,0,1,0,1,1",
                 bus = bus_id,
                 name = quote_name(&load.name),
-                p = load.active_power_mw,
-                q = load.reactive_power_mvar,
+                p = load.active_power.value(),
+                q = load.reactive_power.value(),
             )?;
         }
     }
@@ -144,8 +144,10 @@ pub fn export_network_to_psse(
     for branch in &branches {
         let status = if branch.status { 1 } else { 0 };
         let rate_a = branch
-            .rating_a_mva
-            .unwrap_or(branch.s_max_mva.unwrap_or(0.0));
+            .rating_a
+            .or(branch.s_max)
+            .map(|v| v.value())
+            .unwrap_or(0.0);
         writeln!(
             writer,
             "{from},{to},1,{r:.6},{x:.6},{b:.6},{rate_a:.6},0,0,{tap:.6},{shift:.6},0,0,{status}",
@@ -153,10 +155,10 @@ pub fn export_network_to_psse(
             to = branch.to_bus.value(),
             r = branch.resistance,
             x = branch.reactance,
-            b = branch.charging_b_pu,
+            b = branch.charging_b.value(),
             rate_a = rate_a,
             tap = branch.tap_ratio,
-            shift = branch.phase_shift_rad.to_degrees(),
+            shift = branch.phase_shift.to_degrees().value(),
             status = status
         )?;
     }

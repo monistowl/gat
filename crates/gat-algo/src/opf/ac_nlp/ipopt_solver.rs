@@ -83,14 +83,14 @@ impl<'a> BasicProblem for IpoptAcOpf<'a> {
 
         // Generator P bounds
         for (i, gen) in self.problem.generators.iter().enumerate() {
-            x_l[self.problem.pg_offset + i] = gen.pmin_mw / self.problem.base_mva;
-            x_u[self.problem.pg_offset + i] = gen.pmax_mw / self.problem.base_mva;
+            x_l[self.problem.pg_offset + i] = gen.pmin.value() / self.problem.base_mva;
+            x_u[self.problem.pg_offset + i] = gen.pmax.value() / self.problem.base_mva;
         }
 
         // Generator Q bounds
         for (i, gen) in self.problem.generators.iter().enumerate() {
-            x_l[self.problem.qg_offset + i] = gen.qmin_mvar / self.problem.base_mva;
-            x_u[self.problem.qg_offset + i] = gen.qmax_mvar / self.problem.base_mva;
+            x_l[self.problem.qg_offset + i] = gen.qmin.value() / self.problem.base_mva;
+            x_u[self.problem.qg_offset + i] = gen.qmax.value() / self.problem.base_mva;
         }
 
         true
@@ -313,8 +313,8 @@ pub fn solve_with_ipopt(
             let mut system_lmp = 0.0;
             for (i, gen) in problem.generators.iter().enumerate() {
                 let pg_mw = x[problem.pg_offset + i] * problem.base_mva;
-                let at_min = (pg_mw - gen.pmin_mw).abs() < 1.0;
-                let at_max = (pg_mw - gen.pmax_mw).abs() < 1.0;
+                let at_min = (pg_mw - gen.pmin.value()).abs() < 1.0;
+                let at_max = (pg_mw - gen.pmax.value()).abs() < 1.0;
 
                 // Marginal generator: not at either limit
                 if !at_min && !at_max {
@@ -494,8 +494,8 @@ pub fn warm_start_from_socp(warm_start: &SocpWarmStart, problem: &AcOpfProblem) 
             .unwrap_or(0.0);
         let pg_pu = pg_mw / problem.base_mva;
         // Clamp to bounds
-        let pg_min = gen.pmin_mw / problem.base_mva;
-        let pg_max = gen.pmax_mw / problem.base_mva;
+        let pg_min = gen.pmin.value() / problem.base_mva;
+        let pg_max = gen.pmax.value() / problem.base_mva;
         let pg_clamped = pg_pu.max(pg_min).min(pg_max);
         x[problem.pg_offset + i] = pg_clamped;
     }
@@ -509,8 +509,8 @@ pub fn warm_start_from_socp(warm_start: &SocpWarmStart, problem: &AcOpfProblem) 
             .unwrap_or(0.0);
         let qg_pu = qg_mvar / problem.base_mva;
         // Clamp to bounds
-        let qg_min = gen.qmin_mvar / problem.base_mva;
-        let qg_max = gen.qmax_mvar / problem.base_mva;
+        let qg_min = gen.qmin.value() / problem.base_mva;
+        let qg_max = gen.qmax.value() / problem.base_mva;
         let qg_clamped = qg_pu.max(qg_min).min(qg_max);
         x[problem.qg_offset + i] = qg_clamped;
     }
@@ -569,8 +569,8 @@ pub fn warm_start_from_dc(warm_start: &DcWarmStart, problem: &AcOpfProblem) -> V
             .unwrap_or(0.0);
         let pg_pu = pg_mw / problem.base_mva;
         // Clamp to bounds
-        let pg_min = gen.pmin_mw / problem.base_mva;
-        let pg_max = gen.pmax_mw / problem.base_mva;
+        let pg_min = gen.pmin.value() / problem.base_mva;
+        let pg_max = gen.pmax.value() / problem.base_mva;
         let pg_clamped = pg_pu.max(pg_min).min(pg_max);
         x[problem.pg_offset + i] = pg_clamped;
     }
@@ -578,8 +578,8 @@ pub fn warm_start_from_dc(warm_start: &DcWarmStart, problem: &AcOpfProblem) -> V
     // Generator reactive power: DC-OPF doesn't compute Q
     // Initialize to middle of bounds for robustness
     for (i, gen) in problem.generators.iter().enumerate() {
-        let qg_min = gen.qmin_mvar / problem.base_mva;
-        let qg_max = gen.qmax_mvar / problem.base_mva;
+        let qg_min = gen.qmin.value() / problem.base_mva;
+        let qg_max = gen.qmax.value() / problem.base_mva;
         let qg_mid = (qg_min + qg_max) / 2.0;
         x[problem.qg_offset + i] = qg_mid;
     }
@@ -808,8 +808,8 @@ fn extract_solution(problem: &AcOpfProblem, x: &[f64]) -> Result<OpfSolution, Op
     let mut system_lmp = 0.0;
     for (i, gen) in problem.generators.iter().enumerate() {
         let pg_mw = x[problem.pg_offset + i] * problem.base_mva;
-        let at_min = (pg_mw - gen.pmin_mw).abs() < 1.0;
-        let at_max = (pg_mw - gen.pmax_mw).abs() < 1.0;
+        let at_min = (pg_mw - gen.pmin.value()).abs() < 1.0;
+        let at_max = (pg_mw - gen.pmax.value()).abs() < 1.0;
 
         if !at_min && !at_max {
             let c1 = gen.cost_coeffs.get(1).copied().unwrap_or(0.0);
@@ -875,13 +875,13 @@ impl<'a> BasicProblem for IpoptAcOpfWarmStart<'a> {
         }
 
         for (i, gen) in self.problem.generators.iter().enumerate() {
-            x_l[self.problem.pg_offset + i] = gen.pmin_mw / self.problem.base_mva;
-            x_u[self.problem.pg_offset + i] = gen.pmax_mw / self.problem.base_mva;
+            x_l[self.problem.pg_offset + i] = gen.pmin.value() / self.problem.base_mva;
+            x_u[self.problem.pg_offset + i] = gen.pmax.value() / self.problem.base_mva;
         }
 
         for (i, gen) in self.problem.generators.iter().enumerate() {
-            x_l[self.problem.qg_offset + i] = gen.qmin_mvar / self.problem.base_mva;
-            x_u[self.problem.qg_offset + i] = gen.qmax_mvar / self.problem.base_mva;
+            x_l[self.problem.qg_offset + i] = gen.qmin.value() / self.problem.base_mva;
+            x_u[self.problem.qg_offset + i] = gen.qmax.value() / self.problem.base_mva;
         }
 
         true

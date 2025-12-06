@@ -58,12 +58,12 @@ fn network_to_matpower_case(network: &Network) -> Result<MatpowerCase> {
                             gs: 0.0,
                             bs: 0.0,
                             area: bus.area_id.unwrap_or(1) as i32,
-                            vm: bus.voltage_pu,
-                            va: bus.angle_rad.to_degrees(),
-                            base_kv: bus.voltage_kv,
+                            vm: bus.voltage_pu.value(),
+                            va: bus.angle_rad.to_degrees().value(),
+                            base_kv: bus.base_kv.value(),
                             zone: bus.zone_id.unwrap_or(1) as i32,
-                            vmax: bus.vmax_pu.unwrap_or(1.1),
-                            vmin: bus.vmin_pu.unwrap_or(0.9),
+                            vmax: bus.vmax_pu.map(|v| v.value()).unwrap_or(1.1),
+                            vmin: bus.vmin_pu.map(|v| v.value()).unwrap_or(0.9),
                         },
                     ));
                     bus_idx += 1;
@@ -72,8 +72,8 @@ fn network_to_matpower_case(network: &Network) -> Result<MatpowerCase> {
             Node::Load(load) => {
                 let bus_id = load.bus.value();
                 let entry = loads_by_bus.entry(bus_id).or_insert((0.0, 0.0));
-                entry.0 += load.active_power_mw;
-                entry.1 += load.reactive_power_mvar;
+                entry.0 += load.active_power.value();
+                entry.1 += load.reactive_power.value();
             }
             Node::Gen(_) => {
                 // Generators are processed separately
@@ -111,15 +111,15 @@ fn network_to_matpower_case(network: &Network) -> Result<MatpowerCase> {
 
             case.gen.push(MatpowerGen {
                 gen_bus: matpower_bus_idx,
-                pg: gen.active_power_mw,
-                qg: gen.reactive_power_mvar,
-                qmax: gen.qmax_mvar,
-                qmin: gen.qmin_mvar,
-                vg: gen.voltage_setpoint_pu.unwrap_or(1.0),
-                mbase: gen.mbase_mva.unwrap_or(case.base_mva),
+                pg: gen.active_power.value(),
+                qg: gen.reactive_power.value(),
+                qmax: gen.qmax.value(),
+                qmin: gen.qmin.value(),
+                vg: gen.voltage_setpoint.map(|v| v.value()).unwrap_or(1.0),
+                mbase: gen.mbase.map(|v| v.value()).unwrap_or(case.base_mva),
                 gen_status: if gen.status { 1 } else { 0 },
-                pmax: gen.pmax_mw,
-                pmin: gen.pmin_mw,
+                pmax: gen.pmax.value(),
+                pmin: gen.pmin.value(),
             });
 
             // Convert cost model
@@ -200,15 +200,15 @@ fn network_to_matpower_case(network: &Network) -> Result<MatpowerCase> {
                     t_bus: to_idx,
                     br_r: branch.resistance,
                     br_x: branch.reactance,
-                    br_b: branch.charging_b_pu,
-                    rate_a: branch.rating_a_mva.unwrap_or(0.0),
-                    rate_b: branch.rating_b_mva.unwrap_or(0.0),
-                    rate_c: branch.rating_c_mva.unwrap_or(0.0),
+                    br_b: branch.charging_b.value(),
+                    rate_a: branch.rating_a.map(|v| v.value()).unwrap_or(0.0),
+                    rate_b: branch.rating_b.map(|v| v.value()).unwrap_or(0.0),
+                    rate_c: branch.rating_c.map(|v| v.value()).unwrap_or(0.0),
                     tap: branch.tap_ratio,
-                    shift: branch.phase_shift_rad.to_degrees(),
+                    shift: branch.phase_shift.to_degrees().value(),
                     br_status: if branch.status { 1 } else { 0 },
-                    angmin: branch.angle_min_rad.unwrap_or(-360.0).to_degrees(),
-                    angmax: branch.angle_max_rad.unwrap_or(360.0).to_degrees(),
+                    angmin: branch.angle_min.map(|v| v.to_degrees().value()).unwrap_or(-360.0),
+                    angmax: branch.angle_max.map(|v| v.to_degrees().value()).unwrap_or(360.0),
                 });
             }
             Edge::Transformer(tx) => {
@@ -403,11 +403,11 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: Some(1),
             zone_id: Some(1),
         }));
@@ -415,11 +415,11 @@ mod tests {
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: gat_core::Kilovolts(138.0),
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: Some(1),
             zone_id: Some(1),
         }));
@@ -429,14 +429,14 @@ mod tests {
             id: GenId::new(1),
             name: "Gen 1".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 100.0,
-            reactive_power_mvar: 50.0,
-            pmin_mw: 0.0,
-            pmax_mw: 200.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 100.0,
+            active_power: gat_core::Megawatts(100.0),
+            reactive_power: gat_core::Megavars(50.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(200.0),
+            qmin: gat_core::Megavars(-50.0),
+            qmax: gat_core::Megavars(100.0),
             status: true,
-            voltage_setpoint_pu: Some(1.05),
+            voltage_setpoint: Some(gat_core::PerUnit(1.05)),
             cost_model: CostModel::quadratic(0.0, 20.0, 0.01),
             ..Gen::default()
         }));
@@ -446,8 +446,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Load 1".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 80.0,
-            reactive_power_mvar: 40.0,
+            active_power: gat_core::Megawatts(80.0),
+            reactive_power: gat_core::Megavars(40.0),
         }));
 
         // Add a branch
@@ -461,11 +461,11 @@ mod tests {
                 to_bus: BusId::new(2),
                 resistance: 0.01,
                 reactance: 0.1,
-                charging_b_pu: 0.02,
+                charging_b: gat_core::PerUnit(0.02),
                 tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
+                phase_shift: gat_core::Radians(0.0),
                 status: true,
-                rating_a_mva: Some(250.0),
+                rating_a: Some(gat_core::MegavoltAmperes(250.0)),
                 ..Branch::default()
             }),
         );

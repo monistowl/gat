@@ -18,14 +18,14 @@ fn create_benchmark_network(
     let bus1_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: format!("{}_bus1", name),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: format!("{}_bus2", name),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -35,12 +35,12 @@ fn create_benchmark_network(
             id: GenId::new(i),
             name: format!("{}_gen_{}", name, i),
             bus: BusId::new(0),
-            active_power_mw: gen_capacity / num_generators as f64,
-            reactive_power_mvar: 0.0,
-            pmin_mw: 0.0,
-            pmax_mw: 1000.0,
-            qmin_mvar: -1000.0,
-            qmax_mvar: 1000.0,
+            active_power: gat_core::Megawatts(gen_capacity / num_generators as f64),
+            reactive_power: gat_core::Megavars(0.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(1000.0),
+            qmin: gat_core::Megavars(-1000.0),
+            qmax: gat_core::Megavars(1000.0),
             is_synchronous_condenser: false,
             cost_model: CostModel::NoCost,
             ..Gen::default()
@@ -51,8 +51,8 @@ fn create_benchmark_network(
         id: LoadId::new(0),
         name: format!("{}_load", name),
         bus: BusId::new(1),
-        active_power_mw: load_capacity,
-        reactive_power_mvar: 0.0,
+        active_power: gat_core::Megawatts(load_capacity),
+        reactive_power: gat_core::Megavars(0.0),
     }));
 
     network.graph.add_edge(

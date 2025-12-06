@@ -19,13 +19,13 @@ fn simple_network() -> Network {
     let bus1_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
     let bus2_idx = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -40,11 +40,11 @@ fn simple_network() -> Network {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -54,12 +54,12 @@ fn simple_network() -> Network {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 100.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(100.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
@@ -69,8 +69,8 @@ fn simple_network() -> Network {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 1.0,
-        reactive_power_mvar: 0.2,
+        active_power: gat_core::Megawatts(1.0),
+        reactive_power: gat_core::Megavars(0.2),
     }));
 
     network
@@ -106,19 +106,19 @@ fn three_bus_network() -> Network {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus3".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
 
@@ -134,11 +134,11 @@ fn three_bus_network() -> Network {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.02,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.02),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -156,11 +156,11 @@ fn three_bus_network() -> Network {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.02,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.02),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -178,11 +178,11 @@ fn three_bus_network() -> Network {
             resistance: 0.02,
             reactance: 0.15,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.01,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.01),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -193,12 +193,12 @@ fn three_bus_network() -> Network {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
@@ -209,12 +209,12 @@ fn three_bus_network() -> Network {
         id: GenId::new(1),
         name: "gen2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 150.0,
-        qmin_mvar: -50.0,
-        qmax_mvar: 50.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(150.0),
+        qmin: gat_core::Megavars(-50.0),
+        qmax: gat_core::Megavars(50.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 15.0),
         ..Gen::default()
@@ -225,8 +225,8 @@ fn three_bus_network() -> Network {
         id: LoadId::new(0),
         name: "load3".to_string(),
         bus: BusId::new(2),
-        active_power_mw: 100.0,
-        reactive_power_mvar: 30.0,
+        active_power: gat_core::Megawatts(100.0),
+        reactive_power: gat_core::Megavars(30.0),
     }));
 
     network
@@ -270,13 +270,13 @@ fn socp_quadratic_cost() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -299,12 +299,12 @@ fn socp_quadratic_cost() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::Polynomial(vec![100.0, 10.0, 0.05]),
         ..Gen::default()
@@ -315,12 +315,12 @@ fn socp_quadratic_cost() {
         id: GenId::new(1),
         name: "gen2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::Polynomial(vec![50.0, 20.0, 0.02]),
         ..Gen::default()
@@ -330,8 +330,8 @@ fn socp_quadratic_cost() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 10.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(10.0),
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -381,13 +381,13 @@ fn socp_thermal_limit_binding() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 100.0,
+        base_kv: gat_core::Kilovolts(100.0),
         ..Bus::default()
     }));
 
@@ -403,11 +403,11 @@ fn socp_thermal_limit_binding() {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: Some(50.0), // Tight limit
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: Some(gat_core::MegavoltAmperes(50.0)), // Tight limit
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -417,12 +417,12 @@ fn socp_thermal_limit_binding() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
@@ -433,8 +433,8 @@ fn socp_thermal_limit_binding() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 40.0, // Under the 50 MVA limit
-        reactive_power_mvar: 10.0,
+        active_power: gat_core::Megawatts(40.0), // Under the 50 MVA limit
+        reactive_power: gat_core::Megavars(10.0),
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -472,19 +472,19 @@ fn socp_phase_shifting_transformer() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus3".to_string(),
-        voltage_kv: 138.0,
+        base_kv: gat_core::Kilovolts(138.0),
         ..Bus::default()
     }));
 
@@ -500,11 +500,11 @@ fn socp_phase_shifting_transformer() {
             resistance: 0.01,
             reactance: 0.1,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -523,11 +523,11 @@ fn socp_phase_shifting_transformer() {
             resistance: 0.005,
             reactance: 0.05,
             tap_ratio: 1.0,
-            phase_shift_rad: phase_shift,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(phase_shift),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: true,
             ..Branch::default()
         }),
@@ -545,11 +545,11 @@ fn socp_phase_shifting_transformer() {
             resistance: 0.02,
             reactance: 0.15,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -559,12 +559,12 @@ fn socp_phase_shifting_transformer() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
@@ -574,8 +574,8 @@ fn socp_phase_shifting_transformer() {
         id: LoadId::new(0),
         name: "load3".to_string(),
         bus: BusId::new(2),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 10.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(10.0),
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -614,13 +614,13 @@ fn socp_tap_ratio_transformer() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1_hv".to_string(),
-        voltage_kv: 230.0, // High voltage side
+        base_kv: gat_core::Kilovolts(230.0), // High voltage side
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2_lv".to_string(),
-        voltage_kv: 138.0, // Low voltage side
+        base_kv: gat_core::Kilovolts(138.0), // Low voltage side
         ..Bus::default()
     }));
 
@@ -636,11 +636,11 @@ fn socp_tap_ratio_transformer() {
             resistance: 0.005,
             reactance: 0.1,
             tap_ratio: 1.05, // 5% boost
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: Some(100.0),
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: Some(gat_core::MegavoltAmperes(100.0)),
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -650,12 +650,12 @@ fn socp_tap_ratio_transformer() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
@@ -665,8 +665,8 @@ fn socp_tap_ratio_transformer() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 15.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(15.0),
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -699,7 +699,7 @@ fn socp_10_bus_meshed_network() {
         let bus_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(i),
             name: format!("bus{}", i + 1),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         bus_indices.push(bus_idx);
@@ -733,11 +733,11 @@ fn socp_10_bus_meshed_network() {
                 resistance: *r,
                 reactance: *x,
                 tap_ratio: 1.0,
-                phase_shift_rad: 0.0,
-                charging_b_pu: 0.01,
-                s_max_mva: None,
+                phase_shift: gat_core::Radians(0.0),
+                charging_b: gat_core::PerUnit(0.01),
+                s_max: None,
                 status: true,
-                rating_a_mva: None,
+                rating_a: None,
                 is_phase_shifter: false,
                 ..Branch::default()
             }),
@@ -750,12 +750,12 @@ fn socp_10_bus_meshed_network() {
             id: GenId::new(idx),
             name: format!("gen{}", idx + 1),
             bus: BusId::new(*bus),
-            active_power_mw: 0.0,
-            reactive_power_mvar: 0.0,
-            pmin_mw: 0.0,
-            pmax_mw: 150.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            active_power: gat_core::Megawatts(0.0),
+            reactive_power: gat_core::Megavars(0.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(150.0),
+            qmin: gat_core::Megavars(-50.0),
+            qmax: gat_core::Megavars(50.0),
             is_synchronous_condenser: false,
             cost_model: CostModel::linear(0.0, *cost),
             ..Gen::default()
@@ -774,8 +774,8 @@ fn socp_10_bus_meshed_network() {
             id: LoadId::new(idx),
             name: format!("load{}", bus + 1),
             bus: BusId::new(*bus),
-            active_power_mw: *p,
-            reactive_power_mvar: *q,
+            active_power: gat_core::Megawatts(*p),
+            reactive_power: gat_core::Megavars(*q),
         }));
     }
 
@@ -824,13 +824,13 @@ fn socp_line_charging() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 345.0, // High voltage = more charging
+        base_kv: gat_core::Kilovolts(345.0), // High voltage = more charging
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 345.0,
+        base_kv: gat_core::Kilovolts(345.0),
         ..Bus::default()
     }));
 
@@ -846,11 +846,11 @@ fn socp_line_charging() {
             resistance: 0.005,
             reactance: 0.05,
             tap_ratio: 1.0,
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.10, // Significant line charging
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.10), // Significant line charging
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -860,12 +860,12 @@ fn socp_line_charging() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        active_power_mw: 0.0,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        active_power: gat_core::Megawatts(0.0),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         is_synchronous_condenser: false,
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
@@ -876,8 +876,8 @@ fn socp_line_charging() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 10.0,
-        reactive_power_mvar: 5.0,
+        active_power: gat_core::Megawatts(10.0),
+        reactive_power: gat_core::Megavars(5.0),
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -907,17 +907,17 @@ fn socp_zero_resistance_transformer() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
-        vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06),
+        base_kv: gat_core::Kilovolts(138.0),
+        vmin_pu: Some(gat_core::PerUnit(0.94)),
+        vmax_pu: Some(gat_core::PerUnit(1.06)),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
-        vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06),
+        base_kv: gat_core::Kilovolts(138.0),
+        vmin_pu: Some(gat_core::PerUnit(0.94)),
+        vmax_pu: Some(gat_core::PerUnit(1.06)),
         ..Bus::default()
     }));
 
@@ -933,11 +933,11 @@ fn socp_zero_resistance_transformer() {
             resistance: 0.0,   // Zero resistance
             reactance: 0.0375, // Typical OPFData value
             tap_ratio: 0.935,  // Step-up transformer
-            phase_shift_rad: 0.0,
-            charging_b_pu: 0.0,
-            s_max_mva: None,
+            phase_shift: gat_core::Radians(0.0),
+            charging_b: gat_core::PerUnit(0.0),
+            s_max: None,
             status: true,
-            rating_a_mva: None,
+            rating_a: None,
             is_phase_shifter: false,
             ..Branch::default()
         }),
@@ -947,10 +947,10 @@ fn socp_zero_resistance_transformer() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
     }));
@@ -959,8 +959,8 @@ fn socp_zero_resistance_transformer() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 15.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(15.0),
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -989,17 +989,17 @@ fn socp_transformer_voltage_bounds_strict() {
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
-        vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06), // Must be respected
+        base_kv: gat_core::Kilovolts(138.0),
+        vmin_pu: Some(gat_core::PerUnit(0.94)),
+        vmax_pu: Some(gat_core::PerUnit(1.06)), // Must be respected
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
-        vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06), // Must be respected - but tap=0.935 wants to push this higher
+        base_kv: gat_core::Kilovolts(138.0),
+        vmin_pu: Some(gat_core::PerUnit(0.94)),
+        vmax_pu: Some(gat_core::PerUnit(1.06)), // Must be respected - but tap=0.935 wants to push this higher
         ..Bus::default()
     }));
 
@@ -1024,10 +1024,10 @@ fn socp_transformer_voltage_bounds_strict() {
         id: GenId::new(0),
         name: "gen1".to_string(),
         bus: BusId::new(0),
-        pmin_mw: 0.0,
-        pmax_mw: 200.0,
-        qmin_mvar: -100.0,
-        qmax_mvar: 100.0,
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(200.0),
+        qmin: gat_core::Megavars(-100.0),
+        qmax: gat_core::Megavars(100.0),
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
     }));
@@ -1036,8 +1036,8 @@ fn socp_transformer_voltage_bounds_strict() {
         id: LoadId::new(0),
         name: "load2".to_string(),
         bus: BusId::new(1),
-        active_power_mw: 50.0,
-        reactive_power_mvar: 15.0,
+        active_power: gat_core::Megawatts(50.0),
+        reactive_power: gat_core::Megavars(15.0),
     }));
 
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -1086,33 +1086,33 @@ fn socp_meshed_zero_resistance_transformers() {
     let bus0 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(0),
         name: "bus0".to_string(),
-        voltage_kv: 138.0,
-        vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06),
+        base_kv: gat_core::Kilovolts(138.0),
+        vmin_pu: Some(gat_core::PerUnit(0.94)),
+        vmax_pu: Some(gat_core::PerUnit(1.06)),
         ..Bus::default()
     }));
     let bus1 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(1),
         name: "bus1".to_string(),
-        voltage_kv: 138.0,
-        vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06),
+        base_kv: gat_core::Kilovolts(138.0),
+        vmin_pu: Some(gat_core::PerUnit(0.94)),
+        vmax_pu: Some(gat_core::PerUnit(1.06)),
         ..Bus::default()
     }));
     let bus2 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(2),
         name: "bus2".to_string(),
-        voltage_kv: 138.0,
-        vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06),
+        base_kv: gat_core::Kilovolts(138.0),
+        vmin_pu: Some(gat_core::PerUnit(0.94)),
+        vmax_pu: Some(gat_core::PerUnit(1.06)),
         ..Bus::default()
     }));
     let bus3 = network.graph.add_node(Node::Bus(Bus {
         id: BusId::new(3),
         name: "bus3".to_string(),
-        voltage_kv: 138.0,
-        vmin_pu: Some(0.94),
-        vmax_pu: Some(1.06),
+        base_kv: gat_core::Kilovolts(138.0),
+        vmin_pu: Some(gat_core::PerUnit(0.94)),
+        vmax_pu: Some(gat_core::PerUnit(1.06)),
         ..Bus::default()
     }));
 
@@ -1185,10 +1185,10 @@ fn socp_meshed_zero_resistance_transformers() {
         id: GenId::new(0),
         name: "gen0".to_string(),
         bus: BusId::new(0),
-        pmin_mw: 0.0,
-        pmax_mw: 300.0,
-        qmin_mvar: -150.0,
-        qmax_mvar: 150.0,
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(300.0),
+        qmin: gat_core::Megavars(-150.0),
+        qmax: gat_core::Megavars(150.0),
         cost_model: CostModel::linear(0.0, 10.0),
         ..Gen::default()
     }));
@@ -1198,8 +1198,8 @@ fn socp_meshed_zero_resistance_transformers() {
         id: LoadId::new(0),
         name: "load3".to_string(),
         bus: BusId::new(3),
-        active_power_mw: 100.0,
-        reactive_power_mvar: 30.0,
+        active_power: gat_core::Megawatts(100.0),
+        reactive_power: gat_core::Megavars(30.0),
     }));
 
     println!("\n=== Meshed Zero-Resistance Transformer Test ===");

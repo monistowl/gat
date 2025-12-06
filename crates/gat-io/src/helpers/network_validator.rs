@@ -287,20 +287,21 @@ fn validate_physical_sanity(
     // Validate bus voltages
     for node in network.graph.node_weights() {
         if let Node::Bus(bus) = node {
-            if bus.voltage_kv <= 0.0 {
+            let kv = bus.base_kv.value();
+            if kv <= 0.0 {
                 diag.add_error(
                     "physical",
                     &format!(
                         "Bus '{}' has invalid voltage: {} kV (must be > 0)",
-                        bus.name, bus.voltage_kv
+                        bus.name, kv
                     ),
                 );
-            } else if bus.voltage_kv < voltage_range.0 || bus.voltage_kv > voltage_range.1 {
+            } else if kv < voltage_range.0 || kv > voltage_range.1 {
                 diag.add_validation_warning(
                     &format!("Bus {}", bus.name),
                     &format!(
                         "Unusual voltage level: {} kV (expected {}-{} kV)",
-                        bus.voltage_kv, voltage_range.0, voltage_range.1
+                        kv, voltage_range.0, voltage_range.1
                     ),
                 );
             }
@@ -366,13 +367,13 @@ fn validate_physical_sanity(
             }
 
             // Negative thermal limit
-            if let Some(s_max) = branch.s_max_mva {
-                if s_max < 0.0 {
+            if let Some(s_max) = &branch.s_max {
+                if s_max.value() < 0.0 {
                     diag.add_error(
                         "physical",
                         &format!(
                             "Branch '{}' has negative thermal limit: {} MVA",
-                            branch.name, s_max
+                            branch.name, s_max.value()
                         ),
                     );
                 }
@@ -384,43 +385,43 @@ fn validate_physical_sanity(
     for node in network.graph.node_weights() {
         if let Node::Gen(gen) = node {
             // Pmax < Pmin (inverted limits)
-            if gen.pmax_mw < gen.pmin_mw {
+            if gen.pmax.value() < gen.pmin.value() {
                 diag.add_error(
                     "physical",
                     &format!(
                         "Generator '{}' has Pmax ({} MW) < Pmin ({} MW)",
-                        gen.name, gen.pmax_mw, gen.pmin_mw
+                        gen.name, gen.pmax.value(), gen.pmin.value()
                     ),
                 );
             }
 
             // Qmax < Qmin (inverted limits)
-            if gen.qmax_mvar < gen.qmin_mvar {
+            if gen.qmax.value() < gen.qmin.value() {
                 diag.add_error(
                     "physical",
                     &format!(
                         "Generator '{}' has Qmax ({} MVAr) < Qmin ({} MVAr)",
-                        gen.name, gen.qmax_mvar, gen.qmin_mvar
+                        gen.name, gen.qmax.value(), gen.qmin.value()
                     ),
                 );
             }
 
             // Negative Pmin for non-synchronous condenser
-            if gen.pmin_mw < 0.0 && !gen.is_synchronous_condenser {
+            if gen.pmin.value() < 0.0 && !gen.is_synchronous_condenser {
                 diag.add_validation_warning(
                     &format!("Generator {}", gen.name),
                     &format!(
                         "Negative Pmin ({} MW) but not marked as synchronous condenser",
-                        gen.pmin_mw
+                        gen.pmin.value()
                     ),
                 );
             }
 
             // Very large capacity warning
-            if gen.pmax_mw > 10000.0 {
+            if gen.pmax.value() > 10000.0 {
                 diag.add_validation_warning(
                     &format!("Generator {}", gen.name),
-                    &format!("Very large capacity: {} MW (> 10 GW)", gen.pmax_mw),
+                    &format!("Very large capacity: {} MW (> 10 GW)", gen.pmax.value()),
                 );
             }
         }
@@ -434,11 +435,11 @@ fn validate_physical_sanity(
     for node in network.graph.node_weights() {
         match node {
             Node::Load(load) => {
-                total_load += load.active_power_mw;
+                total_load += load.active_power.value();
             }
             Node::Gen(gen) => {
-                total_gen_capacity += gen.pmax_mw;
-                total_gen_min += gen.pmin_mw;
+                total_gen_capacity += gen.pmax.value();
+                total_gen_min += gen.pmin.value();
             }
             _ => {}
         }
@@ -620,50 +621,50 @@ fn validate_power_balance(network: &Network, diag: &mut ImportDiagnostics) {
     for node in network.graph.node_weights() {
         match node {
             Node::Gen(gen) => {
-                total_pmax += gen.pmax_mw;
-                total_pmin += gen.pmin_mw;
-                _total_qmax += gen.qmax_mvar;
-                _total_qmin += gen.qmin_mvar;
+                total_pmax += gen.pmax.value();
+                total_pmin += gen.pmin.value();
+                _total_qmax += gen.qmax.value();
+                _total_qmin += gen.qmin.value();
                 gen_count += 1;
 
                 // Check for negative Pmax (suspicious)
-                if gen.pmax_mw < 0.0 {
+                if gen.pmax.value() < 0.0 {
                     diag.add_validation_warning(
                         "PowerBalance",
                         &format!(
                             "Generator {} has negative Pmax ({:.2} MW) - likely a data error",
                             gen.id.value(),
-                            gen.pmax_mw
+                            gen.pmax.value()
                         ),
                     );
                 }
 
                 // Check for Pmin > Pmax (invalid)
-                if gen.pmin_mw > gen.pmax_mw {
+                if gen.pmin.value() > gen.pmax.value() {
                     diag.add_error(
                         "PowerBalance",
                         &format!(
                             "Generator {} has Pmin ({:.2}) > Pmax ({:.2}) - invalid limits",
                             gen.id.value(),
-                            gen.pmin_mw,
-                            gen.pmax_mw
+                            gen.pmin.value(),
+                            gen.pmax.value()
                         ),
                     );
                 }
             }
             Node::Load(load) => {
-                total_load_p += load.active_power_mw;
-                _total_load_q += load.reactive_power_mvar;
+                total_load_p += load.active_power.value();
+                _total_load_q += load.reactive_power.value();
                 load_count += 1;
 
                 // Check for negative load (could be valid for distributed gen, but warn)
-                if load.active_power_mw < 0.0 {
+                if load.active_power.value() < 0.0 {
                     diag.add_validation_warning(
                         "PowerBalance",
                         &format!(
                             "Load {} has negative P ({:.2} MW) - verify if intentional (e.g., DER)",
                             load.id.value(),
-                            load.active_power_mw
+                            load.active_power.value()
                         ),
                     );
                 }
@@ -736,7 +737,7 @@ pub fn validate_network_quick(network: &Network) -> (usize, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gat_core::{Branch, BranchId, Bus, BusId, Gen, GenId, Load, LoadId};
+    use gat_core::{Branch, BranchId, Bus, BusId, Gen, GenId, Kilovolts, Load, LoadId};
 
     fn make_simple_network() -> Network {
         let mut network = Network::new();
@@ -744,13 +745,13 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -761,8 +762,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Load 1".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 10.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(10.0),
         }));
 
         network.graph.add_edge(
@@ -834,7 +835,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -862,13 +863,13 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         // No branch connecting them
@@ -887,7 +888,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -914,11 +915,11 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Weird Bus".to_string(),
-            voltage_kv: 0.05, // 50V - very unusual
-            voltage_pu: 1.0,
-            angle_rad: 0.0,
-            vmin_pu: Some(0.95),
-            vmax_pu: Some(1.05),
+            base_kv: Kilovolts(0.05), // 50V - very unusual
+            voltage_pu: gat_core::PerUnit(1.0),
+            angle_rad: gat_core::Radians(0.0),
+            vmin_pu: Some(gat_core::PerUnit(0.95)),
+            vmax_pu: Some(gat_core::PerUnit(1.05)),
             area_id: None,
             zone_id: None,
         }));
@@ -949,7 +950,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -982,7 +983,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1014,19 +1015,19 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus3_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(3),
             name: "Bus 3".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1090,13 +1091,13 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1136,13 +1137,13 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1157,8 +1158,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Big Load".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 100.0,
-            reactive_power_mvar: 10.0,
+            active_power: gat_core::Megawatts(100.0),
+            reactive_power: gat_core::Megavars(10.0),
         }));
 
         network.graph.add_edge(
@@ -1193,13 +1194,13 @@ mod tests {
         let bus1_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
         let bus2_idx = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(2),
             name: "Bus 2".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1214,8 +1215,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Small Load".to_string(),
             bus: BusId::new(2),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 10.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(10.0),
         }));
 
         network.graph.add_edge(
@@ -1250,7 +1251,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1259,8 +1260,8 @@ mod tests {
             id: GenId::new(1),
             name: "Bad Gen".to_string(),
             bus: BusId::new(1),
-            pmin_mw: 0.0,
-            pmax_mw: -100.0, // Invalid!
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(-100.0), // Invalid!
             ..Gen::default()
         }));
 
@@ -1283,7 +1284,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1292,8 +1293,8 @@ mod tests {
             id: LoadId::new(1),
             name: "DER Load".to_string(),
             bus: BusId::new(1),
-            active_power_mw: -50.0, // Negative!
-            reactive_power_mvar: 0.0,
+            active_power: gat_core::Megawatts(-50.0), // Negative!
+            reactive_power: gat_core::Megavars(0.0),
         }));
 
         // Need a gen to avoid "no generators" warning
@@ -1318,7 +1319,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1331,8 +1332,8 @@ mod tests {
             id: LoadId::new(1),
             name: "Zero Load".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 0.0,
-            reactive_power_mvar: 0.0,
+            active_power: gat_core::Megawatts(0.0),
+            reactive_power: gat_core::Megavars(0.0),
         }));
 
         let mut diag = ImportDiagnostics::new();
@@ -1354,7 +1355,7 @@ mod tests {
         network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "Bus 1".to_string(),
-            voltage_kv: 138.0,
+            base_kv: gat_core::Kilovolts(138.0),
             ..Bus::default()
         }));
 
@@ -1363,8 +1364,8 @@ mod tests {
             id: GenId::new(1),
             name: "Invalid Gen".to_string(),
             bus: BusId::new(1),
-            pmin_mw: 100.0,
-            pmax_mw: 50.0, // Less than Pmin!
+            pmin: gat_core::Megawatts(100.0),
+            pmax: gat_core::Megawatts(50.0), // Less than Pmin!
             ..Gen::default()
         }));
 

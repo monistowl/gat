@@ -145,14 +145,14 @@ mod opf_solver_require_native {
         let bus1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(0),
             name: "slack".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
 
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "load_bus".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
 
@@ -176,12 +176,12 @@ mod opf_solver_require_native {
             id: GenId::new(0),
             name: "gen1".to_string(),
             bus: BusId::new(0),
-            active_power_mw: 0.0,
-            reactive_power_mvar: 0.0,
-            pmin_mw: 0.0,
-            pmax_mw: 100.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            active_power: gat_core::Megawatts(0.0),
+            reactive_power: gat_core::Megavars(0.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(100.0),
+            qmin: gat_core::Megavars(-50.0),
+            qmax: gat_core::Megavars(50.0),
             is_synchronous_condenser: false,
             cost_model: CostModel::linear(0.0, 10.0),
             ..Gen::default()
@@ -192,8 +192,8 @@ mod opf_solver_require_native {
             id: LoadId::new(0),
             name: "load1".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 10.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(10.0),
         }));
 
         network
@@ -371,13 +371,13 @@ mod native_dispatch_tests {
         let bus1 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(0),
             name: "slack".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
         let bus2 = network.graph.add_node(Node::Bus(Bus {
             id: BusId::new(1),
             name: "load".to_string(),
-            voltage_kv: 100.0,
+            base_kv: gat_core::Kilovolts(100.0),
             ..Bus::default()
         }));
         network.graph.add_edge(
@@ -397,12 +397,12 @@ mod native_dispatch_tests {
             id: GenId::new(0),
             name: "gen".to_string(),
             bus: BusId::new(0),
-            active_power_mw: 0.0,
-            reactive_power_mvar: 0.0,
-            pmin_mw: 0.0,
-            pmax_mw: 100.0,
-            qmin_mvar: -50.0,
-            qmax_mvar: 50.0,
+            active_power: gat_core::Megawatts(0.0),
+            reactive_power: gat_core::Megavars(0.0),
+            pmin: gat_core::Megawatts(0.0),
+            pmax: gat_core::Megawatts(100.0),
+            qmin: gat_core::Megavars(-50.0),
+            qmax: gat_core::Megavars(50.0),
             is_synchronous_condenser: false,
             cost_model: CostModel::linear(0.0, 10.0),
             ..Gen::default()
@@ -411,8 +411,8 @@ mod native_dispatch_tests {
             id: LoadId::new(0),
             name: "load".to_string(),
             bus: BusId::new(1),
-            active_power_mw: 50.0,
-            reactive_power_mvar: 10.0,
+            active_power: gat_core::Megawatts(50.0),
+            reactive_power: gat_core::Megavars(10.0),
         }));
 
         let solver = OpfSolver::new()

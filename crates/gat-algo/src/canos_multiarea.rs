@@ -155,10 +155,10 @@ impl MultiAreaOutageScenario {
 
                 for node_idx in network.graph.node_indices() {
                     match network.graph.node_weight(node_idx) {
-                        Some(Node::Load(load)) => area_demand += load.active_power_mw,
+                        Some(Node::Load(load)) => area_demand += load.active_power.value(),
                         Some(Node::Gen(gen)) => {
                             if !scenario.offline_generators.contains(&node_idx) {
-                                area_supply += gen.active_power_mw;
+                                area_supply += gen.active_power.value();
                             }
                         }
                         _ => {}
@@ -340,10 +340,10 @@ impl MultiAreaMonteCarlo {
 
                     for node_idx in network.graph.node_indices() {
                         match network.graph.node_weight(node_idx) {
-                            Some(Node::Load(load)) => area_demand += load.active_power_mw,
+                            Some(Node::Load(load)) => area_demand += load.active_power.value(),
                             Some(Node::Gen(gen)) => {
                                 if !area_scenario.offline_generators.contains(&node_idx) {
-                                    area_supply += gen.active_power_mw;
+                                    area_supply += gen.active_power.value();
                                 }
                             }
                             _ => {}

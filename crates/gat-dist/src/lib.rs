@@ -320,8 +320,8 @@ fn build_node_frame(network: &Network, feeder: &str) -> DataFrame {
     for node_idx in network.graph.node_indices() {
         match &network.graph[node_idx] {
             Node::Load(load) => {
-                *load_map.entry(load.bus).or_insert(0.0) += load.active_power_mw;
-                *load_map_q.entry(load.bus).or_insert(0.0) += load.reactive_power_mvar;
+                *load_map.entry(load.bus).or_insert(0.0) += load.active_power.value();
+                *load_map_q.entry(load.bus).or_insert(0.0) += load.reactive_power.value();
             }
             Node::Gen(gen) => {
                 *gens.entry(gen.bus).or_insert(0) += 1;
@@ -428,17 +428,17 @@ fn add_virtual_der(network: &Network, bus_id: usize, injection: f64, step: usize
         id: gen_id,
         name: format!("hostcap_der_{}_{}", bus_id, step),
         bus: BusId::new(bus_id),
-        active_power_mw: injection,
-        reactive_power_mvar: 0.0,
-        pmin_mw: 0.0,
-        pmax_mw: injection,
-        qmin_mvar: 0.0,
-        qmax_mvar: 0.0,
+        active_power: gat_core::Megawatts(injection),
+        reactive_power: gat_core::Megavars(0.0),
+        pmin: gat_core::Megawatts(0.0),
+        pmax: gat_core::Megawatts(injection),
+        qmin: gat_core::Megavars(0.0),
+        qmax: gat_core::Megavars(0.0),
         cost_model: gat_core::CostModel::NoCost,
         is_synchronous_condenser: false,
         status: true,
-        voltage_setpoint_pu: None,
-        mbase_mva: None,
+        voltage_setpoint: None,
+        mbase: None,
         cost_startup: None,
         cost_shutdown: None,
     };
