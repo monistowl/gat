@@ -5,6 +5,7 @@
 /// the UI through a clean, decoupled interface.
 use crate::services::{AsyncEvent, EventResult, TuiServiceLayer};
 use crate::services::{CommandExecution, CommandService};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
@@ -115,8 +116,8 @@ impl AsyncServiceIntegration {
         self.run_command_and_capture(&cmd, "describe dataset").await
     }
 
-    async fn fetch_dataset_to(&self, id: &str, out: &str) -> EventResult {
-        let cmd = format!("gat dataset public fetch {} --out {}", id, out);
+    async fn fetch_dataset_to(&self, id: &str, out: &Path) -> EventResult {
+        let cmd = format!("gat dataset public fetch {} --out {}", id, out.display());
         self.run_command_and_capture(&cmd, "fetch dataset").await
     }
 
@@ -189,13 +190,13 @@ impl AsyncServiceIntegration {
         }
     }
 
-    async fn describe_run(&self, run_path: &str) -> EventResult {
-        let cmd = format!("gat runs describe {} --format json", run_path);
+    async fn describe_run(&self, run_path: &Path) -> EventResult {
+        let cmd = format!("gat runs describe {} --format json", run_path.display());
         self.run_command_and_capture(&cmd, "describe run").await
     }
 
-    async fn resume_run(&self, run_path: &str) -> EventResult {
-        let cmd = format!("gat runs resume {} --execute", run_path);
+    async fn resume_run(&self, run_path: &Path) -> EventResult {
+        let cmd = format!("gat runs resume {} --execute", run_path.display());
         self.run_command_and_capture(&cmd, "resume run").await
     }
 
@@ -230,22 +231,11 @@ impl AsyncServiceIntegration {
 
     async fn run_analytics(
         &self,
-        analytics_type: &str,
+        analytics_type: &crate::services::AnalyticsType,
         options: &[(String, String)],
     ) -> EventResult {
         let cmd = self.service_layer.build_analytics_command(
-            match analytics_type {
-                "reliability" => crate::services::AnalyticsType::Reliability,
-                "ds" => crate::services::AnalyticsType::DeliverabilityScore,
-                "elcc" => crate::services::AnalyticsType::ELCC,
-                "powerflow" => crate::services::AnalyticsType::PowerFlow,
-                _ => {
-                    return EventResult::Error(format!(
-                        "Unknown analytics type: {}",
-                        analytics_type
-                    ))
-                }
-            },
+            analytics_type.clone(),
             "dataset1",
             &options
                 .iter()
@@ -259,17 +249,18 @@ impl AsyncServiceIntegration {
     // Scenario Operations
     // ============================================================================
 
-    async fn validate_scenario(&self, spec_path: &str) -> EventResult {
+    async fn validate_scenario(&self, spec_path: &Path) -> EventResult {
         let cmd = self
             .service_layer
-            .build_scenario_validate_command(spec_path);
+            .build_scenario_validate_command(&spec_path.display().to_string());
         EventResult::Success(format!("Scenario validation: {}", cmd))
     }
 
-    async fn materialize_scenario(&self, template: &str, output: &str) -> EventResult {
-        let cmd = self
-            .service_layer
-            .build_scenario_materialize_command(template, output);
+    async fn materialize_scenario(&self, template: &Path, output: &Path) -> EventResult {
+        let cmd = self.service_layer.build_scenario_materialize_command(
+            &template.display().to_string(),
+            &output.display().to_string(),
+        );
         EventResult::Success(format!("Scenario materialization: {}", cmd))
     }
 
@@ -277,17 +268,17 @@ impl AsyncServiceIntegration {
     // Batch Operations
     // ============================================================================
 
-    async fn batch_power_flow(&self, manifest: &str, max_jobs: usize) -> EventResult {
+    async fn batch_power_flow(&self, manifest: &Path, max_jobs: usize) -> EventResult {
         let cmd = self
             .service_layer
-            .build_batch_pf_command(manifest, max_jobs);
+            .build_batch_pf_command(&manifest.display().to_string(), max_jobs);
         EventResult::Success(format!("Batch power flow: {}", cmd))
     }
 
-    async fn batch_opf(&self, manifest: &str, max_jobs: usize, solver: &str) -> EventResult {
+    async fn batch_opf(&self, manifest: &Path, max_jobs: usize, solver: &str) -> EventResult {
         let cmd = self
             .service_layer
-            .build_batch_opf_command(manifest, max_jobs, solver);
+            .build_batch_opf_command(&manifest.display().to_string(), max_jobs, solver);
         EventResult::Success(format!("Batch OPF: {}", cmd))
     }
 
@@ -295,10 +286,12 @@ impl AsyncServiceIntegration {
     // Geographic Operations
     // ============================================================================
 
-    async fn geo_join(&self, left: &str, right: &str, output: &str) -> EventResult {
-        let cmd = self
-            .service_layer
-            .build_geo_join_command(left, right, output);
+    async fn geo_join(&self, left: &Path, right: &Path, output: &Path) -> EventResult {
+        let cmd = self.service_layer.build_geo_join_command(
+            &left.display().to_string(),
+            &right.display().to_string(),
+            &output.display().to_string(),
+        );
         EventResult::Success(format!("Geo join: {}", cmd))
     }
 }
@@ -307,6 +300,7 @@ impl AsyncServiceIntegration {
 mod tests {
     use super::*;
     use crate::services::MockQueryBuilder;
+    use std::path::PathBuf;
     use tokio_util::sync::CancellationToken;
 
     #[tokio::test]
@@ -418,7 +412,7 @@ mod tests {
 
         let result = integration
             .handle_event(&AsyncEvent::RunBatchPowerFlow(
-                "manifest.json".to_string(),
+                PathBuf::from("manifest.json"),
                 10,
             ))
             .await;
@@ -436,9 +430,9 @@ mod tests {
 
         let result = integration
             .handle_event(&AsyncEvent::RunGeoJoin(
-                "left.geo".to_string(),
-                "right.geo".to_string(),
-                "out.geo".to_string(),
+                PathBuf::from("left.geo"),
+                PathBuf::from("right.geo"),
+                PathBuf::from("out.geo"),
             ))
             .await;
         match result {

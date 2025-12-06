@@ -4,9 +4,12 @@
 /// operations like data fetching, command execution, and service calls. Events
 /// are dispatched through a channel-based architecture with retry logic and
 /// error recovery.
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
+
+use super::tui_service_layer::AnalyticsType;
 
 /// Events that can be dispatched to background handlers
 #[derive(Debug, Clone)]
@@ -15,28 +18,28 @@ pub enum AsyncEvent {
     FetchDatasets,
     FetchDataset(String),
     FetchDatasetDescribe(String),
-    FetchDatasetFetch(String, String), // (id, out dir)
+    FetchDatasetFetch(String, PathBuf), // (id, out dir)
     FetchWorkflows,
     FetchMetrics,
     FetchPipelineConfig,
     FetchCommands,
 
     // Analytics events
-    RunAnalytics(String, Vec<(String, String)>), // (analytics_type, options)
-    RunScenarioValidation(String),
-    RunScenarioMaterialize(String, String), // (template, output)
+    RunAnalytics(AnalyticsType, Vec<(String, String)>), // (analytics_type, options)
+    RunScenarioValidation(PathBuf),
+    RunScenarioMaterialize(PathBuf, PathBuf), // (template, output)
 
     // Batch operation events
-    RunBatchPowerFlow(String, usize),   // (manifest, max_jobs)
-    RunBatchOPF(String, usize, String), // (manifest, max_jobs, solver)
+    RunBatchPowerFlow(PathBuf, usize),   // (manifest, max_jobs)
+    RunBatchOPF(PathBuf, usize, String), // (manifest, max_jobs, solver)
 
     // Geographic operations
-    RunGeoJoin(String, String, String), // (left, right, output)
+    RunGeoJoin(PathBuf, PathBuf, PathBuf), // (left, right, output)
 
     // Command execution
     ExecuteCommand(String),
-    DescribeRun(String), // run.json path
-    ResumeRun(String),   // run.json path
+    DescribeRun(PathBuf), // run.json path
+    ResumeRun(PathBuf),   // run.json path
 
     // Lifecycle
     Shutdown,
@@ -111,11 +114,11 @@ mod async_event_tests {
             Duration::from_secs(30)
         );
         assert_eq!(
-            AsyncEvent::RunAnalytics("r".into(), vec![]).default_timeout(),
+            AsyncEvent::RunAnalytics(AnalyticsType::Reliability, vec![]).default_timeout(),
             Duration::from_secs(120)
         );
         assert_eq!(
-            AsyncEvent::RunBatchPowerFlow("m".into(), 10).default_timeout(),
+            AsyncEvent::RunBatchPowerFlow(PathBuf::from("manifest.json"), 10).default_timeout(),
             Duration::from_secs(180)
         );
         assert_eq!(
@@ -315,7 +318,7 @@ mod dispatcher_tests {
         assert_eq!(AsyncEvent::FetchDatasets.name(), "FetchDatasets");
         assert_eq!(AsyncEvent::FetchWorkflows.name(), "FetchWorkflows");
         assert_eq!(
-            AsyncEvent::RunAnalytics("test".to_string(), vec![]).name(),
+            AsyncEvent::RunAnalytics(AnalyticsType::PowerFlow, vec![]).name(),
             "RunAnalytics"
         );
         assert_eq!(
