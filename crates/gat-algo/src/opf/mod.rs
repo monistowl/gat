@@ -152,6 +152,47 @@ impl OpfSolver {
         self.require_native
     }
 
+    /// Solve using the new dispatcher-based system.
+    ///
+    /// This is the new implementation that delegates to OpfDispatcher.
+    /// Currently used internally; will replace the main solve() method
+    /// once fully tested.
+    #[allow(dead_code)]
+    fn solve_with_dispatcher(&self, network: &Network) -> Result<OpfSolution, OpfError> {
+        use std::sync::Arc;
+
+        let registry = SolverRegistry::with_defaults();
+        let dispatcher = OpfDispatcher::new(Arc::new(registry));
+
+        // Map OpfMethod enum to formulation ID
+        let formulation_id = match self.method {
+            OpfMethod::EconomicDispatch => "economic-dispatch",
+            OpfMethod::DcOpf => "dc-opf",
+            OpfMethod::SocpRelaxation => "socp",
+            OpfMethod::AcOpf => "ac-opf",
+        };
+
+        // Build config
+        let config = SolverConfig {
+            max_iterations: self.max_iterations,
+            tolerance: self.tolerance,
+            timeout_seconds: self.timeout_seconds,
+        };
+
+        // Build fallback chain based on method
+        let fallbacks = if self.method == OpfMethod::AcOpf {
+            vec![
+                WarmStartKind::Flat,
+                WarmStartKind::Dc,
+                WarmStartKind::Socp,
+            ]
+        } else {
+            vec![WarmStartKind::Flat]
+        };
+
+        dispatcher.solve(network, formulation_id, config, &fallbacks)
+    }
+
     /// Solve OPF for the given network
     pub fn solve(&self, network: &Network) -> Result<OpfSolution, OpfError> {
         match self.method {

@@ -442,3 +442,66 @@ mod native_dispatch_tests {
         }
     }
 }
+
+// =============================================================================
+// Strategy Pattern (PROJ-2) Tests
+// =============================================================================
+
+mod strategy_pattern {
+    use gat_algo::opf::{OpfDispatcher, SolverRegistry};
+    use std::sync::Arc;
+
+    /// Test that the new dispatcher-based system can be constructed.
+    #[test]
+    fn test_opf_dispatcher_construction() {
+        let registry = SolverRegistry::with_defaults();
+        let _dispatcher = OpfDispatcher::new(Arc::new(registry));
+
+        // Just verify the path compiles and constructs
+    }
+
+    /// Verify that registry with_defaults() registers all expected formulations.
+    #[test]
+    fn test_registry_has_all_formulations() {
+        let registry = SolverRegistry::with_defaults();
+
+        let formulations = registry.list_formulations();
+        assert!(formulations.contains(&"dc-opf"), "missing dc-opf");
+        assert!(formulations.contains(&"socp"), "missing socp");
+        assert!(formulations.contains(&"ac-opf"), "missing ac-opf");
+        assert!(formulations.contains(&"economic-dispatch"), "missing economic-dispatch");
+    }
+
+    /// Verify that registry with_defaults() registers expected backends.
+    #[test]
+    fn test_registry_has_backends() {
+        let registry = SolverRegistry::with_defaults();
+
+        let backends = registry.list_backends();
+        // At minimum, we should have clarabel and lbfgs
+        assert!(backends.contains(&"clarabel"), "missing clarabel");
+        assert!(backends.contains(&"lbfgs"), "missing lbfgs");
+    }
+
+    /// Test formulation lookup by ID.
+    #[test]
+    fn test_formulation_lookup() {
+        let registry = SolverRegistry::with_defaults();
+
+        assert!(registry.get_formulation("dc-opf").is_some());
+        assert!(registry.get_formulation("ac-opf").is_some());
+        assert!(registry.get_formulation("socp").is_some());
+        assert!(registry.get_formulation("economic-dispatch").is_some());
+        assert!(registry.get_formulation("unknown").is_none());
+    }
+
+    /// Test backend lookup by ID.
+    #[test]
+    fn test_backend_lookup() {
+        let registry = SolverRegistry::with_defaults();
+
+        assert!(registry.get_backend("clarabel").is_some());
+        assert!(registry.get_backend("lbfgs").is_some());
+        assert!(registry.get_backend("unknown").is_none());
+    }
+}
