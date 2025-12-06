@@ -3,7 +3,7 @@ use clap_complete::Shell;
 use gat_io::importers::Format;
 use std::path::PathBuf;
 
-use crate::common::{OpfMethod, OutputFormat};
+use crate::common::{FlowMode, OpfMethod, OutputFormat};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -403,9 +403,9 @@ pub enum BatchCommands {
         /// Output directory root for job outputs
         #[arg(short, long, value_hint = ValueHint::DirPath)]
         out: String,
-        /// Flow mode (`dc` or `ac`)
-        #[arg(long, default_value = "dc")]
-        mode: String,
+        /// Power flow mode (dc or ac)
+        #[arg(long, value_enum, default_value_t = FlowMode::Dc)]
+        mode: FlowMode,
         /// Linear solver (`gauss`/`faer`, etc.)
         #[arg(long, default_value = "gauss")]
         solver: String,
@@ -438,9 +438,9 @@ pub enum BatchCommands {
         /// Output directory root
         #[arg(short, long, value_hint = ValueHint::DirPath)]
         out: String,
-        /// OPF mode (`dc` or `ac`)
-        #[arg(long, default_value = "dc")]
-        mode: String,
+        /// Power flow mode (dc or ac)
+        #[arg(long, value_enum, default_value_t = FlowMode::Dc)]
+        mode: FlowMode,
         /// Main solver (gauss/faer)
         #[arg(long, default_value = "gauss")]
         solver: String,
