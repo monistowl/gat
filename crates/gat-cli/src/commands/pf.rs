@@ -20,6 +20,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
             lp_solver: _, // unused in DC power flow
             out_partitions,
             stdout_format,
+            slack_bus: _, // TODO: wire into solver
         } => {
             let start = Instant::now();
             configure_threads(threads);
@@ -78,6 +79,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
             lp_solver: _, // unused in AC power flow
             out_partitions,
             q_limits,
+            slack_bus: _, // TODO: wire into solver
         } => {
             let start = Instant::now();
             configure_threads(threads);

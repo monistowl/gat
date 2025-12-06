@@ -696,6 +696,9 @@ pub enum PowerFlowCommands {
         /// Output format when writing to stdout (-o -)
         #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
         stdout_format: OutputFormat,
+        /// Override slack bus selection (default: auto-select from network data)
+        #[arg(long)]
+        slack_bus: Option<usize>,
     },
     /// Run AC power flow.
     ///
@@ -729,6 +732,9 @@ pub enum PowerFlowCommands {
         /// Enforce generator Q limits (PV-PQ bus switching)
         #[arg(long)]
         q_limits: bool,
+        /// Override slack bus selection (default: auto-select from network data)
+        #[arg(long)]
+        slack_bus: Option<usize>,
     },
 }
 
