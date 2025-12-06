@@ -300,7 +300,7 @@ pub enum InspectCommands {
         #[arg(long)]
         bus: Option<usize>,
         /// Output format (table or json)
-        #[arg(long, default_value = "table")]
+        #[arg(short = 'f', long, default_value = "table")]
         format: String,
     },
     /// List all branches with their endpoints and parameters
@@ -311,7 +311,7 @@ pub enum InspectCommands {
         #[arg(long)]
         rating_lt: Option<f64>,
         /// Output format (table or json)
-        #[arg(long, default_value = "table")]
+        #[arg(short = 'f', long, default_value = "table")]
         format: String,
     },
     /// Show power balance analysis (total generation capacity vs load)
@@ -335,7 +335,7 @@ pub enum InspectCommands {
         #[arg(long)]
         threshold: Option<f64>,
         /// Output format (table or json)
-        #[arg(long, default_value = "table")]
+        #[arg(short = 'f', long, default_value = "table")]
         format: String,
     },
 }
@@ -354,7 +354,7 @@ pub enum ScenariosCommands {
         #[arg(long, value_hint = ValueHint::FilePath)]
         spec: String,
         /// Output format (table or json)
-        #[arg(long, default_value = "table")]
+        #[arg(short = 'f', long, default_value = "table")]
         format: String,
     },
     /// Expand templated scenarios into fully resolved definitions
@@ -408,7 +408,7 @@ pub enum BatchCommands {
         #[arg(long, default_value = "gauss")]
         solver: String,
         /// Threading hint for global Rayon pool
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Maximum number of jobs to execute in parallel (0 = auto)
         #[arg(long, default_value_t = 0)]
@@ -458,7 +458,7 @@ pub enum BatchCommands {
         #[arg(long, value_hint = ValueHint::FilePath)]
         piecewise: Option<String>,
         /// Threading hint for global pool
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Maximum concurrent OPF jobs (0 = auto)
         #[arg(long, default_value_t = 0)]
@@ -495,7 +495,7 @@ pub enum BenchmarkCommands {
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         out: String,
         /// Number of parallel solver threads (auto = CPU count)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solve mode: pf (power flow) or opf (optimal power flow)
         #[arg(long, default_value = "opf")]
@@ -531,7 +531,7 @@ pub enum BenchmarkCommands {
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         out: String,
         /// Number of parallel solver threads (auto = CPU count)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// OPF method: ac, socp, dc, economic (default: socp)
         #[arg(long, default_value = "socp")]
@@ -567,7 +567,7 @@ pub enum BenchmarkCommands {
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         out: String,
         /// Number of parallel solver threads (auto = CPU count)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// OPF method: ac, socp, dc, economic (default: socp)
         #[arg(long, default_value = "socp")]
@@ -676,7 +676,7 @@ pub enum PowerFlowCommands {
         #[arg(short, long)]
         out: String,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -706,7 +706,7 @@ pub enum PowerFlowCommands {
         #[arg(long, default_value = "20")]
         max_iter: u32,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -739,7 +739,7 @@ pub enum Nminus1Commands {
         #[arg(long)]
         branch_limits: Option<String>,
         /// Threads: `auto` or numeric
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -1144,7 +1144,7 @@ pub enum AnalyticsCommands {
         #[arg(long, default_value = "gauss")]
         solver: String,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Partition columns (comma separated)
         #[arg(long)]
@@ -1537,7 +1537,7 @@ pub enum OpfCommands {
         #[arg(long)]
         piecewise: Option<String>,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -1563,7 +1563,7 @@ pub enum OpfCommands {
         #[arg(long, default_value = "20")]
         max_iter: u32,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
@@ -1593,7 +1593,7 @@ pub enum OpfCommands {
         #[arg(long, default_value = "flat")]
         warm_start: String,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// NLP solver to use: lbfgs (default), ipopt (requires solver-ipopt feature)
         #[arg(long, default_value = "lbfgs")]
@@ -1639,7 +1639,7 @@ pub enum OpfCommands {
         #[arg(short, long)]
         out: Option<String>,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
     },
 }
@@ -1660,7 +1660,7 @@ pub enum SeCommands {
         #[arg(long)]
         state_out: Option<String>,
         /// Threading hint (`auto` or integer)
-        #[arg(long, default_value = "auto")]
+        #[arg(short = 't', long, default_value = "auto")]
         threads: String,
         /// Solver to use (gauss, faer)
         #[arg(long, default_value = "gauss")]
