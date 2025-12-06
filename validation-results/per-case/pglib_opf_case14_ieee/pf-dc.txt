@@ -1,0 +1,6 @@
+error: the following required arguments were not provided:
+  --out <OUT>
+
+Usage: gat-cli pf dc --out <OUT> <GRID_FILE>
+
+For more information, try '--help'.

@@ -1,6 +1,6 @@
 [package]
 name = "gat-coinor-build"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2021"
 description = "Build infrastructure for COIN-OR libraries from vendored sources"
 license = "MIT OR Apache-2.0"

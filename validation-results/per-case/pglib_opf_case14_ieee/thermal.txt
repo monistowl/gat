@@ -1,0 +1,39 @@
+[2m2025-12-05T04:30:58.173773Z[0m [32m INFO[0m [2mgat_cli[0m[2m:[0m Hello from gat-cli! Running with profile: dev
+Thermal Limit Analysis
+======================
+
+Rating Statistics:
+  Min:  53.0 MVA
+  Max:  664.0 MVA
+  Avg:  190.6 MVA
+
+Lowest-rated branches (top 20 potential bottlenecks):
+
+    ID   From     To                 Name Rating (MVA)
+------------------------------------------------------------
+     8      4      9           Branch 4-9         53.0 ⚠ LOW
+    19     13     14         Branch 13-14         76.0 ⚠ LOW
+    16      9     14          Branch 9-14         99.0
+    18     12     13         Branch 12-13         99.0
+    11      6     12          Branch 6-12        104.0
+     9      5      6           Branch 5-6        117.0
+     1      1      5           Branch 1-5        128.0
+    10      6     11          Branch 6-11        134.0
+     7      4      7           Branch 4-7        141.0
+    17     10     11         Branch 10-11        141.0
+     2      2      3           Branch 2-3        145.0
+     3      2      4           Branch 2-4        158.0
+     5      3      4           Branch 3-4        160.0
+     4      2      5           Branch 2-5        161.0
+    13      7      8           Branch 7-8        167.0
+    12      6     13          Branch 6-13        201.0
+    14      7      9           Branch 7-9        267.0
+    15      9     10          Branch 9-10        325.0
+     0      1      2           Branch 1-2        472.0
+     6      4      5           Branch 4-5        664.0
+
+Total: 20 branches with thermal limits
+
+⚠ 2 branches have ratings < 50% of average (95.3 MVA)
+  These may become thermal bottlenecks under high load.
+[2m2025-12-05T04:30:58.174435Z[0m [32m INFO[0m [2mgat_cli[0m[2m:[0m inspect command successful!

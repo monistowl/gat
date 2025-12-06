@@ -1,0 +1,12 @@
+[2m2025-12-05T04:31:11.597710Z[0m [32m INFO[0m [2mgat_cli[0m[2m:[0m Hello from gat-cli! Running with profile: dev
+Using OPF method: socp
+Found 68 MATPOWER cases to benchmark (filter=None, max_cases=0)
+Error benchmarking pglib_opf_case78484_epigrids: OPF (socp) failed: AC OPF numerical issue: Clarabel returned status PrimalInfeasible. This may indicate an infeasible problem (load exceeds capacity, voltage limits too tight) or numerical issues.
+
+Benchmark Results:
+  Total cases: 67
+  Converged: 67
+  Avg solve time: 42881.61ms
+  Avg obj gap: 2.3956%
+  Output: /home/tom/Code/gat/validation-results/benchmarks/pglib-socp-20251204_233058.csv
+[2m2025-12-05T04:36:05.848051Z[0m [32m INFO[0m [2mgat_cli[0m[2m:[0m benchmark command successful!

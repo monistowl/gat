@@ -1,0 +1,8 @@
+error: the following required arguments were not provided:
+  --cost <COST>
+  --limits <LIMITS>
+  --out <OUT>
+
+Usage: gat-cli opf dc --cost <COST> --limits <LIMITS> --out <OUT> <GRID_FILE>
+
+For more information, try '--help'.

@@ -1,0 +1,7 @@
+error: the following required arguments were not provided:
+  --contingencies <CONTINGENCIES>
+  --out <OUT>
+
+Usage: gat-cli nminus1 dc --contingencies <CONTINGENCIES> --out <OUT> <GRID_FILE>
+
+For more information, try '--help'.

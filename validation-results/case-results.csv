@@ -1,0 +1,4 @@
+case,buses,tier,method,status,time_s,objective,violations
+pglib_opf_case14_ieee,14,tier1,dc,fail,.012210075,,
+pglib_opf_case14_ieee,14,tier1,socp,fail,.011671195,,
+pglib_opf_case14_ieee,14,tier1,ac,fail,.009893014,,
