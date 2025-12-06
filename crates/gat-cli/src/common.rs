@@ -3,7 +3,10 @@
 //! This module provides standardized enums and argument types to ensure
 //! consistent flag naming and behavior across all gat CLI commands.
 
+use anyhow::{Context, Result};
 use clap::ValueEnum;
+use gat_core::Network;
+use gat_io::importers::load_grid_from_arrow;
 use serde::Serialize;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -247,6 +250,37 @@ pub fn write_csv_from_json<W: Write>(data: &[serde_json::Value], writer: &mut W)
     Ok(())
 }
 
+/// Load a network from a file path or stdin (Arrow format).
+///
+/// For File variant: Uses the existing ArrowDirectoryReader to load the network.
+/// For Stdin variant: Returns an error indicating stdin support is not yet implemented.
+///
+/// # Arguments
+///
+/// * `source` - Input source (file path or stdin)
+///
+/// # Returns
+///
+/// A `Network` object loaded from the Arrow format.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The file cannot be opened or read
+/// - The Arrow data is invalid or corrupted
+/// - Stdin is specified (not yet implemented)
+pub fn load_network(source: &InputSource) -> Result<Network> {
+    match source {
+        InputSource::File(path) => {
+            load_grid_from_arrow(path)
+                .with_context(|| format!("Failed to load network from: {}", path.display()))
+        }
+        InputSource::Stdin => {
+            anyhow::bail!("Stdin input not yet implemented. Use a file path.")
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,6 +307,35 @@ mod tests {
         assert!(OutputFormat::Json.is_machine_readable());
         assert!(OutputFormat::Jsonl.is_machine_readable());
         assert!(OutputFormat::Csv.is_machine_readable());
+    }
+
+    #[test]
+    fn test_load_network_from_file() {
+        // Test with a sample file path - only test if file exists
+        let test_paths = [
+            "test_data/matpower/case9.arrow",
+            "../../test_data/matpower/case9.arrow",
+        ];
+
+        for path in &test_paths {
+            let source = InputSource::File(PathBuf::from(path));
+            if source.path().unwrap().exists() {
+                let result = load_network(&source);
+                assert!(result.is_ok(), "Failed to load network from {}", path);
+                return; // Test passed with at least one path
+            }
+        }
+        // Skip test if no test file exists
+        eprintln!("Skipping test_load_network_from_file: no test file found");
+    }
+
+    #[test]
+    fn test_load_network_from_stdin_not_implemented() {
+        let source = InputSource::Stdin;
+        let result = load_network(&source);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Stdin input not yet implemented"));
     }
 }
 
