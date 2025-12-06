@@ -326,8 +326,7 @@ mod tests {
 
         // Add generator at bus 1
         network.graph.add_node(Node::Gen(
-            Gen::new(GenId::new(1), "Gen 1".to_string(), BusId::new(1))
-                .with_p_limits(0.0, 100.0)
+            Gen::new(GenId::new(1), "Gen 1".to_string(), BusId::new(1)).with_p_limits(0.0, 100.0),
         ));
 
         // Add load at bus 3

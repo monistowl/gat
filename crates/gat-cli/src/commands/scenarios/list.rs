@@ -5,7 +5,7 @@ use anyhow::Result;
 use gat_scenarios::{load_spec_from_path, resolve_scenarios};
 use serde_json;
 
-use gat_cli::common::{OutputFormat, write_json, write_jsonl, write_csv_from_json};
+use gat_cli::common::{write_csv_from_json, write_json, write_jsonl, OutputFormat};
 
 pub fn handle(spec: &str, format: &OutputFormat) -> Result<()> {
     let set = load_spec_from_path(Path::new(spec))?;

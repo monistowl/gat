@@ -69,27 +69,27 @@
 //! ```
 
 pub mod ac_nlp;
+pub mod backends;
 mod dc_opf;
 pub mod dispatch;
+mod dispatcher;
 mod economic;
+pub mod formulations;
 #[cfg(feature = "native-dispatch")]
 pub mod native_dispatch;
-mod socp;
-mod types;
-pub mod traits;
 pub mod registry;
-mod dispatcher;
-pub mod formulations;
-pub mod backends;
+mod socp;
+pub mod traits;
+mod types;
 
 pub use dispatch::{DispatchConfig, ProblemClass, SolverBackend, SolverDispatcher};
+pub use dispatcher::OpfDispatcher;
+pub use registry::SolverRegistry;
+pub use traits::{OpfBackend, OpfFormulation, OpfProblem, SolverConfig, WarmStartKind};
 pub use types::{
     CascadedResult, ConstraintInfo, ConstraintType, DcWarmStart, OpfMethod, OpfSolution,
     SocpWarmStart,
 };
-pub use traits::{OpfBackend, OpfFormulation, OpfProblem, SolverConfig, WarmStartKind};
-pub use registry::SolverRegistry;
-pub use dispatcher::OpfDispatcher;
 
 use crate::OpfError;
 use gat_core::Network;
@@ -226,11 +226,7 @@ impl OpfSolver {
 
         // Build fallback chain based on method
         let fallbacks = if self.method == OpfMethod::AcOpf {
-            vec![
-                WarmStartKind::Flat,
-                WarmStartKind::Dc,
-                WarmStartKind::Socp,
-            ]
+            vec![WarmStartKind::Flat, WarmStartKind::Dc, WarmStartKind::Socp]
         } else {
             vec![WarmStartKind::Flat]
         };

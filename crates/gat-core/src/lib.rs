@@ -116,8 +116,8 @@ pub use graph_utils::*;
 pub use petgraph::graph::NodeIndex;
 pub use solver::*;
 pub use units::{
-    AdmittancePu, CurrentPu, Degrees, ImpedancePu, Kiloamperes, Kilovolts, MegavoltAmperes,
-    Megavars, Megawatts, PerUnit, Radians,
+    AdmittancePu, CurrentPu, Degrees, ImpedancePu, Kiloamperes, Kilovolts, Megavars,
+    MegavoltAmperes, Megawatts, PerUnit, Radians,
 };
 
 // Newtype wrappers for IDs for type safety

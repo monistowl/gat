@@ -409,7 +409,8 @@ fn extract_network_data(
                     return Err(OpfError::DataValidation(format!(
                         "Bus {} has non-positive base_kv ({}). \
                          Check input data - voltage must be a positive value in kV.",
-                        bus.name, bus.base_kv.value()
+                        bus.name,
+                        bus.base_kv.value()
                     )));
                 }
 

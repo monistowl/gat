@@ -390,7 +390,8 @@ pub fn compute_opf_violations_from_solution(
             let s_limit = branch.s_max.or(branch.rating_a);
             if let Some(s_max) = s_limit {
                 if s_max.value() > 0.0 && s_flow > s_max.value() {
-                    max_branch_flow_violation = max_branch_flow_violation.max(s_flow - s_max.value());
+                    max_branch_flow_violation =
+                        max_branch_flow_violation.max(s_flow - s_max.value());
                 }
             }
         }

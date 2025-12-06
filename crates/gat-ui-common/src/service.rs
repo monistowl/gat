@@ -233,10 +233,7 @@ mod tests {
         let mut config = GatConfig::default();
         config.core.pf_max_iter = 50;
 
-        let service = UiServiceBuilder::new()
-            .config(config)
-            .build()
-            .unwrap();
+        let service = UiServiceBuilder::new().config(config).build().unwrap();
 
         assert_eq!(service.config.read().core.pf_max_iter, 50);
     }

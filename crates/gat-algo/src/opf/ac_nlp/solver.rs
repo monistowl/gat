@@ -310,12 +310,8 @@ impl<'a> CostFunction for PenaltyProblem<'a> {
             let pg_mw = x[self.problem.pg_offset + i] * self.problem.base_mva;
             let qg_mvar = x[self.problem.qg_offset + i] * self.problem.base_mva;
 
-            let (qmin, qmax) = super::interpolate_q_limits(
-                &gen.capability_curve,
-                pg_mw,
-                gen.qmin,
-                gen.qmax,
-            );
+            let (qmin, qmax) =
+                super::interpolate_q_limits(&gen.capability_curve, pg_mw, gen.qmin, gen.qmax);
 
             // Q > Qmax violation
             if qg_mvar > qmax {
@@ -721,16 +717,14 @@ mod tests {
         network.graph.add_edge(
             bus1,
             bus2,
-            Edge::Branch(
-                Branch::new(
-                    BranchId::new(0),
-                    "Line1-2".to_string(),
-                    BusId::new(1),
-                    BusId::new(2),
-                    0.01,
-                    0.1,
-                )
-            ),
+            Edge::Branch(Branch::new(
+                BranchId::new(0),
+                "Line1-2".to_string(),
+                BusId::new(1),
+                BusId::new(2),
+                0.01,
+                0.1,
+            )),
         );
 
         // Build Y-bus from network

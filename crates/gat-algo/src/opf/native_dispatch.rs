@@ -50,8 +50,12 @@ pub fn network_to_problem(
 
             problem.bus_id.push(bus.id.value() as i64);
             problem.bus_name.push(bus.name.clone());
-            problem.bus_v_min.push(bus.vmin_pu.map(|v| v.value()).unwrap_or(0.9));
-            problem.bus_v_max.push(bus.vmax_pu.map(|v| v.value()).unwrap_or(1.1));
+            problem
+                .bus_v_min
+                .push(bus.vmin_pu.map(|v| v.value()).unwrap_or(0.9));
+            problem
+                .bus_v_max
+                .push(bus.vmax_pu.map(|v| v.value()).unwrap_or(1.1));
             problem.bus_v_mag.push(bus.voltage_pu.value());
             problem.bus_v_ang.push(bus.angle_rad.value());
             problem.bus_p_load.push(0.0); // Will be aggregated from loads
@@ -130,7 +134,9 @@ pub fn network_to_problem(
             problem.branch_r.push(branch.resistance);
             problem.branch_x.push(branch.reactance);
             problem.branch_b.push(branch.charging_b.value());
-            problem.branch_rate.push(branch.rating_a.map(|r| r.value()).unwrap_or(0.0));
+            problem
+                .branch_rate
+                .push(branch.rating_a.map(|r| r.value()).unwrap_or(0.0));
             problem.branch_tap.push(branch.tap_ratio);
             problem.branch_shift.push(branch.phase_shift.value());
             problem.branch_status.push(1);
@@ -394,7 +400,7 @@ mod tests {
         network.graph.add_node(Node::Gen(
             Gen::new(GenId::new(1), "Gen1".to_string(), BusId::new(1))
                 .with_p_limits(0.0, 100.0)
-                .with_cost(CostModel::Polynomial(vec![0.0, 10.0]))
+                .with_cost(CostModel::Polynomial(vec![0.0, 10.0])),
         ));
 
         network

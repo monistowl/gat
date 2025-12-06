@@ -329,11 +329,7 @@ pub fn solve(
 
     for gen in &generators {
         let pmin = gen.pmin.max(0.0);
-        let pmax = if gen.pmax.is_finite() {
-            gen.pmax
-        } else {
-            1e6
-        };
+        let pmax = if gen.pmax.is_finite() { gen.pmax } else { 1e6 };
         let p_var = vars.add(variable().min(pmin).max(pmax));
         gen_vars.push((gen.name.clone(), gen.bus_id, p_var));
 
@@ -684,11 +680,7 @@ fn solve_with_loss_factors(
 
     for gen in &generators {
         let pmin = gen.pmin.max(0.0);
-        let pmax = if gen.pmax.is_finite() {
-            gen.pmax
-        } else {
-            1e6
-        };
+        let pmax = if gen.pmax.is_finite() { gen.pmax } else { 1e6 };
         let p_var = vars.add(variable().min(pmin).max(pmax));
         gen_vars.push((gen.name.clone(), gen.bus_id, p_var));
 

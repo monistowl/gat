@@ -30,15 +30,7 @@ pub fn handle(command: &ConvertCommands) -> Result<()> {
             force,
             verbose,
             strict,
-        } => convert_format(
-            input,
-            *from,
-            *to,
-            out.as_deref(),
-            *force,
-            *verbose,
-            *strict,
-        ),
+        } => convert_format(input, *from, *to, out.as_deref(), *force, *verbose, *strict),
     }
 }
 

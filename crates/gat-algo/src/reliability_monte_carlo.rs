@@ -1,9 +1,9 @@
+use crate::arena::ArenaContext;
 use anyhow::{anyhow, Result};
 use gat_core::{BusId, Network, Node, NodeIndex};
 use petgraph::visit::EdgeRef;
 use rayon::prelude::*;
 use std::collections::HashSet;
-use crate::arena::ArenaContext;
 
 /// Represents a single outage scenario (which generators/lines are offline)
 #[derive(Debug, Clone)]
@@ -413,7 +413,8 @@ impl MonteCarlo {
         }
 
         // Step 4: Build bus connectivity through online branches
-        let mut bus_reachable = ctx.alloc_hashmap::<BusId, hashbrown::HashSet<BusId, _, &bumpalo::Bump>>();
+        let mut bus_reachable =
+            ctx.alloc_hashmap::<BusId, hashbrown::HashSet<BusId, _, &bumpalo::Bump>>();
 
         // Get all unique generator buses as starting points
         let mut gen_buses = ctx.alloc_hashset::<BusId>();

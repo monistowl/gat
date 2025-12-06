@@ -50,7 +50,11 @@ fn make_dataframe(
 }
 
 fn branch_current_limit(branch: &Branch, bus_voltage_kv: f64) -> Value {
-    let rating = branch.rating_a.or(branch.s_max).map(|v| v.value()).unwrap_or(0.0);
+    let rating = branch
+        .rating_a
+        .or(branch.s_max)
+        .map(|v| v.value())
+        .unwrap_or(0.0);
     if rating <= 0.0 || bus_voltage_kv <= 0.0 {
         return Value::Null;
     }

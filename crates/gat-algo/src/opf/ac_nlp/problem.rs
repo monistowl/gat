@@ -644,26 +644,10 @@ impl AcOpfProblem {
         let target_q_gen = total_q_load * 1.10;
 
         // Compute total capacity ranges
-        let total_pmin: f64 = self
-            .generators
-            .iter()
-            .map(|g| g.pmin / self.base_mva)
-            .sum();
-        let total_pmax: f64 = self
-            .generators
-            .iter()
-            .map(|g| g.pmax / self.base_mva)
-            .sum();
-        let total_qmin: f64 = self
-            .generators
-            .iter()
-            .map(|g| g.qmin / self.base_mva)
-            .sum();
-        let total_qmax: f64 = self
-            .generators
-            .iter()
-            .map(|g| g.qmax / self.base_mva)
-            .sum();
+        let total_pmin: f64 = self.generators.iter().map(|g| g.pmin / self.base_mva).sum();
+        let total_pmax: f64 = self.generators.iter().map(|g| g.pmax / self.base_mva).sum();
+        let total_qmin: f64 = self.generators.iter().map(|g| g.qmin / self.base_mva).sum();
+        let total_qmax: f64 = self.generators.iter().map(|g| g.qmax / self.base_mva).sum();
 
         let total_p_headroom = total_pmax - total_pmin;
         let total_q_headroom = total_qmax - total_qmin;

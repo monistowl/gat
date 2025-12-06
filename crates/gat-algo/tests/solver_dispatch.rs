@@ -469,7 +469,10 @@ mod strategy_pattern {
         assert!(formulations.contains(&"dc-opf"), "missing dc-opf");
         assert!(formulations.contains(&"socp"), "missing socp");
         assert!(formulations.contains(&"ac-opf"), "missing ac-opf");
-        assert!(formulations.contains(&"economic-dispatch"), "missing economic-dispatch");
+        assert!(
+            formulations.contains(&"economic-dispatch"),
+            "missing economic-dispatch"
+        );
     }
 
     /// Verify that registry with_defaults() registers expected backends.

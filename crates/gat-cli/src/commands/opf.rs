@@ -7,7 +7,8 @@ use std::time::Instant;
 use anyhow::{bail, Context, Result};
 use gat_algo::opf::ac_nlp::{solve_ac_opf, AcOpfProblem};
 use gat_algo::opf::{
-    solve_cascaded, CascadedConfig, CascadedResult, OpfMethod as AlgoOpfMethod, OpfSolution, OpfSolver,
+    solve_cascaded, CascadedConfig, CascadedResult, OpfMethod as AlgoOpfMethod, OpfSolution,
+    OpfSolver,
 };
 use gat_algo::validation::ObjectiveGap;
 
@@ -16,8 +17,8 @@ use gat_algo::opf::ac_nlp::solve_with_ipopt;
 use gat_algo::power_flow;
 use gat_algo::LpSolverKind;
 use gat_cli::cli::OpfCommands;
-use gat_core::{Network, Node};
 use gat_core::solver::SolverKind;
+use gat_core::{Network, Node};
 use gat_io::importers;
 use serde::Serialize;
 
@@ -517,13 +518,20 @@ fn print_console_output(
 ) {
     // Header box
     eprintln!();
-    eprintln!("╭─ {} ─────────────────────────────────────────╮", case_name);
+    eprintln!(
+        "╭─ {} ─────────────────────────────────────────╮",
+        case_name
+    );
     eprintln!(
         "│  Network:  {} buses, {} branches, {} generators",
         network_summary.buses, network_summary.branches, network_summary.generators
     );
     let method_display = match method {
-        "ac" => format!("AC-OPF ({}) with {} warm-start", solver.to_uppercase(), warm_start),
+        "ac" => format!(
+            "AC-OPF ({}) with {} warm-start",
+            solver.to_uppercase(),
+            warm_start
+        ),
         "socp" => "SOCP Relaxation".to_string(),
         "dc" => "DC-OPF".to_string(),
         "economic" => "Economic Dispatch".to_string(),
@@ -536,21 +544,33 @@ fn print_console_output(
     // Stage results (if cascaded)
     if let Some(result) = cascaded_result {
         if let Some(dc) = &result.dc_solution {
-            let status = if dc.converged { "✓ converged" } else { "✗ failed" };
+            let status = if dc.converged {
+                "✓ converged"
+            } else {
+                "✗ failed"
+            };
             eprintln!(
                 "  DC stage:    {:12}  {:>7.1} ms     obj: ${:.2}/hr",
                 status, dc.solve_time_ms as f64, dc.objective_value
             );
         }
         if let Some(socp) = &result.socp_solution {
-            let status = if socp.converged { "✓ converged" } else { "✗ failed" };
+            let status = if socp.converged {
+                "✓ converged"
+            } else {
+                "✗ failed"
+            };
             eprintln!(
                 "  SOCP stage:  {:12}  {:>7.1} ms     obj: ${:.2}/hr",
                 status, socp.solve_time_ms as f64, socp.objective_value
             );
         }
         if let Some(ac) = &result.ac_solution {
-            let status = if ac.converged { "✓ converged" } else { "✗ failed" };
+            let status = if ac.converged {
+                "✓ converged"
+            } else {
+                "✗ failed"
+            };
             eprintln!(
                 "  AC stage:    {:12}  {:>7.1} ms     obj: ${:.2}/hr ({} iters)",
                 status, ac.solve_time_ms as f64, ac.objective_value, ac.iterations
@@ -559,7 +579,11 @@ fn print_console_output(
         eprintln!();
     } else {
         // Single-stage result
-        let status = if solution.converged { "✓ converged" } else { "✗ failed" };
+        let status = if solution.converged {
+            "✓ converged"
+        } else {
+            "✗ failed"
+        };
         eprintln!(
             "  Result: {} in {:.1} ms ({} iterations)",
             status, solution.solve_time_ms as f64, solution.iterations
@@ -682,7 +706,8 @@ fn handle_run(
     // Solve based on method and warm-start
     let start = Instant::now();
     let (solution, cascaded_result): (OpfSolution, Option<CascadedResult>) =
-        if opf_method == AlgoOpfMethod::AcOpf && warm_start_strategy == WarmStartStrategy::Cascaded {
+        if opf_method == AlgoOpfMethod::AcOpf && warm_start_strategy == WarmStartStrategy::Cascaded
+        {
             // Use cascaded solver
             let config = CascadedConfig {
                 max_iterations: max_iter as usize,
@@ -728,7 +753,8 @@ fn handle_run(
         .get(&normalized_name)
         .or_else(|| baseline_map.get(&case_name))
         .copied();
-    let baseline_gap = baseline_objective.map(|ref_obj| ObjectiveGap::new(solution.objective_value, ref_obj));
+    let baseline_gap =
+        baseline_objective.map(|ref_obj| ObjectiveGap::new(solution.objective_value, ref_obj));
 
     // Print console output
     let method_str = match method {

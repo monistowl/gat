@@ -72,10 +72,7 @@ impl std::fmt::Display for AnalysisKind {
 #[derive(Debug, Clone)]
 pub enum JobEvent {
     /// A new job was started.
-    Started {
-        id: JobId,
-        kind: AnalysisKind,
-    },
+    Started { id: JobId, kind: AnalysisKind },
 
     /// A job made progress.
     Progress {
@@ -85,19 +82,11 @@ pub enum JobEvent {
     },
 
     /// A job completed successfully.
-    Completed {
-        id: JobId,
-        kind: AnalysisKind,
-    },
+    Completed { id: JobId, kind: AnalysisKind },
 
     /// A job failed.
-    Failed {
-        id: JobId,
-        error: String,
-    },
+    Failed { id: JobId, error: String },
 
     /// A job was cancelled.
-    Cancelled {
-        id: JobId,
-    },
+    Cancelled { id: JobId },
 }

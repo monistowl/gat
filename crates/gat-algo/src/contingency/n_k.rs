@@ -723,14 +723,11 @@ impl<'a> NkEvaluator<'a> {
     pub fn evaluate_all_with_arena(&self, contingencies: &[Contingency]) -> NkEvaluationResults {
         let evaluations: Vec<ContingencyEvaluation> = contingencies
             .par_iter()
-            .map_init(
-                ArenaContext::new,
-                |ctx, c| {
-                    let result = self.evaluate_with_arena(c, ctx);
-                    ctx.reset(); // O(1) bulk deallocation
-                    result
-                },
-            )
+            .map_init(ArenaContext::new, |ctx, c| {
+                let result = self.evaluate_with_arena(c, ctx);
+                ctx.reset(); // O(1) bulk deallocation
+                result
+            })
             .collect();
 
         self.build_evaluation_results(evaluations)
@@ -1499,10 +1496,7 @@ mod tests {
         let network = create_test_network();
 
         // Setup with known probability configuration
-        let injections = HashMap::from([
-            (BusId::new(1), 1.5),
-            (BusId::new(3), -1.5),
-        ]); // Higher flow to cause violations
+        let injections = HashMap::from([(BusId::new(1), 1.5), (BusId::new(3), -1.5)]); // Higher flow to cause violations
         let branch_limits = HashMap::from([
             (BranchId::new(1), 50.0),
             (BranchId::new(2), 50.0),
@@ -1541,10 +1535,7 @@ mod tests {
     fn test_eue_ranking() {
         let network = create_test_network();
 
-        let injections = HashMap::from([
-            (BusId::new(1), 1.2),
-            (BusId::new(3), -1.2),
-        ]); // Moderate flow
+        let injections = HashMap::from([(BusId::new(1), 1.2), (BusId::new(3), -1.2)]); // Moderate flow
         let branch_limits = HashMap::from([
             (BranchId::new(1), 60.0),
             (BranchId::new(2), 60.0),

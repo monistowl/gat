@@ -8,7 +8,7 @@ use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 use gat_cli::cli::InspectCommands;
-use gat_cli::common::{OutputFormat, write_json, write_jsonl, write_csv_from_json};
+use gat_cli::common::{write_csv_from_json, write_json, write_jsonl, OutputFormat};
 use gat_core::{Edge, Network, Node};
 use gat_io::importers::{load_grid_from_arrow, Format};
 use serde::Serialize;
@@ -542,7 +542,11 @@ struct ThermalInfo {
 
 /// Handle the `gat inspect thermal` command
 /// Shows branches sorted by thermal rating to identify potential bottlenecks
-pub fn handle_thermal(input: &str, threshold_mva: Option<f64>, format: &OutputFormat) -> Result<()> {
+pub fn handle_thermal(
+    input: &str,
+    threshold_mva: Option<f64>,
+    format: &OutputFormat,
+) -> Result<()> {
     let network = load_network(input)?;
 
     let mut branches: Vec<(usize, String, usize, usize, f64)> = Vec::new();

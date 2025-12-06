@@ -216,9 +216,8 @@ impl GatConfig {
 
     /// Save configuration to the default location.
     pub fn save(&self) -> Result<()> {
-        let path = Self::config_path().ok_or_else(|| {
-            Error::Config("could not determine config directory".to_string())
-        })?;
+        let path = Self::config_path()
+            .ok_or_else(|| Error::Config("could not determine config directory".to_string()))?;
 
         // Ensure directory exists
         if let Some(parent) = path.parent() {

@@ -9,8 +9,8 @@ use std::sync::Arc;
 use gat_core::Network;
 use tokio::sync::broadcast;
 
-use crate::events::{AnalysisKind, WorkspaceEvent};
 use crate::error::{Error, Result};
+use crate::events::{AnalysisKind, WorkspaceEvent};
 
 /// Cache for analysis results.
 ///
@@ -291,7 +291,9 @@ impl Workspace {
 
     /// Notify that an analysis completed (for cache updates).
     pub fn notify_analysis_complete(&self, kind: AnalysisKind) {
-        let _ = self.events_tx.send(WorkspaceEvent::AnalysisComplete { kind });
+        let _ = self
+            .events_tx
+            .send(WorkspaceEvent::AnalysisComplete { kind });
     }
 }
 

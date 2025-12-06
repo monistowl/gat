@@ -32,8 +32,7 @@ impl AppService {
         let runtime = Runtime::new().map_err(|e| format!("Failed to create runtime: {e}"))?;
 
         // Initialize UiService on the runtime
-        let service = UiService::new()
-            .map_err(|e| format!("Failed to initialize service: {e}"))?;
+        let service = UiService::new().map_err(|e| format!("Failed to initialize service: {e}"))?;
 
         Ok(Self { runtime, service })
     }

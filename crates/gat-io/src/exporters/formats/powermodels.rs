@@ -261,11 +261,20 @@ pub fn export_network_to_powermodels_string(
                     g_fr: 0.0,
                     g_to: 0.0,
                     transformer: is_transformer,
-                    rate_a: branch.rating_a.map(|v| v.value()).or(branch.s_max.map(|v| v.value())),
+                    rate_a: branch
+                        .rating_a
+                        .map(|v| v.value())
+                        .or(branch.s_max.map(|v| v.value())),
                     rate_b: branch.rating_b.map(|v| v.value()),
                     rate_c: branch.rating_c.map(|v| v.value()),
-                    angmin: branch.angle_min.map(|v| v.value()).unwrap_or(-std::f64::consts::PI / 3.0),
-                    angmax: branch.angle_max.map(|v| v.value()).unwrap_or(std::f64::consts::PI / 3.0),
+                    angmin: branch
+                        .angle_min
+                        .map(|v| v.value())
+                        .unwrap_or(-std::f64::consts::PI / 3.0),
+                    angmax: branch
+                        .angle_max
+                        .map(|v| v.value())
+                        .unwrap_or(std::f64::consts::PI / 3.0),
                     name: branch.name.clone(),
                 },
             )

@@ -241,10 +241,7 @@ fn extract_bus_count(name: &str) -> Option<usize> {
 /// This command loads the network into the shared workspace (for caching and
 /// analysis coordination) and returns JSON for immediate frontend display.
 #[tauri::command]
-pub fn load_case(
-    path: &str,
-    state: tauri::State<'_, AppState>,
-) -> Result<NetworkJson, String> {
+pub fn load_case(path: &str, state: tauri::State<'_, AppState>) -> Result<NetworkJson, String> {
     let path_obj = Path::new(path);
 
     // Load network into workspace (this clears any cached analysis)
@@ -255,9 +252,7 @@ pub fn load_case(
 
     // Get network reference from workspace
     let workspace = state.service.workspace().read();
-    let network = workspace
-        .require_network()
-        .map_err(|e| e.to_string())?;
+    let network = workspace.require_network().map_err(|e| e.to_string())?;
 
     // Extract case name from path
     let name = path_obj
@@ -562,7 +557,9 @@ pub fn solve_power_flow(path: &str) -> Result<PowerFlowResult, String> {
 
             // Loading percentage based on rating (skip very small ratings)
             let loading_pct = match branch.rating_a {
-                Some(rating) if rating.value() > 0.1 => (p_flow.abs() / rating.value() * 100.0).min(999.0),
+                Some(rating) if rating.value() > 0.1 => {
+                    (p_flow.abs() / rating.value() * 100.0).min(999.0)
+                }
                 _ => 0.0, // No constraint
             };
 
@@ -733,7 +730,9 @@ pub fn solve_dc_power_flow(path: &str) -> Result<DcPowerFlowResult, String> {
 
             // Loading percentage based on rating (skip very small ratings)
             let loading_pct = match branch.rating_a {
-                Some(rating) if rating.value() > 0.1 => (p_flow.abs() / rating.value() * 100.0).min(999.0),
+                Some(rating) if rating.value() > 0.1 => {
+                    (p_flow.abs() / rating.value() * 100.0).min(999.0)
+                }
                 _ => 0.0, // No constraint
             };
 
@@ -1197,9 +1196,7 @@ use gat_ui_common::{GatConfig, GuiTheme};
 ///
 /// This is the new config system - use this for new features.
 #[tauri::command]
-pub fn get_unified_config(
-    state: tauri::State<'_, AppState>,
-) -> Result<GatConfig, String> {
+pub fn get_unified_config(state: tauri::State<'_, AppState>) -> Result<GatConfig, String> {
     let config = state.service.config().read();
     Ok(config.clone())
 }
@@ -1966,11 +1963,7 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
     let mut lmps: Vec<LmpResult> = Vec::new();
     for node in network.graph.node_weights() {
         if let Node::Bus(bus) = node {
-            let lmp = solution
-                .bus_lmp
-                .get(&bus.name)
-                .copied()
-                .unwrap_or(0.0);
+            let lmp = solution.bus_lmp.get(&bus.name).copied().unwrap_or(0.0);
             lmps.push(LmpResult {
                 bus: bus.id.value(),
                 lmp,
@@ -2368,10 +2361,12 @@ pub fn get_thermal_analysis(path: &str) -> Result<ThermalAnalysisResult, String>
     for node in network.graph.node_weights() {
         match node {
             Node::Gen(gen) => {
-                *injections.entry(gen.bus.value()).or_default() += gen.active_power.value() / base_mva;
+                *injections.entry(gen.bus.value()).or_default() +=
+                    gen.active_power.value() / base_mva;
             }
             Node::Load(load) => {
-                *injections.entry(load.bus.value()).or_default() -= load.active_power.value() / base_mva;
+                *injections.entry(load.bus.value()).or_default() -=
+                    load.active_power.value() / base_mva;
             }
             _ => {}
         }

@@ -183,7 +183,11 @@ impl Default for SolverParams {
 }
 
 /// Write data as JSON to the given writer.
-pub fn write_json<W: Write, T: Serialize>(data: &T, writer: &mut W, pretty: bool) -> io::Result<()> {
+pub fn write_json<W: Write, T: Serialize>(
+    data: &T,
+    writer: &mut W,
+    pretty: bool,
+) -> io::Result<()> {
     if pretty {
         serde_json::to_writer_pretty(&mut *writer, data)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -216,7 +220,12 @@ pub fn write_csv_from_json<W: Write>(data: &[serde_json::Value], writer: &mut W)
     let first = &data[0];
     let headers: Vec<&str> = match first.as_object() {
         Some(obj) => obj.keys().map(|s| s.as_str()).collect(),
-        None => return Err(io::Error::new(io::ErrorKind::InvalidData, "Expected JSON objects")),
+        None => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Expected JSON objects",
+            ))
+        }
     };
 
     // Write header row
@@ -271,10 +280,8 @@ pub fn write_csv_from_json<W: Write>(data: &[serde_json::Value], writer: &mut W)
 /// - Stdin is specified (not yet implemented)
 pub fn load_network(source: &InputSource) -> Result<Network> {
     match source {
-        InputSource::File(path) => {
-            load_grid_from_arrow(path)
-                .with_context(|| format!("Failed to load network from: {}", path.display()))
-        }
+        InputSource::File(path) => load_grid_from_arrow(path)
+            .with_context(|| format!("Failed to load network from: {}", path.display())),
         InputSource::Stdin => {
             anyhow::bail!("Stdin input not yet implemented. Use a file path.")
         }
@@ -290,7 +297,11 @@ mod tests {
         assert!(InputSource::parse("-").is_stdin());
         assert!(!InputSource::parse("file.arrow").is_stdin());
         assert_eq!(
-            InputSource::parse("test.arrow").path().unwrap().to_str().unwrap(),
+            InputSource::parse("test.arrow")
+                .path()
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "test.arrow"
         );
     }
@@ -358,10 +369,7 @@ mod format_writer_tests {
 
     #[test]
     fn test_write_jsonl_to_string() {
-        let data = vec![
-            serde_json::json!({"id": 1}),
-            serde_json::json!({"id": 2}),
-        ];
+        let data = vec![serde_json::json!({"id": 1}), serde_json::json!({"id": 2})];
         let mut output = Vec::new();
         write_jsonl(&data, &mut output).unwrap();
         let result = String::from_utf8(output).unwrap();

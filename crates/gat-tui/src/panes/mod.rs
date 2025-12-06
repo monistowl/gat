@@ -34,7 +34,7 @@ pub use datasets_pane::{
     SpatialJoinType, UploadJob, UploadStatus, WeightMatrixType,
 };
 pub use operations_pane::{
-    AllocationResult, BatchJob, JobStatus, MetricStatus, OperationsPane, OperationType,
+    AllocationResult, BatchJob, JobStatus, MetricStatus, OperationType, OperationsPane,
     OperationsPaneState, ReliabilityMetric,
 };
 pub use pipeline_pane::{

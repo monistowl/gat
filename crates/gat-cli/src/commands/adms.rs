@@ -89,12 +89,7 @@ pub fn handle(command: &AdmsCommands) -> Result<()> {
             seed,
         } => {
             let start = Instant::now();
-            let res = outage_mc(
-                Path::new(reliability),
-                Path::new(out_dir),
-                *samples,
-                *seed,
-            );
+            let res = outage_mc(Path::new(reliability), Path::new(out_dir), *samples, *seed);
             let seed_str = seed.map(|v| v.to_string());
             record_run_timed(
                 out_dir,

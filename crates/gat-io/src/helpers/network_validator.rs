@@ -373,7 +373,8 @@ fn validate_physical_sanity(
                         "physical",
                         &format!(
                             "Branch '{}' has negative thermal limit: {} MVA",
-                            branch.name, s_max.value()
+                            branch.name,
+                            s_max.value()
                         ),
                     );
                 }
@@ -390,7 +391,9 @@ fn validate_physical_sanity(
                     "physical",
                     &format!(
                         "Generator '{}' has Pmax ({} MW) < Pmin ({} MW)",
-                        gen.name, gen.pmax.value(), gen.pmin.value()
+                        gen.name,
+                        gen.pmax.value(),
+                        gen.pmin.value()
                     ),
                 );
             }
@@ -401,7 +404,9 @@ fn validate_physical_sanity(
                     "physical",
                     &format!(
                         "Generator '{}' has Qmax ({} MVAr) < Qmin ({} MVAr)",
-                        gen.name, gen.qmax.value(), gen.qmin.value()
+                        gen.name,
+                        gen.qmax.value(),
+                        gen.qmin.value()
                     ),
                 );
             }

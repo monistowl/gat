@@ -294,15 +294,17 @@ mod tests {
 
     #[test]
     fn test_is_convergence_failure() {
-        assert!(OpfDispatcher::is_convergence_failure(&OpfError::ConvergenceFailure {
-            iterations: 100,
-            residual: 1e-3,
-        }));
-        assert!(OpfDispatcher::is_convergence_failure(&OpfError::Infeasible(
-            "InfeasibleProblemDetected".to_string()
-        )));
-        assert!(!OpfDispatcher::is_convergence_failure(&OpfError::DataValidation(
-            "Missing data".to_string()
-        )));
+        assert!(OpfDispatcher::is_convergence_failure(
+            &OpfError::ConvergenceFailure {
+                iterations: 100,
+                residual: 1e-3,
+            }
+        ));
+        assert!(OpfDispatcher::is_convergence_failure(
+            &OpfError::Infeasible("InfeasibleProblemDetected".to_string())
+        ));
+        assert!(!OpfDispatcher::is_convergence_failure(
+            &OpfError::DataValidation("Missing data".to_string())
+        ));
     }
 }

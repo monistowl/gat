@@ -449,8 +449,7 @@ fn compute_thermal_hessian(
 
             if lambda_to.abs() > 1e-12 {
                 // Get all branch derivatives in one fused call (5x fewer trig computations)
-                let ((p, q), dp, dq, d2p, d2q) =
-                    branch_derivs_to(branch, vi, vj, theta_i, theta_j);
+                let ((p, q), dp, dq, d2p, d2q) = branch_derivs_to(branch, vi, vj, theta_i, theta_j);
 
                 add_thermal_hessian_contributions(
                     lambda_to, p, q, &dp, &dq, &d2p, &d2q, i, j, n_bus, vals,
@@ -647,12 +646,12 @@ fn branch_derivs_from(
         [dp_dvi, dp_dvj, dp_dti, dp_dtj],
         [dq_dvi, dq_dvj, dq_dti, dq_dtj],
         [
-            d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi,
-            d2p_tj_vj, d2p_tj_ti, d2p_tj_tj,
+            d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi, d2p_tj_vj,
+            d2p_tj_ti, d2p_tj_tj,
         ],
         [
-            d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi,
-            d2q_tj_vj, d2q_tj_ti, d2q_tj_tj,
+            d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi, d2q_tj_vj,
+            d2q_tj_ti, d2q_tj_tj,
         ],
     )
 }
@@ -742,12 +741,12 @@ fn branch_derivs_to(
         [dp_dvi, dp_dvj, dp_dti, dp_dtj],
         [dq_dvi, dq_dvj, dq_dti, dq_dtj],
         [
-            d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi,
-            d2p_tj_vj, d2p_tj_ti, d2p_tj_tj,
+            d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi, d2p_tj_vj,
+            d2p_tj_ti, d2p_tj_tj,
         ],
         [
-            d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi,
-            d2q_tj_vj, d2q_tj_ti, d2q_tj_tj,
+            d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi, d2q_tj_vj,
+            d2q_tj_ti, d2q_tj_tj,
         ],
     )
 }

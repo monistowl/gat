@@ -199,8 +199,8 @@ impl IncrementalSolver {
         }
 
         // LU factorization with partial pivoting
-        let (lu_factors, pivots) =
-            Self::lu_factorize(&dense, dim).map_err(|e| IncrementalError::FactorizationFailed(e))?;
+        let (lu_factors, pivots) = Self::lu_factorize(&dense, dim)
+            .map_err(|e| IncrementalError::FactorizationFailed(e))?;
 
         Ok(Self {
             dim,

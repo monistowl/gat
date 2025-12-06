@@ -8,13 +8,13 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 use tokio::sync::mpsc;
 
+use crate::error::{Error, Result};
 use crate::events::AnalysisKind;
 use crate::jobs::{JobHandle, JobTracker, Progress};
 use crate::workspace::{
-    AcOpfResult, AcPfResult, DcOpfResult, DcPfResult, N1Result, PtdfResult, Workspace,
-    ContingencyResult,
+    AcOpfResult, AcPfResult, ContingencyResult, DcOpfResult, DcPfResult, N1Result, PtdfResult,
+    Workspace,
 };
-use crate::error::{Error, Result};
 use crate::GatConfig;
 
 /// Request for running an analysis.
@@ -261,27 +261,17 @@ impl AnalysisService {
         _config: &Arc<RwLock<GatConfig>>,
     ) -> Result<Option<String>> {
         match request {
-            AnalysisRequest::YBus => {
-                Self::run_ybus(workspace, jobs, job_id).await
-            }
+            AnalysisRequest::YBus => Self::run_ybus(workspace, jobs, job_id).await,
             AnalysisRequest::DcPowerFlow(opts) => {
                 Self::run_dc_pf(workspace, jobs, job_id, opts).await
             }
             AnalysisRequest::AcPowerFlow(opts) => {
                 Self::run_ac_pf(workspace, jobs, job_id, opts).await
             }
-            AnalysisRequest::DcOpf(opts) => {
-                Self::run_dc_opf(workspace, jobs, job_id, opts).await
-            }
-            AnalysisRequest::AcOpf(opts) => {
-                Self::run_ac_opf(workspace, jobs, job_id, opts).await
-            }
-            AnalysisRequest::N1Screening(opts) => {
-                Self::run_n1(workspace, jobs, job_id, opts).await
-            }
-            AnalysisRequest::Ptdf(opts) => {
-                Self::run_ptdf(workspace, jobs, job_id, opts).await
-            }
+            AnalysisRequest::DcOpf(opts) => Self::run_dc_opf(workspace, jobs, job_id, opts).await,
+            AnalysisRequest::AcOpf(opts) => Self::run_ac_opf(workspace, jobs, job_id, opts).await,
+            AnalysisRequest::N1Screening(opts) => Self::run_n1(workspace, jobs, job_id, opts).await,
+            AnalysisRequest::Ptdf(opts) => Self::run_ptdf(workspace, jobs, job_id, opts).await,
         }
     }
 
@@ -299,12 +289,11 @@ impl AnalysisService {
         };
 
         // Build Y-bus (CPU-bound, but fast)
-        let ybus = tokio::task::spawn_blocking(move || {
-            gat_algo::SparseYBus::from_network(&network)
-        })
-        .await
-        .map_err(|e| Error::AnalysisFailed(e.to_string()))?
-        .map_err(|e| Error::AnalysisFailed(e.to_string()))?;
+        let ybus =
+            tokio::task::spawn_blocking(move || gat_algo::SparseYBus::from_network(&network))
+                .await
+                .map_err(|e| Error::AnalysisFailed(e.to_string()))?
+                .map_err(|e| Error::AnalysisFailed(e.to_string()))?;
 
         jobs.update_progress(job_id, Progress::at(1.0));
 
@@ -336,8 +325,7 @@ impl AnalysisService {
 
         // Run DC power flow via the DC-OPF solver (provides angles and flows)
         let result = tokio::task::spawn_blocking(move || {
-            let solver = gat_algo::OpfSolver::new()
-                .with_method(gat_algo::OpfMethod::DcOpf);
+            let solver = gat_algo::OpfSolver::new().with_method(gat_algo::OpfMethod::DcOpf);
             solver.solve(&network)
         })
         .await
@@ -422,7 +410,11 @@ impl AnalysisService {
             ws.notify_analysis_complete(AnalysisKind::AcPowerFlow);
         }
 
-        let status = if result.converged { "converged" } else { "did not converge" };
+        let status = if result.converged {
+            "converged"
+        } else {
+            "did not converge"
+        };
         Ok(Some(format!(
             "AC power flow {} in {} iterations (mismatch: {:.2e})",
             status, result.iterations, result.max_mismatch
@@ -445,8 +437,7 @@ impl AnalysisService {
 
         // Run DC-OPF using the OpfSolver
         let result = tokio::task::spawn_blocking(move || {
-            let solver = gat_algo::OpfSolver::new()
-                .with_method(gat_algo::OpfMethod::DcOpf);
+            let solver = gat_algo::OpfSolver::new().with_method(gat_algo::OpfMethod::DcOpf);
             solver.solve(&network)
         })
         .await
@@ -553,7 +544,10 @@ impl AnalysisService {
         job_id: crate::JobId,
         opts: N1Options,
     ) -> Result<Option<String>> {
-        jobs.update_progress(job_id, Progress::with_message(0.0, "Starting N-1 screening"));
+        jobs.update_progress(
+            job_id,
+            Progress::with_message(0.0, "Starting N-1 screening"),
+        );
 
         let network = {
             let ws = workspace.read();
@@ -572,7 +566,10 @@ impl AnalysisService {
                 let fraction = completed as f32 / total as f32;
                 jobs_clone.update_progress(
                     job_id,
-                    Progress::with_message(fraction, format!("Analyzing {}/{} contingencies", completed, total)),
+                    Progress::with_message(
+                        fraction,
+                        format!("Analyzing {}/{} contingencies", completed, total),
+                    ),
                 );
             }
         });
@@ -603,7 +600,11 @@ impl AnalysisService {
                     outage_name: format!("Branch {}", i),
                     secure,
                     worst_loading_pct: loading,
-                    worst_branch: if secure { None } else { Some("Self".to_string()) },
+                    worst_branch: if secure {
+                        None
+                    } else {
+                        Some("Self".to_string())
+                    },
                 });
             }
 

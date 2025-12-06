@@ -207,8 +207,14 @@ fn network_to_matpower_case(network: &Network) -> Result<MatpowerCase> {
                     tap: branch.tap_ratio,
                     shift: branch.phase_shift.to_degrees().value(),
                     br_status: if branch.status { 1 } else { 0 },
-                    angmin: branch.angle_min.map(|v| v.to_degrees().value()).unwrap_or(-360.0),
-                    angmax: branch.angle_max.map(|v| v.to_degrees().value()).unwrap_or(360.0),
+                    angmin: branch
+                        .angle_min
+                        .map(|v| v.to_degrees().value())
+                        .unwrap_or(-360.0),
+                    angmax: branch
+                        .angle_max
+                        .map(|v| v.to_degrees().value())
+                        .unwrap_or(360.0),
                 });
             }
             Edge::Transformer(tx) => {
