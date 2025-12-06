@@ -241,9 +241,9 @@ pub enum ConvertCommands {
         /// Target format for conversion
         #[arg(long, value_enum)]
         to: ConvertFormat,
-        /// Output directory/file (default inferred from input + target)
-        #[arg(short, long)]
-        output: Option<String>,
+        /// Output directory/file. Defaults to input filename with target format extension.
+        #[arg(short = 'o', long = "out", visible_alias = "output")]
+        out: Option<String>,
         /// Overwrite existing output without prompting
         #[arg(long)]
         force: bool,
