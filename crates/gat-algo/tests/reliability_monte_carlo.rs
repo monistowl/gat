@@ -502,3 +502,17 @@ fn test_deliverability_score_meets_threshold() {
         "Should not meet impossible threshold"
     );
 }
+
+#[test]
+fn test_monte_carlo_arena_allocation_large_scenario_count() {
+    // This test verifies arena allocation works correctly
+    // with a larger number of scenarios
+    let network = create_simple_network();
+
+    let mc = MonteCarlo::new(5000);
+    let metrics = mc.compute_reliability(&network).unwrap();
+
+    assert_eq!(metrics.scenarios_analyzed, 5000);
+    assert!(metrics.lole >= 0.0);
+    assert!(metrics.eue >= 0.0);
+}
