@@ -29,6 +29,8 @@ dirs = { version = "5.0", optional = true }
 gat-ipopt-sys = { path = "../gat-ipopt-sys", optional = true }
 # GPU acceleration (optional)
 gat-gpu = { path = "../gat-gpu", optional = true }
+bytemuck = { version = "1.14", features = ["derive"], optional = true }
+rand = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
@@ -60,7 +62,7 @@ full = ["all-solvers", "all-polars"]
 full-native = ["all-solvers-native", "all-polars"]
 
 # GPU acceleration
-gpu = ["gat-gpu"]
+gpu = ["gat-gpu", "bytemuck", "rand"]
 
 # Solver backends
 solver-clarabel = ["good_lp/clarabel"]

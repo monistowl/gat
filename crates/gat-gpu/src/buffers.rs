@@ -6,7 +6,7 @@ use wgpu::util::DeviceExt;
 
 /// A GPU buffer that can be read/written from CPU
 pub struct GpuBuffer<T: Pod + Zeroable> {
-    pub(crate) buffer: wgpu::Buffer,
+    pub buffer: wgpu::Buffer,
     pub(crate) staging: wgpu::Buffer,
     pub(crate) size: usize,
     _phantom: std::marker::PhantomData<T>,

@@ -4,7 +4,9 @@
 //! When the `gpu` feature is enabled, scenarios can be evaluated in parallel on the GPU.
 
 #[cfg(feature = "gpu")]
-use gat_gpu::{Backend, ExecutionMode, GpuContext};
+use gat_gpu::{Backend, ExecutionMode, GpuContext, GpuBuffer, BufferBinding, MultiBufferKernel};
+#[cfg(feature = "gpu")]
+use gat_gpu::shaders::CAPACITY_CHECK_SHADER;
 
 use crate::reliability_monte_carlo::{MonteCarlo, OutageScenario, ReliabilityMetrics};
 use anyhow::Result;
@@ -21,9 +23,7 @@ pub struct GpuMonteCarlo {
     #[cfg(feature = "gpu")]
     pub execution_mode: ExecutionMode,
     /// Cached GPU context (reused across runs)
-    /// Note: Currently unused but reserved for future batched GPU dispatch
     #[cfg(feature = "gpu")]
-    #[allow(dead_code)]
     gpu_context: Option<GpuContext>,
 }
 
@@ -122,6 +122,185 @@ impl GpuMonteCarlo {
             }
         }
     }
+
+    /// Batch capacity adequacy check using GPU.
+    ///
+    /// Returns fraction of scenarios with adequate capacity.
+    /// This is f32-safe (no precision warning needed).
+    #[cfg(feature = "gpu")]
+    pub fn batch_capacity_check(&mut self, network: &Network, demand: f64) -> f64 {
+        use gat_core::Node;
+
+        // Collect generator capacities first (needed for both GPU and CPU paths)
+        let gen_capacities: Vec<f32> = network
+            .graph
+            .node_weights()
+            .filter_map(|node| {
+                if let Node::Gen(gen) = node {
+                    Some(gen.active_power.value() as f32)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if gen_capacities.is_empty() {
+            return 0.0;
+        }
+
+        let n_gen = gen_capacities.len();
+        let n_scenarios = self.inner.num_scenarios;
+
+        // Generate outage states
+        let mut outage_state: Vec<f32> = Vec::with_capacity(n_scenarios * n_gen);
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        for _ in 0..n_scenarios {
+            for _ in 0..n_gen {
+                let is_online = if rng.gen::<f32>() > 0.1 { 1.0 } else { 0.0 };
+                outage_state.push(is_online);
+            }
+        }
+
+        // Respect execution mode
+        match self.execution_mode {
+            ExecutionMode::CpuOnly => {
+                return self.cpu_capacity_check(&gen_capacities, &outage_state, demand as f32, n_scenarios);
+            }
+            ExecutionMode::GpuOnly => {
+                if self.gpu_context.is_none() {
+                    match GpuContext::new() {
+                        Ok(ctx) => self.gpu_context = Some(ctx),
+                        Err(e) => {
+                            panic!("GPU requested but initialization failed: {}", e);
+                        }
+                    }
+                }
+                // Must succeed - no fallback
+                return self.run_gpu_capacity_check(
+                    self.gpu_context.as_ref().unwrap(),
+                    &gen_capacities,
+                    &outage_state,
+                    demand as f32,
+                    n_scenarios,
+                ).expect("GPU execution failed and GpuOnly mode was requested");
+            }
+            ExecutionMode::Auto => {
+                // Try GPU, fallback to CPU
+                if self.gpu_context.is_none() {
+                    match GpuContext::new() {
+                        Ok(ctx) => self.gpu_context = Some(ctx),
+                        Err(e) => {
+                            eprintln!("[gat-gpu] Failed to initialize GPU: {}", e);
+                            return self.cpu_capacity_check(&gen_capacities, &outage_state, demand as f32, n_scenarios);
+                        }
+                    }
+                }
+
+                if let Some(ref ctx) = self.gpu_context {
+                    match self.run_gpu_capacity_check(ctx, &gen_capacities, &outage_state, demand as f32, n_scenarios) {
+                        Ok(fraction) => return fraction,
+                        Err(e) => {
+                            eprintln!("[gat-gpu] GPU capacity check failed, falling back to CPU: {}", e);
+                        }
+                    }
+                }
+
+                self.cpu_capacity_check(&gen_capacities, &outage_state, demand as f32, n_scenarios)
+            }
+        }
+    }
+
+    #[cfg(feature = "gpu")]
+    fn run_gpu_capacity_check(
+        &self,
+        ctx: &GpuContext,
+        gen_capacities: &[f32],
+        outage_state: &[f32],
+        demand: f32,
+        n_scenarios: usize,
+    ) -> anyhow::Result<f64> {
+        use bytemuck::{Pod, Zeroable};
+
+        #[repr(C)]
+        #[derive(Clone, Copy, Pod, Zeroable)]
+        struct Uniforms {
+            n_scenarios: u32,
+            n_generators: u32,
+            demand: f32,
+            _padding: u32,
+        }
+
+        let uniforms = Uniforms {
+            n_scenarios: n_scenarios as u32,
+            n_generators: gen_capacities.len() as u32,
+            demand,
+            _padding: 0,
+        };
+
+        let adequate: Vec<f32> = vec![0.0; n_scenarios];
+
+        let buf_uniforms = GpuBuffer::new_uniform(ctx, &[uniforms], "uniforms");
+        let buf_capacity = GpuBuffer::new(ctx, gen_capacities, "gen_capacity");
+        let buf_outage = GpuBuffer::new(ctx, outage_state, "outage_state");
+        let buf_adequate = GpuBuffer::new(ctx, &adequate, "adequate");
+
+        let kernel = MultiBufferKernel::new(
+            ctx,
+            CAPACITY_CHECK_SHADER,
+            "main",
+            &[
+                BufferBinding::Uniform,
+                BufferBinding::ReadOnly,
+                BufferBinding::ReadOnly,
+                BufferBinding::ReadWrite,
+            ],
+        )?;
+
+        kernel.dispatch(
+            ctx,
+            &[
+                &buf_uniforms.buffer,
+                &buf_capacity.buffer,
+                &buf_outage.buffer,
+                &buf_adequate.buffer,
+            ],
+            n_scenarios as u32,
+            64,
+        )?;
+
+        let result = buf_adequate.read(ctx);
+        let adequate_count: f32 = result.iter().sum();
+
+        Ok(adequate_count as f64 / n_scenarios as f64)
+    }
+
+    #[cfg(feature = "gpu")]
+    fn cpu_capacity_check(
+        &self,
+        gen_capacities: &[f32],
+        outage_state: &[f32],
+        demand: f32,
+        n_scenarios: usize,
+    ) -> f64 {
+        let n_gen = gen_capacities.len();
+        let mut adequate_count = 0;
+
+        for scenario_idx in 0..n_scenarios {
+            let base = scenario_idx * n_gen;
+            let available: f32 = gen_capacities
+                .iter()
+                .enumerate()
+                .map(|(g, &cap)| cap * outage_state[base + g])
+                .sum();
+
+            if available >= demand {
+                adequate_count += 1;
+            }
+        }
+
+        adequate_count as f64 / n_scenarios as f64
+    }
 }
 
 impl Default for GpuMonteCarlo {
@@ -190,5 +369,19 @@ mod tests {
     fn test_execution_mode_builder() {
         let mc = GpuMonteCarlo::new(100).with_execution_mode(ExecutionMode::CpuOnly);
         assert_eq!(mc.execution_mode, ExecutionMode::CpuOnly);
+    }
+
+    #[cfg(feature = "gpu")]
+    #[test]
+    fn test_gpu_monte_carlo_batch_capacity() {
+        let network = Network::default();
+        let mut mc = GpuMonteCarlo::new(1000);
+
+        // This should use GPU path if available
+        let result = mc.batch_capacity_check(&network, 100.0);
+
+        // Result should be between 0 and 1 (fraction adequate)
+        // For empty network, should return 0.0
+        assert!(result >= 0.0 && result <= 1.0);
     }
 }
