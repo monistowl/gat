@@ -20,6 +20,7 @@ pub fn handle(command: &AnalyticsCommands) -> Result<()> {
         sink_bus,
         threads,
         out_partitions,
+        rating_type: _,
     } = command
     else {
         unreachable!();

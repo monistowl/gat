@@ -3,7 +3,7 @@ use clap_complete::Shell;
 use gat_io::importers::Format;
 use std::path::PathBuf;
 
-use crate::common::{FlowMode, OpfMethod, OutputFormat};
+use crate::common::{FlowMode, OpfMethod, OutputFormat, RatingType};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -762,6 +762,9 @@ pub enum Nminus1Commands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Which thermal rating to use for limit checks
+        #[arg(long, value_enum, default_value_t = RatingType::RateA)]
+        rating_type: RatingType,
     },
 }
 
@@ -1164,6 +1167,9 @@ pub enum AnalyticsCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Which thermal rating to use for limit checks
+        #[arg(long, value_enum, default_value_t = RatingType::RateA)]
+        rating_type: RatingType,
     },
     /// Reliability metrics (LOLE, EUE, thermal violations) from batch outputs
     ///
@@ -1192,6 +1198,9 @@ pub enum AnalyticsCommands {
         /// Partition columns (comma separated)
         #[arg(long)]
         out_partitions: Option<String>,
+        /// Which thermal rating to use for limit checks
+        #[arg(long, value_enum, default_value_t = RatingType::RateA)]
+        rating_type: RatingType,
     },
     /// Estimate Equivalent Load Carrying Capability (ELCC)
     Elcc {
