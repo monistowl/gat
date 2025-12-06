@@ -62,7 +62,7 @@ GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-m
 - Full physics accuracy required
 - Regulatory compliance
 
-## Architecture Overview (v0.5.2)
+## Architecture Overview (v0.5.3)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods:
 
@@ -93,6 +93,14 @@ The SOCP solver has been validated against all 67 PGLib-OPF cases:
 | Median Objective Gap | < 1% |
 
 → [View complete benchmark results](@/internals/benchmarks.md)
+
+### What's New in 0.5.3
+
+- **Arena-based allocation** for Monte Carlo and N-k contingency evaluation — reduces heap allocations in hot loops.
+- **gat-ui-common crate** — shared UI components between gat-gui and gat-tui.
+- **Hot path optimizations** for AC-OPF and power flow computations.
+- **Strategy pattern architecture** for OPF solver selection with unified dispatcher.
+- **Improved CI/CD** with Native Solvers workflow for IPOPT validation.
 
 ### What's New in 0.5.2
 

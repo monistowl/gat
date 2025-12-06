@@ -6,7 +6,7 @@ weight = 150
 
 # Packaging & Installation
 
-GAT 0.5.2 introduces a modular installation system with two main approaches: **modular component selection** (on-demand installation) and **bundle variants** (pre-packaged tarballs). Both support binary-first delivery with fallback to source builds.
+GAT 0.5.3 introduces a modular installation system with two main approaches: **modular component selection** (on-demand installation) and **bundle variants** (pre-packaged tarballs). Both support binary-first delivery with fallback to source builds.
 
 ## Architecture Overview
 
@@ -58,16 +58,16 @@ The `scripts/install-modular.sh` script enables on-demand component selection:
 
 ```bash
 # CLI only (default)
-curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.2/scripts/install-modular.sh \
+curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.3/scripts/install-modular.sh \
   | bash
 
 # CLI + TUI
 GAT_COMPONENTS=cli,tui \
-  bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.2/scripts/install-modular.sh)
+  bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.3/scripts/install-modular.sh)
 
 # Everything
 GAT_COMPONENTS=cli,tui,gui,solvers \
-  bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.2/scripts/install-modular.sh)
+  bash <(curl -fsSL https://raw.githubusercontent.com/monistowl/gat/v0.5.3/scripts/install-modular.sh)
 ```
 
 **Features:**
@@ -85,15 +85,15 @@ For users preferring bundled releases with documentation:
 ```bash
 # Full variant (CLI + TUI + docs, recommended)
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.5.2/gat-0.5.2-linux-x86_64-full.tar.gz \
+  https://github.com/monistowl/gat/releases/download/v0.5.3/gat-0.5.3-linux-x86_64-full.tar.gz \
   | tar xz
-cd gat-0.5.2-linux-x86_64-full && ./install.sh
+cd gat-0.5.3-linux-x86_64-full && ./install.sh
 
 # Headless variant (CLI only, minimal footprint)
 curl -fsSL \
-  https://github.com/monistowl/gat/releases/download/v0.5.2/gat-0.5.2-linux-x86_64-headless.tar.gz \
+  https://github.com/monistowl/gat/releases/download/v0.5.3/gat-0.5.3-linux-x86_64-headless.tar.gz \
   | tar xz
-cd gat-0.5.2-linux-x86_64-headless && ./install.sh --variant headless
+cd gat-0.5.3-linux-x86_64-headless && ./install.sh --variant headless
 ```
 
 **Bundled Artifacts:**
@@ -148,11 +148,11 @@ Artifacts land in `dist/`:
 
 ```
 dist/
-├── gat-0.5.2-linux-x86_64-headless.tar.gz
-├── gat-0.5.2-linux-x86_64-analyst.tar.gz
-├── gat-0.5.2-linux-x86_64-full.tar.gz
-├── gat-0.5.2-macos-x86_64-full.tar.gz
-├── gat-0.5.2-macos-arm64-full.tar.gz
+├── gat-0.5.3-linux-x86_64-headless.tar.gz
+├── gat-0.5.3-linux-x86_64-analyst.tar.gz
+├── gat-0.5.3-linux-x86_64-full.tar.gz
+├── gat-0.5.3-macos-x86_64-full.tar.gz
+├── gat-0.5.3-macos-arm64-full.tar.gz
 └── ...
 ```
 
@@ -161,7 +161,7 @@ dist/
 Artifacts are accessible via:
 
 ```
-https://github.com/monistowl/gat/releases/download/v0.5.2/gat-0.5.2-<os>-<arch>-<variant>.tar.gz
+https://github.com/monistowl/gat/releases/download/v0.5.3/gat-0.5.3-<os>-<arch>-<variant>.tar.gz
 ```
 
 **Platform/Architecture Codes:**
@@ -170,9 +170,9 @@ https://github.com/monistowl/gat/releases/download/v0.5.2/gat-0.5.2-<os>-<arch>-
 - Variant: `headless`, `analyst`, `full`
 
 **Examples:**
-- `gat-0.5.2-linux-x86_64-full.tar.gz`
-- `gat-0.5.2-macos-arm64-full.tar.gz`
-- `gat-0.5.2-linux-x86_64-headless.tar.gz`
+- `gat-0.5.3-linux-x86_64-full.tar.gz`
+- `gat-0.5.3-macos-arm64-full.tar.gz`
+- `gat-0.5.3-linux-x86_64-headless.tar.gz`
 
 ## Testing
 
@@ -205,7 +205,7 @@ bash scripts/test-modular-install.sh --quick  # Fast syntax/help checks
 
 ## Migration from v0.1
 
-v0.1 users upgrading to v0.5.2:
+v0.1 users upgrading to v0.5.3:
 
 - Installation location changed from `~/.local/` to `~/.gat/`
 - New directory structure separates config, binaries, and cache
