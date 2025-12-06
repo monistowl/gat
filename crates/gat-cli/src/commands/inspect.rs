@@ -8,6 +8,7 @@ use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 use gat_cli::cli::InspectCommands;
+use gat_cli::common::{OutputFormat, write_json, write_jsonl, write_csv_from_json};
 use gat_core::{Edge, Network, Node};
 use gat_io::importers::{load_grid_from_arrow, Format};
 use serde::Serialize;
@@ -78,13 +79,13 @@ fn handle_summary(input: &str) -> Result<()> {
             Node::Bus(_) => bus_count += 1,
             Node::Gen(g) => {
                 gen_count += 1;
-                total_gen_pmax += g.pmax_mw;
-                total_gen_pmin += g.pmin_mw;
+                total_gen_pmax += g.pmax.value();
+                total_gen_pmin += g.pmin.value();
             }
             Node::Load(l) => {
                 load_count += 1;
-                total_load_p += l.active_power_mw;
-                total_load_q += l.reactive_power_mvar;
+                total_load_p += l.active_power.value();
+                total_load_q += l.reactive_power.value();
             }
             Node::Shunt(_) => shunt_count += 1,
         }
@@ -159,7 +160,7 @@ struct GeneratorInfo {
     qg_mvar: f64,
 }
 
-fn handle_generators(input: &str, bus_filter: Option<usize>, format: &str) -> Result<()> {
+fn handle_generators(input: &str, bus_filter: Option<usize>, format: &OutputFormat) -> Result<()> {
     let network = load_network(input)?;
 
     let mut generators: Vec<GeneratorInfo> = Vec::new();
@@ -175,12 +176,12 @@ fn handle_generators(input: &str, bus_filter: Option<usize>, format: &str) -> Re
                 id: g.id.value(),
                 name: g.name.clone(),
                 bus: g.bus.value(),
-                pmin_mw: g.pmin_mw,
-                pmax_mw: g.pmax_mw,
-                qmin_mvar: g.qmin_mvar,
-                qmax_mvar: g.qmax_mvar,
-                pg_mw: g.active_power_mw,
-                qg_mvar: g.reactive_power_mvar,
+                pmin_mw: g.pmin.value(),
+                pmax_mw: g.pmax.value(),
+                qmin_mvar: g.qmin.value(),
+                qmax_mvar: g.qmax.value(),
+                pg_mw: g.active_power.value(),
+                qg_mvar: g.reactive_power.value(),
             });
         }
     }
@@ -188,29 +189,51 @@ fn handle_generators(input: &str, bus_filter: Option<usize>, format: &str) -> Re
     // Sort by bus then id
     generators.sort_by(|a, b| a.bus.cmp(&b.bus).then(a.id.cmp(&b.id)));
 
-    if format == "json" {
-        println!("{}", serde_json::to_string_pretty(&generators)?);
-    } else {
-        // Table format
-        println!(
-            "{:>6} {:>6} {:>20} {:>10} {:>10} {:>10} {:>10}",
-            "ID", "Bus", "Name", "Pmin", "Pmax", "Qmin", "Qmax"
-        );
-        println!("{}", "-".repeat(80));
-        for g in &generators {
+    match format {
+        OutputFormat::Table => {
+            // Table format
             println!(
-                "{:>6} {:>6} {:>20} {:>10.2} {:>10.2} {:>10.2} {:>10.2}",
-                g.id,
-                g.bus,
-                truncate(&g.name, 20),
-                g.pmin_mw,
-                g.pmax_mw,
-                g.qmin_mvar,
-                g.qmax_mvar
+                "{:>6} {:>6} {:>20} {:>10} {:>10} {:>10} {:>10}",
+                "ID", "Bus", "Name", "Pmin", "Pmax", "Qmin", "Qmax"
             );
+            println!("{}", "-".repeat(80));
+            for g in &generators {
+                println!(
+                    "{:>6} {:>6} {:>20} {:>10.2} {:>10.2} {:>10.2} {:>10.2}",
+                    g.id,
+                    g.bus,
+                    truncate(&g.name, 20),
+                    g.pmin_mw,
+                    g.pmax_mw,
+                    g.qmin_mvar,
+                    g.qmax_mvar
+                );
+            }
+            println!();
+            println!("Total: {} generators", generators.len());
         }
-        println!();
-        println!("Total: {} generators", generators.len());
+        OutputFormat::Json => {
+            // Convert to serde_json::Value for consistency with writer functions
+            let json_data: Vec<serde_json::Value> = generators
+                .iter()
+                .map(|g| serde_json::to_value(g).unwrap())
+                .collect();
+            write_json(&json_data, &mut std::io::stdout(), true)?;
+        }
+        OutputFormat::Csv => {
+            let json_data: Vec<serde_json::Value> = generators
+                .iter()
+                .map(|g| serde_json::to_value(g).unwrap())
+                .collect();
+            write_csv_from_json(&json_data, &mut std::io::stdout())?;
+        }
+        OutputFormat::Jsonl => {
+            let json_data: Vec<serde_json::Value> = generators
+                .iter()
+                .map(|g| serde_json::to_value(g).unwrap())
+                .collect();
+            write_jsonl(&json_data, &mut std::io::stdout())?;
+        }
     }
 
     Ok(())
@@ -230,7 +253,7 @@ struct BranchInfo {
     tap_ratio: f64,
 }
 
-fn handle_branches(input: &str, rating_filter: Option<f64>, format: &str) -> Result<()> {
+fn handle_branches(input: &str, rating_filter: Option<f64>, format: &OutputFormat) -> Result<()> {
     let network = load_network(input)?;
 
     let mut branches: Vec<BranchInfo> = Vec::new();
@@ -238,8 +261,8 @@ fn handle_branches(input: &str, rating_filter: Option<f64>, format: &str) -> Res
     for edge in network.graph.edge_weights() {
         if let Edge::Branch(b) = edge {
             if let Some(max_rating) = rating_filter {
-                if let Some(rating) = b.s_max_mva {
-                    if rating >= max_rating {
+                if let Some(rating) = b.s_max {
+                    if rating.value() >= max_rating {
                         continue;
                     }
                 }
@@ -251,8 +274,8 @@ fn handle_branches(input: &str, rating_filter: Option<f64>, format: &str) -> Res
                 to_bus: b.to_bus.value(),
                 r_pu: b.resistance,
                 x_pu: b.reactance,
-                b_pu: b.charging_b_pu,
-                rating_mva: b.s_max_mva,
+                b_pu: b.charging_b.value(),
+                rating_mva: b.s_max.map(|v| v.value()),
                 tap_ratio: b.tap_ratio,
             });
         }
@@ -261,33 +284,54 @@ fn handle_branches(input: &str, rating_filter: Option<f64>, format: &str) -> Res
     // Sort by from_bus, then to_bus
     branches.sort_by(|a, b| a.from_bus.cmp(&b.from_bus).then(a.to_bus.cmp(&b.to_bus)));
 
-    if format == "json" {
-        println!("{}", serde_json::to_string_pretty(&branches)?);
-    } else {
-        // Table format
-        println!(
-            "{:>6} {:>6} {:>6} {:>20} {:>10} {:>10} {:>10}",
-            "ID", "From", "To", "Name", "R (pu)", "X (pu)", "Rating"
-        );
-        println!("{}", "-".repeat(80));
-        for b in &branches {
-            let rating_str = b
-                .rating_mva
-                .map(|r| format!("{:.1}", r))
-                .unwrap_or_else(|| "-".to_string());
+    match format {
+        OutputFormat::Table => {
+            // Table format
             println!(
-                "{:>6} {:>6} {:>6} {:>20} {:>10.5} {:>10.5} {:>10}",
-                b.id,
-                b.from_bus,
-                b.to_bus,
-                truncate(&b.name, 20),
-                b.r_pu,
-                b.x_pu,
-                rating_str
+                "{:>6} {:>6} {:>6} {:>20} {:>10} {:>10} {:>10}",
+                "ID", "From", "To", "Name", "R (pu)", "X (pu)", "Rating"
             );
+            println!("{}", "-".repeat(80));
+            for b in &branches {
+                let rating_str = b
+                    .rating_mva
+                    .map(|r| format!("{:.1}", r))
+                    .unwrap_or_else(|| "-".to_string());
+                println!(
+                    "{:>6} {:>6} {:>6} {:>20} {:>10.5} {:>10.5} {:>10}",
+                    b.id,
+                    b.from_bus,
+                    b.to_bus,
+                    truncate(&b.name, 20),
+                    b.r_pu,
+                    b.x_pu,
+                    rating_str
+                );
+            }
+            println!();
+            println!("Total: {} branches", branches.len());
         }
-        println!();
-        println!("Total: {} branches", branches.len());
+        OutputFormat::Json => {
+            let json_data: Vec<serde_json::Value> = branches
+                .iter()
+                .map(|b| serde_json::to_value(b).unwrap())
+                .collect();
+            write_json(&json_data, &mut std::io::stdout(), true)?;
+        }
+        OutputFormat::Csv => {
+            let json_data: Vec<serde_json::Value> = branches
+                .iter()
+                .map(|b| serde_json::to_value(b).unwrap())
+                .collect();
+            write_csv_from_json(&json_data, &mut std::io::stdout())?;
+        }
+        OutputFormat::Jsonl => {
+            let json_data: Vec<serde_json::Value> = branches
+                .iter()
+                .map(|b| serde_json::to_value(b).unwrap())
+                .collect();
+            write_jsonl(&json_data, &mut std::io::stdout())?;
+        }
     }
 
     Ok(())
@@ -310,15 +354,15 @@ fn handle_power_balance(input: &str) -> Result<()> {
     for node in network.graph.node_weights() {
         match node {
             Node::Gen(g) => {
-                total_gen_pmax += g.pmax_mw;
-                total_gen_pmin += g.pmin_mw;
-                total_gen_qmax += g.qmax_mvar;
-                total_gen_qmin += g.qmin_mvar;
+                total_gen_pmax += g.pmax.value();
+                total_gen_pmin += g.pmin.value();
+                total_gen_qmax += g.qmax.value();
+                total_gen_qmin += g.qmin.value();
                 gen_count += 1;
             }
             Node::Load(l) => {
-                total_load_p += l.active_power_mw;
-                total_load_q += l.reactive_power_mvar;
+                total_load_p += l.active_power.value();
+                total_load_q += l.reactive_power.value();
                 load_count += 1;
             }
             Node::Shunt(s) => {
@@ -412,9 +456,9 @@ fn handle_json(input: &str, pretty: bool) -> Result<()> {
                 buses.push(BusJson {
                     id: b.id.value(),
                     name: b.name.clone(),
-                    voltage_kv: b.voltage_kv,
-                    vmin_pu: b.vmin_pu,
-                    vmax_pu: b.vmax_pu,
+                    voltage_kv: b.base_kv.value(),
+                    vmin_pu: b.vmin_pu.map(|v| v.value()),
+                    vmax_pu: b.vmax_pu.map(|v| v.value()),
                 });
             }
             Node::Gen(g) => {
@@ -422,12 +466,12 @@ fn handle_json(input: &str, pretty: bool) -> Result<()> {
                     id: g.id.value(),
                     name: g.name.clone(),
                     bus: g.bus.value(),
-                    pmin_mw: g.pmin_mw,
-                    pmax_mw: g.pmax_mw,
-                    qmin_mvar: g.qmin_mvar,
-                    qmax_mvar: g.qmax_mvar,
-                    pg_mw: g.active_power_mw,
-                    qg_mvar: g.reactive_power_mvar,
+                    pmin_mw: g.pmin.value(),
+                    pmax_mw: g.pmax.value(),
+                    qmin_mvar: g.qmin.value(),
+                    qmax_mvar: g.qmax.value(),
+                    pg_mw: g.active_power.value(),
+                    qg_mvar: g.reactive_power.value(),
                 });
             }
             Node::Load(l) => {
@@ -435,8 +479,8 @@ fn handle_json(input: &str, pretty: bool) -> Result<()> {
                     id: l.id.value(),
                     name: l.name.clone(),
                     bus: l.bus.value(),
-                    p_mw: l.active_power_mw,
-                    q_mvar: l.reactive_power_mvar,
+                    p_mw: l.active_power.value(),
+                    q_mvar: l.reactive_power.value(),
                 });
             }
             Node::Shunt(_) => {} // Skip shunts for now
@@ -452,8 +496,8 @@ fn handle_json(input: &str, pretty: bool) -> Result<()> {
                 to_bus: b.to_bus.value(),
                 r_pu: b.resistance,
                 x_pu: b.reactance,
-                b_pu: b.charging_b_pu,
-                rating_mva: b.s_max_mva,
+                b_pu: b.charging_b.value(),
+                rating_mva: b.s_max.map(|v| v.value()),
                 tap_ratio: b.tap_ratio,
             });
         }
@@ -498,17 +542,18 @@ struct ThermalInfo {
 
 /// Handle the `gat inspect thermal` command
 /// Shows branches sorted by thermal rating to identify potential bottlenecks
-pub fn handle_thermal(input: &str, threshold_mva: Option<f64>, format: &str) -> Result<()> {
+pub fn handle_thermal(input: &str, threshold_mva: Option<f64>, format: &OutputFormat) -> Result<()> {
     let network = load_network(input)?;
 
     let mut branches: Vec<(usize, String, usize, usize, f64)> = Vec::new();
 
     for edge in network.graph.edge_weights() {
         if let Edge::Branch(b) = edge {
-            if let Some(rating) = b.s_max_mva {
+            if let Some(rating) = b.s_max {
+                let rating_val = rating.value();
                 // Filter by threshold if provided
                 if let Some(thresh) = threshold_mva {
-                    if rating > thresh {
+                    if rating_val > thresh {
                         continue;
                     }
                 }
@@ -517,7 +562,7 @@ pub fn handle_thermal(input: &str, threshold_mva: Option<f64>, format: &str) -> 
                     b.name.clone(),
                     b.from_bus.value(),
                     b.to_bus.value(),
-                    rating,
+                    rating_val,
                 ));
             }
         }
@@ -526,86 +571,127 @@ pub fn handle_thermal(input: &str, threshold_mva: Option<f64>, format: &str) -> 
     // Sort by rating (ascending) - lowest ratings are most likely bottlenecks
     branches.sort_by(|a, b| a.4.partial_cmp(&b.4).unwrap());
 
-    if format == "json" {
-        let thermal_info: Vec<ThermalInfo> = branches
-            .iter()
-            .map(|(id, name, from, to, rating)| ThermalInfo {
-                id: *id,
-                name: name.clone(),
-                from_bus: *from,
-                to_bus: *to,
-                rating_mva: *rating,
-            })
-            .collect();
-        println!("{}", serde_json::to_string_pretty(&thermal_info)?);
-    } else {
-        println!("Thermal Limit Analysis");
-        println!("======================");
-        println!();
+    match format {
+        OutputFormat::Table => {
+            println!("Thermal Limit Analysis");
+            println!("======================");
+            println!();
 
-        if branches.is_empty() {
-            println!("No branches with thermal ratings found.");
-            return Ok(());
-        }
+            if branches.is_empty() {
+                println!("No branches with thermal ratings found.");
+                return Ok(());
+            }
 
-        // Statistics
-        let ratings: Vec<f64> = branches.iter().map(|(_, _, _, _, r)| *r).collect();
-        let min_rating = ratings.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max_rating = ratings.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let avg_rating: f64 = ratings.iter().sum::<f64>() / ratings.len() as f64;
+            // Statistics
+            let ratings: Vec<f64> = branches.iter().map(|(_, _, _, _, r)| *r).collect();
+            let min_rating = ratings.iter().cloned().fold(f64::INFINITY, f64::min);
+            let max_rating = ratings.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let avg_rating: f64 = ratings.iter().sum::<f64>() / ratings.len() as f64;
 
-        println!("Rating Statistics:");
-        println!("  Min:  {:.1} MVA", min_rating);
-        println!("  Max:  {:.1} MVA", max_rating);
-        println!("  Avg:  {:.1} MVA", avg_rating);
-        println!();
+            println!("Rating Statistics:");
+            println!("  Min:  {:.1} MVA", min_rating);
+            println!("  Max:  {:.1} MVA", max_rating);
+            println!("  Avg:  {:.1} MVA", avg_rating);
+            println!();
 
-        // Show lowest-rated branches (potential bottlenecks)
-        let show_count = branches.len().min(20);
-        println!(
-            "Lowest-rated branches (top {} potential bottlenecks):",
-            show_count
-        );
-        println!();
-        println!(
-            "{:>6} {:>6} {:>6} {:>20} {:>12}",
-            "ID", "From", "To", "Name", "Rating (MVA)"
-        );
-        println!("{}", "-".repeat(60));
-
-        for (id, name, from, to, rating) in branches.iter().take(show_count) {
-            let status = if *rating < avg_rating * 0.5 {
-                " ⚠ LOW"
-            } else {
-                ""
-            };
+            // Show lowest-rated branches (potential bottlenecks)
+            let show_count = branches.len().min(20);
             println!(
-                "{:>6} {:>6} {:>6} {:>20} {:>12.1}{}",
-                id,
-                from,
-                to,
-                truncate(name, 20),
-                rating,
-                status
+                "Lowest-rated branches (top {} potential bottlenecks):",
+                show_count
             );
-        }
-
-        println!();
-        println!("Total: {} branches with thermal limits", branches.len());
-
-        // Identify potential critical paths
-        let low_rated: Vec<_> = branches
-            .iter()
-            .filter(|(_, _, _, _, r)| *r < avg_rating * 0.5)
-            .collect();
-        if !low_rated.is_empty() {
             println!();
             println!(
-                "⚠ {} branches have ratings < 50% of average ({:.1} MVA)",
-                low_rated.len(),
-                avg_rating * 0.5
+                "{:>6} {:>6} {:>6} {:>20} {:>12}",
+                "ID", "From", "To", "Name", "Rating (MVA)"
             );
-            println!("  These may become thermal bottlenecks under high load.");
+            println!("{}", "-".repeat(60));
+
+            for (id, name, from, to, rating) in branches.iter().take(show_count) {
+                let status = if *rating < avg_rating * 0.5 {
+                    " ⚠ LOW"
+                } else {
+                    ""
+                };
+                println!(
+                    "{:>6} {:>6} {:>6} {:>20} {:>12.1}{}",
+                    id,
+                    from,
+                    to,
+                    truncate(name, 20),
+                    rating,
+                    status
+                );
+            }
+
+            println!();
+            println!("Total: {} branches with thermal limits", branches.len());
+
+            // Identify potential critical paths
+            let low_rated: Vec<_> = branches
+                .iter()
+                .filter(|(_, _, _, _, r)| *r < avg_rating * 0.5)
+                .collect();
+            if !low_rated.is_empty() {
+                println!();
+                println!(
+                    "⚠ {} branches have ratings < 50% of average ({:.1} MVA)",
+                    low_rated.len(),
+                    avg_rating * 0.5
+                );
+                println!("  These may become thermal bottlenecks under high load.");
+            }
+        }
+        OutputFormat::Json => {
+            let thermal_info: Vec<ThermalInfo> = branches
+                .iter()
+                .map(|(id, name, from, to, rating)| ThermalInfo {
+                    id: *id,
+                    name: name.clone(),
+                    from_bus: *from,
+                    to_bus: *to,
+                    rating_mva: *rating,
+                })
+                .collect();
+            let json_data: Vec<serde_json::Value> = thermal_info
+                .iter()
+                .map(|t| serde_json::to_value(t).unwrap())
+                .collect();
+            write_json(&json_data, &mut std::io::stdout(), true)?;
+        }
+        OutputFormat::Csv => {
+            let thermal_info: Vec<ThermalInfo> = branches
+                .iter()
+                .map(|(id, name, from, to, rating)| ThermalInfo {
+                    id: *id,
+                    name: name.clone(),
+                    from_bus: *from,
+                    to_bus: *to,
+                    rating_mva: *rating,
+                })
+                .collect();
+            let json_data: Vec<serde_json::Value> = thermal_info
+                .iter()
+                .map(|t| serde_json::to_value(t).unwrap())
+                .collect();
+            write_csv_from_json(&json_data, &mut std::io::stdout())?;
+        }
+        OutputFormat::Jsonl => {
+            let thermal_info: Vec<ThermalInfo> = branches
+                .iter()
+                .map(|(id, name, from, to, rating)| ThermalInfo {
+                    id: *id,
+                    name: name.clone(),
+                    from_bus: *from,
+                    to_bus: *to,
+                    rating_mva: *rating,
+                })
+                .collect();
+            let json_data: Vec<serde_json::Value> = thermal_info
+                .iter()
+                .map(|t| serde_json::to_value(t).unwrap())
+                .collect();
+            write_jsonl(&json_data, &mut std::io::stdout())?;
         }
     }
 

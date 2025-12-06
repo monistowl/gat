@@ -3,6 +3,8 @@ use clap_complete::Shell;
 use gat_io::importers::Format;
 use std::path::PathBuf;
 
+use crate::common::OutputFormat;
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
@@ -299,9 +301,9 @@ pub enum InspectCommands {
         /// Filter by bus ID
         #[arg(long)]
         bus: Option<usize>,
-        /// Output format (table or json)
-        #[arg(short = 'f', long, default_value = "table")]
-        format: String,
+        /// Output format
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// List all branches with their endpoints and parameters
     Branches {
@@ -310,9 +312,9 @@ pub enum InspectCommands {
         /// Filter by rating less than threshold (MVA)
         #[arg(long)]
         rating_lt: Option<f64>,
-        /// Output format (table or json)
-        #[arg(short = 'f', long, default_value = "table")]
-        format: String,
+        /// Output format
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// Show power balance analysis (total generation capacity vs load)
     PowerBalance {
@@ -334,9 +336,9 @@ pub enum InspectCommands {
         /// Only show branches with rating below this threshold (MVA)
         #[arg(long)]
         threshold: Option<f64>,
-        /// Output format (table or json)
-        #[arg(short = 'f', long, default_value = "table")]
-        format: String,
+        /// Output format
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
 }
 
