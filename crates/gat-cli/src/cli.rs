@@ -299,6 +299,23 @@ pub enum InspectCommands {
         input: String,
     },
     /// List all generators with their bus assignments and limits
+    ///
+    /// # Examples
+    ///
+    /// Default table output:
+    /// ```sh
+    /// gat inspect generators grid.arrow
+    /// ```
+    ///
+    /// JSON format for piping:
+    /// ```sh
+    /// gat inspect generators grid.arrow --format json | jq '.[0]'
+    /// ```
+    ///
+    /// CSV format:
+    /// ```sh
+    /// gat inspect generators grid.arrow --format csv > generators.csv
+    /// ```
     Generators {
         /// Path to Arrow directory or importable file
         input: String,
@@ -675,6 +692,23 @@ pub enum PowerFlowCommands {
     /// Solves the linearized DC power flow equations (B'θ = P) and outputs branch flows
     /// to Parquet. Console output shows a rich summary with bus counts, generation/load
     /// totals, and branch flow statistics (range, max absolute flow).
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```sh
+    /// gat pf dc grid.arrow -o flows.parquet
+    /// ```
+    ///
+    /// With custom threads:
+    /// ```sh
+    /// gat pf dc grid.arrow -o flows.parquet -t 4
+    /// ```
+    ///
+    /// Output to stdout as JSON:
+    /// ```sh
+    /// gat pf dc grid.arrow -o - | jq '.[] | select(.flow_mw > 50)'
+    /// ```
     Dc {
         /// Path to the grid data file (Arrow format)
         grid_file: String,
@@ -1638,6 +1672,23 @@ pub enum OpfCommands {
     /// directly (no separate cost/limits CSV needed), supports all solver methods
     /// and warm-start strategies, and provides rich console output with optional
     /// JSON export.
+    ///
+    /// # Examples
+    ///
+    /// DC optimal power flow:
+    /// ```sh
+    /// gat opf run case9.m --method dc
+    /// ```
+    ///
+    /// SOCP relaxation with enhanced bounds:
+    /// ```sh
+    /// gat opf run case118.m --method socp --enhanced
+    /// ```
+    ///
+    /// AC-OPF with SOCP warm-start:
+    /// ```sh
+    /// gat opf run case300.m --method ac --warm-start socp
+    /// ```
     Run {
         /// Path to MATPOWER (.m) file or directory containing .m file
         input: String,
