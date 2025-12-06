@@ -109,7 +109,7 @@ const COMMANDS = {
   opf_ac: {
     name: "AC Optimal Power Flow",
     icon: "🎯",
-    description: "Full nonlinear AC OPF with L-BFGS solver",
+    description: "Full nonlinear AC OPF with L-BFGS or IPOPT solver",
     template: "gat opf ac",
     params: [
       { id: "input", label: "Input Grid File", type: "text", required: true, default: "grid.arrow" },
@@ -118,6 +118,22 @@ const COMMANDS = {
       { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "dispatch.parquet" },
       { id: "tol", label: "Tolerance", type: "number", flag: "--tol", default: "1e-6" },
       { id: "max-iter", label: "Max Iterations", type: "number", flag: "--max-iter", default: "100" }
+    ]
+  },
+  opf_run: {
+    name: "OPF (Unified)",
+    icon: "⚡",
+    description: "Swiss-army-knife OPF command with all methods",
+    template: "gat opf run",
+    params: [
+      { id: "input", label: "MATPOWER File", type: "text", required: true, default: "case14.m", help: ".m file or directory with case.m" },
+      { id: "method", label: "Method", type: "select", required: true, flag: "--method", options: ["economic", "dc", "socp", "ac"], help: "OPF solution method" },
+      { id: "solver", label: "AC Solver", type: "select", flag: "--solver", options: ["lbfgs", "ipopt"], help: "NLP solver for AC-OPF (default: lbfgs)" },
+      { id: "warm-start", label: "Warm-Start", type: "select", flag: "--warm-start", options: ["flat", "dc", "socp", "cascaded"], help: "Initial point strategy" },
+      { id: "enhanced", label: "Enhanced SOCP", type: "checkbox", flag: "--enhanced", help: "OBBT + QC envelopes for tighter relaxation" },
+      { id: "gpu", label: "GPU Acceleration", type: "checkbox", flag: "--gpu", help: "Enable GPU for supported operations" },
+      { id: "base-mva", label: "Base MVA", type: "number", flag: "--base-mva", default: "100.0", help: "System base (default: 100)" },
+      { id: "out", label: "Output JSON", type: "text", flag: "--out", default: "result.json", help: "Optional JSON output file" }
     ]
   },
   contingency: {
@@ -236,6 +252,22 @@ const COMMANDS = {
       { id: "gen-profile", label: "Generation Profile", type: "text", flag: "--gen-profile", default: "gen.parquet", help: "Generator availability" },
       { id: "out", label: "Output File", type: "text", required: true, flag: "--out", default: "reliability.parquet" },
       { id: "iterations", label: "Monte Carlo Iterations", type: "number", flag: "--iterations", default: "1000", help: "Number of simulations" }
+    ]
+  },
+  benchmark_pglib: {
+    name: "PGLib Benchmark",
+    icon: "🏆",
+    description: "Run OPF against 68 standard IEEE test cases",
+    template: "gat benchmark pglib",
+    params: [
+      { id: "pglib-dir", label: "PGLib Directory", type: "text", required: true, flag: "--pglib-dir", default: "pglib-opf/", help: "Directory containing PGLib .m files" },
+      { id: "out", label: "Output CSV", type: "text", required: true, flag: "--out", default: "benchmark_results.csv", help: "Results CSV path" },
+      { id: "method", label: "OPF Method", type: "select", required: true, flag: "--method", options: ["dc", "socp", "ac"], help: "OPF solution method" },
+      { id: "solver", label: "AC Solver", type: "select", flag: "--solver", options: ["lbfgs", "ipopt"], help: "NLP solver for AC-OPF" },
+      { id: "baseline", label: "Baseline CSV", type: "text", flag: "--baseline", help: "Reference objectives for gap calculation" },
+      { id: "case-filter", label: "Case Filter", type: "text", flag: "--case-filter", help: "Filter by name (e.g., 'case14', 'case118')" },
+      { id: "max-cases", label: "Max Cases", type: "number", flag: "--max-cases", default: "0", help: "Limit cases (0 = all)" },
+      { id: "gpu", label: "GPU Acceleration", type: "checkbox", flag: "--gpu", help: "Enable GPU for supported operations" }
     ]
   }
 };
@@ -406,6 +438,12 @@ function copyMultiline() {
             <p class="text-slate-500 text-xs">Nonlinear NLP</p>
           </button>
 
+          <button onclick="loadCommand('opf_run')" class="bg-slate-900/40 border border-orange-700/50 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">⚡</div>
+            <h3 class="text-sm font-bold text-orange-400 mb-1">OPF Run</h3>
+            <p class="text-slate-500 text-xs">Unified command</p>
+          </button>
+
           <button onclick="loadCommand('contingency')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
             <div class="text-2xl mb-2">🔍</div>
             <h3 class="text-sm font-bold text-white mb-1">N-1 Contingency</h3>
@@ -464,6 +502,12 @@ function copyMultiline() {
             <div class="text-2xl mb-2">📈</div>
             <h3 class="text-sm font-bold text-white mb-1">Reliability</h3>
             <p class="text-slate-500 text-xs">LOLE/EUE</p>
+          </button>
+
+          <button onclick="loadCommand('benchmark_pglib')" class="bg-slate-900/40 border border-slate-800 rounded-lg p-4 card-hover group text-left">
+            <div class="text-2xl mb-2">🏆</div>
+            <h3 class="text-sm font-bold text-white mb-1">PGLib Benchmark</h3>
+            <p class="text-slate-500 text-xs">68 IEEE cases</p>
           </button>
         </div>
       </div>

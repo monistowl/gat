@@ -10,7 +10,7 @@ GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-m
 
 <div class="grid-widget" data-network="ieee14" data-height="420" data-flow="true" data-lmp="true" data-legend="true" data-caption="Interactive: Click ⚡ to see power flow direction and loading. Click $ to visualize Locational Marginal Prices (LMPs) from OPF results."></div>
 
-> **Validated Performance**: GAT's SOCP solver achieves 100% convergence across all 67 PGLib-OPF benchmark cases.
+> **Validated Performance**: GAT's IPOPT AC-OPF solver achieves **<0.01% gap across all 68 PGLib-OPF benchmark cases**, matching reference objectives exactly.
 > See the [complete benchmark results](@/internals/benchmarks.md) for details.
 
 ## Choosing the Right Solver
@@ -62,7 +62,7 @@ GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-m
 - Full physics accuracy required
 - Regulatory compliance
 
-## Architecture Overview (v0.5.4)
+## Architecture Overview (v0.5.5)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods:
 
@@ -83,16 +83,24 @@ The IPOPT backend with analytical Jacobian and Hessian achieves exact agreement 
 | case14_ieee | $2,178.08/hr | $2,178.10/hr | **-0.00%** |
 | case118_ieee | $97,213.61/hr | $97,214.00/hr | **-0.00%** |
 
-The SOCP solver has been validated against all 67 PGLib-OPF cases:
+The SOCP solver has been validated against all 68 PGLib-OPF cases:
 
 | Metric | Value |
 |--------|-------|
-| Cases Tested | 67 |
+| Cases Tested | 68 |
 | Convergence Rate | 100% |
 | Largest System | 78,484 buses |
 | Median Objective Gap | < 1% |
 
 → [View complete benchmark results](@/internals/benchmarks.md)
+
+### What's New in 0.5.5
+
+- **Constraint scaling / row equilibration** for DC-OPF LP conditioning
+- **Zero-reactance epsilon handling** (1e-6) for bus tie transformers
+- **Unit-aware newtype wrappers** (Megawatts, Kilovolts, PerUnit) for compile-time unit safety
+- **IPOPT timing fix** with thread-local intermediate callback for accurate iteration reporting
+- **Enhanced benchmark appendix** with full PGLib DC-OPF and SOCP results
 
 ### What's New in 0.5.4
 
@@ -609,7 +617,7 @@ gat batch opf grid.arrow \
 
 ## Related Documentation
 
-* **Benchmarks**: [Complete PGLib-OPF validation results](@/internals/benchmarks.md) — 67 cases, 100% convergence
+* **Benchmarks**: [Complete PGLib-OPF validation results](@/internals/benchmarks.md) — 68 cases, 100% convergence
 * **Power Flow**: [Power Flow Guide](@/guide/pf.md)
 * **State Estimation**: [State Estimation Guide](@/guide/se.md)
 * **Reliability**: [Reliability Guide](@/guide/reliability.md)
