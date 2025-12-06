@@ -66,18 +66,18 @@ gat-cli, gat-tui, gat-gui
 - **HashMap pre-allocation**: Use `with_capacity()` when size is known
 - **Bus lookup caching**: In Monte Carlo, cache `BusId → NodeIndex` maps across scenarios
 - **Parallel scenarios**: Use rayon for embarrassingly parallel scenario analysis
-- **Arena allocation**: Monte Carlo uses `ArenaContext` (bumpalo) for O(1) bulk deallocation between scenarios
+- **Arena allocation**: Multiple algorithms use `ArenaContext` (bumpalo) for O(1) bulk deallocation
 
 ### Arena Allocation (v0.5.0+)
 
-The Monte Carlo reliability analysis uses arena allocation to minimize allocation overhead in the hot loop:
+GAT uses arena allocation across parallel algorithms to minimize allocation overhead in hot loops:
 
 ```rust
 use gat_algo::ArenaContext;
 
 // Each parallel task gets its own arena
 let results = scenarios.par_iter().map_init(
-    || ArenaContext::new(),
+    ArenaContext::new,
     |ctx, scenario| {
         // Arena-backed collections for BFS traversal
         let mut visited = ctx.alloc_hashset::<BusId>();
@@ -90,6 +90,14 @@ let results = scenarios.par_iter().map_init(
     }
 ).collect();
 ```
+
+**Algorithms using arena allocation:**
+
+| Algorithm | Method | Impact |
+|-----------|--------|--------|
+| Monte Carlo Reliability | `compute_reliability()` | ~80k-160k allocator calls → O(threads) resets |
+| N-k Contingency Evaluation | `evaluate_all_with_arena()` | ~120k allocator calls → O(threads) resets |
+| CANOS Multi-Area | `compute_multiarea_reliability_parallel()` | ~4k allocator calls → O(threads) resets |
 
 Key benefits:
 - **O(1) reset**: `ctx.reset()` deallocates all arena memory in constant time
