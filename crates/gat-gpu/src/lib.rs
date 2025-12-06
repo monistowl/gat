@@ -89,7 +89,7 @@ pub mod shaders;
 
 pub use buffers::GpuBuffer;
 pub use context::GpuContext;
-pub use dispatch::{Backend, ComputeDispatch, DispatchResult, ExecutionMode};
+pub use dispatch::{Backend, ComputeDispatch, DispatchResult, ExecutionMode, GpuPrecision};
 pub use kernels::*;
 
 /// Check if GPU acceleration is available
