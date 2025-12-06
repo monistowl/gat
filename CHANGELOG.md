@@ -7,6 +7,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+#### CLI Ergonomics Enhancement
+
+- **Standardized output flags** across all commands
+  - `-o, --out` for file outputs (with `--output` alias for backwards compatibility)
+  - `-d, --out-dir` for directory outputs (with `--output-dir` alias)
+
+- **New short aliases** for common flags
+  - `-f` for `--format`
+  - `-t` for `--threads`
+  - `-m` for `--method`
+
+- **Typed enums** replace string flags for better validation and tab completion
+  - `OutputFormat`: table, json, jsonl, csv
+  - `OpfMethod`: economic, dc, socp, ac
+  - `FlowMode`: dc, ac
+  - `RatingType`: rate-a, rate-b, rate-c
+
+- **New global flags**
+  - `--base-mva` for per-unit system base
+  - `--threads` available globally
+
+- **New command-specific flags**
+  - `--slack-bus` for power flow commands
+  - `--rating-type` for contingency analysis
+  - `--show-iterations` for solver verbosity
+
+- **Stdout support** for piping
+  - `-o -` writes JSON to stdout (power flow, inspect commands)
+  - `--format jsonl` for streaming JSON Lines output
+
+#### Typed Unit System for Core Data Structures
+
+- **`gat-core` structs now use typed unit wrappers** instead of raw `f64` with unit suffixes
+  - `Gen`: `active_power: Megawatts`, `reactive_power: Megavars`, `pmin/pmax: Megawatts`, `qmin/qmax: Megavars`, `mbase: MegavoltAmperes`, `voltage_setpoint: PerUnit`
+  - `Load`: `active_power: Megawatts`, `reactive_power: Megavars`
+  - `Branch`: `charging_b: PerUnit`, `phase_shift: Radians`, `s_max: MegavoltAmperes`, `rating_a/b/c: MegavoltAmperes`, `angle_min/max: Radians`
+  - `Bus`: Already used typed units (`voltage_pu: PerUnit`, `base_kv: Kilovolts`, etc.)
+
+- **Type-safe operations** prevent mixing incompatible units at compile time
+  - Cannot add `Megawatts` to `Megavars` - compiler error
+  - Cannot assign `Radians` to field expecting `Degrees` - compiler error
+  - Conversions are explicit: `angle.to_degrees()`, `power.value()`
+
+- **Zero runtime overhead** via `#[repr(transparent)]` newtype wrappers
+  - Same memory layout as `f64`
+  - Compiler optimizes away all wrapper overhead
+
+- **Reading values** now requires `.value()` method:
+  ```rust
+  // Before: let p = gen.p_mw;
+  // After:  let p = gen.active_power.value();
+  ```
+
+- **Writing values** uses typed constructors:
+  ```rust
+  // Before: gen.p_mw = 100.0;
+  // After:  gen.active_power = Megawatts(100.0);
+  ```
+
+### Migration Notes
+
+- **Field renames** (old → new):
+  - `p_mw` → `active_power` (type: `Megawatts`)
+  - `q_mvar` → `reactive_power` (type: `Megavars`)
+  - `pmin_mw`/`pmax_mw` → `pmin`/`pmax` (type: `Megawatts`)
+  - `qmin_mvar`/`qmax_mvar` → `qmin`/`qmax` (type: `Megavars`)
+  - `charging_b_pu` → `charging_b` (type: `PerUnit`)
+  - `phase_shift_rad` → `phase_shift` (type: `Radians`)
+  - `s_max_mva` → `s_max` (type: `MegavoltAmperes`)
+  - `rating_a_mva`/`rating_b_mva`/`rating_c_mva` → `rating_a`/`rating_b`/`rating_c` (type: `MegavoltAmperes`)
+  - `angle_min_rad`/`angle_max_rad` → `angle_min`/`angle_max` (type: `Radians`)
+  - `mbase_mva` → `mbase` (type: `MegavoltAmperes`)
+  - `voltage_setpoint_pu` → `voltage_setpoint` (type: `PerUnit`)
+
+- **External formats unchanged**: Arrow/Parquet column names retain explicit unit suffixes (`active_power_mw`, etc.) for interoperability
+
+---
+
 ## [0.5.0] - 2025-11-28
 
 ### Added
@@ -150,7 +232,7 @@ Benefits:
 - **Comprehensive transformer modeling**
   - Off-nominal tap ratios with τ² voltage transformation
   - Line charging via π-model (half-shunt susceptance at each end)
-  - Thermal limits from `s_max_mva` or `rating_a_mva`
+  - Thermal limits from `s_max` or `rating_a`
 
 - **LMP and dual variable extraction**
   - Locational Marginal Prices from power balance constraint duals
@@ -193,9 +275,9 @@ Benefits:
 
 ### Fixed
 
-- **Dead code warnings** for `base_kv` and `phase_shift_rad` fields
+- **Dead code warnings** for `base_kv` and `phase_shift` fields
   - `base_kv` now used in `compute_system_base_kv()` for multi-voltage scaling
-  - `phase_shift_rad` now applied in angle-coupled voltage drop equations
+  - `phase_shift` now applied in angle-coupled voltage drop equations
 
 ---
 
