@@ -378,7 +378,7 @@ pub enum ScenariosCommands {
         #[arg(long, value_hint = ValueHint::FilePath)]
         grid_file: Option<String>,
         /// Directory where scenario grids and manifest are written
-        #[arg(short, long, value_hint = ValueHint::DirPath)]
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir", value_hint = ValueHint::DirPath)]
         out_dir: String,
         /// Drop outaged components from the exported grids
         #[arg(long, default_value_t = true)]
@@ -818,8 +818,8 @@ pub enum DistCommands {
         #[arg(long)]
         m: String,
         /// Output directory for dist tables
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Optional feeder identifier to annotate the tables
         #[arg(long)]
         feeder_id: Option<String>,
@@ -869,7 +869,7 @@ pub enum DistCommands {
         #[arg(long)]
         grid_file: String,
         /// Output directory for artifacts
-        #[arg(long)]
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
         out_dir: String,
         /// Bus IDs to target (comma-separated or repeated)
         #[arg(long, value_delimiter = ',')]
@@ -927,8 +927,8 @@ pub enum DermsCommands {
         #[arg(long)]
         price_series: String,
         /// Output directory for scans
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Number of scenarios to sample
         #[arg(long, default_value = "16")]
         scenarios: usize,
@@ -949,8 +949,8 @@ pub enum AdmsCommands {
         #[arg(long)]
         reliability: String,
         /// Output directory for FLISR artifacts
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Number of scenarios to sample
         #[arg(long, default_value = "3")]
         scenarios: usize,
@@ -970,8 +970,8 @@ pub enum AdmsCommands {
         #[arg(long)]
         grid_file: String,
         /// Output directory for day-type artifacts
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Day types (comma-separated)
         #[arg(long, default_value = "low,high")]
         day_types: String,
@@ -991,8 +991,8 @@ pub enum AdmsCommands {
         #[arg(long)]
         reliability: String,
         /// Output directory
-        #[arg(long)]
-        output_dir: String,
+        #[arg(short = 'd', long = "out-dir", visible_alias = "output-dir")]
+        out_dir: String,
         /// Sample count
         #[arg(long, default_value = "20")]
         samples: usize,

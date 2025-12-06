@@ -11,7 +11,7 @@ pub fn handle(command: &AdmsCommands) -> Result<()> {
         AdmsCommands::FlisrSim {
             grid_file,
             reliability,
-            output_dir,
+            out_dir,
             scenarios,
             solver,
             tol,
@@ -21,19 +21,19 @@ pub fn handle(command: &AdmsCommands) -> Result<()> {
             let res = flisr_sim(
                 Path::new(grid_file),
                 Some(Path::new(reliability)),
-                Path::new(output_dir),
+                Path::new(out_dir),
                 *scenarios,
                 solver.parse()?,
                 *tol,
                 *max_iter,
             );
             record_run_timed(
-                output_dir,
+                out_dir,
                 "adms flisr-sim",
                 &[
                     ("grid_file", grid_file),
                     ("reliability", reliability),
-                    ("output_dir", output_dir),
+                    ("out_dir", out_dir),
                     ("scenarios", &scenarios.to_string()),
                     ("solver", solver.as_str()),
                     ("tol", &tol.to_string()),
@@ -46,7 +46,7 @@ pub fn handle(command: &AdmsCommands) -> Result<()> {
         }
         AdmsCommands::VvoPlan {
             grid_file,
-            output_dir,
+            out_dir,
             day_types,
             solver,
             tol,
@@ -60,18 +60,18 @@ pub fn handle(command: &AdmsCommands) -> Result<()> {
                 .collect::<Vec<_>>();
             let res = vvo_plan(
                 Path::new(grid_file),
-                Path::new(output_dir),
+                Path::new(out_dir),
                 &parsed_days,
                 solver.parse()?,
                 *tol,
                 *max_iter,
             );
             record_run_timed(
-                output_dir,
+                out_dir,
                 "adms vvo-plan",
                 &[
                     ("grid_file", grid_file),
-                    ("output_dir", output_dir),
+                    ("out_dir", out_dir),
                     ("day_types", day_types),
                     ("solver", solver.as_str()),
                     ("tol", &tol.to_string()),
@@ -84,24 +84,24 @@ pub fn handle(command: &AdmsCommands) -> Result<()> {
         }
         AdmsCommands::OutageMc {
             reliability,
-            output_dir,
+            out_dir,
             samples,
             seed,
         } => {
             let start = Instant::now();
             let res = outage_mc(
                 Path::new(reliability),
-                Path::new(output_dir),
+                Path::new(out_dir),
                 *samples,
                 *seed,
             );
             let seed_str = seed.map(|v| v.to_string());
             record_run_timed(
-                output_dir,
+                out_dir,
                 "adms outage-mc",
                 &[
                     ("reliability", reliability),
-                    ("output_dir", output_dir),
+                    ("out_dir", out_dir),
                     ("samples", &samples.to_string()),
                     ("seed", seed_str.as_deref().unwrap_or("none")),
                 ],

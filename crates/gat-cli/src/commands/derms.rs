@@ -75,30 +75,30 @@ pub fn handle(command: &DermsCommands) -> Result<()> {
         DermsCommands::StressTest {
             assets,
             price_series,
-            output_dir,
+            out_dir,
             scenarios,
             seed,
         } => {
             info!(
                 "Running DERMS stress-test ({scenarios} scenarios) -> {}",
-                output_dir
+                out_dir
             );
             let start = Instant::now();
             let res = stress_test(
                 Path::new(assets),
                 Path::new(price_series),
-                Path::new(output_dir),
+                Path::new(out_dir),
                 *scenarios,
                 *seed,
             );
             let seed_str = seed.map(|v| v.to_string());
             record_run_timed(
-                output_dir,
+                out_dir,
                 "derms stress-test",
                 &[
                     ("assets", assets),
                     ("price_series", price_series),
-                    ("output_dir", output_dir),
+                    ("out_dir", out_dir),
                     ("scenarios", &scenarios.to_string()),
                     ("seed", seed_str.as_deref().unwrap_or("none")),
                 ],
