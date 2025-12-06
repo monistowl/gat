@@ -1038,7 +1038,8 @@ impl AcOpfProblem {
     /// Length = 2 * number of branches with thermal limits.
     pub fn thermal_constraints(&self, x: &[f64]) -> Vec<f64> {
         let (v, theta) = self.extract_v_theta(x);
-        let mut h = Vec::new();
+        // Pre-allocate: 2 constraints per thermally-limited branch (from + to sides)
+        let mut h = Vec::with_capacity(2 * self.n_thermal_constrained_branches());
 
         for branch in &self.branches {
             // Skip branches without thermal limits

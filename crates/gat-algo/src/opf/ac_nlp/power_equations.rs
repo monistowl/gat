@@ -330,9 +330,12 @@ impl PowerEquations {
                     // The θ_i appears in EVERY term of the sum, so we must sum
                     // the partial derivatives over all j.
 
-                    // Compute sums for ∂P/∂θ and ∂Q/∂θ
-                    let mut sum_p = 0.0;
-                    let mut sum_q = 0.0;
+                    // Fused loop: compute all four diagonal sums in a single pass
+                    // to avoid redundant trig computations (50% fewer cos/sin calls)
+                    let mut sum_p = 0.0; // for ∂P/∂θ
+                    let mut sum_q = 0.0; // for ∂Q/∂θ
+                    let mut sum_pv = 0.0; // for ∂P/∂V
+                    let mut sum_qv = 0.0; // for ∂Q/∂V
 
                     for k in 0..n {
                         if k != i {
@@ -355,6 +358,12 @@ impl PowerEquations {
 
                             // ∂(Q term)/∂θ_i = V_k · (G_ik·cos(θ_ik) + B_ik·sin(θ_ik))
                             sum_q += vk * (g_ik * cos_ik + b_ik * sin_ik);
+
+                            // ∂P/∂V sum: V_k · (G_ik·cos(θ_ik) + B_ik·sin(θ_ik))
+                            sum_pv += vk * (g_ik * cos_ik + b_ik * sin_ik);
+
+                            // ∂Q/∂V sum: V_k · (G_ik·sin(θ_ik) - B_ik·cos(θ_ik))
+                            sum_qv += vk * (g_ik * sin_ik - b_ik * cos_ik);
                         }
                     }
 
@@ -363,26 +372,6 @@ impl PowerEquations {
 
                     // J₃[i,i] = ∂Q_i/∂θ_i = V_i · Σ_{k≠i} V_k · (G_ik·cos + B_ik·sin)
                     dq_dtheta[idx] = vi * sum_q;
-
-                    // Compute sums for ∂P/∂V and ∂Q/∂V
-                    let mut sum_pv = 0.0;
-                    let mut sum_qv = 0.0;
-
-                    for k in 0..n {
-                        if k != i {
-                            let y_ik = ybus.get(i, k);
-
-                            // Skip zero entries for sparsity
-                            if y_ik.re.abs() < 1e-15 && y_ik.im.abs() < 1e-15 {
-                                continue;
-                            }
-
-                            let vk = v[k];
-                            let theta_ik = theta_i - theta[k];
-                            sum_pv += vk * (y_ik.re * theta_ik.cos() + y_ik.im * theta_ik.sin());
-                            sum_qv += vk * (y_ik.re * theta_ik.sin() - y_ik.im * theta_ik.cos());
-                        }
-                    }
 
                     // J₂[i,i] = ∂P_i/∂V_i = 2·V_i·G_ii + Σ_{k≠i}...
                     // The 2·V_i·G_ii comes from ∂/∂V_i (V_i² · G_ii) = 2·V_i·G_ii

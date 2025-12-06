@@ -76,8 +76,18 @@ pub fn hessian_sparsity(problem: &AcOpfProblem) -> (Vec<usize>, Vec<usize>) {
     let n_gen = problem.n_gen;
     let _n_var = problem.n_var;
 
-    let mut rows = Vec::new();
-    let mut cols = Vec::new();
+    // Pre-allocate based on known sparsity structure:
+    // - V-V block: n_bus * (n_bus + 1) / 2 (lower triangular)
+    // - θ-V block: n_bus * n_bus (where row >= col)
+    // - θ-θ block: n_bus * (n_bus + 1) / 2 (lower triangular)
+    // - P_g diagonal: n_gen
+    // Note: Thermal constraint entries overlap with dense pattern above
+    let vv_nnz = n_bus * (n_bus + 1) / 2;
+    let tv_nnz = n_bus * n_bus; // conservative estimate
+    let tt_nnz = n_bus * (n_bus + 1) / 2;
+    let nnz_estimate = vv_nnz + tv_nnz + tt_nnz + n_gen;
+    let mut rows = Vec::with_capacity(nnz_estimate);
+    let mut cols = Vec::with_capacity(nnz_estimate);
 
     // ========================================================================
     // BLOCK 1: V-V interactions (from power balance Hessians)
@@ -411,12 +421,9 @@ fn compute_thermal_hessian(
 
             // Skip if multiplier is zero (constraint not active)
             if lambda_from.abs() > 1e-12 {
-                // Get branch flows and gradients
-                let (p, q) = branch_flow_from(branch, vi, vj, theta_i, theta_j);
-                let dp = branch_grad_p_from(branch, vi, vj, theta_i, theta_j);
-                let dq = branch_grad_q_from(branch, vi, vj, theta_i, theta_j);
-                let d2p = branch_hess_p_from(branch, vi, vj, theta_i, theta_j);
-                let d2q = branch_hess_q_from(branch, vi, vj, theta_i, theta_j);
+                // Get all branch derivatives in one fused call (5x fewer trig computations)
+                let ((p, q), dp, dq, d2p, d2q) =
+                    branch_derivs_from(branch, vi, vj, theta_i, theta_j);
 
                 // Add contributions to Hessian blocks
                 add_thermal_hessian_contributions(
@@ -441,11 +448,9 @@ fn compute_thermal_hessian(
             lambda_idx += 1;
 
             if lambda_to.abs() > 1e-12 {
-                let (p, q) = branch_flow_to(branch, vi, vj, theta_i, theta_j);
-                let dp = branch_grad_p_to(branch, vi, vj, theta_i, theta_j);
-                let dq = branch_grad_q_to(branch, vi, vj, theta_i, theta_j);
-                let d2p = branch_hess_p_to(branch, vi, vj, theta_i, theta_j);
-                let d2q = branch_hess_q_to(branch, vi, vj, theta_i, theta_j);
+                // Get all branch derivatives in one fused call (5x fewer trig computations)
+                let ((p, q), dp, dq, d2p, d2q) =
+                    branch_derivs_to(branch, vi, vj, theta_i, theta_j);
 
                 add_thermal_hessian_contributions(
                     lambda_to, p, q, &dp, &dq, &d2p, &d2q, i, j, n_bus, vals,
@@ -548,15 +553,26 @@ fn add_thermal_hessian_contributions(
 // ============================================================================
 // BRANCH FLOW FUNCTIONS FOR HESSIAN COMPUTATION
 // ============================================================================
+//
+// OPTIMIZATION: Fused functions compute all derivatives in a single pass,
+// sharing intermediate values (z_sq, g, b, a, sin_d, cos_d) that would
+// otherwise be recomputed 5 times per branch side.
 
-/// Branch flow (from side) - same as jacobian.rs
-fn branch_flow_from(
+/// All branch derivatives (from side) - fused computation.
+///
+/// Returns `(flow, grad_p, grad_q, hess_p, hess_q)` in one pass, avoiding
+/// redundant computation of branch parameters and trig functions.
+///
+/// This replaces 5 separate function calls that each computed the same
+/// intermediate values (z_sq, g, b, a, sin_d, cos_d).
+fn branch_derivs_from(
     branch: &BranchData,
     vi: f64,
     vj: f64,
     theta_i: f64,
     theta_j: f64,
-) -> (f64, f64) {
+) -> ((f64, f64), [f64; 4], [f64; 4], [f64; 10], [f64; 10]) {
+    // Compute branch parameters ONCE
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
@@ -564,338 +580,176 @@ fn branch_flow_from(
     let a_sq = a * a;
     let bc_half = branch.b_charging / 2.0;
 
+    // Compute trig functions ONCE
     let theta_diff = theta_i - theta_j - branch.shift;
     let (sin_d, cos_d) = theta_diff.sin_cos();
 
-    let p = (vi * vi / a_sq) * g - (vi * vj / a) * (g * cos_d + b * sin_d);
-    let q = -(vi * vi / a_sq) * (b + bc_half) - (vi * vj / a) * (g * sin_d - b * cos_d);
-    (p, q)
-}
+    // Pre-compute common subexpressions
+    let g_cos_b_sin = g * cos_d + b * sin_d;
+    let g_sin_b_cos = g * sin_d - b * cos_d;
+    let b_cos_g_sin = b * cos_d - g * sin_d; // = -g_sin_b_cos
+    let vi_vj_a = vi * vj / a;
+    let vi_a = vi / a;
+    let vj_a = vj / a;
 
-/// Branch flow (to side)
-fn branch_flow_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> (f64, f64) {
-    let z_sq = branch.r * branch.r + branch.x * branch.x;
-    let g = branch.r / z_sq;
-    let b = -branch.x / z_sq;
-    let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
-    let bc_half = branch.b_charging / 2.0;
+    // ========================================================================
+    // FLOW (P, Q)
+    // ========================================================================
+    let p = (vi * vi / a_sq) * g - vi_vj_a * g_cos_b_sin;
+    let q = -(vi * vi / a_sq) * (b + bc_half) - vi_vj_a * g_sin_b_cos;
 
-    let theta_diff = theta_j - theta_i + branch.shift;
-    let (sin_d, cos_d) = theta_diff.sin_cos();
+    // ========================================================================
+    // GRADIENT OF P: [∂P/∂Vi, ∂P/∂Vj, ∂P/∂θi, ∂P/∂θj]
+    // ========================================================================
+    let dp_dvi = (2.0 * vi / a_sq) * g - vj_a * g_cos_b_sin;
+    let dp_dvj = -vi_a * g_cos_b_sin;
+    let dp_dti = vi_vj_a * g_sin_b_cos;
+    let dp_dtj = -vi_vj_a * g_sin_b_cos;
 
-    let p = vj * vj * g - (vi * vj / a) * (g * cos_d + b * sin_d);
-    let q = -vj * vj * (b + bc_half) - (vi * vj / a) * (g * sin_d - b * cos_d);
-    (p, q)
-}
+    // ========================================================================
+    // GRADIENT OF Q: [∂Q/∂Vi, ∂Q/∂Vj, ∂Q/∂θi, ∂Q/∂θj]
+    // ========================================================================
+    let dq_dvi = -(2.0 * vi / a_sq) * (b + bc_half) - vj_a * g_sin_b_cos;
+    let dq_dvj = -vi_a * g_sin_b_cos;
+    let dq_dti = -vi_vj_a * g_cos_b_sin;
+    let dq_dtj = vi_vj_a * g_cos_b_sin;
 
-/// Gradient of P (from side): [∂P/∂Vi, ∂P/∂Vj, ∂P/∂θi, ∂P/∂θj]
-fn branch_grad_p_from(
-    branch: &BranchData,
-    vi: f64,
-    vj: f64,
-    theta_i: f64,
-    theta_j: f64,
-) -> [f64; 4] {
-    let z_sq = branch.r * branch.r + branch.x * branch.x;
-    let g = branch.r / z_sq;
-    let b = -branch.x / z_sq;
-    let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
-    let a_sq = a * a;
-
-    let theta_diff = theta_i - theta_j - branch.shift;
-    let (sin_d, cos_d) = theta_diff.sin_cos();
-
-    let dp_dvi = (2.0 * vi / a_sq) * g - (vj / a) * (g * cos_d + b * sin_d);
-    let dp_dvj = -(vi / a) * (g * cos_d + b * sin_d);
-    let dp_dti = (vi * vj / a) * (g * sin_d - b * cos_d);
-    let dp_dtj = -(vi * vj / a) * (g * sin_d - b * cos_d);
-
-    [dp_dvi, dp_dvj, dp_dti, dp_dtj]
-}
-
-/// Gradient of Q (from side)
-fn branch_grad_q_from(
-    branch: &BranchData,
-    vi: f64,
-    vj: f64,
-    theta_i: f64,
-    theta_j: f64,
-) -> [f64; 4] {
-    let z_sq = branch.r * branch.r + branch.x * branch.x;
-    let g = branch.r / z_sq;
-    let b = -branch.x / z_sq;
-    let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
-    let a_sq = a * a;
-    let bc_half = branch.b_charging / 2.0;
-
-    let theta_diff = theta_i - theta_j - branch.shift;
-    let (sin_d, cos_d) = theta_diff.sin_cos();
-
-    let dq_dvi = -(2.0 * vi / a_sq) * (b + bc_half) - (vj / a) * (g * sin_d - b * cos_d);
-    let dq_dvj = -(vi / a) * (g * sin_d - b * cos_d);
-    let dq_dti = -(vi * vj / a) * (g * cos_d + b * sin_d);
-    let dq_dtj = (vi * vj / a) * (g * cos_d + b * sin_d);
-
-    [dq_dvi, dq_dvj, dq_dti, dq_dtj]
-}
-
-/// Gradient of P (to side)
-fn branch_grad_p_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> [f64; 4] {
-    let z_sq = branch.r * branch.r + branch.x * branch.x;
-    let g = branch.r / z_sq;
-    let b = -branch.x / z_sq;
-    let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
-
-    let theta_diff = theta_j - theta_i + branch.shift;
-    let (sin_d, cos_d) = theta_diff.sin_cos();
-
-    let dp_dvi = -(vj / a) * (g * cos_d + b * sin_d);
-    let dp_dvj = 2.0 * vj * g - (vi / a) * (g * cos_d + b * sin_d);
-    let dp_dti = (vi * vj / a) * (g * sin_d - b * cos_d);
-    let dp_dtj = -(vi * vj / a) * (g * sin_d - b * cos_d);
-
-    [dp_dvi, dp_dvj, dp_dti, dp_dtj]
-}
-
-/// Gradient of Q (to side)
-fn branch_grad_q_to(branch: &BranchData, vi: f64, vj: f64, theta_i: f64, theta_j: f64) -> [f64; 4] {
-    let z_sq = branch.r * branch.r + branch.x * branch.x;
-    let g = branch.r / z_sq;
-    let b = -branch.x / z_sq;
-    let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
-    let bc_half = branch.b_charging / 2.0;
-
-    let theta_diff = theta_j - theta_i + branch.shift;
-    let (sin_d, cos_d) = theta_diff.sin_cos();
-
-    let dq_dvi = -(vj / a) * (g * sin_d - b * cos_d);
-    let dq_dvj = -2.0 * vj * (b + bc_half) - (vi / a) * (g * sin_d - b * cos_d);
-    let dq_dti = (vi * vj / a) * (g * cos_d + b * sin_d);
-    let dq_dtj = -(vi * vj / a) * (g * cos_d + b * sin_d);
-
-    [dq_dvi, dq_dvj, dq_dti, dq_dtj]
-}
-
-/// Hessian of P (from side) - lower triangular
-/// Returns [∂²P/∂Vi², ∂²P/∂Vj∂Vi, ∂²P/∂Vj², ∂²P/∂θi∂Vi, ∂²P/∂θi∂Vj, ∂²P/∂θi²,
-///          ∂²P/∂θj∂Vi, ∂²P/∂θj∂Vj, ∂²P/∂θj∂θi, ∂²P/∂θj²]
-fn branch_hess_p_from(
-    branch: &BranchData,
-    vi: f64,
-    vj: f64,
-    theta_i: f64,
-    theta_j: f64,
-) -> [f64; 10] {
-    let z_sq = branch.r * branch.r + branch.x * branch.x;
-    let g = branch.r / z_sq;
-    let b = -branch.x / z_sq;
-    let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
-    let a_sq = a * a;
-
-    let theta_diff = theta_i - theta_j - branch.shift;
-    let (sin_d, cos_d) = theta_diff.sin_cos();
-
-    // P_ij = (Vi²/a²)·g - (Vi·Vj/a)·(g·cos + b·sin)
-
-    // ∂²P/∂Vi² = (2/a²)·g
+    // ========================================================================
+    // HESSIAN OF P (lower triangular)
+    // ========================================================================
     let d2p_vi_vi = (2.0 / a_sq) * g;
-
-    // ∂²P/∂Vj∂Vi = -(1/a)·(g·cos + b·sin)
-    let d2p_vj_vi = -(1.0 / a) * (g * cos_d + b * sin_d);
-
-    // ∂²P/∂Vj² = 0
+    let d2p_vj_vi = -(1.0 / a) * g_cos_b_sin;
     let d2p_vj_vj = 0.0;
+    let d2p_ti_vi = vj_a * g_sin_b_cos;
+    let d2p_ti_vj = vi_a * g_sin_b_cos;
+    let d2p_ti_ti = vi_vj_a * g_cos_b_sin;
+    let d2p_tj_vi = -vj_a * g_sin_b_cos;
+    let d2p_tj_vj = -vi_a * g_sin_b_cos;
+    let d2p_tj_ti = -vi_vj_a * g_cos_b_sin;
+    let d2p_tj_tj = vi_vj_a * g_cos_b_sin;
 
-    // ∂²P/∂θi∂Vi = (Vj/a)·(g·sin - b·cos)
-    let d2p_ti_vi = (vj / a) * (g * sin_d - b * cos_d);
-
-    // ∂²P/∂θi∂Vj = (Vi/a)·(g·sin - b·cos)
-    let d2p_ti_vj = (vi / a) * (g * sin_d - b * cos_d);
-
-    // ∂²P/∂θi² = (Vi·Vj/a)·(g·cos + b·sin)
-    let d2p_ti_ti = (vi * vj / a) * (g * cos_d + b * sin_d);
-
-    // ∂²P/∂θj∂Vi = -(Vj/a)·(g·sin - b·cos)
-    let d2p_tj_vi = -(vj / a) * (g * sin_d - b * cos_d);
-
-    // ∂²P/∂θj∂Vj = -(Vi/a)·(g·sin - b·cos)
-    let d2p_tj_vj = -(vi / a) * (g * sin_d - b * cos_d);
-
-    // ∂²P/∂θj∂θi = -(Vi·Vj/a)·(g·cos + b·sin)
-    let d2p_tj_ti = -(vi * vj / a) * (g * cos_d + b * sin_d);
-
-    // ∂²P/∂θj² = (Vi·Vj/a)·(g·cos + b·sin)
-    let d2p_tj_tj = (vi * vj / a) * (g * cos_d + b * sin_d);
-
-    [
-        d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi, d2p_tj_vj,
-        d2p_tj_ti, d2p_tj_tj,
-    ]
-}
-
-/// Hessian of Q (from side) - lower triangular
-fn branch_hess_q_from(
-    branch: &BranchData,
-    vi: f64,
-    vj: f64,
-    theta_i: f64,
-    theta_j: f64,
-) -> [f64; 10] {
-    let z_sq = branch.r * branch.r + branch.x * branch.x;
-    let g = branch.r / z_sq;
-    let b = -branch.x / z_sq;
-    let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
-    let a_sq = a * a;
-    let bc_half = branch.b_charging / 2.0;
-
-    let theta_diff = theta_i - theta_j - branch.shift;
-    let (sin_d, cos_d) = theta_diff.sin_cos();
-
-    // Q_ij = -(Vi²/a²)·(b + bc/2) - (Vi·Vj/a)·(g·sin - b·cos)
-
-    // ∂²Q/∂Vi² = -(2/a²)·(b + bc/2)
+    // ========================================================================
+    // HESSIAN OF Q (lower triangular)
+    // ========================================================================
     let d2q_vi_vi = -(2.0 / a_sq) * (b + bc_half);
-
-    // ∂²Q/∂Vj∂Vi = -(1/a)·(g·sin - b·cos)
-    let d2q_vj_vi = -(1.0 / a) * (g * sin_d - b * cos_d);
-
-    // ∂²Q/∂Vj² = 0
+    let d2q_vj_vi = -(1.0 / a) * g_sin_b_cos;
     let d2q_vj_vj = 0.0;
+    let d2q_ti_vi = -vj_a * g_cos_b_sin;
+    let d2q_ti_vj = -vi_a * g_cos_b_sin;
+    let d2q_ti_ti = vi_vj_a * b_cos_g_sin;
+    let d2q_tj_vi = vj_a * g_cos_b_sin;
+    let d2q_tj_vj = vi_a * g_cos_b_sin;
+    let d2q_tj_ti = -vi_vj_a * b_cos_g_sin;
+    let d2q_tj_tj = vi_vj_a * b_cos_g_sin;
 
-    // ∂²Q/∂θi∂Vi = -(Vj/a)·(g·cos + b·sin)
-    let d2q_ti_vi = -(vj / a) * (g * cos_d + b * sin_d);
-
-    // ∂²Q/∂θi∂Vj = -(Vi/a)·(g·cos + b·sin)
-    let d2q_ti_vj = -(vi / a) * (g * cos_d + b * sin_d);
-
-    // ∂²Q/∂θi² = -(Vi·Vj/a)·(g·sin - b·cos) = (Vi·Vj/a)·(b·cos - g·sin)
-    let d2q_ti_ti = (vi * vj / a) * (b * cos_d - g * sin_d);
-
-    // ∂²Q/∂θj∂Vi = (Vj/a)·(g·cos + b·sin)
-    let d2q_tj_vi = (vj / a) * (g * cos_d + b * sin_d);
-
-    // ∂²Q/∂θj∂Vj = (Vi/a)·(g·cos + b·sin)
-    let d2q_tj_vj = (vi / a) * (g * cos_d + b * sin_d);
-
-    // ∂²Q/∂θj∂θi = (Vi·Vj/a)·(g·sin - b·cos) = -(Vi·Vj/a)·(b·cos - g·sin)
-    let d2q_tj_ti = -(vi * vj / a) * (b * cos_d - g * sin_d);
-
-    // ∂²Q/∂θj² = -(Vi·Vj/a)·(g·sin - b·cos) = (Vi·Vj/a)·(b·cos - g·sin)
-    let d2q_tj_tj = (vi * vj / a) * (b * cos_d - g * sin_d);
-
-    [
-        d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi, d2q_tj_vj,
-        d2q_tj_ti, d2q_tj_tj,
-    ]
+    (
+        (p, q),
+        [dp_dvi, dp_dvj, dp_dti, dp_dtj],
+        [dq_dvi, dq_dvj, dq_dti, dq_dtj],
+        [
+            d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi,
+            d2p_tj_vj, d2p_tj_ti, d2p_tj_tj,
+        ],
+        [
+            d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi,
+            d2q_tj_vj, d2q_tj_ti, d2q_tj_tj,
+        ],
+    )
 }
 
-/// Hessian of P (to side) - lower triangular
-fn branch_hess_p_to(
+/// All branch derivatives (to side) - fused computation.
+///
+/// Returns `(flow, grad_p, grad_q, hess_p, hess_q)` in one pass, avoiding
+/// redundant computation of branch parameters and trig functions.
+fn branch_derivs_to(
     branch: &BranchData,
     vi: f64,
     vj: f64,
     theta_i: f64,
     theta_j: f64,
-) -> [f64; 10] {
-    let z_sq = branch.r * branch.r + branch.x * branch.x;
-    let g = branch.r / z_sq;
-    let b = -branch.x / z_sq;
-    let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
-
-    let theta_diff = theta_j - theta_i + branch.shift;
-    let (sin_d, cos_d) = theta_diff.sin_cos();
-
-    // P_ji = Vj²·g - (Vi·Vj/a)·(g·cos + b·sin)
-
-    // ∂²P/∂Vi² = 0
-    let d2p_vi_vi = 0.0;
-
-    // ∂²P/∂Vj∂Vi = -(1/a)·(g·cos + b·sin)
-    let d2p_vj_vi = -(1.0 / a) * (g * cos_d + b * sin_d);
-
-    // ∂²P/∂Vj² = 2·g
-    let d2p_vj_vj = 2.0 * g;
-
-    // ∂²P/∂θi∂Vi = (Vj/a)·(g·sin - b·cos)  (note: ∂θ_diff/∂θi = -1)
-    let d2p_ti_vi = (vj / a) * (g * sin_d - b * cos_d);
-
-    // ∂²P/∂θi∂Vj = (Vi/a)·(g·sin - b·cos)
-    let d2p_ti_vj = (vi / a) * (g * sin_d - b * cos_d);
-
-    // ∂²P/∂θi² = (Vi·Vj/a)·(g·cos + b·sin)
-    let d2p_ti_ti = (vi * vj / a) * (g * cos_d + b * sin_d);
-
-    // ∂²P/∂θj∂Vi = -(Vj/a)·(g·sin - b·cos)
-    let d2p_tj_vi = -(vj / a) * (g * sin_d - b * cos_d);
-
-    // ∂²P/∂θj∂Vj = -(Vi/a)·(g·sin - b·cos)
-    let d2p_tj_vj = -(vi / a) * (g * sin_d - b * cos_d);
-
-    // ∂²P/∂θj∂θi = -(Vi·Vj/a)·(g·cos + b·sin)
-    let d2p_tj_ti = -(vi * vj / a) * (g * cos_d + b * sin_d);
-
-    // ∂²P/∂θj² = (Vi·Vj/a)·(g·cos + b·sin)
-    let d2p_tj_tj = (vi * vj / a) * (g * cos_d + b * sin_d);
-
-    [
-        d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi, d2p_tj_vj,
-        d2p_tj_ti, d2p_tj_tj,
-    ]
-}
-
-/// Hessian of Q (to side) - lower triangular
-fn branch_hess_q_to(
-    branch: &BranchData,
-    vi: f64,
-    vj: f64,
-    theta_i: f64,
-    theta_j: f64,
-) -> [f64; 10] {
+) -> ((f64, f64), [f64; 4], [f64; 4], [f64; 10], [f64; 10]) {
+    // Compute branch parameters ONCE
     let z_sq = branch.r * branch.r + branch.x * branch.x;
     let g = branch.r / z_sq;
     let b = -branch.x / z_sq;
     let a = if branch.tap > 0.0 { branch.tap } else { 1.0 };
     let bc_half = branch.b_charging / 2.0;
 
+    // Compute trig functions ONCE (note: theta_diff direction is reversed)
     let theta_diff = theta_j - theta_i + branch.shift;
     let (sin_d, cos_d) = theta_diff.sin_cos();
 
-    // Q_ji = -Vj²·(b + bc/2) - (Vi·Vj/a)·(g·sin - b·cos)
+    // Pre-compute common subexpressions
+    let g_cos_b_sin = g * cos_d + b * sin_d;
+    let g_sin_b_cos = g * sin_d - b * cos_d;
+    let b_cos_g_sin = b * cos_d - g * sin_d;
+    let vi_vj_a = vi * vj / a;
+    let vi_a = vi / a;
+    let vj_a = vj / a;
 
-    // ∂²Q/∂Vi² = 0
+    // ========================================================================
+    // FLOW (P, Q)
+    // ========================================================================
+    let p = vj * vj * g - vi_vj_a * g_cos_b_sin;
+    let q = -vj * vj * (b + bc_half) - vi_vj_a * g_sin_b_cos;
+
+    // ========================================================================
+    // GRADIENT OF P: [∂P/∂Vi, ∂P/∂Vj, ∂P/∂θi, ∂P/∂θj]
+    // ========================================================================
+    let dp_dvi = -vj_a * g_cos_b_sin;
+    let dp_dvj = 2.0 * vj * g - vi_a * g_cos_b_sin;
+    let dp_dti = vi_vj_a * g_sin_b_cos;
+    let dp_dtj = -vi_vj_a * g_sin_b_cos;
+
+    // ========================================================================
+    // GRADIENT OF Q: [∂Q/∂Vi, ∂Q/∂Vj, ∂Q/∂θi, ∂Q/∂θj]
+    // ========================================================================
+    let dq_dvi = -vj_a * g_sin_b_cos;
+    let dq_dvj = -2.0 * vj * (b + bc_half) - vi_a * g_sin_b_cos;
+    let dq_dti = vi_vj_a * g_cos_b_sin;
+    let dq_dtj = -vi_vj_a * g_cos_b_sin;
+
+    // ========================================================================
+    // HESSIAN OF P (lower triangular)
+    // ========================================================================
+    let d2p_vi_vi = 0.0;
+    let d2p_vj_vi = -(1.0 / a) * g_cos_b_sin;
+    let d2p_vj_vj = 2.0 * g;
+    let d2p_ti_vi = vj_a * g_sin_b_cos;
+    let d2p_ti_vj = vi_a * g_sin_b_cos;
+    let d2p_ti_ti = vi_vj_a * g_cos_b_sin;
+    let d2p_tj_vi = -vj_a * g_sin_b_cos;
+    let d2p_tj_vj = -vi_a * g_sin_b_cos;
+    let d2p_tj_ti = -vi_vj_a * g_cos_b_sin;
+    let d2p_tj_tj = vi_vj_a * g_cos_b_sin;
+
+    // ========================================================================
+    // HESSIAN OF Q (lower triangular)
+    // ========================================================================
     let d2q_vi_vi = 0.0;
-
-    // ∂²Q/∂Vj∂Vi = -(1/a)·(g·sin - b·cos)
-    let d2q_vj_vi = -(1.0 / a) * (g * sin_d - b * cos_d);
-
-    // ∂²Q/∂Vj² = -2·(b + bc/2)
+    let d2q_vj_vi = -(1.0 / a) * g_sin_b_cos;
     let d2q_vj_vj = -2.0 * (b + bc_half);
+    let d2q_ti_vi = vj_a * g_cos_b_sin;
+    let d2q_ti_vj = vi_a * g_cos_b_sin;
+    let d2q_ti_ti = vi_vj_a * b_cos_g_sin;
+    let d2q_tj_vi = -vj_a * g_cos_b_sin;
+    let d2q_tj_vj = -vi_a * g_cos_b_sin;
+    let d2q_tj_ti = -vi_vj_a * b_cos_g_sin;
+    let d2q_tj_tj = vi_vj_a * b_cos_g_sin;
 
-    // ∂²Q/∂θi∂Vi = (Vj/a)·(g·cos + b·sin)
-    let d2q_ti_vi = (vj / a) * (g * cos_d + b * sin_d);
-
-    // ∂²Q/∂θi∂Vj = (Vi/a)·(g·cos + b·sin)
-    let d2q_ti_vj = (vi / a) * (g * cos_d + b * sin_d);
-
-    // ∂²Q/∂θi² = (Vi·Vj/a)·(b·cos - g·sin)
-    let d2q_ti_ti = (vi * vj / a) * (b * cos_d - g * sin_d);
-
-    // ∂²Q/∂θj∂Vi = -(Vj/a)·(g·cos + b·sin)
-    let d2q_tj_vi = -(vj / a) * (g * cos_d + b * sin_d);
-
-    // ∂²Q/∂θj∂Vj = -(Vi/a)·(g·cos + b·sin)
-    let d2q_tj_vj = -(vi / a) * (g * cos_d + b * sin_d);
-
-    // ∂²Q/∂θj∂θi = -(Vi·Vj/a)·(b·cos - g·sin)
-    let d2q_tj_ti = -(vi * vj / a) * (b * cos_d - g * sin_d);
-
-    // ∂²Q/∂θj² = (Vi·Vj/a)·(b·cos - g·sin)
-    let d2q_tj_tj = (vi * vj / a) * (b * cos_d - g * sin_d);
-
-    [
-        d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi, d2q_tj_vj,
-        d2q_tj_ti, d2q_tj_tj,
-    ]
+    (
+        (p, q),
+        [dp_dvi, dp_dvj, dp_dti, dp_dtj],
+        [dq_dvi, dq_dvj, dq_dti, dq_dtj],
+        [
+            d2p_vi_vi, d2p_vj_vi, d2p_vj_vj, d2p_ti_vi, d2p_ti_vj, d2p_ti_ti, d2p_tj_vi,
+            d2p_tj_vj, d2p_tj_ti, d2p_tj_tj,
+        ],
+        [
+            d2q_vi_vi, d2q_vj_vi, d2q_vj_vj, d2q_ti_vi, d2q_ti_vj, d2q_ti_ti, d2q_tj_vi,
+            d2q_tj_vj, d2q_tj_ti, d2q_tj_tj,
+        ],
+    )
 }
 
 // ============================================================================

@@ -53,13 +53,21 @@ use super::{AcOpfProblem, BranchData};
 /// Tuple of (row indices, column indices) for all non-zero Jacobian entries
 pub fn jacobian_sparsity(problem: &AcOpfProblem) -> (Vec<usize>, Vec<usize>) {
     let n_bus = problem.n_bus;
+    let n_gen = problem.gen_bus_idx.len();
+    let n_thermal = problem.n_thermal_constrained_branches();
     let v_offset = problem.v_offset;
     let theta_offset = problem.theta_offset;
     let pg_offset = problem.pg_offset;
     let qg_offset = problem.qg_offset;
 
-    let mut rows = Vec::new();
-    let mut cols = Vec::new();
+    // Pre-allocate based on known sparsity structure:
+    // - P balance: n_bus rows × (2*n_bus + n_gen generators) entries
+    // - Q balance: n_bus rows × (2*n_bus + n_gen generators) entries
+    // - Reference angle: 1 entry
+    // - Thermal: 8 entries per branch (2 sides × 4 variables)
+    let nnz_estimate = 2 * n_bus * (2 * n_bus + n_gen) + 1 + 8 * n_thermal;
+    let mut rows = Vec::with_capacity(nnz_estimate);
+    let mut cols = Vec::with_capacity(nnz_estimate);
 
     // ========================================================================
     // P BALANCE EQUATIONS (rows 0..n_bus)
