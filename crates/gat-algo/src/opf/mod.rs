@@ -31,12 +31,14 @@ mod economic;
 pub mod native_dispatch;
 mod socp;
 mod types;
+pub mod traits;
 
 pub use dispatch::{DispatchConfig, ProblemClass, SolverBackend, SolverDispatcher};
 pub use types::{
     CascadedResult, ConstraintInfo, ConstraintType, DcWarmStart, OpfMethod, OpfSolution,
     SocpWarmStart,
 };
+pub use traits::{OpfBackend, OpfFormulation, OpfProblem, SolverConfig, WarmStartKind};
 
 use crate::OpfError;
 use gat_core::Network;
