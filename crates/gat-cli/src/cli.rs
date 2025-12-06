@@ -355,9 +355,9 @@ pub enum ScenariosCommands {
         /// Path to the scenario spec
         #[arg(long, value_hint = ValueHint::FilePath)]
         spec: String,
-        /// Output format (table or json)
-        #[arg(short = 'f', long, default_value = "table")]
-        format: String,
+        /// Output format
+        #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Table)]
+        format: OutputFormat,
     },
     /// Expand templated scenarios into fully resolved definitions
     Expand {
