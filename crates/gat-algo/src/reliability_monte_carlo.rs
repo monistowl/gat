@@ -283,6 +283,7 @@ impl MonteCarlo {
     /// 1. Using pre-built map from BusId to NodeIndex for bus nodes (passed in)
     /// 2. Determining bus-level connectivity through online branches
     /// 3. Checking if each generator's bus can reach any load's bus
+    #[allow(dead_code)]
     fn calculate_deliverable_generation(
         &self,
         network: &Network,
