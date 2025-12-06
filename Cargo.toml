@@ -8,6 +8,7 @@ members = [
     "crates/gat-cli",
     "crates/gat-gui",
     "crates/gat-tui",
+    "crates/gat-ui-common",
     "crates/gat-dist",
     "crates/gat-derms",
     "crates/gat-adms",

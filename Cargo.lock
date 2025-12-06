@@ -1737,6 +1737,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core 0.9.12",
+]
+
+[[package]]
 name = "dbgf"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2877,12 +2891,15 @@ dependencies = [
  "gat-batch",
  "gat-core",
  "gat-io",
+ "gat-ui-common",
+ "parking_lot",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
+ "tokio",
  "toml 0.8.2",
  "uuid",
 ]
@@ -3029,6 +3046,28 @@ dependencies = [
  "tracing-subscriber",
  "tui-realm-stdlib",
  "tuirealm",
+ "uuid",
+]
+
+[[package]]
+name = "gat-ui-common"
+version = "0.5.3"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dashmap",
+ "dirs 5.0.1",
+ "gat-algo",
+ "gat-core",
+ "gat-io",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "toml 0.8.2",
+ "tracing",
  "uuid",
 ]
 

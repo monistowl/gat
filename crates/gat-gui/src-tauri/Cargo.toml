@@ -33,6 +33,11 @@ gat-core = { path = "../../gat-core" }
 gat-io = { path = "../../gat-io" }
 gat-algo = { path = "../../gat-algo" }
 gat-batch = { path = "../../gat-batch" }
+gat-ui-common = { path = "../../gat-ui-common" }
+
+# Async runtime (for gat-ui-common integration)
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+parking_lot = "0.12"
 
 # UUID generation
 uuid = { version = "1.5", features = ["v4"] }

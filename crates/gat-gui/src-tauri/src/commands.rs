@@ -3,9 +3,8 @@
 //! These commands expose the GAT solver capabilities to the Svelte frontend,
 //! converting internal data structures to JSON for visualization.
 
-use std::path::{Path, PathBuf};
-
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use gat_algo::contingency::{
     collect_branch_limits, collect_branch_terminals, collect_injections, Contingency, NkEvaluator,
@@ -13,9 +12,11 @@ use gat_algo::contingency::{
 use gat_algo::opf::ac_nlp::SparseYBus;
 use gat_algo::power_flow::ac_pf::AcPowerFlowSolver;
 use gat_core::solver::{FaerSolver, LinearSystemBackend};
-use gat_core::{Edge, Network, Node};
+use gat_core::{BranchId, BusId, Edge, Network, Node};
 use gat_io::importers::{parse_matpower, Format};
 use serde::{Deserialize, Serialize};
+
+use crate::state::AppState;
 
 /// Information about an available case file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -236,27 +237,59 @@ fn extract_bus_count(name: &str) -> Option<usize> {
 }
 
 /// Load a case file and return network data for visualization.
+///
+/// This command loads the network into the shared workspace (for caching and
+/// analysis coordination) and returns JSON for immediate frontend display.
 #[tauri::command]
-pub fn load_case(path: &str) -> Result<NetworkJson, String> {
+pub fn load_case(
+    path: &str,
+    state: tauri::State<'_, AppState>,
+) -> Result<NetworkJson, String> {
     let path_obj = Path::new(path);
 
-    // Detect format and parse
-    let result = if let Some((format, _)) = Format::detect(path_obj) {
-        format.parse(path).map_err(|e| e.to_string())?
-    } else {
-        // Default to MATPOWER
-        parse_matpower(path).map_err(|e| e.to_string())?
-    };
+    // Load network into workspace (this clears any cached analysis)
+    {
+        let mut workspace = state.service.workspace().write();
+        workspace.load(path).map_err(|e| e.to_string())?;
+    }
+
+    // Get network reference from workspace
+    let workspace = state.service.workspace().read();
+    let network = workspace
+        .require_network()
+        .map_err(|e| e.to_string())?;
 
     // Extract case name from path
     let name = path_obj
-        .parent()
-        .and_then(|p| p.file_name())
+        .file_stem()
         .and_then(|n| n.to_str())
         .unwrap_or("unknown")
         .to_string();
 
-    Ok(network_to_json(&result.network, &name))
+    Ok(network_to_json(network, &name))
+}
+
+/// Get the currently loaded network without reloading.
+///
+/// Returns None if no network is loaded.
+#[tauri::command]
+pub fn get_loaded_network(
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<NetworkJson>, String> {
+    let workspace = state.service.workspace().read();
+
+    match workspace.network() {
+        Some(network) => {
+            let name = workspace
+                .source_path()
+                .and_then(|p| p.file_stem())
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string();
+            Ok(Some(network_to_json(network, &name)))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Power flow solution result.
@@ -872,7 +905,8 @@ pub fn run_n1_contingency(path: &str) -> Result<N1ContingencyResult, String> {
         let (outage_from, outage_to) = branch_terminals
             .get(&outage_branch_id)
             .copied()
-            .unwrap_or((0, 0));
+            .unwrap_or((BusId::new(0), BusId::new(0)));
+        let (outage_from, outage_to) = (outage_from.value(), outage_to.value());
 
         // Convert violations to GUI format
         let overloaded_branches: Vec<OverloadedBranch> = eval
@@ -882,10 +916,10 @@ pub fn run_n1_contingency(path: &str) -> Result<N1ContingencyResult, String> {
                 let (from, to) = branch_terminals
                     .get(&v.branch_id)
                     .copied()
-                    .unwrap_or((0, 0));
+                    .unwrap_or((BusId::new(0), BusId::new(0)));
                 OverloadedBranch {
-                    from,
-                    to,
+                    from: from.value(),
+                    to: to.value(),
                     loading_pct: v.loading_fraction * 100.0,
                     flow_mw: v.flow_mw,
                     rating_mva: v.limit_mw,
@@ -1154,6 +1188,70 @@ pub fn get_config_path() -> Result<String, String> {
 }
 
 // ============================================================================
+// New Unified Configuration (using gat-ui-common)
+// ============================================================================
+
+use gat_ui_common::{GatConfig, GuiTheme};
+
+/// Get the unified configuration from the shared service.
+///
+/// This is the new config system - use this for new features.
+#[tauri::command]
+pub fn get_unified_config(
+    state: tauri::State<'_, AppState>,
+) -> Result<GatConfig, String> {
+    let config = state.service.config().read();
+    Ok(config.clone())
+}
+
+/// Update the unified configuration.
+///
+/// Only updates fields that are provided.
+#[tauri::command]
+pub fn update_gui_config(
+    updates: GuiConfigUpdate,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut config = state.service.config().write();
+
+    // Apply updates
+    if let Some(theme) = updates.theme {
+        config.gui.theme = match theme.as_str() {
+            "light" => GuiTheme::Light,
+            "dark" => GuiTheme::Dark,
+            _ => GuiTheme::System,
+        };
+    }
+    if let Some(width) = updates.window_width {
+        config.gui.window_width = width;
+    }
+    if let Some(height) = updates.window_height {
+        config.gui.window_height = height;
+    }
+    if let Some(font_size) = updates.table_font_size {
+        config.gui.table_font_size = font_size;
+    }
+    if let Some(auto_pf) = updates.auto_run_pf {
+        config.gui.auto_run_pf = auto_pf;
+    }
+
+    // Save to disk
+    config.save().map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Partial updates for GUI config.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GuiConfigUpdate {
+    pub theme: Option<String>,
+    pub window_width: Option<u32>,
+    pub window_height: Option<u32>,
+    pub table_font_size: Option<u32>,
+    pub auto_run_pf: Option<bool>,
+}
+
+// ============================================================================
 // Notebook Management
 // ============================================================================
 
@@ -1411,7 +1509,6 @@ Grid Analysis Toolkit (GAT) workflows:
 // Batch Job Management
 // ============================================================================
 
-use crate::state::AppState;
 use gat_batch::{run_batch as batch_run, BatchJob, BatchRunnerConfig, TaskKind};
 use uuid::Uuid;
 
@@ -1720,7 +1817,7 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
 // DC Optimal Power Flow
 // ============================================================================
 
-use gat_algo::opf::{dc_opf, OpfMethod, OpfSolution, OpfSolver};
+use gat_algo::opf::{OpfMethod, OpfSolver};
 
 /// DC-OPF result for frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1793,20 +1890,22 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
 
     // Extract generator dispatches
     let mut generators: Vec<GeneratorDispatch> = Vec::new();
+    let mut total_gen_mw = 0.0;
     for node in network.graph.node_weights() {
         if let Node::Gen(gen) = node {
             let p_dispatch = solution
-                .generator_dispatch
+                .generator_p
                 .get(&gen.name)
                 .copied()
                 .unwrap_or(gen.active_power.value());
+            total_gen_mw += p_dispatch;
             generators.push(GeneratorDispatch {
                 bus: gen.bus.value(),
                 name: gen.name.clone(),
                 p_dispatch_mw: p_dispatch,
                 p_min_mw: gen.pmin.value(),
                 p_max_mw: gen.pmax.value(),
-                marginal_cost: gen.cost_coeffs.get(1).copied().unwrap_or(0.0),
+                marginal_cost: 0.0, // Cost coeffs not directly available on Gen
             });
         }
     }
@@ -1818,6 +1917,14 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
+    // Calculate total load
+    let mut total_load_mw = 0.0;
+    for node in network.graph.node_weights() {
+        if let Node::Load(load) = node {
+            total_load_mw += load.active_power.value();
+        }
+    }
+
     // Extract branch flows
     let mut branches: Vec<BranchFlow> = Vec::new();
     for edge in network.graph.edge_weights() {
@@ -1826,8 +1933,8 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
                 continue;
             }
             let flow = solution
-                .branch_flows
-                .get(&branch.id)
+                .branch_p_flow
+                .get(&branch.name)
                 .copied()
                 .unwrap_or(0.0);
             let rating = branch.rating_a;
@@ -1855,23 +1962,29 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    // Extract LMPs
-    let mut lmps: Vec<LmpResult> = solution
-        .lmp
-        .iter()
-        .map(|(bus_id, &lmp)| LmpResult {
-            bus: bus_id.value(),
-            lmp,
-        })
-        .collect();
+    // Extract LMPs from bus_lmp HashMap<String, f64>
+    let mut lmps: Vec<LmpResult> = Vec::new();
+    for node in network.graph.node_weights() {
+        if let Node::Bus(bus) = node {
+            let lmp = solution
+                .bus_lmp
+                .get(&bus.name)
+                .copied()
+                .unwrap_or(0.0);
+            lmps.push(LmpResult {
+                bus: bus.id.value(),
+                lmp,
+            });
+        }
+    }
     lmps.sort_by_key(|l| l.bus);
 
     Ok(DcOpfResult {
         converged: solution.converged,
         objective_value: solution.objective_value,
-        total_generation_mw: solution.total_generation_mw,
-        total_load_mw: solution.total_load_mw,
-        total_losses_mw: solution.total_losses_mw,
+        total_generation_mw: total_gen_mw,
+        total_load_mw,
+        total_losses_mw: total_gen_mw - total_load_mw, // Approximate losses
         generators,
         branches,
         lmps,
@@ -1883,7 +1996,7 @@ pub fn solve_dc_opf(path: &str) -> Result<DcOpfResult, String> {
 // Grid Summary Statistics
 // ============================================================================
 
-use gat_core::graph_utils::{find_islands, graph_stats, GraphStats, IslandAnalysis};
+use gat_core::graph_utils::{find_islands, graph_stats};
 
 /// Grid summary statistics for frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2148,7 +2261,10 @@ pub fn get_lodf_matrix(path: &str) -> Result<LodfResponse, String> {
     let threshold = 0.01; // Only include entries > 1%
 
     for (l_idx, &branch_l) in lodf.branch_ids.iter().enumerate() {
-        let (l_from, l_to) = branch_terminals.get(&branch_l).copied().unwrap_or((0, 0));
+        let (l_from, l_to) = branch_terminals
+            .get(&BranchId::new(branch_l))
+            .copied()
+            .unwrap_or((BusId::new(0), BusId::new(0)));
 
         for (m_idx, &branch_m) in lodf.branch_ids.iter().enumerate() {
             if l_idx == m_idx {
@@ -2157,14 +2273,17 @@ pub fn get_lodf_matrix(path: &str) -> Result<LodfResponse, String> {
 
             let lodf_val = lodf.values[l_idx][m_idx];
             if lodf_val.abs() > threshold {
-                let (m_from, m_to) = branch_terminals.get(&branch_m).copied().unwrap_or((0, 0));
+                let (m_from, m_to) = branch_terminals
+                    .get(&BranchId::new(branch_m))
+                    .copied()
+                    .unwrap_or((BusId::new(0), BusId::new(0)));
                 entries.push(LodfEntry {
                     monitored_branch: branch_l,
-                    monitored_from: l_from,
-                    monitored_to: l_to,
+                    monitored_from: l_from.value(),
+                    monitored_to: l_to.value(),
                     outaged_branch: branch_m,
-                    outaged_from: m_from,
-                    outaged_to: m_to,
+                    outaged_from: m_from.value(),
+                    outaged_to: m_to.value(),
                     lodf_factor: lodf_val,
                 });
             }
@@ -2336,7 +2455,7 @@ pub fn get_thermal_analysis(path: &str) -> Result<ThermalAnalysisResult, String>
                         from: branch.from_bus.value(),
                         to: branch.to_bus.value(),
                         name: branch.name.clone(),
-                        rating_mva: rating,
+                        rating_mva: rating_mva,
                         estimated_flow_mw: flow_mw,
                         headroom_mw: headroom_mw.max(0.0),
                         headroom_pct: headroom_pct.max(0.0),
@@ -2416,7 +2535,6 @@ pub struct GeneratorExport {
     pub p_max_mw: f64,
     pub q_min_mvar: f64,
     pub q_max_mvar: f64,
-    pub cost_coeffs: Vec<f64>,
     pub status: bool,
 }
 
@@ -2426,7 +2544,6 @@ pub struct LoadExport {
     pub bus: usize,
     pub p_mw: f64,
     pub q_mvar: f64,
-    pub status: bool,
 }
 
 /// Export network data to JSON format for external tools.
@@ -2481,7 +2598,6 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                     p_max_mw: gen.pmax.value(),
                     q_min_mvar: gen.qmin.value(),
                     q_max_mvar: gen.qmax.value(),
-                    cost_coeffs: gen.cost_coeffs.clone(),
                     status: gen.status,
                 });
             }
@@ -2491,7 +2607,6 @@ pub fn export_network_json(path: &str) -> Result<NetworkExport, String> {
                     bus: load.bus.value(),
                     p_mw: load.active_power.value(),
                     q_mvar: load.reactive_power.value(),
-                    status: load.status,
                 });
             }
             Node::Shunt(_) => {}
