@@ -434,12 +434,14 @@ impl FastDecoupledSolver {
         reduced
     }
 
+    #[allow(clippy::needless_range_loop)]
     fn factorize(&self, matrix: &[Vec<f64>]) -> Result<Mat<f64>> {
         let n = matrix.len();
         if n == 0 {
             return Ok(Mat::zeros(0, 0));
         }
         let mut mat = Mat::zeros(n, n);
+        // Range loops are idiomatic for matrix operations with explicit row/column indexing
         for i in 0..n {
             for j in 0..n {
                 mat.write(i, j, matrix[i][j]);
@@ -448,6 +450,7 @@ impl FastDecoupledSolver {
         Ok(mat)
     }
 
+    #[allow(clippy::needless_range_loop)]
     fn solve_factorized(&self, mat: &Mat<f64>, rhs: &[f64]) -> Result<Vec<f64>> {
         let n = rhs.len();
         if n == 0 {
