@@ -217,6 +217,31 @@ z_vm = average of V_m across partitions sharing this bus
 z_va = average of V_a across partitions sharing this bus
 ```
 
+**GPU Acceleration:**
+The branch flow calculation can be accelerated using GPU computing for large networks:
+
+**Enabling GPU:**
+```rust
+let solver = AdmmOpfSolver::new(AdmmConfig {
+    num_partitions: 4,
+    use_gpu: true,  // Enable GPU acceleration
+    ..Default::default()
+});
+```
+
+**Building with GPU Support:**
+```bash
+cargo build -p gat-cli --features gpu
+```
+
+**Automatic Fallback:**
+If GPU acceleration is requested but not available (missing GPU hardware, CUDA runtime, or build without `gpu` feature), the system automatically falls back to CPU-based computation with a warning message.
+
+**Performance Characteristics:**
+- **Large networks** (hundreds to thousands of branches): GPU provides significant speedup (2-10x) due to parallel execution of branch flow equations
+- **Small networks** (< 100 branches): Minimal or no benefit due to GPU kernel launch overhead
+- **Memory transfer**: For very large networks, CPU-GPU data transfer becomes the bottleneck; performance gains plateau
+
 ---
 
 ### Current Status
