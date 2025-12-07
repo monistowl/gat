@@ -793,6 +793,79 @@ pub enum PowerFlowCommands {
         #[arg(long)]
         show_iterations: bool,
     },
+    /// Run Fast-Decoupled Power Flow (FDPF).
+    ///
+    /// Uses the Stott-Alsac XB scheme with decoupled P-θ and Q-V iterations.
+    /// Pre-factored B' and B'' matrices provide ~5x speedup over full Newton-Raphson.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```sh
+    /// gat pf fdpf grid.arrow -o flows.parquet
+    /// ```
+    ///
+    /// With custom tolerance:
+    /// ```sh
+    /// gat pf fdpf grid.arrow -o flows.parquet --tol 1e-8
+    /// ```
+    Fdpf {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Output file path for flows (Parquet format)
+        #[arg(short, long)]
+        out: String,
+        /// Tolerance for convergence
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum number of iterations
+        #[arg(long, default_value = "50")]
+        max_iter: u32,
+        /// Threading hint (`auto` or integer)
+        #[arg(short = 't', long, default_value = "auto")]
+        threads: String,
+        /// Partition columns (comma separated)
+        #[arg(long)]
+        out_partitions: Option<String>,
+    },
+    /// Run Continuation Power Flow (CPF) for voltage stability analysis.
+    ///
+    /// Traces the PV curve (nose curve) as system loading increases, finding the
+    /// maximum loading point before voltage collapse.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    /// ```sh
+    /// gat pf cpf grid.arrow -o cpf-result.json
+    /// ```
+    ///
+    /// With custom step size and target bus:
+    /// ```sh
+    /// gat pf cpf grid.arrow -o cpf-result.json --step-size 0.05 --target-bus 14
+    /// ```
+    Cpf {
+        /// Path to the grid data file (Arrow format)
+        grid_file: String,
+        /// Output file path for CPF results (JSON format)
+        #[arg(short, long)]
+        out: String,
+        /// Initial step size for predictor
+        #[arg(long, default_value = "0.1")]
+        step_size: f64,
+        /// Convergence tolerance for corrector
+        #[arg(long, default_value = "1e-6")]
+        tol: f64,
+        /// Maximum number of CPF steps
+        #[arg(long, default_value = "100")]
+        max_steps: usize,
+        /// Target bus ID for voltage monitoring (default: auto-select weakest bus)
+        #[arg(long)]
+        target_bus: Option<u64>,
+        /// Threading hint (`auto` or integer)
+        #[arg(short = 't', long, default_value = "auto")]
+        threads: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]

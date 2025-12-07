@@ -7,6 +7,7 @@ mod q_limits;
 // Export new power flow solvers for public use
 pub use fast_decoupled::FastDecoupledSolver;
 pub use cpf::{CpfPoint, CpfResult, CpfSolver};
+pub use ac_pf::AcPowerFlowSolution as AcPfSolution;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -1220,6 +1221,39 @@ pub fn write_ac_pf_solution(
     );
 
     Ok(())
+}
+
+/// Write fast-decoupled power flow solution to Parquet.
+///
+/// This is a wrapper for `write_ac_pf_solution` that converts from the
+/// `ac_pf::AcPowerFlowSolution` type used by `FastDecoupledSolver`.
+pub fn write_fdpf_solution(
+    network: &Network,
+    solution: &ac_pf::AcPowerFlowSolution,
+    output_path: &Path,
+    partitions: &[String],
+) -> Result<()> {
+    // Convert ac_pf::AcPowerFlowSolution to the local AcPowerFlowSolution type
+    let converted = AcPowerFlowSolution {
+        bus_voltage_magnitude: solution.bus_voltage_magnitude.clone(),
+        bus_voltage_angle: solution.bus_voltage_angle.clone(),
+        bus_types: solution
+            .bus_types
+            .iter()
+            .map(|(k, v)| {
+                let bt = match v {
+                    ac_pf::BusType::Slack => BusType::Slack,
+                    ac_pf::BusType::PV => BusType::PV,
+                    ac_pf::BusType::PQ => BusType::PQ,
+                };
+                (*k, bt)
+            })
+            .collect(),
+        iterations: solution.iterations,
+        max_mismatch: solution.max_mismatch,
+        converged: solution.converged,
+    };
+    write_ac_pf_solution(network, &converted, output_path, partitions)
 }
 
 fn default_pf_injections(network: &Network) -> HashMap<usize, f64> {

@@ -1,13 +1,16 @@
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::Path;
 use std::time::Instant;
 
 use crate::commands::telemetry::record_run_timed;
 use crate::commands::util::{configure_threads, parse_partitions};
 use anyhow::Result;
-use gat_algo::power_flow::{self, AcPowerFlowSolver};
+use gat_algo::power_flow::{self, AcPowerFlowSolver, CpfSolver, FastDecoupledSolver};
 use gat_cli::cli::PowerFlowCommands;
 use gat_cli::common::{write_json, write_jsonl, OutputDest, OutputFormat};
 use gat_core::solver::SolverKind;
+use gat_core::BusId;
 use gat_io::importers;
 
 pub fn handle(command: &PowerFlowCommands) -> Result<()> {
@@ -142,6 +145,127 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
             );
             res
         }
+        PowerFlowCommands::Fdpf {
+            grid_file,
+            out,
+            tol,
+            max_iter,
+            threads,
+            out_partitions,
+        } => {
+            let start = Instant::now();
+            configure_threads(threads);
+            let partitions = parse_partitions(out_partitions.as_ref());
+            let out_path = Path::new(out);
+
+            let network = importers::load_grid_from_arrow(grid_file.as_str())?;
+
+            // Configure and run Fast-Decoupled solver
+            let solver = FastDecoupledSolver::new()
+                .with_tolerance(*tol)
+                .with_max_iterations(*max_iter as usize);
+
+            let solution = solver.solve(&network)?;
+
+            // Write results to output file
+            let res = power_flow::write_fdpf_solution(&network, &solution, out_path, &partitions);
+
+            if solution.converged {
+                tracing::info!(
+                    "Fast-Decoupled PF converged in {} iterations (max mismatch: {:.2e})",
+                    solution.iterations,
+                    solution.max_mismatch
+                );
+            } else {
+                tracing::warn!(
+                    "Fast-Decoupled PF did not converge after {} iterations (max mismatch: {:.2e})",
+                    solution.iterations,
+                    solution.max_mismatch
+                );
+            }
+
+            record_run_timed(
+                out,
+                "pf fdpf",
+                &[
+                    ("grid_file", grid_file),
+                    ("threads", threads),
+                    ("out", out),
+                    ("tol", &tol.to_string()),
+                    ("max_iter", &max_iter.to_string()),
+                    ("out_partitions", out_partitions.as_deref().unwrap_or("")),
+                ],
+                start,
+                &res,
+            );
+            res
+        }
+        PowerFlowCommands::Cpf {
+            grid_file,
+            out,
+            step_size,
+            tol,
+            max_steps,
+            target_bus,
+            threads,
+        } => {
+            let start = Instant::now();
+            configure_threads(threads);
+
+            let mut network = importers::load_grid_from_arrow(grid_file.as_str())?;
+
+            // Configure CPF solver
+            let mut solver = CpfSolver::new()
+                .with_step_size(*step_size)
+                .with_tolerance(*tol);
+
+            // Set max_steps
+            solver.max_steps = *max_steps;
+
+            // Set target bus if specified
+            if let Some(bus_id) = target_bus {
+                solver = solver.with_target_bus(BusId::new(*bus_id as usize));
+            }
+
+            // Run CPF analysis
+            let result = solver.solve(&mut network)?;
+
+            // Write results to JSON
+            let res = write_cpf_result(&result, out);
+
+            if result.converged {
+                tracing::info!(
+                    "CPF converged: max loading = {:.3} (margin = {:.1}%)",
+                    result.max_loading,
+                    result.loading_margin * 100.0
+                );
+                if let Some(critical) = result.critical_bus {
+                    tracing::info!("Critical bus: {}", critical.value());
+                }
+            } else {
+                tracing::warn!("CPF did not converge after {} steps", result.steps);
+            }
+
+            record_run_timed(
+                out,
+                "pf cpf",
+                &[
+                    ("grid_file", grid_file),
+                    ("threads", threads),
+                    ("out", out),
+                    ("step_size", &step_size.to_string()),
+                    ("tol", &tol.to_string()),
+                    ("max_steps", &max_steps.to_string()),
+                    (
+                        "target_bus",
+                        &target_bus.map(|b| b.to_string()).unwrap_or_default(),
+                    ),
+                ],
+                start,
+                &res,
+            );
+            res
+        }
     }
 }
 
@@ -204,4 +328,54 @@ fn dataframe_to_stdout(df: &polars::prelude::DataFrame, format: OutputFormat) ->
             Ok(())
         }
     }
+}
+
+/// Write CPF result to JSON file
+fn write_cpf_result(result: &gat_algo::power_flow::CpfResult, path: &str) -> Result<()> {
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct CpfOutputPoint {
+        loading: f64,
+        voltage: f64,
+    }
+
+    #[derive(Serialize)]
+    struct CpfOutput {
+        converged: bool,
+        max_loading: f64,
+        loading_margin: f64,
+        loading_margin_percent: f64,
+        critical_bus: Option<usize>,
+        steps: usize,
+        nose_curve: Vec<CpfOutputPoint>,
+        voltages_at_max: std::collections::HashMap<usize, f64>,
+    }
+
+    let output = CpfOutput {
+        converged: result.converged,
+        max_loading: result.max_loading,
+        loading_margin: result.loading_margin,
+        loading_margin_percent: result.loading_margin * 100.0,
+        critical_bus: result.critical_bus.map(|b| b.value()),
+        steps: result.steps,
+        nose_curve: result
+            .nose_curve
+            .iter()
+            .map(|p| CpfOutputPoint {
+                loading: p.loading,
+                voltage: p.voltage,
+            })
+            .collect(),
+        voltages_at_max: result
+            .voltage_at_max
+            .iter()
+            .map(|(k, v)| (k.value(), *v))
+            .collect(),
+    };
+
+    let file = File::create(path)?;
+    let writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(writer, &output)?;
+    Ok(())
 }
