@@ -41,6 +41,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::graph::{partition_network, NetworkPartition, PartitionError, PartitionStrategy};
+use crate::opf::gpu_branch_flow::GpuBranchFlowCalculator;
 use crate::opf::{OpfMethod, OpfSolution, OpfSolver};
 use crate::OpfError;
 
@@ -95,6 +96,11 @@ pub struct AdmmConfig {
 
     /// Verbose output during solving.
     pub verbose: bool,
+
+    /// Use GPU acceleration for branch flow computation when available.
+    ///
+    /// Falls back to CPU automatically when GPU is not available.
+    pub use_gpu: bool,
 }
 
 impl Default for AdmmConfig {
@@ -112,6 +118,7 @@ impl Default for AdmmConfig {
             max_penalty: 1e6,
             min_penalty: 1e-6,
             verbose: false,
+            use_gpu: true,  // Enable by default, auto-fallback to CPU
         }
     }
 }
@@ -1213,8 +1220,20 @@ impl AdmmOpfSolver {
 
         // Compute all branch flows and total losses
         let base_mva = 100.0; // Standard base MVA
-        let (branch_p_flow, branch_q_flow, total_losses_mw) =
-            compute_all_branch_flows(network, &bus_voltage_mag, &bus_voltage_ang, base_mva);
+        let (branch_p_flow, branch_q_flow, total_losses_mw) = if self.config.use_gpu {
+            let mut gpu_calc = GpuBranchFlowCalculator::new();
+            match gpu_calc.compute_branch_flows(network, &bus_voltage_mag, &bus_voltage_ang, base_mva) {
+                Ok(result) => result,
+                Err(e) => {
+                    if self.config.verbose {
+                        eprintln!("[gat-admm] GPU branch flow failed, falling back to CPU: {}", e);
+                    }
+                    compute_all_branch_flows(network, &bus_voltage_mag, &bus_voltage_ang, base_mva)
+                }
+            }
+        } else {
+            compute_all_branch_flows(network, &bus_voltage_mag, &bus_voltage_ang, base_mva)
+        };
 
         AdmmSolution {
             objective: total_objective,
