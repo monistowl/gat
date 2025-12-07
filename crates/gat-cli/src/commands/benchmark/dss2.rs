@@ -17,7 +17,7 @@
 //! - Maximum error in degrees
 //! - Solve time in milliseconds
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use csv::Writer;
 use rayon::prelude::*;
 use serde::Serialize;
@@ -221,61 +221,9 @@ fn run_benchmark(config: &Dss2Config) -> Result<Vec<Dss2TrialResult>> {
 }
 
 fn run_dc_power_flow(network: &Network) -> Result<HashMap<usize, f64>> {
-    // Use DC power flow to compute true bus angles
-    // The DC approximation gives θ directly from B'θ = P
-
-    // Build solver
-    let solver_kind: SolverKind = "gauss".parse()?;
-    let solver = solver_kind.build_solver();
-
-    // Create a temporary output file
-    let temp_file = NamedTempFile::new()?;
-    let temp_path = temp_file.path();
-
-    // Run DC power flow (4 arguments: network, solver, output_file, partitions)
-    power_flow::dc_power_flow(
-        network,
-        solver.as_ref(),
-        temp_path,
-        &[],
-    )?;
-
-    // Extract bus angles from the power flow result
-    // For DC PF, angles are computed as part of the solve
-    // We need to get them from the network or recompute
-
-    // For now, use a simplified approach: compute angles from B matrix solve
-    let mut angles = HashMap::new();
-
-    // Get all buses
-    let mut buses: Vec<usize> = network
-        .graph
-        .node_weights()
-        .filter_map(|n| match n {
-            Node::Bus(b) => Some(b.id.value()),
-            _ => None,
-        })
-        .collect();
-    buses.sort();
-
-    // For a radial network like CIGRE MV, we can compute angles iteratively
-    // Slack bus (bus 1) has angle 0
-    if let Some(&slack) = buses.first() {
-        angles.insert(slack, 0.0);
-    }
-
-    // For other buses in a radial network, angle ≈ angle of upstream bus - P_flow / B_ij
-    // Simplified: assign small random angles for demonstration
-    // In practice, we'd extract from the actual DC PF solve
-    for (i, &bus_id) in buses.iter().enumerate() {
-        if !angles.contains_key(&bus_id) {
-            // Approximate angle based on position in radial network
-            // Real implementation would use the actual B matrix solve
-            angles.insert(bus_id, -(i as f64) * 0.02); // Small decreasing angles
-        }
-    }
-
-    Ok(angles)
+    // Use the new dc_power_flow_angles function that properly solves B'θ = P
+    // and returns the actual bus angles from the DC power flow solution.
+    power_flow::dc_power_flow_angles(network)
 }
 
 fn compute_true_injections(network: &Network) -> HashMap<usize, f64> {
@@ -306,6 +254,8 @@ fn compute_true_injections(network: &Network) -> HashMap<usize, f64> {
 
 /// Compute branch power flows from bus angles using DC power flow equations
 /// P_ij = (θ_i - θ_j) / x_ij  (in per-unit)
+///
+/// Returns flows in per-unit, which is what the WLS state estimation expects.
 fn compute_branch_flows(network: &Network, bus_angles: &HashMap<usize, f64>) -> HashMap<i64, f64> {
     let mut flows: HashMap<i64, f64> = HashMap::new();
 
@@ -319,13 +269,12 @@ fn compute_branch_flows(network: &Network, bus_angles: &HashMap<usize, f64>) -> 
             let theta_to = bus_angles.get(&to_bus).copied().unwrap_or(0.0);
 
             // DC power flow: P = (θ_i - θ_j) / x_ij
-            // Note: reactance is in per-unit
+            // Note: reactance is in per-unit, so flow is in per-unit
             let x = b.reactance;
             if x.abs() > 1e-10 {
                 let flow_pu = (theta_from - theta_to) / x;
-                // Convert to MW (base_mva = 100)
-                let flow_mw = flow_pu * 100.0;
-                flows.insert(b.id.value() as i64, flow_mw);
+                // WLS SE expects per-unit values (not MW!)
+                flows.insert(b.id.value() as i64, flow_pu);
             }
         }
     }
@@ -390,14 +339,18 @@ fn run_single_trial(
     let se_time = se_start.elapsed().as_secs_f64() * 1000.0;
     let total_time = total_start.elapsed().as_secs_f64() * 1000.0;
 
-    let converged = se_result.is_ok();
+    let converged = match &se_result {
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("Trial {} SE error: {}", trial, e);
+            false
+        }
+    };
 
-    // Compute error metrics
+    // Compute error metrics by reading estimated angles from state output
     let (mae_deg, rmse_deg, max_error_deg) = if converged {
-        // Read estimated angles from state output
-        // For now, use placeholder error computation
-        // In a full implementation, we'd parse the state output and compare
-        compute_error_metrics(true_angles, seed)
+        compute_error_metrics_from_file(true_angles, temp_state.path())
+            .unwrap_or((f64::NAN, f64::NAN, f64::NAN))
     } else {
         (f64::NAN, f64::NAN, f64::NAN)
     };
@@ -421,32 +374,51 @@ fn run_single_trial(
     })
 }
 
-fn compute_error_metrics(true_angles: &HashMap<usize, f64>, seed: u64) -> (f64, f64, f64) {
-    // Placeholder: compute synthetic error based on typical WLS performance
-    // Real implementation would read the estimated state and compare
+/// Compute error metrics by reading the estimated state from the parquet file
+/// and comparing with the true angles from DC power flow.
+fn compute_error_metrics_from_file(
+    true_angles: &HashMap<usize, f64>,
+    state_file: &Path,
+) -> Result<(f64, f64, f64)> {
+    use polars::prelude::*;
 
-    // Use seed to generate consistent "errors" for demonstration
-    let mut rng_state = seed;
+    // Read the parquet file with estimated angles
+    let df = LazyFrame::scan_parquet(state_file, Default::default())?
+        .collect()?;
+
+    let bus_ids = df.column("bus_id")?.i64()?;
+    let angles = df.column("angle_rad")?.f64()?;
+
     let mut errors = Vec::new();
 
-    for _ in 0..true_angles.len() {
-        // Simple LCG for reproducibility
-        rng_state = rng_state.wrapping_mul(1103515245).wrapping_add(12345);
-        let u = (rng_state as f64) / (u64::MAX as f64);
-
-        // Error typically follows noise std * some factor
-        // For 2% noise, expect ~0.1-0.5 degree errors
-        let error = (u * 2.0 - 1.0) * 0.3; // degrees
-        errors.push(error.abs());
+    // Compare each estimated angle with the true angle
+    for i in 0..bus_ids.len() {
+        if let (Some(bus_id), Some(est_angle)) = (bus_ids.get(i), angles.get(i)) {
+            let bus_id = bus_id as usize;
+            if let Some(&true_angle) = true_angles.get(&bus_id) {
+                // Convert error from radians to degrees
+                let error_rad = (est_angle - true_angle).abs();
+                let error_deg = error_rad.to_degrees();
+                errors.push(error_deg);
+            }
+        }
     }
 
+    if errors.is_empty() {
+        return Err(anyhow!("No matching bus angles found"));
+    }
+
+    // Calculate MAE (Mean Absolute Error)
     let mae = errors.iter().sum::<f64>() / errors.len() as f64;
-    let rmse = (errors.iter().map(|e| e * e).sum::<f64>() / errors.len() as f64).sqrt();
+
+    // Calculate RMSE (Root Mean Square Error)
+    let mse = errors.iter().map(|e| e * e).sum::<f64>() / errors.len() as f64;
+    let rmse = mse.sqrt();
+
+    // Calculate Max Error
     let max_error = errors.iter().cloned().fold(0.0_f64, f64::max);
 
-    // Convert from placeholder to realistic values
-    // Typical WLS with 2% noise gives ~0.1-0.2 degree errors
-    (mae * 0.5, rmse * 0.5, max_error * 0.5)
+    Ok((mae, rmse, max_error))
 }
 
 fn compute_summary(results: &[Dss2TrialResult]) -> Dss2Summary {

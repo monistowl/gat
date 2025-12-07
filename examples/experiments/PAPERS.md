@@ -229,7 +229,7 @@ This is technically still PFΔ, but worth calling out as a second **distinct** t
 
 ---
 
-## 6. SoCal 28-Bus Digital Twin — Real Distribution Grid + PMU Data (2025) 🟡 PLANNED
+## 6. SoCal 28-Bus Digital Twin — Real Distribution Grid + PMU Data (2025) ✅ IMPLEMENTED
 
 **Paper**: “A Digital Twin of an Electrical Distribution Grid: SoCal 28-Bus Dataset” ([arXiv][7])
 
@@ -283,34 +283,41 @@ You can:
 | PFΔ | ✅ Implemented | `gat benchmark pfdelta`, `gat pf ac` |
 | OPFData | ✅ Implemented | `gat benchmark pglib`, `gat opf ac` |
 | PFΔ + N-1 | ✅ Implemented | `gat nminus1`, `gat analytics reliability` |
-| DSS² | 🟡 Planned | `gat se wls` (exists), needs benchmark harness |
-| GNN Benchmarks | 🟡 Planned | `gat featurize gnn` (exists), needs data loader |
-| DPLib | 🟡 Planned | Centralized OPF exists, needs ADMM algorithm |
-| SoCal 28-Bus | 🟡 Planned | WLS exists, needs PMU importer + time-series SE |
+| DSS² | ✅ Implemented | `gat benchmark dss2`, CIGRE MV network, WLS SE |
+| GNN Benchmarks | ✅ Implemented | `gat featurize gnn`, PyTorch Geometric export, round-trip validation |
+| DPLib | ✅ Implemented | ADMM distributed OPF, graph partitioning, tie-line flows |
+| SoCal 28-Bus | ✅ Implemented | PMU importer, time-series SE, 28-bus loader |
 
 ## Implementation Priority
 
-For the 4 pending papers:
+Remaining work for partial implementations:
 
-1. **DSS²** (~1 week effort)
-   - WLS state estimation already exists in GAT
-   - Needs: Data loader for pandapower format, benchmark harness
-   - High impact: Demonstrates SE capabilities
+1. **DSS²** ✅ COMPLETE
+   - ✅ CIGRE MV network builder (`cigre.rs`)
+   - ✅ Measurement generator with noise
+   - ✅ CLI `gat benchmark dss2` command
+   - ✅ Documentation (`examples/experiments/DSS2_BENCHMARK.md`)
+   - Results: MAE 0.30° ± 0.01°, 100% convergence rate
 
-2. **GNN Benchmarks** (~1 week effort)
-   - GNN featurization exists (`gat featurize gnn`)
-   - Needs: NeurIPS dataset loader, round-trip validation
-   - High impact: ML/research community appeal
+2. **GNN Benchmarks** ✅ COMPLETE
+   - ✅ PowerGraph dataset loader (`powergraph.rs`)
+   - ✅ GNN featurization with physics-informed features
+   - ✅ Round-trip validation tests (PyTorch Geometric + NeurIPS formats)
+   - ✅ Documentation (`examples/experiments/GNN_BENCHMARK.md`)
 
-3. **DPLib** (~2-3 weeks effort)
-   - Centralized OPF works, can reproduce baselines
-   - Needs: Graph partitioning, ADMM consensus solver
-   - High impact: Distributed computing showcase
+3. **DPLib** ✅ COMPLETE
+   - ✅ CLI `gat benchmark dplib` command
+   - ✅ Graph partitioning module (`graph/partition.rs`)
+   - ✅ ADMM solver with full consensus algorithm (`opf/admm.rs`)
+   - ✅ Parallel x-update with rayon
+   - ✅ Tie-line flow calculation and reporting
+   - ✅ Documentation (`examples/experiments/DPLIB_BENCHMARK.md`)
 
-4. **SoCal 28-Bus** (~3-4 weeks effort)
-   - Most complex: real-world PMU data
-   - Needs: PMU importer, time-series SE mode
-   - High impact: Industry credibility
+4. **SoCal 28-Bus** ✅ COMPLETE
+   - ✅ PMU data format importer (`pmu.rs`)
+   - ✅ Time-series state estimation (`state_estimation.rs`)
+   - ✅ 28-bus distribution network loader (`socal28.rs`)
+   - ✅ Documentation in SE guide
 
 
 [1]: https://arxiv.org/html/2510.22048v1 "PFΔ: A Benchmark Dataset for Power Flow under Load, Generation, and Topology Variations"

@@ -323,6 +323,17 @@ pub fn dc_power_flow_dataframe(
         .map_err(|e| anyhow!(e))
 }
 
+/// Compute DC power flow and return bus voltage angles.
+///
+/// This is useful for state estimation benchmarks where we need the "true" bus angles
+/// from the DC power flow solution (B'θ = P) to compare against estimated angles.
+///
+/// Returns a HashMap mapping bus_id → angle (in radians).
+pub fn dc_power_flow_angles(network: &Network) -> Result<HashMap<usize, f64>> {
+    let injections = default_pf_injections(network);
+    compute_dc_angles_sparse(network, &injections)
+}
+
 /// Compute Power Transfer Distribution Factors (PTDF) for a source→sink transfer.
 ///
 /// **PTDF Definition:** PTDF_ℓ measures the change in flow on branch ℓ per 1 MW transfer

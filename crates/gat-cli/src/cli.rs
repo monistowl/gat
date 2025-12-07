@@ -708,8 +708,8 @@ pub enum BenchmarkCommands {
         /// Load scaling factor (1.0 = nominal CIGRE loading)
         #[arg(long, default_value = "1.0")]
         load_scale: f64,
-        /// Number of flow measurements to generate
-        #[arg(long, default_value_t = 10)]
+        /// Number of flow measurements to generate (13 = all branches for full observability)
+        #[arg(long, default_value_t = 13)]
         num_flow: usize,
         /// Number of injection measurements to generate
         #[arg(long, default_value_t = 5)]

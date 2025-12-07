@@ -733,6 +733,148 @@ impl GnnGraphSample {
             num_nodes: self.num_nodes,
         }
     }
+
+    /// Create a GnnGraphSample from PyTorch Geometric JSON format.
+    ///
+    /// This enables round-trip testing: export to PyG → import back → verify equivalence.
+    /// Note: graph_id, scenario_id, and time are set to defaults since PyG format
+    /// doesn't carry this metadata.
+    pub fn from_pytorch_geometric_json(pyg: &PytorchGeometricJson) -> Self {
+        Self {
+            graph_id: 0,
+            scenario_id: None,
+            time: None,
+            num_nodes: pyg.num_nodes,
+            num_edges: pyg.edge_index[0].len(),
+            node_features: pyg.x.clone(),
+            edge_features: pyg.edge_attr.clone(),
+            edge_index: (pyg.edge_index[0].clone(), pyg.edge_index[1].clone()),
+        }
+    }
+
+    /// Create a GnnGraphSample from NeurIPS PowerGraph JSON format.
+    ///
+    /// This enables round-trip testing: export to NeurIPS → import back → verify equivalence.
+    /// Extracts graph_id, scenario_id, and time from metadata if present.
+    pub fn from_neurips_json(neurips: &NeuripsGraphJson) -> Self {
+        // Extract metadata fields if present
+        let (graph_id, scenario_id, time) = if let Some(ref meta) = neurips.metadata {
+            let gid = meta.get("graph_id").and_then(|v| v.as_i64()).unwrap_or(0);
+            let sid = meta
+                .get("scenario_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let t = meta
+                .get("time")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            (gid, sid, t)
+        } else {
+            (0, None, None)
+        };
+
+        Self {
+            graph_id,
+            scenario_id,
+            time,
+            num_nodes: neurips.num_nodes,
+            num_edges: neurips.num_edges,
+            node_features: neurips.node_features.clone(),
+            edge_features: neurips.edge_features.clone(),
+            edge_index: (neurips.edge_index[0].clone(), neurips.edge_index[1].clone()),
+        }
+    }
+
+    /// Validate that the graph sample is well-formed.
+    ///
+    /// Checks:
+    /// - Edge index bounds: all src/dst indices must be < num_nodes
+    /// - Dimension consistency: node_features.len() == num_nodes, edge_features.len() == num_edges
+    /// - Feature width consistency: all node feature vectors have same length
+    /// - Feature width consistency: all edge feature vectors have same length
+    pub fn validate(&self) -> Result<()> {
+        // Check node count matches
+        if self.node_features.len() != self.num_nodes {
+            return Err(anyhow!(
+                "node_features.len() ({}) != num_nodes ({})",
+                self.node_features.len(),
+                self.num_nodes
+            ));
+        }
+
+        // Check edge count matches
+        if self.edge_features.len() != self.num_edges {
+            return Err(anyhow!(
+                "edge_features.len() ({}) != num_edges ({})",
+                self.edge_features.len(),
+                self.num_edges
+            ));
+        }
+
+        // Check edge index lengths match
+        if self.edge_index.0.len() != self.num_edges || self.edge_index.1.len() != self.num_edges {
+            return Err(anyhow!(
+                "edge_index lengths ({}, {}) != num_edges ({})",
+                self.edge_index.0.len(),
+                self.edge_index.1.len(),
+                self.num_edges
+            ));
+        }
+
+        // Check edge index bounds
+        for (i, &src) in self.edge_index.0.iter().enumerate() {
+            if src >= self.num_nodes {
+                return Err(anyhow!(
+                    "edge {} src index {} >= num_nodes {}",
+                    i,
+                    src,
+                    self.num_nodes
+                ));
+            }
+        }
+        for (i, &dst) in self.edge_index.1.iter().enumerate() {
+            if dst >= self.num_nodes {
+                return Err(anyhow!(
+                    "edge {} dst index {} >= num_nodes {}",
+                    i,
+                    dst,
+                    self.num_nodes
+                ));
+            }
+        }
+
+        // Check node feature width consistency
+        if !self.node_features.is_empty() {
+            let width = self.node_features[0].len();
+            for (i, nf) in self.node_features.iter().enumerate() {
+                if nf.len() != width {
+                    return Err(anyhow!(
+                        "node {} has {} features, expected {}",
+                        i,
+                        nf.len(),
+                        width
+                    ));
+                }
+            }
+        }
+
+        // Check edge feature width consistency
+        if !self.edge_features.is_empty() {
+            let width = self.edge_features[0].len();
+            for (i, ef) in self.edge_features.iter().enumerate() {
+                if ef.len() != width {
+                    return Err(anyhow!(
+                        "edge {} has {} features, expected {}",
+                        i,
+                        ef.len(),
+                        width
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Export grid topology and flow data as GNN features with configurable output format.
@@ -1044,5 +1186,165 @@ mod tests {
     fn test_gnn_output_format_default() {
         let format = GnnOutputFormat::default();
         assert_eq!(format, GnnOutputFormat::Arrow);
+    }
+
+    // =============================================================================
+    // Round-Trip Tests: GnnGraphSample ↔ JSON formats
+    // =============================================================================
+
+    /// Helper to create a realistic GnnGraphSample for testing.
+    fn create_test_sample() -> GnnGraphSample {
+        GnnGraphSample {
+            graph_id: 42,
+            scenario_id: Some("contingency_n1".to_string()),
+            time: Some("2024-06-15T14:30:00Z".to_string()),
+            num_nodes: 4,
+            num_edges: 3,
+            // Node features: [voltage_kv, p_gen_mw, q_gen_mvar, p_load_mw, q_load_mvar, num_gens, num_loads]
+            node_features: vec![
+                vec![138.0, 100.0, 50.0, 80.0, 30.0, 1.0, 2.0], // bus 0: gen + loads
+                vec![138.0, 0.0, 0.0, 40.0, 15.0, 0.0, 1.0],    // bus 1: load only
+                vec![69.0, 50.0, 25.0, 0.0, 0.0, 1.0, 0.0],     // bus 2: gen only
+                vec![69.0, 0.0, 0.0, 60.0, 25.0, 0.0, 1.0],     // bus 3: load only
+            ],
+            // Edge features: [resistance, reactance, flow_mw]
+            edge_features: vec![
+                vec![0.01, 0.10, 45.5],  // branch 0→1
+                vec![0.02, 0.15, -30.2], // branch 1→2
+                vec![0.015, 0.12, 25.8], // branch 2→3
+            ],
+            edge_index: (vec![0, 1, 2], vec![1, 2, 3]),
+        }
+    }
+
+    #[test]
+    fn test_gnn_sample_pyg_roundtrip() {
+        // Original sample
+        let original = create_test_sample();
+
+        // Export to PyG JSON
+        let pyg_json = original.to_pytorch_geometric_json();
+
+        // Serialize to string (simulating file write)
+        let json_str = serde_json::to_string_pretty(&pyg_json).unwrap();
+
+        // Deserialize back (simulating file read)
+        let parsed_pyg: PytorchGeometricJson = serde_json::from_str(&json_str).unwrap();
+
+        // Import back to GnnGraphSample
+        let imported = GnnGraphSample::from_pytorch_geometric_json(&parsed_pyg);
+
+        // Validate the imported sample
+        imported.validate().expect("imported sample should be valid");
+
+        // Check feature equivalence (PyG doesn't preserve metadata)
+        assert_eq!(imported.num_nodes, original.num_nodes);
+        assert_eq!(imported.num_edges, original.num_edges);
+        assert_eq!(imported.node_features, original.node_features);
+        assert_eq!(imported.edge_features, original.edge_features);
+        assert_eq!(imported.edge_index, original.edge_index);
+    }
+
+    #[test]
+    fn test_gnn_sample_neurips_roundtrip() {
+        // Original sample
+        let original = create_test_sample();
+
+        // Export to NeurIPS JSON
+        let neurips_json = original.to_neurips_json();
+
+        // Serialize to string (simulating file write)
+        let json_str = serde_json::to_string_pretty(&neurips_json).unwrap();
+
+        // Deserialize back (simulating file read)
+        let parsed_neurips: NeuripsGraphJson = serde_json::from_str(&json_str).unwrap();
+
+        // Import back to GnnGraphSample
+        let imported = GnnGraphSample::from_neurips_json(&parsed_neurips);
+
+        // Validate the imported sample
+        imported.validate().expect("imported sample should be valid");
+
+        // Check full equivalence (NeurIPS preserves metadata)
+        assert_eq!(imported.graph_id, original.graph_id);
+        assert_eq!(imported.scenario_id, original.scenario_id);
+        assert_eq!(imported.time, original.time);
+        assert_eq!(imported.num_nodes, original.num_nodes);
+        assert_eq!(imported.num_edges, original.num_edges);
+        assert_eq!(imported.node_features, original.node_features);
+        assert_eq!(imported.edge_features, original.edge_features);
+        assert_eq!(imported.edge_index, original.edge_index);
+    }
+
+    #[test]
+    fn test_gnn_sample_validation_valid() {
+        let sample = create_test_sample();
+        assert!(sample.validate().is_ok());
+    }
+
+    #[test]
+    fn test_gnn_sample_validation_bad_node_count() {
+        let mut sample = create_test_sample();
+        sample.num_nodes = 10; // Wrong count
+        assert!(sample.validate().is_err());
+    }
+
+    #[test]
+    fn test_gnn_sample_validation_bad_edge_count() {
+        let mut sample = create_test_sample();
+        sample.num_edges = 10; // Wrong count
+        assert!(sample.validate().is_err());
+    }
+
+    #[test]
+    fn test_gnn_sample_validation_edge_index_out_of_bounds() {
+        let mut sample = create_test_sample();
+        sample.edge_index.0[0] = 100; // Out of bounds src index
+        assert!(sample.validate().is_err());
+    }
+
+    #[test]
+    fn test_gnn_sample_validation_inconsistent_node_features() {
+        let mut sample = create_test_sample();
+        sample.node_features[1] = vec![1.0, 2.0]; // Different width than others
+        assert!(sample.validate().is_err());
+    }
+
+    #[test]
+    fn test_gnn_sample_validation_inconsistent_edge_features() {
+        let mut sample = create_test_sample();
+        sample.edge_features[0] = vec![1.0]; // Different width than others
+        assert!(sample.validate().is_err());
+    }
+
+    #[test]
+    fn test_neurips_json_with_label_and_metadata() {
+        let sample = create_test_sample();
+        let mut neurips = sample.to_neurips_json();
+
+        // Add a label (e.g., binary classification)
+        neurips.label = Some(serde_json::json!(1));
+
+        // Serialize and deserialize
+        let json_str = serde_json::to_string(&neurips).unwrap();
+        let parsed: NeuripsGraphJson = serde_json::from_str(&json_str).unwrap();
+
+        assert_eq!(parsed.label, Some(serde_json::json!(1)));
+        assert!(parsed.metadata.is_some());
+    }
+
+    #[test]
+    fn test_pyg_json_with_target() {
+        let sample = create_test_sample();
+        let mut pyg = sample.to_pytorch_geometric_json();
+
+        // Add a regression target
+        pyg.y = Some(serde_json::json!(0.95));
+
+        // Serialize and deserialize
+        let json_str = serde_json::to_string(&pyg).unwrap();
+        let parsed: PytorchGeometricJson = serde_json::from_str(&json_str).unwrap();
+
+        assert_eq!(parsed.y, Some(serde_json::json!(0.95)));
     }
 }
