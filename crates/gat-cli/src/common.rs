@@ -103,6 +103,23 @@ pub enum RatingType {
     RateC,
 }
 
+/// Output format for GNN featurization.
+///
+/// Supports multiple formats for compatibility with different ML frameworks.
+/// - **Arrow**: GAT native format (Parquet tables for nodes, edges, graphs)
+/// - **NeuripsJson**: NeurIPS PowerGraph benchmark format (graph-per-file JSON)
+/// - **PytorchGeometric**: PyTorch Geometric compatible format (COO tensors as JSON)
+#[derive(ValueEnum, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GnnOutputFormat {
+    /// GAT native Arrow/Parquet (default, supports partitioning)
+    #[default]
+    Arrow,
+    /// NeurIPS PowerGraph benchmark JSON format
+    NeuripsJson,
+    /// PyTorch Geometric compatible JSON (COO edge_index, x, edge_attr)
+    PytorchGeometric,
+}
+
 /// Input source that can be a file path or stdin.
 #[derive(Clone, Debug)]
 pub enum InputSource {

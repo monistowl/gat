@@ -69,6 +69,7 @@
 //! ```
 
 pub mod ac_nlp;
+pub mod admm;
 pub mod backends;
 mod dc_opf;
 pub mod dispatch;
@@ -82,6 +83,7 @@ mod socp;
 pub mod traits;
 mod types;
 
+pub use admm::{AdmmConfig, AdmmError, AdmmOpfSolver, AdmmPhaseTimes, AdmmSolution};
 pub use dispatch::{DispatchConfig, ProblemClass, SolverBackend, SolverDispatcher};
 pub use dispatcher::OpfDispatcher;
 pub use registry::SolverRegistry;

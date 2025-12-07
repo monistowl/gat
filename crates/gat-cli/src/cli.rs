@@ -3,7 +3,7 @@ use clap_complete::Shell;
 use gat_io::importers::Format;
 use std::path::PathBuf;
 
-use crate::common::{FlowMode, OpfMethod, OutputFormat, RatingType};
+use crate::common::{FlowMode, GnnOutputFormat, OpfMethod, OutputFormat, RatingType};
 
 /// GPU floating-point precision mode for GPU-accelerated operations.
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -648,6 +648,78 @@ pub enum BenchmarkCommands {
         /// Path to "after" benchmark CSV
         #[arg(value_hint = ValueHint::FilePath)]
         after: String,
+    },
+    /// Run DPLib distributed OPF benchmark (ADMM decomposition)
+    ///
+    /// Benchmarks ADMM-based distributed optimal power flow against centralized SOCP solutions
+    /// using PGLib test cases. Partitions networks using spectral clustering and solves
+    /// subproblems in parallel with consensus constraints. Reproduces experiments for
+    /// decomposition approaches to large-scale OPF.
+    ///
+    /// Key metrics: ADMM iterations, primal/dual residuals, per-partition times, speedup ratio.
+    Dplib {
+        /// Directory containing PGLib MATPOWER (.m) files
+        #[arg(long, value_hint = ValueHint::DirPath)]
+        pglib_dir: String,
+        /// Filter cases by name pattern (e.g., "case14", "case118")
+        #[arg(long)]
+        case_filter: Option<String>,
+        /// Maximum number of cases to run (0 = all)
+        #[arg(long, default_value_t = 0)]
+        max_cases: usize,
+        /// Output CSV path for results
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Number of parallel solver threads (auto = CPU count)
+        #[arg(short = 't', long, default_value = "auto")]
+        threads: String,
+        /// Number of partitions (0 = auto based on network size)
+        #[arg(long, default_value_t = 0)]
+        num_partitions: usize,
+        /// Maximum ADMM iterations
+        #[arg(long, default_value_t = 100)]
+        max_iter: usize,
+        /// ADMM convergence tolerance
+        #[arg(long, default_value = "1e-4")]
+        tol: f64,
+        /// Initial penalty parameter (ρ)
+        #[arg(long, default_value = "1.0")]
+        rho: f64,
+        /// Subproblem OPF method: dc, socp
+        #[arg(long, default_value = "dc")]
+        subproblem_method: String,
+    },
+    /// Run DSS² state estimation benchmark (CIGRE MV network with synthetic measurements)
+    ///
+    /// Benchmarks WLS state estimation accuracy and performance using the CIGRE Medium-Voltage
+    /// test network. Generates synthetic measurements with configurable noise levels and compares
+    /// estimated bus angles against the true power flow solution. Reproduces the WLS baseline
+    /// from the DSS² paper (Deep Statistical Solver for Distribution System State Estimation).
+    Dss2 {
+        /// Output CSV path for benchmark results
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
+        out: String,
+        /// Number of Monte Carlo trials with different noise realizations
+        #[arg(long, default_value_t = 100)]
+        trials: usize,
+        /// Measurement noise standard deviation (fraction of true value)
+        #[arg(long, default_value = "0.02")]
+        noise_std: f64,
+        /// Load scaling factor (1.0 = nominal CIGRE loading)
+        #[arg(long, default_value = "1.0")]
+        load_scale: f64,
+        /// Number of flow measurements to generate
+        #[arg(long, default_value_t = 10)]
+        num_flow: usize,
+        /// Number of injection measurements to generate
+        #[arg(long, default_value_t = 5)]
+        num_injection: usize,
+        /// Random seed for reproducibility (optional)
+        #[arg(long)]
+        seed: Option<u64>,
+        /// Number of parallel threads (auto = CPU count)
+        #[arg(short = 't', long, default_value = "auto")]
+        threads: String,
     },
 }
 
@@ -1475,6 +1547,9 @@ pub enum FeaturizeCommands {
         /// Output directory root for feature tables (nodes, edges, graphs)
         #[arg(short, long)]
         out: String,
+        /// Output format: arrow (default), neurips-json, pytorch-geometric
+        #[arg(short, long, value_enum, default_value_t = GnnOutputFormat::Arrow)]
+        format: GnnOutputFormat,
         /// Partition columns (comma separated, e.g., "graph_id,scenario_id")
         #[arg(long)]
         out_partitions: Option<String>,

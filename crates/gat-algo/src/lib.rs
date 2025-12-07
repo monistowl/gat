@@ -78,6 +78,7 @@ pub mod featurize_geo;
 pub mod featurize_gnn;
 pub mod featurize_kpi;
 pub mod geo_join;
+pub mod graph;
 pub mod io;
 pub mod opf;
 pub mod power_flow;
@@ -108,6 +109,9 @@ pub use featurize_geo::*;
 pub use featurize_gnn::*;
 pub use featurize_kpi::*;
 pub use geo_join::*;
+pub use graph::{
+    partition_network, NetworkPartition, PartitionError, PartitionStrategy, TieLine,
+};
 pub use io::*;
 pub use opf::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution, OpfSolver};
 pub use power_flow::*;

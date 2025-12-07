@@ -4,6 +4,8 @@ use gat_cli::common::OpfMethod;
 
 pub mod baseline;
 pub mod compare;
+pub mod dplib;
+pub mod dss2;
 pub mod opfdata;
 pub mod pfdelta;
 pub mod pglib;
@@ -98,5 +100,47 @@ pub fn handle(command: &BenchmarkCommands) -> Result<()> {
         ),
         BenchmarkCommands::Summary { csv } => summary::handle(csv),
         BenchmarkCommands::Compare { before, after } => compare::handle(before, after),
+        BenchmarkCommands::Dplib {
+            pglib_dir,
+            case_filter,
+            max_cases,
+            out,
+            threads,
+            num_partitions,
+            max_iter,
+            tol,
+            rho,
+            subproblem_method,
+        } => dplib::handle(
+            pglib_dir,
+            case_filter.as_deref(),
+            *max_cases,
+            out,
+            threads,
+            *num_partitions,
+            *max_iter,
+            *tol,
+            *rho,
+            subproblem_method,
+        ),
+        BenchmarkCommands::Dss2 {
+            out,
+            trials,
+            noise_std,
+            load_scale,
+            num_flow,
+            num_injection,
+            seed,
+            threads,
+        } => dss2::handle(
+            out,
+            *trials,
+            *noise_std,
+            *load_scale,
+            *num_flow,
+            *num_injection,
+            *seed,
+            threads,
+        ),
     }
 }

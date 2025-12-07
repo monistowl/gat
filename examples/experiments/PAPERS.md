@@ -1,6 +1,10 @@
 ---
 
-## 1. PFΔ — Benchmark Dataset for Power Flow (MIT MOSSLab, 2025)
+> **Implementation Plan:** See [`docs/plans/2025-12-06-paper-experiments-implementation.md`](../../docs/plans/2025-12-06-paper-experiments-implementation.md) for detailed tasks covering DSS², GNN Benchmarks, DPLib, and SoCal 28-Bus.
+
+---
+
+## 1. PFΔ — Benchmark Dataset for Power Flow (MIT MOSSLab, 2025) ✅ IMPLEMENTED
 
 **Paper**: “PFΔ: A Benchmark Dataset for Power Flow under Load, Generation, and Topology Variations” ([arXiv][1])
 
@@ -50,7 +54,7 @@
 
 ---
 
-## 2. OPFData — Large-Scale AC-OPF Datasets with Topology Perturbations (2024)
+## 2. OPFData — Large-Scale AC-OPF Datasets with Topology Perturbations (2024) ✅ IMPLEMENTED
 
 **Paper**: “OPFData: Large-scale datasets for AC optimal power flow with topological perturbations” ([arXiv][3])
 
@@ -102,7 +106,7 @@
 
 ---
 
-## 3. DPLib — Distributed OPF Benchmark Library (2025)
+## 3. DPLib — Distributed OPF Benchmark Library (2025) 🟡 PLANNED
 
 **Paper**: “DPLib: A Standard Benchmark Library for Distributed Power System Analysis and Optimization” ([arXiv][4])
 
@@ -146,7 +150,7 @@
 
 ---
 
-## 4. PFΔ + GAT Reliability / N-1 (same dataset, different angle)
+## 4. PFΔ + GAT Reliability / N-1 (same dataset, different angle) ✅ IMPLEMENTED
 
 This is technically still PFΔ, but worth calling out as a second **distinct** tutorial:
 
@@ -176,7 +180,7 @@ This is technically still PFΔ, but worth calling out as a second **distinct** t
 
 ---
 
-## 5. DSS² — Deep Statistical Solver for Distribution System State Estimation (2023)
+## 5. DSS² — Deep Statistical Solver for Distribution System State Estimation (2023) 🟡 PLANNED
 
 **Paper**: “Deep Statistical Solver for Distribution System State Estimation” (DSS²) ([arXiv][5])
 
@@ -225,7 +229,7 @@ This is technically still PFΔ, but worth calling out as a second **distinct** t
 
 ---
 
-## 6. SoCal 28-Bus Digital Twin — Real Distribution Grid + PMU Data (2025)
+## 6. SoCal 28-Bus Digital Twin — Real Distribution Grid + PMU Data (2025) 🟡 PLANNED
 
 **Paper**: “A Digital Twin of an Electrical Distribution Grid: SoCal 28-Bus Dataset” ([arXiv][7])
 
@@ -257,7 +261,7 @@ This is technically still PFΔ, but worth calling out as a second **distinct** t
 
 ---
 
-## 7. GNN Benchmarks — For Future `gat featurize gnn` Demos
+## 7. GNN Benchmarks — For Future `gat featurize gnn` Demos 🟡 PLANNED
 
 If you want a GNN-centric tutorial to showcase `gat featurize gnn`, a couple of nice targets:
 
@@ -272,24 +276,41 @@ You can:
 
 ---
 
-## Where to start
+## Implementation Status
 
-In terms of “ease of wiring into GAT today”:
+| Paper | Status | GAT Features Used |
+|-------|--------|-------------------|
+| PFΔ | ✅ Implemented | `gat benchmark pfdelta`, `gat pf ac` |
+| OPFData | ✅ Implemented | `gat benchmark pglib`, `gat opf ac` |
+| PFΔ + N-1 | ✅ Implemented | `gat nminus1`, `gat analytics reliability` |
+| DSS² | 🟡 Planned | `gat se wls` (exists), needs benchmark harness |
+| GNN Benchmarks | 🟡 Planned | `gat featurize gnn` (exists), needs data loader |
+| DPLib | 🟡 Planned | Centralized OPF exists, needs ADMM algorithm |
+| SoCal 28-Bus | 🟡 Planned | WLS exists, needs PMU importer + time-series SE |
 
-1. **Easiest / highest payoff**
+## Implementation Priority
 
-   * PFΔ (PF + contingencies)
-   * OPFData (AC-OPF under topology variation)
-   * DPLib (centralized OPF benchmarks)
+For the 4 pending papers:
 
-2. **Medium effort, high narrative value**
+1. **DSS²** (~1 week effort)
+   - WLS state estimation already exists in GAT
+   - Needs: Data loader for pandapower format, benchmark harness
+   - High impact: Demonstrates SE capabilities
 
-   * DSS² (DSSE baseline reproduction)
-   * SoCal 28-Bus (real-world SE demo)
+2. **GNN Benchmarks** (~1 week effort)
+   - GNN featurization exists (`gat featurize gnn`)
+   - Needs: NeurIPS dataset loader, round-trip validation
+   - High impact: ML/research community appeal
 
-3. **Forward-looking / ML-heavy**
+3. **DPLib** (~2-3 weeks effort)
+   - Centralized OPF works, can reproduce baselines
+   - Needs: Graph partitioning, ADMM consensus solver
+   - High impact: Distributed computing showcase
 
-   * GNN benchmark datasets (for `featurize gnn` tutorials)
+4. **SoCal 28-Bus** (~3-4 weeks effort)
+   - Most complex: real-world PMU data
+   - Needs: PMU importer, time-series SE mode
+   - High impact: Industry credibility
 
 
 [1]: https://arxiv.org/html/2510.22048v1 "PFΔ: A Benchmark Dataset for Power Flow under Load, Generation, and Topology Variations"

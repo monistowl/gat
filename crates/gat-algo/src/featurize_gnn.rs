@@ -3,7 +3,9 @@ use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use gat_core::{BusId, Edge, Network, Node};
 use polars::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 use std::path::Path;
 
 /// Configuration for GNN featurization: grouping behavior and output stage names.
@@ -613,4 +615,434 @@ fn build_feature_dataframes(
     ])?;
 
     Ok((nodes_df, edges_df, graphs_df))
+}
+
+// =============================================================================
+// JSON Output Formats (NeurIPS PowerGraph + PyTorch Geometric)
+// =============================================================================
+
+/// Output format enumeration for GNN featurization.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GnnOutputFormat {
+    /// GAT native Arrow/Parquet format
+    #[default]
+    Arrow,
+    /// NeurIPS PowerGraph benchmark JSON format
+    NeuripsJson,
+    /// PyTorch Geometric compatible JSON format
+    PytorchGeometric,
+}
+
+/// NeurIPS PowerGraph JSON format structure.
+///
+/// Matches the format from the PowerGraph NeurIPS 2024 benchmark:
+/// - Node features: `[N, F_node]` array (P_net, S_net, V, etc.)
+/// - Edge features: `[E, F_edge]` array (P_flow, Q_flow, reactance, etc.)
+/// - Edge index: COO format `[[src...], [dst...]]`
+/// - Label: single value (binary, regression, or multiclass index)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NeuripsGraphJson {
+    /// Number of nodes in the graph
+    pub num_nodes: usize,
+    /// Number of edges in the graph
+    pub num_edges: usize,
+    /// Node features as `[N, F_node]` array
+    pub node_features: Vec<Vec<f64>>,
+    /// Edge features as `[E, F_edge]` array
+    pub edge_features: Vec<Vec<f64>>,
+    /// Edge index in COO format: `[[src indices], [dst indices]]`
+    pub edge_index: [Vec<usize>; 2],
+    /// Graph-level label (optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<serde_json::Value>,
+    /// Metadata (scenario_id, time, etc.)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+}
+
+/// PyTorch Geometric JSON format structure.
+///
+/// Compatible with PyG's `torch_geometric.data.Data` when loaded:
+/// ```python
+/// import torch
+/// data = Data(
+///     x=torch.tensor(json['x']),
+///     edge_index=torch.tensor(json['edge_index']),
+///     edge_attr=torch.tensor(json['edge_attr']),
+///     y=torch.tensor([json['y']]) if 'y' in json else None,
+/// )
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PytorchGeometricJson {
+    /// Node features `[N, F]` (PyG field: `x`)
+    pub x: Vec<Vec<f64>>,
+    /// Edge index in COO format `[2, E]` (PyG field: `edge_index`)
+    pub edge_index: [Vec<usize>; 2],
+    /// Edge attributes `[E, D]` (PyG field: `edge_attr`)
+    pub edge_attr: Vec<Vec<f64>>,
+    /// Graph-level target (optional, PyG field: `y`)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub y: Option<serde_json::Value>,
+    /// Number of nodes
+    pub num_nodes: usize,
+}
+
+/// GNN graph sample with all features extracted.
+///
+/// Internal representation that can be converted to any output format.
+#[derive(Debug, Clone)]
+pub struct GnnGraphSample {
+    pub graph_id: i64,
+    pub scenario_id: Option<String>,
+    pub time: Option<String>,
+    pub num_nodes: usize,
+    pub num_edges: usize,
+    /// Node features: each row is [voltage_kv, p_gen_mw, q_gen_mvar, p_load_mw, q_load_mvar, num_gens, num_loads]
+    pub node_features: Vec<Vec<f64>>,
+    /// Edge features: each row is [resistance, reactance, flow_mw]
+    pub edge_features: Vec<Vec<f64>>,
+    /// Edge index in COO format: (src_indices, dst_indices)
+    pub edge_index: (Vec<usize>, Vec<usize>),
+}
+
+impl GnnGraphSample {
+    /// Convert to NeurIPS PowerGraph JSON format.
+    pub fn to_neurips_json(&self) -> NeuripsGraphJson {
+        NeuripsGraphJson {
+            num_nodes: self.num_nodes,
+            num_edges: self.num_edges,
+            node_features: self.node_features.clone(),
+            edge_features: self.edge_features.clone(),
+            edge_index: [self.edge_index.0.clone(), self.edge_index.1.clone()],
+            label: None, // Labels would come from external source
+            metadata: Some(serde_json::json!({
+                "graph_id": self.graph_id,
+                "scenario_id": self.scenario_id,
+                "time": self.time,
+            })),
+        }
+    }
+
+    /// Convert to PyTorch Geometric JSON format.
+    pub fn to_pytorch_geometric_json(&self) -> PytorchGeometricJson {
+        PytorchGeometricJson {
+            x: self.node_features.clone(),
+            edge_index: [self.edge_index.0.clone(), self.edge_index.1.clone()],
+            edge_attr: self.edge_features.clone(),
+            y: None, // Labels would come from external source
+            num_nodes: self.num_nodes,
+        }
+    }
+}
+
+/// Export grid topology and flow data as GNN features with configurable output format.
+///
+/// This is the unified entry point that supports all output formats:
+/// - Arrow/Parquet: Tabular format with partitioning (original behavior)
+/// - NeurIPS JSON: One JSON file per graph, PowerGraph benchmark compatible
+/// - PyTorch Geometric: One JSON file per graph, PyG Data compatible
+pub fn featurize_gnn_with_format(
+    network: &Network,
+    flows_parquet: &Path,
+    output_root: &Path,
+    partitions: &[String],
+    cfg: &FeaturizeGnnConfig,
+    format: GnnOutputFormat,
+) -> Result<()> {
+    match format {
+        GnnOutputFormat::Arrow => {
+            // Use existing Parquet-based implementation
+            featurize_gnn_dc(network, flows_parquet, output_root, partitions, cfg)
+        }
+        GnnOutputFormat::NeuripsJson | GnnOutputFormat::PytorchGeometric => {
+            // Extract graph samples and write as JSON
+            let samples = extract_gnn_samples(network, flows_parquet, cfg)?;
+
+            // Create output directory
+            fs::create_dir_all(output_root)
+                .with_context(|| format!("creating output directory: {}", output_root.display()))?;
+
+            // Write each graph as a separate JSON file
+            for sample in &samples {
+                let filename = if let Some(ref scenario_id) = sample.scenario_id {
+                    format!("graph_{}_s{}.json", sample.graph_id, scenario_id)
+                } else {
+                    format!("graph_{}.json", sample.graph_id)
+                };
+
+                let path = output_root.join(&filename);
+                let json_value = match format {
+                    GnnOutputFormat::NeuripsJson => {
+                        serde_json::to_value(sample.to_neurips_json())?
+                    }
+                    GnnOutputFormat::PytorchGeometric => {
+                        serde_json::to_value(sample.to_pytorch_geometric_json())?
+                    }
+                    GnnOutputFormat::Arrow => unreachable!(),
+                };
+
+                let file = fs::File::create(&path)
+                    .with_context(|| format!("creating JSON file: {}", path.display()))?;
+                serde_json::to_writer_pretty(file, &json_value)
+                    .with_context(|| format!("writing JSON to: {}", path.display()))?;
+            }
+
+            println!(
+                "GNN features ({}): {} graphs -> {}",
+                match format {
+                    GnnOutputFormat::NeuripsJson => "NeurIPS JSON",
+                    GnnOutputFormat::PytorchGeometric => "PyTorch Geometric",
+                    GnnOutputFormat::Arrow => "Arrow",
+                },
+                samples.len(),
+                output_root.display()
+            );
+
+            Ok(())
+        }
+    }
+}
+
+/// Extract GNN samples from network and flows without writing to disk.
+///
+/// Used internally by JSON output formats and for testing.
+fn extract_gnn_samples(
+    network: &Network,
+    flows_parquet: &Path,
+    cfg: &FeaturizeGnnConfig,
+) -> Result<Vec<GnnGraphSample>> {
+    // Step 1: Extract static features
+    let (node_features, bus_id_to_node_idx) = extract_node_features(network)?;
+    let (edge_features, _branch_id_to_edge_idx) =
+        extract_edge_features(network, &bus_id_to_node_idx)?;
+
+    // Step 2: Load flows
+    let flows_df = LazyFrame::scan_parquet(flows_parquet.to_str().unwrap(), Default::default())?
+        .collect()
+        .context("loading flows parquet for GNN featurization")?;
+
+    // Validate required columns
+    if !flows_df.get_column_names().contains(&"branch_id") {
+        return Err(anyhow!("flows parquet must contain 'branch_id' column"));
+    }
+    if !flows_df.get_column_names().contains(&"flow_mw") {
+        return Err(anyhow!("flows parquet must contain 'flow_mw' column"));
+    }
+
+    // Step 3: Determine grouping and create graph keys
+    let group_cols = determine_group_columns(&flows_df, cfg)?;
+    let graph_keys = create_graph_keys(&flows_df, &group_cols)?;
+
+    if graph_keys.is_empty() {
+        return Err(anyhow!("no graph instances found in flows data"));
+    }
+
+    // Step 4: Build flow maps per graph
+    let flows_by_graph = if group_cols.is_empty() {
+        vec![(0, flows_df.clone())]
+    } else {
+        let group_by = flows_df.group_by(&group_cols)?;
+        let groups = group_by.get_groups();
+        let mut flows_map = Vec::with_capacity(groups.len());
+
+        for (graph_idx, group) in groups.iter().enumerate() {
+            let group_df = match group {
+                GroupsIndicator::Idx((_first, idx_vec)) => {
+                    let idx_ca = IdxCa::new("row_idx", idx_vec.as_slice());
+                    flows_df.take(&idx_ca)?
+                }
+                GroupsIndicator::Slice([first, len]) => flows_df.slice(first as i64, len as usize),
+            };
+            flows_map.push((graph_idx, group_df));
+        }
+        flows_map
+    };
+
+    // Build flow maps: branch_id -> flow_mw
+    let mut flow_maps: Vec<(usize, HashMap<i64, f64>)> = Vec::with_capacity(flows_by_graph.len());
+    for (graph_idx, group_df) in &flows_by_graph {
+        let mut flow_map = HashMap::with_capacity(group_df.height());
+        let branch_col = group_df.column("branch_id")?.i64()?;
+        let flow_col = group_df.column("flow_mw")?.f64()?;
+
+        for idx in 0..group_df.height() {
+            if let (Some(branch_id), Some(flow)) = (branch_col.get(idx), flow_col.get(idx)) {
+                flow_map.insert(branch_id, flow);
+            }
+        }
+        flow_maps.push((*graph_idx, flow_map));
+    }
+
+    // Step 5: Build GnnGraphSample for each graph
+    let mut samples = Vec::with_capacity(graph_keys.len());
+
+    for graph_key in &graph_keys {
+        // Find flow map for this graph
+        let empty_map = HashMap::new();
+        let flow_map = flow_maps
+            .iter()
+            .find(|(idx, _)| *idx == graph_key.graph_id as usize)
+            .map(|(_, map)| map)
+            .unwrap_or(&empty_map);
+
+        // Build node features: [voltage_kv, p_gen_mw, q_gen_mvar, p_load_mw, q_load_mvar, num_gens, num_loads]
+        let node_feat_vecs: Vec<Vec<f64>> = node_features
+            .iter()
+            .map(|n| {
+                vec![
+                    n.voltage_kv,
+                    n.p_gen_mw,
+                    n.q_gen_mvar,
+                    n.p_load_mw,
+                    n.q_load_mvar,
+                    n.num_gens as f64,
+                    n.num_loads as f64,
+                ]
+            })
+            .collect();
+
+        // Build edge features: [resistance, reactance, flow_mw]
+        let edge_feat_vecs: Vec<Vec<f64>> = edge_features
+            .iter()
+            .map(|e| {
+                let flow_mw = flow_map.get(&e.branch_id).copied().unwrap_or(0.0);
+                vec![e.resistance, e.reactance, flow_mw]
+            })
+            .collect();
+
+        // Build edge index (COO format)
+        let src_indices: Vec<usize> = edge_features.iter().map(|e| e.src as usize).collect();
+        let dst_indices: Vec<usize> = edge_features.iter().map(|e| e.dst as usize).collect();
+
+        samples.push(GnnGraphSample {
+            graph_id: graph_key.graph_id,
+            scenario_id: graph_key.scenario_id.clone(),
+            time: graph_key.time.map(|t| t.to_rfc3339()),
+            num_nodes: node_features.len(),
+            num_edges: edge_features.len(),
+            node_features: node_feat_vecs,
+            edge_features: edge_feat_vecs,
+            edge_index: (src_indices, dst_indices),
+        });
+    }
+
+    Ok(samples)
+}
+
+// =============================================================================
+// Tests
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gnn_graph_sample_to_neurips_json() {
+        let sample = GnnGraphSample {
+            graph_id: 0,
+            scenario_id: Some("base".to_string()),
+            time: Some("2024-01-01T00:00:00Z".to_string()),
+            num_nodes: 3,
+            num_edges: 2,
+            node_features: vec![
+                vec![138.0, 100.0, 50.0, 80.0, 30.0, 1.0, 2.0],
+                vec![138.0, 50.0, 25.0, 40.0, 15.0, 0.0, 1.0],
+                vec![69.0, 0.0, 0.0, 60.0, 25.0, 0.0, 1.0],
+            ],
+            edge_features: vec![
+                vec![0.01, 0.1, 50.0],
+                vec![0.02, 0.2, 30.0],
+            ],
+            edge_index: (vec![0, 1], vec![1, 2]),
+        };
+
+        let neurips = sample.to_neurips_json();
+
+        assert_eq!(neurips.num_nodes, 3);
+        assert_eq!(neurips.num_edges, 2);
+        assert_eq!(neurips.node_features.len(), 3);
+        assert_eq!(neurips.edge_features.len(), 2);
+        assert_eq!(neurips.edge_index[0].len(), 2); // src indices
+        assert_eq!(neurips.edge_index[1].len(), 2); // dst indices
+        assert!(neurips.metadata.is_some());
+    }
+
+    #[test]
+    fn test_gnn_graph_sample_to_pytorch_geometric_json() {
+        let sample = GnnGraphSample {
+            graph_id: 1,
+            scenario_id: None,
+            time: None,
+            num_nodes: 2,
+            num_edges: 1,
+            node_features: vec![
+                vec![138.0, 100.0, 50.0, 80.0, 30.0, 1.0, 2.0],
+                vec![138.0, 50.0, 25.0, 40.0, 15.0, 0.0, 1.0],
+            ],
+            edge_features: vec![vec![0.01, 0.1, 50.0]],
+            edge_index: (vec![0], vec![1]),
+        };
+
+        let pyg = sample.to_pytorch_geometric_json();
+
+        assert_eq!(pyg.num_nodes, 2);
+        assert_eq!(pyg.x.len(), 2);
+        assert_eq!(pyg.edge_attr.len(), 1);
+        assert_eq!(pyg.edge_index[0].len(), 1);
+        assert_eq!(pyg.edge_index[1].len(), 1);
+        assert_eq!(pyg.edge_index[0][0], 0); // src
+        assert_eq!(pyg.edge_index[1][0], 1); // dst
+    }
+
+    #[test]
+    fn test_neurips_json_serialization_roundtrip() {
+        let neurips = NeuripsGraphJson {
+            num_nodes: 3,
+            num_edges: 2,
+            node_features: vec![
+                vec![1.0, 2.0, 3.0],
+                vec![4.0, 5.0, 6.0],
+                vec![7.0, 8.0, 9.0],
+            ],
+            edge_features: vec![vec![0.1, 0.2], vec![0.3, 0.4]],
+            edge_index: [vec![0, 1], vec![1, 2]],
+            label: Some(serde_json::json!(1)),
+            metadata: Some(serde_json::json!({"source": "test"})),
+        };
+
+        let json_str = serde_json::to_string(&neurips).unwrap();
+        let parsed: NeuripsGraphJson = serde_json::from_str(&json_str).unwrap();
+
+        assert_eq!(parsed.num_nodes, neurips.num_nodes);
+        assert_eq!(parsed.num_edges, neurips.num_edges);
+        assert_eq!(parsed.node_features, neurips.node_features);
+        assert_eq!(parsed.edge_features, neurips.edge_features);
+        assert_eq!(parsed.edge_index, neurips.edge_index);
+    }
+
+    #[test]
+    fn test_pytorch_geometric_json_serialization_roundtrip() {
+        let pyg = PytorchGeometricJson {
+            x: vec![vec![1.0, 2.0], vec![3.0, 4.0]],
+            edge_index: [vec![0], vec![1]],
+            edge_attr: vec![vec![0.5, 0.6, 0.7]],
+            y: Some(serde_json::json!(0.5)),
+            num_nodes: 2,
+        };
+
+        let json_str = serde_json::to_string(&pyg).unwrap();
+        let parsed: PytorchGeometricJson = serde_json::from_str(&json_str).unwrap();
+
+        assert_eq!(parsed.x, pyg.x);
+        assert_eq!(parsed.edge_index, pyg.edge_index);
+        assert_eq!(parsed.edge_attr, pyg.edge_attr);
+        assert_eq!(parsed.num_nodes, pyg.num_nodes);
+    }
+
+    #[test]
+    fn test_gnn_output_format_default() {
+        let format = GnnOutputFormat::default();
+        assert_eq!(format, GnnOutputFormat::Arrow);
+    }
 }

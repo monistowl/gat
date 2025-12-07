@@ -525,6 +525,99 @@ for bus_state in &result.state {
 }
 ```
 
+## PMU-Based State Estimation
+
+For high-resolution synchrophasor measurements from PMUs (Phasor Measurement Units), GAT provides specialized support for time-series state estimation.
+
+### PMU Data Format
+
+GAT supports PMU data in CSV and JSON formats following IEEE C37.118 conventions:
+
+```csv
+timestamp_us,station_id,voltage_mag_pu,voltage_angle_deg,frequency_hz
+1704067200000000,SUB,1.0012,-0.15,59.998
+1704067200000000,PV1,0.9985,2.35,59.997
+1704067200000000,LOAD1,0.9891,5.12,59.997
+```
+
+### Loading PMU Data
+
+```rust
+use gat_io::sources::{load_pmu_csv, pmu_series_to_measurement_snapshots};
+
+// Load PMU time-series
+let series = load_pmu_csv("pmu_data.csv", None)?;
+
+// Convert to measurement snapshots for SE
+let snapshots = pmu_series_to_measurement_snapshots(
+    &series,
+    &station_to_bus_map,
+    1.0,  // voltage weight
+    1.0,  // angle weight
+);
+```
+
+### SoCal 28-Bus Test Network
+
+The SoCal 28-Bus dataset provides a real-world distribution grid digital twin with dense PMU deployment. It's ideal for testing PMU-based state estimation.
+
+```rust
+use gat_io::sources::{build_socal28_network, SoCal28Config, generate_synthetic_pmu_data};
+
+// Build the network
+let config = SoCal28Config::default();
+let network = build_socal28_network(&config);
+
+// Get PMU station-to-bus mapping
+let station_map = config.station_to_bus_map();
+
+// Generate synthetic PMU data for testing
+let pmu_series = generate_synthetic_pmu_data(&config, 60, 1.0, 42);
+
+println!("Network: {} buses, {} PMU sensors",
+    28, station_map.len());
+```
+
+**Network characteristics:**
+- 28 buses (MV/LV distribution)
+- 9 PMU sensors at key locations
+- 4 generators (utility + solar + fuel cell + NG)
+- 15 diverse loads (data center, EV charging, commercial)
+
+**Reference:** Xie et al., "A Digital Twin of an Electrical Distribution Grid: SoCal 28-Bus Dataset" (arXiv:2504.06588)
+
+### Time-Series State Estimation
+
+For processing PMU time-series:
+
+```rust
+use gat_io::sources::{
+    group_frames_by_timestamp,
+    TimeSeriesSeConfig,
+    prepare_pmu_measurements,
+};
+
+// Configure time-series SE
+let config = TimeSeriesSeConfig {
+    warm_start: true,           // Use previous solution
+    max_iterations: 100,
+    tolerance: 1e-6,
+    parallel_threshold: 10,     // Parallelize if > 10 timestamps
+    ..Default::default()
+};
+
+// Group PMU frames by timestamp
+let measurements = prepare_pmu_measurements(&series, &station_map, &config);
+
+// Process each timestamp
+for (timestamp_us, meas) in measurements {
+    // Run WLS on this snapshot
+    let result = state_estimation_wls(&network, &meas, &se_config)?;
+    println!("t={}: {} meas, chi2={:.2}",
+        timestamp_us, meas.len(), result.chi2);
+}
+```
+
 ## Related Commands
 
 - [Power Flow](@/guide/pf.md) — Generate "true" state for testing
