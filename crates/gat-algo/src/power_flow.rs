@@ -3,6 +3,9 @@ pub mod fast_decoupled;
 #[cfg(test)]
 mod q_limits;
 
+// Export the FastDecoupledSolver for public use
+pub use fast_decoupled::FastDecoupledSolver;
+
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
