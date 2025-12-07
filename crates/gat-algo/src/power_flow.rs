@@ -4,8 +4,9 @@ pub mod fast_decoupled;
 #[cfg(test)]
 mod q_limits;
 
-// Export the FastDecoupledSolver for public use
+// Export new power flow solvers for public use
 pub use fast_decoupled::FastDecoupledSolver;
+pub use cpf::{CpfPoint, CpfResult, CpfSolver};
 
 use std::{
     collections::{HashMap, HashSet},
