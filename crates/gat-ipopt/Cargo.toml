@@ -1,6 +1,6 @@
 [package]
 name = "gat-ipopt"
-version = "0.5.6"
+version = "0.5.7"
 edition = "2021"
 description = "IPOPT solver wrapper for GAT native solver plugin system"
 license = "MIT OR Apache-2.0"
