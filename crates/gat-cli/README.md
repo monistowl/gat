@@ -180,17 +180,18 @@ gat analytics reliability \
 
 ## Documentation
 
-**Getting Started:**
-- `docs/guide/overview.md` — CLI structure and command organization
-- `docs/guide/pf.md` — Power-flow examples and troubleshooting
-- `docs/guide/opf.md` — Optimal dispatch with solvers and strategies
+**Website Guides:**
+- [Quickstart](https://monistowl.github.io/gat/guide/quickstart/) — Get running in 5 minutes
+- [Power Flow Guide](https://monistowl.github.io/gat/guide/pf/) — DC/AC power flow examples
+- [Optimal Power Flow](https://monistowl.github.io/gat/guide/opf/) — Economic dispatch with solvers
+- [CLI Architecture](https://monistowl.github.io/gat/internals/cli-architecture/) — Command structure and modules
 
-**Advanced Workflows:**
-- `docs/guide/dist.md` — Distribution system analysis
-- `docs/guide/adms.md` — Distribution automation (FLISR, VVO)
-- `docs/guide/derms.md` — DER management and pricing
+**Advanced Topics:**
+- [Reliability Analysis](https://monistowl.github.io/gat/guide/reliability/) — N-1 contingency screening
+- [Batch Processing](https://monistowl.github.io/gat/guide/batch/) — Parallel job execution
+- [Feature Matrix](https://monistowl.github.io/gat/internals/feature-matrix/) — Build variants and features
 
-**Reference:**
+**Local Reference:**
 - `docs/cli/gat.md` — Full generated command reference
 - `docs/guide/cli-architecture.md` — Dispatcher and module organization
 
@@ -218,6 +219,7 @@ cargo test -p gat-cli --features "minimal-io all-backends"
 
 ## See Also
 
-- [GAT Main README](../../README.md) for project overview
-- [AGENTS.md](../../AGENTS.md) for agent integration and MCP setup
-- [RELEASE_PROCESS.md](../../RELEASE_PROCESS.md) for contributing changes
+- [Full Documentation](https://monistowl.github.io/gat/) — GAT website
+- [GAT Main README](../../README.md) — Project overview
+- [AGENTS.md](../../AGENTS.md) — Agent integration and MCP setup
+- [RELEASE_PROCESS.md](../../RELEASE_PROCESS.md) — Contributing changes

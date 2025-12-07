@@ -246,17 +246,19 @@ Typical performance on IEEE test cases:
 
 ## Documentation
 
-**Examples:**
+**Website Guides:**
+- [Power Flow Guide](https://monistowl.github.io/gat/guide/pf/) — DC/AC power flow theory and examples
+- [Optimal Power Flow](https://monistowl.github.io/gat/guide/opf/) — Optimization formulations and solvers
+- [State Estimation](https://monistowl.github.io/gat/guide/se/) — Weighted least squares estimation
+
+**Local Files:**
 - `examples/` — Standalone solver examples
 - `tests/` — Test cases with MATPOWER models
-
-**Guides:**
-- `docs/guide/pf.md` — Power flow theory and examples
-- `docs/guide/opf.md` — Optimization formulations and solvers
-- `docs/guide/se.md` — State estimation
+- `docs/guide/pf.md` — Local power flow documentation
 
 ## See Also
 
+- [Full Documentation](https://monistowl.github.io/gat/) — GAT website
 - [GAT Main README](../../README.md)
 - [gat-cli README](../gat-cli/README.md)
 - [AGENTS.md](../../AGENTS.md)

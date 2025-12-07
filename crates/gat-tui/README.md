@@ -263,13 +263,15 @@ cargo test -p gat-tui
 - Core pane/unit tests plus integration coverage for multi-pane flows
 - Run `cargo test -p gat-tui` for the exact count in your checkout
 
-## Architecture Files
+## Documentation
 
-See `docs/guide/gat-tui.md` for:
-- Detailed pane architecture and state management
-- Event dispatcher and async integration
-- Query builder adapters (CLI execution layer)
-- Real command execution examples
+**Website:**
+- [TUI Dashboard Guide](https://monistowl.github.io/gat/internals/gat-tui/) — Detailed pane architecture
+- [Quickstart](https://monistowl.github.io/gat/guide/quickstart/) — Get running in 5 minutes
+- [Power Flow Guide](https://monistowl.github.io/gat/guide/pf/) — Analysis examples
+
+**Local Files:**
+- `docs/guide/gat-tui.md` — Event dispatcher and async integration
 
 ## Related Crates
 
@@ -310,6 +312,7 @@ See `docs/guide/gat-tui.md` for:
 
 ## See Also
 
-- [GAT Main README](../../README.md)
-- [AGENTS.md](../../AGENTS.md) for agent integration
-- [RELEASE_PROCESS.md](../../RELEASE_PROCESS.md) for development workflow
+- [Full Documentation](https://monistowl.github.io/gat/) — GAT website
+- [GAT Main README](../../README.md) — Project overview
+- [AGENTS.md](../../AGENTS.md) — Agent integration
+- [RELEASE_PROCESS.md](../../RELEASE_PROCESS.md) — Development workflow

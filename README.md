@@ -2,6 +2,8 @@
 
 # GRID ANALYSIS TOOLKIT (GAT) — v0.5.6
 
+**📖 [Documentation](https://monistowl.github.io/gat/) | 🚀 [Quickstart](https://monistowl.github.io/gat/guide/quickstart/) | 📚 [Guide](https://monistowl.github.io/gat/guide/) | 🔧 [Internals](https://monistowl.github.io/gat/internals/) | 📋 [Reference](https://monistowl.github.io/gat/reference/)**
+
 *A fast Rust-powered command-line toolkit for power-system modeling, flows, dispatch, and time-series analysis.*
 
 If you're comfortable running simple CLI commands and want to start doing *real* grid analysis — without needing a giant Python stack or a full simulation lab — **GAT gives you industrial-grade tools in a form you can actually tinker with.** Everything runs as standalone commands, and all the heavy lifting is Rust-fast.
@@ -824,58 +826,49 @@ bash scripts/install.sh
 
 ## Documentation
 
+**Full documentation is available at [monistowl.github.io/gat](https://monistowl.github.io/gat/).**
+
 ### Getting Started
 
-- `docs/guide/overview.md` — CLI architecture and command organization
-- `docs/guide/pf.md` — Power flow (DC/AC) examples and troubleshooting
-- `docs/guide/opf.md` — Optimal power flow with costs, limits, and solver selection
+- [Quickstart Guide](https://monistowl.github.io/gat/guide/quickstart/) — Get running in 5 minutes
+- [Power Flow](https://monistowl.github.io/gat/guide/pf/) — DC/AC power flow examples
+- [Optimal Power Flow](https://monistowl.github.io/gat/guide/opf/) — Economic dispatch with costs and limits
 
-### Advanced Domains
+### Analysis Guides
 
-- `docs/guide/adms.md` — Distribution automation (FLISR, VVO, outage coordination)
-- `docs/guide/derms.md` — DER management (envelope aggregation, pricing, stress testing)
-- `docs/guide/dist.md` — Distribution system analysis (AC flows, hosting capacity)
+- [N-1 Contingency](https://monistowl.github.io/gat/guide/reliability/) — Security screening and reliability
+- [State Estimation](https://monistowl.github.io/gat/guide/se/) — Weighted least squares estimation
+- [Time Series](https://monistowl.github.io/gat/guide/ts/) — Resample, join, aggregate operations
+- [ML Features](https://monistowl.github.io/gat/guide/ml-features/) — GNN and KPI feature extraction
 
-### Common Tasks
+### Internals
 
-- `docs/guide/ts.md` — Time-series operations (resample, join, aggregate)
-- `docs/guide/se.md` — State estimation (weighted least squares)
-- `docs/guide/graph.md` — Network topology tools (stats, islands, visualization)
-- `docs/guide/datasets.md` — Public dataset fetching and caching
-- `docs/guide/gat-tui.md` — Terminal UI architecture and pane navigation
+- [CLI Architecture](https://monistowl.github.io/gat/internals/cli-architecture/) — Command modules and dispatcher
+- [Feature Matrix](https://monistowl.github.io/gat/internals/feature-matrix/) — Build variants and solver options
+- [TUI Dashboard](https://monistowl.github.io/gat/internals/gat-tui/) — Terminal UI architecture
+- [MCP Integration](https://monistowl.github.io/gat/internals/mcp-onboarding/) — Agent and LLM integration
 
-### Infrastructure & Workflows
+### Reference
 
-- `docs/guide/cli-architecture.md` — Dispatcher, command modules, telemetry
-- `docs/guide/feature-matrix.md` — CI/CD matrix testing with solver combinations
-- `docs/guide/mcp-onboarding.md` — MCP server setup for agent integration
-- `docs/guide/packaging.md` — Binary distribution and installation
-- `docs/guide/scaling.md` — GPU acceleration and multi-horizon scaling roadmap
+- [CLI Reference](https://monistowl.github.io/gat/reference/) — Complete command documentation
+- [Schemas](https://monistowl.github.io/gat/reference/schemas/) — JSON schemas for manifests and outputs
 
-### Auto-Generated Documentation
+### Local Documentation
 
-- `docs/cli/gat.md` — Full CLI command reference
-- `docs/schemas/` — JSON schema for manifests and outputs
+For offline access or development, documentation is also available in the `docs/` directory:
 
-### Regenerate Documentation
+```
+docs/
+├── guide/       # User guides (pf.md, opf.md, ts.md, etc.)
+├── cli/         # Auto-generated CLI reference
+├── schemas/     # JSON schemas
+└── man/         # Man pages
+```
 
-After documentation changes, run:
+Regenerate local docs with:
 
 ```bash
 cargo xtask doc all
-```
-
-This regenerates:
-
-* CLI Markdown (`docs/cli/gat.md`)
-* `gat.1` man page (`docs/man/gat.1`)
-* JSON schemas (`docs/schemas/`)
-* A minimal book site (`site/book/`)
-
-Expose the tree to agents:
-
-```bash
-gat-mcp-docs --docs docs --addr 127.0.0.1:4321
 ```
 
 ---

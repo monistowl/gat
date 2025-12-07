@@ -67,6 +67,8 @@ cargo test -p gat-io
 
 ## See Also
 
-- [GAT Main README](../../README.md)
-- `docs/guide/cli-architecture.md` — I/O pipeline
+- [Full Documentation](https://monistowl.github.io/gat/) — GAT website
+- [ML Feature Extraction](https://monistowl.github.io/gat/guide/ml-features/) — GNN and KPI features
+- [Convert Guide](https://monistowl.github.io/gat/guide/convert/) — Format conversion
+- [GAT Main README](../../README.md) — Project overview
 - `docs/schemas/` — Detailed schema definitions
