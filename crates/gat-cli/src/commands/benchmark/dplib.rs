@@ -322,6 +322,7 @@ fn benchmark_dplib_case(
         max_penalty: 1e6,
         min_penalty: 1e-6,
         verbose: false,
+        use_gpu: false, // GPU acceleration not used in benchmarks
     };
 
     let admm_solver = AdmmOpfSolver::new(admm_config);
