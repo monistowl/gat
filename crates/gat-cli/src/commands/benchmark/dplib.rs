@@ -142,7 +142,14 @@ pub fn handle(
     eprintln!("DPLib Distributed OPF Benchmark");
     eprintln!("================================");
     eprintln!("PGLib directory: {}", config.pglib_dir);
-    eprintln!("Partitions: {}", if num_partitions == 0 { "auto".to_string() } else { num_partitions.to_string() });
+    eprintln!(
+        "Partitions: {}",
+        if num_partitions == 0 {
+            "auto".to_string()
+        } else {
+            num_partitions.to_string()
+        }
+    );
     eprintln!("Max ADMM iterations: {}", config.max_iter);
     eprintln!("Tolerance: {:.2e}", config.tol);
     eprintln!("Initial ρ: {:.1}", config.rho);
@@ -184,23 +191,20 @@ fn run_benchmark(config: &DplibConfig) -> Result<()> {
     };
     matpower_files.truncate(limit);
 
-    eprintln!(
-        "Found {} MATPOWER cases to benchmark",
-        matpower_files.len()
-    );
+    eprintln!("Found {} MATPOWER cases to benchmark", matpower_files.len());
 
     // Run benchmarks
     let results: Vec<DplibBenchmarkResult> = matpower_files
         .par_iter()
-        .filter_map(|(case_name, path)| {
-            match benchmark_dplib_case(case_name, path, config) {
+        .filter_map(
+            |(case_name, path)| match benchmark_dplib_case(case_name, path, config) {
                 Ok(result) => Some(result),
                 Err(e) => {
                     eprintln!("Error benchmarking {}: {}", case_name, e);
                     None
                 }
-            }
-        })
+            },
+        )
         .collect();
 
     // Write results to CSV
@@ -301,10 +305,7 @@ fn benchmark_dplib_case(
     };
 
     // === Partition the network ===
-    let partitions = partition_network(
-        &network,
-        PartitionStrategy::Spectral { num_partitions },
-    )?;
+    let partitions = partition_network(&network, PartitionStrategy::Spectral { num_partitions })?;
 
     let num_tie_lines: usize = partitions.iter().map(|p| p.tie_lines.len()).sum::<usize>() / 2;
 
@@ -331,18 +332,31 @@ fn benchmark_dplib_case(
     let admm_result = admm_solver.solve(&network);
     let admm_time_ms = admm_start.elapsed().as_secs_f64() * 1000.0;
 
-    let (admm_converged, admm_objective, admm_iterations, primal_residual, dual_residual, phase_times) =
-        match &admm_result {
-            Ok(sol) => (
-                sol.converged,
-                sol.objective,
-                sol.iterations,
-                sol.primal_residual,
-                sol.dual_residual,
-                sol.phase_times_ms.clone(),
-            ),
-            Err(_) => (false, 0.0, 0, f64::INFINITY, f64::INFINITY, Default::default()),
-        };
+    let (
+        admm_converged,
+        admm_objective,
+        admm_iterations,
+        primal_residual,
+        dual_residual,
+        phase_times,
+    ) = match &admm_result {
+        Ok(sol) => (
+            sol.converged,
+            sol.objective,
+            sol.iterations,
+            sol.primal_residual,
+            sol.dual_residual,
+            sol.phase_times_ms.clone(),
+        ),
+        Err(_) => (
+            false,
+            0.0,
+            0,
+            f64::INFINITY,
+            f64::INFINITY,
+            Default::default(),
+        ),
+    };
 
     // Compute comparison metrics
     let objective_gap_rel = if centralized_objective > 0.0 {
@@ -390,8 +404,7 @@ fn write_results(out: &str, results: &[DplibBenchmarkResult]) -> Result<()> {
         }
     }
 
-    let file = File::create(out_path)
-        .context(format!("Failed to create output file: {}", out))?;
+    let file = File::create(out_path).context(format!("Failed to create output file: {}", out))?;
     let mut writer = Writer::from_writer(file);
 
     for result in results {
@@ -428,7 +441,10 @@ fn print_summary(results: &[DplibBenchmarkResult]) {
         return;
     }
 
-    let avg_admm_time: f64 = converged_results.iter().map(|r| r.admm_time_ms).sum::<f64>()
+    let avg_admm_time: f64 = converged_results
+        .iter()
+        .map(|r| r.admm_time_ms)
+        .sum::<f64>()
         / converged_results.len() as f64;
     let avg_centralized_time: f64 = converged_results
         .iter()
@@ -445,7 +461,10 @@ fn print_summary(results: &[DplibBenchmarkResult]) {
         .map(|r| r.objective_gap_rel.abs())
         .sum::<f64>()
         / converged_results.len() as f64;
-    let avg_speedup: f64 = converged_results.iter().map(|r| r.speedup_ratio).sum::<f64>()
+    let avg_speedup: f64 = converged_results
+        .iter()
+        .map(|r| r.speedup_ratio)
+        .sum::<f64>()
         / converged_results.len() as f64;
 
     eprintln!();
@@ -453,10 +472,18 @@ fn print_summary(results: &[DplibBenchmarkResult]) {
     eprintln!();
     eprintln!("Convergence:");
     eprintln!("  Total cases: {}", total);
-    eprintln!("  ADMM converged: {}/{} ({:.1}%)",
-        admm_converged, total, 100.0 * admm_converged as f64 / total as f64);
-    eprintln!("  Centralized converged: {}/{} ({:.1}%)",
-        centralized_converged, total, 100.0 * centralized_converged as f64 / total as f64);
+    eprintln!(
+        "  ADMM converged: {}/{} ({:.1}%)",
+        admm_converged,
+        total,
+        100.0 * admm_converged as f64 / total as f64
+    );
+    eprintln!(
+        "  Centralized converged: {}/{} ({:.1}%)",
+        centralized_converged,
+        total,
+        100.0 * centralized_converged as f64 / total as f64
+    );
     eprintln!();
     eprintln!("Performance (converged cases):");
     eprintln!("  Avg ADMM time: {:.2} ms", avg_admm_time);

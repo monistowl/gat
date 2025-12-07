@@ -7,11 +7,10 @@ use gat_io::importers;
 
 use crate::commands::telemetry::record_run_timed;
 use crate::commands::util::parse_partitions;
-use gat_cli::common::GnnOutputFormat;
 use gat_algo::featurize_gnn::{
-    featurize_gnn_with_format, FeaturizeGnnConfig,
-    GnnOutputFormat as AlgoGnnOutputFormat,
+    featurize_gnn_with_format, FeaturizeGnnConfig, GnnOutputFormat as AlgoGnnOutputFormat,
 };
+use gat_cli::common::GnnOutputFormat;
 
 /// Handle `gat featurize gnn` command: export grid topology and flows as GNN-ready features.
 ///

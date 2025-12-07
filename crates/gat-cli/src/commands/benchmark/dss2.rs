@@ -184,7 +184,10 @@ fn run_benchmark(config: &Dss2Config) -> Result<Vec<Dss2TrialResult>> {
         .filter(|e| matches!(e, Edge::Branch(_)))
         .count();
 
-    eprintln!("Network built: {} buses, {} branches", num_buses, num_branches);
+    eprintln!(
+        "Network built: {} buses, {} branches",
+        num_buses, num_branches
+    );
 
     // Run DC power flow to get true state
     let pf_start = Instant::now();
@@ -308,7 +311,8 @@ fn run_single_trial(
     };
 
     // generate_measurements takes (bus_angles, branch_flows, bus_injections, config)
-    let measurements = generate_measurements(true_angles, branch_flows, true_injections, &meas_config);
+    let measurements =
+        generate_measurements(true_angles, branch_flows, true_injections, &meas_config);
     let meas_gen_time = meas_start.elapsed().as_secs_f64() * 1000.0;
 
     // Write measurements to temporary CSV
@@ -349,8 +353,11 @@ fn run_single_trial(
 
     // Compute error metrics by reading estimated angles from state output
     let (mae_deg, rmse_deg, max_error_deg) = if converged {
-        compute_error_metrics_from_file(true_angles, temp_state.path())
-            .unwrap_or((f64::NAN, f64::NAN, f64::NAN))
+        compute_error_metrics_from_file(true_angles, temp_state.path()).unwrap_or((
+            f64::NAN,
+            f64::NAN,
+            f64::NAN,
+        ))
     } else {
         (f64::NAN, f64::NAN, f64::NAN)
     };
@@ -383,8 +390,7 @@ fn compute_error_metrics_from_file(
     use polars::prelude::*;
 
     // Read the parquet file with estimated angles
-    let df = LazyFrame::scan_parquet(state_file, Default::default())?
-        .collect()?;
+    let df = LazyFrame::scan_parquet(state_file, Default::default())?.collect()?;
 
     let bus_ids = df.column("bus_id")?.i64()?;
     let angles = df.column("angle_rad")?.f64()?;
@@ -451,7 +457,8 @@ fn compute_summary(results: &[Dss2TrialResult]) -> Dss2Summary {
     let mean_rmse = converged.iter().map(|r| r.rmse_deg).sum::<f64>() / num_converged as f64;
 
     // Max error
-    let mean_max_error = converged.iter().map(|r| r.max_error_deg).sum::<f64>() / num_converged as f64;
+    let mean_max_error =
+        converged.iter().map(|r| r.max_error_deg).sum::<f64>() / num_converged as f64;
 
     // Timing statistics
     let mut se_times: Vec<f64> = converged.iter().map(|r| r.se_time_ms).collect();
@@ -504,14 +511,18 @@ fn print_summary(summary: &Dss2Summary) {
     eprintln!();
     eprintln!("=== DSS² Benchmark Summary ===");
     eprintln!();
-    eprintln!("Convergence: {}/{} ({:.1}%)",
+    eprintln!(
+        "Convergence: {}/{} ({:.1}%)",
         summary.converged_trials,
         summary.total_trials,
         summary.convergence_rate * 100.0
     );
     eprintln!();
     eprintln!("Accuracy (converged trials):");
-    eprintln!("  MAE:       {:.4}° ± {:.4}°", summary.mean_mae_deg, summary.std_mae_deg);
+    eprintln!(
+        "  MAE:       {:.4}° ± {:.4}°",
+        summary.mean_mae_deg, summary.std_mae_deg
+    );
     eprintln!("  RMSE:      {:.4}°", summary.mean_rmse_deg);
     eprintln!("  Max Error: {:.4}°", summary.mean_max_error_deg);
     eprintln!();
