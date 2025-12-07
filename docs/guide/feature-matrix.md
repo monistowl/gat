@@ -14,18 +14,20 @@ The `.github/workflows/cli-feature-matrix.yml` CI job runs on every push or pull
 
 Running this matrix catches regressions where a feature flag environment might compile but not run under different solver stacks. Trigger it manually from the Actions tab with `workflow_dispatch`, e.g. when you need to rerun the entire matrix after a local fix before merging.
 
-## v0.3.4 Feature Summary
+## v0.5.6 Feature Summary
 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | DC Power Flow | ✅ Stable | Linear B'θ=P with partitioned Parquet output |
 | AC Power Flow | ✅ Stable | Newton-Raphson with Q-limit enforcement |
+| **Fast-Decoupled PF** | ✅ New | Stott-Alsac XB method, ~5x faster than NR |
+| **Continuation PF** | ✅ New | Voltage stability, nose curve tracing |
 | DC OPF | ✅ Stable | LP with piecewise cost curves |
 | SOCP OPF | ✅ Stable | Convex relaxation for fast solves |
-| **Full AC-OPF** | ✅ New | Penalty-based L-BFGS (95.6% PGLib convergence) |
+| Full AC-OPF | ✅ Stable | Penalty-based L-BFGS (95.6% PGLib convergence) |
 | N-1 Contingency | ✅ Stable | DC/AC screening |
 | N-2 Contingency | ✅ Stable | 100% convergence validated |
-| **PGLib Benchmark** | ✅ New | 68 MATPOWER cases, baseline comparison |
+| PGLib Benchmark | ✅ Stable | 68 MATPOWER cases, baseline comparison |
 | PFDelta Benchmark | ✅ Stable | 859,800 contingency instances |
 | Reliability (LOLE/EUE) | ✅ Stable | Monte Carlo simulation |
 | Multi-Area CANOS | ✅ Stable | Zone-to-zone LOLE, corridor utilization |

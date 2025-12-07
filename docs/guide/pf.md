@@ -68,6 +68,68 @@ Shunts are modeled as constant-admittance injections at their connected bus:
 
 The Y-bus construction includes both branch charging and bus shunt elements, ensuring power balance equations match the physical network.
 
+### Fast-Decoupled Power Flow (v0.5.6+)
+
+Fast-Decoupled Power Flow (FDPF) uses the Stott-Alsac method to achieve ~5x speedup over Newton-Raphson by exploiting the weak coupling between P-θ and Q-V subproblems:
+
+```rust
+use gat_algo::power_flow::FastDecoupledSolver;
+
+let solver = FastDecoupledSolver::new()
+    .with_tolerance(1e-6)
+    .with_max_iterations(50);
+
+let solution = solver.solve(&network)?;
+println!("Converged in {} iterations", solution.iterations);
+```
+
+**Algorithm:**
+- B' matrix: P-θ subproblem using `B'_ij = -1/x_ij` (ignores resistance)
+- B'' matrix: Q-V subproblem including tap ratios, line charging, shunts
+- Both matrices are factored once (constant) and reused each iteration
+- Typically converges in 3-10 iterations for well-conditioned networks
+
+**Reference:** Stott & Alsac (1974), "Fast Decoupled Load Flow", IEEE Trans. PAS. [DOI: 10.1109/TPAS.1974.293985](https://doi.org/10.1109/TPAS.1974.293985)
+
+### Continuation Power Flow (v0.5.6+)
+
+Continuation Power Flow (CPF) traces PV/nose curves for voltage stability analysis, finding the maximum loading point before voltage collapse:
+
+```rust
+use gat_algo::power_flow::{CpfSolver, CpfResult};
+use gat_core::BusId;
+
+let solver = CpfSolver::new()
+    .with_step_size(0.05)
+    .with_tolerance(1e-6)
+    .with_target_bus(BusId::new(5));  // Monitor specific bus
+
+let result: CpfResult = solver.solve(&mut network)?;
+
+println!("Max loading: {:.2}x base case", result.max_loading);
+println!("Loading margin: {:.1}%", result.loading_margin * 100.0);
+println!("Critical bus: {:?}", result.critical_bus);
+
+// Plot nose curve
+for point in &result.nose_curve {
+    println!("λ={:.2}, V={:.3} p.u.", point.loading, point.voltage);
+}
+```
+
+**Algorithm:**
+1. **Predictor**: Increase loading factor λ along tangent direction
+2. **Corrector**: Solve AC power flow at new loading level
+3. Repeat until solver fails to converge (nose point)
+4. Adaptive step sizing for efficiency
+
+**Output:**
+- `max_loading`: Maximum loading factor λ before collapse (1.0 = base case)
+- `loading_margin`: Safety margin as fraction of base load
+- `critical_bus`: Bus with lowest voltage at max loading
+- `nose_curve`: Complete PV curve data for visualization
+
+**Reference:** Ajjarapu & Christy (1992), "The Continuation Power Flow", IEEE Trans. Power Systems. [DOI: 10.1109/59.141737](https://doi.org/10.1109/59.141737)
+
 ---
 
 ## Optimal Power Flow
