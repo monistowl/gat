@@ -427,6 +427,139 @@ SOCP uses [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs), a high-perfo
 
 ---
 
+## ADMM Distributed OPF (v0.5.6)
+
+GAT implements distributed OPF using the **Alternating Direction Method of Multipliers (ADMM)**, enabling scalable optimization across partitioned networks. This is particularly useful for:
+
+- **Large-scale networks** where centralized OPF is too slow
+- **Multi-area coordination** where regions solve independently
+- **Privacy-preserving optimization** where areas don't share full network data
+
+### Algorithm Overview
+
+The ADMM-based distributed OPF partitions the network and coordinates boundary constraints:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  ADMM ITERATION                                                          │
+│  ──────────────                                                          │
+│                                                                          │
+│  1. x-update:  Solve local OPF for each partition (parallel)             │
+│  2. z-update:  Average boundary voltages across partitions (consensus)   │
+│  3. λ-update:  Update dual variables (Lagrange multipliers)              │
+│  4. Check:     Compute primal/dual residuals, check convergence          │
+│                                                                          │
+│  Repeat until ||r_primal|| < ε and ||r_dual|| < ε                        │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Configuration Options
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--partitions` | 4 | Number of network partitions |
+| `--penalty` | 1.0 | ADMM penalty parameter (ρ) |
+| `--max-iter` | 100 | Maximum ADMM iterations |
+| `--primal-tol` | 1e-4 | Primal residual tolerance |
+| `--dual-tol` | 1e-4 | Dual residual tolerance |
+| `--adaptive-penalty` | true | Enable penalty adaptation |
+| `--inner-method` | dc | Inner OPF solver (dc, socp, ac) |
+
+### GPU Acceleration
+
+Branch power flow calculation can be accelerated using GPU computing for large networks:
+
+```bash
+# Build with GPU support
+cargo build -p gat-cli --features gpu
+
+# Enable GPU in solver configuration
+gat opf run network.arrow --method dc --distributed --use-gpu
+```
+
+**Performance Characteristics:**
+- **Large networks** (hundreds to thousands of branches): GPU provides 2-10x speedup
+- **Small networks** (< 100 branches): Minimal benefit due to kernel launch overhead
+- **Automatic fallback**: Falls back to CPU if GPU unavailable
+
+### Rust API
+
+```rust
+use gat_algo::opf::admm::{AdmmOpfSolver, AdmmConfig};
+use gat_algo::opf::OpfMethod;
+
+// Configure ADMM solver
+let solver = AdmmOpfSolver::new(AdmmConfig {
+    num_partitions: 4,
+    penalty: 1.0,
+    max_iter: 100,
+    primal_tol: 1e-4,
+    dual_tol: 1e-4,
+    inner_method: OpfMethod::DcOpf,
+    adaptive_penalty: true,
+    use_gpu: true,  // Enable GPU acceleration
+    ..Default::default()
+});
+
+// Solve distributed OPF
+let result = solver.solve(&network)?;
+
+// Access results
+println!("Converged: {}", result.converged);
+println!("Iterations: {}", result.iterations);
+println!("Objective: ${:.2}/hr", result.objective);
+println!("Tie-lines: {}", result.num_tie_lines);
+
+// Examine tie-line flows
+for (branch_id, (p_mw, q_mvar, from_part, to_part)) in &result.tie_line_flows {
+    println!("  {}: P={:.2} MW, Q={:.2} MVAr ({} -> {})",
+             branch_id, p_mw, q_mvar, from_part, to_part);
+}
+```
+
+### Solution Structure
+
+The `AdmmSolution` contains comprehensive results:
+
+```rust
+pub struct AdmmSolution {
+    // Core results
+    pub objective: f64,                          // Total cost
+    pub bus_voltage_mag: HashMap<String, f64>,   // Per-bus Vm
+    pub bus_voltage_ang: HashMap<String, f64>,   // Per-bus Va
+    pub generator_p: HashMap<String, f64>,       // Generator dispatch
+    pub generator_q: HashMap<String, f64>,       // Reactive dispatch
+
+    // Convergence info
+    pub converged: bool,
+    pub iterations: usize,
+    pub primal_residual: f64,                    // ||x - z||
+    pub dual_residual: f64,                      // ||z^k - z^{k-1}||
+
+    // Partition info
+    pub partition_objectives: Vec<f64>,          // Per-partition cost
+    pub partition_sizes: Vec<usize>,             // Buses per partition
+    pub num_tie_lines: usize,                    // Boundary branches
+
+    // Branch flows
+    pub branch_p_flow: HashMap<String, f64>,     // Active power (MW)
+    pub branch_q_flow: HashMap<String, f64>,     // Reactive power (MVAr)
+    pub tie_line_flows: HashMap<String, (f64, f64, usize, usize)>,
+    pub total_losses_mw: f64,                    // System losses (MW)
+
+    // Timing
+    pub solve_time_ms: u128,
+    pub phase_times_ms: AdmmPhaseTimes,
+}
+```
+
+### References
+
+- Boyd, S., et al. (2011). Distributed Optimization and Statistical Learning via the Alternating Direction Method of Multipliers. *Foundations and Trends in Machine Learning*.
+- Chen, Y., et al. (2025). DPLib: A Standard Benchmark Library for Distributed Power System Analysis and Optimization. *arXiv:2506.20819*.
+
+---
+
 ## DC OPF
 
 The DC approximation linearizes power flow equations by assuming:

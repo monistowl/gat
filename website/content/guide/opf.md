@@ -335,6 +335,68 @@ let solver = OpfSolver::new()
 let solution = solver.solve(&network)?;
 ```
 
+## ADMM Distributed OPF (v0.5.6)
+
+GAT implements distributed OPF using the **Alternating Direction Method of Multipliers (ADMM)**, enabling scalable optimization across partitioned networks.
+
+### Key Features
+
+| Feature | Status |
+|---------|--------|
+| Graph partitioning (METIS) | ✅ |
+| Parallel subproblem solving | ✅ |
+| Consensus coordination | ✅ |
+| Adaptive penalty | ✅ |
+| Tie-line flow calculation | ✅ |
+| GPU acceleration | ✅ (optional) |
+
+### Algorithm
+
+```
+For each iteration k:
+  1. x-update: Solve local OPF for each partition (parallel)
+  2. z-update: Average boundary voltages (consensus)
+  3. λ-update: Update dual variables
+  4. Check: Compute primal/dual residuals
+```
+
+### GPU Acceleration
+
+Branch power flow calculation can use GPU for large networks:
+
+```bash
+# Build with GPU support
+cargo build -p gat-cli --features gpu
+```
+
+**Performance:**
+- Large networks (100s-1000s of branches): 2-10x speedup
+- Small networks: Minimal benefit (kernel overhead)
+- Auto-fallback to CPU if GPU unavailable
+
+### Usage
+
+```rust
+use gat_algo::opf::admm::{AdmmOpfSolver, AdmmConfig};
+
+let solver = AdmmOpfSolver::new(AdmmConfig {
+    num_partitions: 4,
+    penalty: 1.0,
+    max_iter: 100,
+    use_gpu: true,
+    ..Default::default()
+});
+
+let result = solver.solve(&network)?;
+println!("Objective: ${:.2}/hr", result.objective);
+println!("Tie-lines: {}", result.num_tie_lines);
+```
+
+### References
+
+- Boyd, S., et al. (2011). *Distributed Optimization via ADMM*.
+- Chen, Y., et al. (2025). DPLib: Distributed Power System Benchmark. arXiv:2506.20819.
+
 ## Generator Cost Models
 
 Generators support polynomial and piecewise-linear cost functions via the `CostModel` enum:

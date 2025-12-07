@@ -56,6 +56,24 @@ Individual solver features can be combined:
 | `solver-highs` | HiGHS | LP/MIP | None (pure Rust) |
 | `solver-ipopt` | IPOPT | NLP | libipopt.so |
 
+## GPU Acceleration Features
+
+| Feature | Capability | Hardware |
+|---------|------------|----------|
+| `gpu` | WGSL compute shaders | Vulkan/Metal/DX12 |
+
+GPU acceleration provides parallel computation for:
+- ADMM branch flow calculation (2-10x speedup on large networks)
+- Monte Carlo reliability simulation
+- Batch power flow operations
+
+```bash
+# Build with GPU support
+cargo build -p gat-cli --release --features gpu
+```
+
+Auto-fallback to CPU if GPU unavailable.
+
 ## Legacy Features
 
 For minimal or custom builds:

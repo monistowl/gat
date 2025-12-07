@@ -25,6 +25,8 @@ Running this matrix catches regressions where a feature flag environment might c
 | DC OPF | ✅ Stable | LP with piecewise cost curves |
 | SOCP OPF | ✅ Stable | Convex relaxation for fast solves |
 | Full AC-OPF | ✅ Stable | Penalty-based L-BFGS (95.6% PGLib convergence) |
+| **ADMM Distributed OPF** | ✅ New | Parallel partitioned solving with consensus |
+| **GPU Branch Flow** | ✅ New | WGSL compute shader acceleration |
 | N-1 Contingency | ✅ Stable | DC/AC screening |
 | N-2 Contingency | ✅ Stable | 100% convergence validated |
 | PGLib Benchmark | ✅ Stable | 68 MATPOWER cases, baseline comparison |
