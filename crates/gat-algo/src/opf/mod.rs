@@ -76,6 +76,7 @@ pub mod dispatch;
 mod dispatcher;
 mod economic;
 pub mod formulations;
+pub mod gpu_branch_flow;
 #[cfg(feature = "native-dispatch")]
 pub mod native_dispatch;
 pub mod registry;
