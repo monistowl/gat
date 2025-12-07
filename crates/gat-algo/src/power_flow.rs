@@ -1,4 +1,5 @@
 pub mod ac_pf;
+pub mod fast_decoupled;
 #[cfg(test)]
 mod q_limits;
 
