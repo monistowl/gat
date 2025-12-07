@@ -16,10 +16,10 @@
 //!   IEEE Trans. Power Systems, 7(1), 416-423
 //!   DOI: [10.1109/59.141737](https://doi.org/10.1109/59.141737)
 
-use std::collections::HashMap;
-use gat_core::{BusId, Network, Node, Megawatts, Megavars};
 use super::ac_pf::AcPowerFlowSolver;
 use anyhow::Result;
+use gat_core::{BusId, Megavars, Megawatts, Network, Node};
+use std::collections::HashMap;
 
 /// A point on the PV (nose) curve
 #[derive(Debug, Clone, Default)]
@@ -208,14 +208,12 @@ impl CpfSolver {
         // Find critical bus (lowest voltage at max loading)
         self.apply_load_scaling(network, &original_loads, lambda);
         let final_solution = pf_solver.solve(network).ok();
-        let critical_bus = final_solution
-            .as_ref()
-            .and_then(|sol| {
-                sol.bus_voltage_magnitude
-                    .iter()
-                    .min_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-                    .map(|(bus, _)| *bus)
-            });
+        let critical_bus = final_solution.as_ref().and_then(|sol| {
+            sol.bus_voltage_magnitude
+                .iter()
+                .min_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                .map(|(bus, _)| *bus)
+        });
 
         let voltage_at_max = final_solution
             .map(|sol| sol.bus_voltage_magnitude)
@@ -236,7 +234,10 @@ impl CpfSolver {
     }
 
     /// Collect original load values before scaling
-    fn collect_load_values(&self, network: &Network) -> HashMap<petgraph::graph::NodeIndex, (Megawatts, Megavars)> {
+    fn collect_load_values(
+        &self,
+        network: &Network,
+    ) -> HashMap<petgraph::graph::NodeIndex, (Megawatts, Megavars)> {
         let mut loads = HashMap::new();
         for node_idx in network.graph.node_indices() {
             if let Some(Node::Load(load)) = network.graph.node_weight(node_idx) {
@@ -283,9 +284,18 @@ mod tests {
             max_loading: 1.5,
             critical_bus: Some(BusId::new(2)),
             nose_curve: vec![
-                CpfPoint { loading: 1.0, voltage: 1.0 },
-                CpfPoint { loading: 1.25, voltage: 0.95 },
-                CpfPoint { loading: 1.5, voltage: 0.85 },
+                CpfPoint {
+                    loading: 1.0,
+                    voltage: 1.0,
+                },
+                CpfPoint {
+                    loading: 1.25,
+                    voltage: 0.95,
+                },
+                CpfPoint {
+                    loading: 1.5,
+                    voltage: 0.85,
+                },
             ],
             ..Default::default()
         };
@@ -296,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_cpf_finds_max_loading() {
-        use gat_core::{Branch, BranchId, Bus, Gen, GenId, Load, LoadId, Edge, Node, Network};
+        use gat_core::{Branch, BranchId, Bus, Edge, Gen, GenId, Load, LoadId, Network, Node};
 
         let mut network = Network::new();
 
@@ -314,14 +324,18 @@ mod tests {
             ..Bus::default()
         }));
 
-        network.graph.add_edge(b0, b1, Edge::Branch(Branch {
-            id: BranchId::new(0),
-            from_bus: BusId::new(0),
-            to_bus: BusId::new(1),
-            resistance: 0.01,
-            reactance: 0.1,
-            ..Branch::default()
-        }));
+        network.graph.add_edge(
+            b0,
+            b1,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
 
         network.graph.add_node(Node::Gen(Gen::new(
             GenId::new(0),
@@ -344,10 +358,21 @@ mod tests {
         let result = solver.solve(&mut network).expect("CPF should complete");
 
         // Should find a max loading > 1.0
-        assert!(result.max_loading > 1.0, "Max loading should be > 1.0, got {}", result.max_loading);
+        assert!(
+            result.max_loading > 1.0,
+            "Max loading should be > 1.0, got {}",
+            result.max_loading
+        );
         // Nose curve should have multiple points
-        assert!(result.nose_curve.len() > 2, "Nose curve should have points, got {}", result.nose_curve.len());
+        assert!(
+            result.nose_curve.len() > 2,
+            "Nose curve should have points, got {}",
+            result.nose_curve.len()
+        );
         // Critical bus should be identified
-        assert!(result.critical_bus.is_some(), "Critical bus should be identified");
+        assert!(
+            result.critical_bus.is_some(),
+            "Critical bus should be identified"
+        );
     }
 }

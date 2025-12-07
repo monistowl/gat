@@ -137,7 +137,8 @@ pub fn group_frames_by_timestamp(
     timestamps
         .into_iter()
         .map(|ts| {
-            let ts_frames: Vec<&PmuFrame> = frames.iter().filter(|f| f.timestamp_us == ts).collect();
+            let ts_frames: Vec<&PmuFrame> =
+                frames.iter().filter(|f| f.timestamp_us == ts).collect();
 
             let measurements: Vec<Measurement> = ts_frames
                 .iter()

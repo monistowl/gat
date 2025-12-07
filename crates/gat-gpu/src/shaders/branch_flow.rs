@@ -168,29 +168,40 @@ mod tests {
                 BufferBinding::ReadOnly,
                 BufferBinding::ReadWrite,
             ],
-        ).unwrap();
+        )
+        .unwrap();
 
-        kernel.dispatch(
-            &ctx,
-            &[
-                &buf_uniforms.buffer,
-                &buf_params.buffer,
-                &buf_buses.buffer,
-                &buf_voltage.buffer,
-                &buf_flow.buffer,
-            ],
-            1,  // 1 branch
-            64,
-        ).unwrap();
+        kernel
+            .dispatch(
+                &ctx,
+                &[
+                    &buf_uniforms.buffer,
+                    &buf_params.buffer,
+                    &buf_buses.buffer,
+                    &buf_voltage.buffer,
+                    &buf_flow.buffer,
+                ],
+                1, // 1 branch
+                64,
+            )
+            .unwrap();
 
         let result = buf_flow.read(&ctx);
 
         // Verify results are reasonable (non-zero flows for a real branch)
         // P_from should be positive (power flowing from bus 0 to bus 1)
-        assert!(result[0].abs() > 0.01, "P_from should be non-zero: {}", result[0]);
+        assert!(
+            result[0].abs() > 0.01,
+            "P_from should be non-zero: {}",
+            result[0]
+        );
         // Q_from can be positive or negative depending on reactive flow
         // P_to should be roughly negative of P_from minus losses
-        assert!(result[2].abs() > 0.01, "P_to should be non-zero: {}", result[2]);
+        assert!(
+            result[2].abs() > 0.01,
+            "P_to should be non-zero: {}",
+            result[2]
+        );
 
         // Verify losses are positive (P_from + P_to > 0 in our convention means loss)
         let losses = result[0] + result[2];

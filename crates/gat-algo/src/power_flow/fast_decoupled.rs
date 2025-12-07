@@ -18,13 +18,13 @@
 //!   IEEE Trans. PAS, 93(3), 859-869
 //!   DOI: [10.1109/TPAS.1974.293985](https://doi.org/10.1109/TPAS.1974.293985)
 
-use std::collections::HashMap;
-use gat_core::{BusId, Edge, GenId, Network, Node};
 use super::ac_pf::{AcPowerFlowSolution, BusType};
 use anyhow::{anyhow, Result};
 use faer::prelude::*;
 use faer::Mat;
+use gat_core::{BusId, Edge, GenId, Network, Node};
 use num_complex::ComplexFloat;
+use std::collections::HashMap;
 
 /// Build the B' (B-prime) matrix for the P-θ subproblem.
 ///
@@ -46,11 +46,8 @@ pub fn build_b_prime_matrix(network: &Network) -> Vec<Vec<f64>> {
     bus_ids.sort_by_key(|b| b.value());
 
     let n = bus_ids.len();
-    let id_to_idx: HashMap<BusId, usize> = bus_ids
-        .iter()
-        .enumerate()
-        .map(|(i, &id)| (id, i))
-        .collect();
+    let id_to_idx: HashMap<BusId, usize> =
+        bus_ids.iter().enumerate().map(|(i, &id)| (id, i)).collect();
 
     let mut b_prime = vec![vec![0.0; n]; n];
 
@@ -61,8 +58,12 @@ pub fn build_b_prime_matrix(network: &Network) -> Vec<Vec<f64>> {
                 continue;
             }
 
-            let Some(&i) = id_to_idx.get(&branch.from_bus) else { continue };
-            let Some(&j) = id_to_idx.get(&branch.to_bus) else { continue };
+            let Some(&i) = id_to_idx.get(&branch.from_bus) else {
+                continue;
+            };
+            let Some(&j) = id_to_idx.get(&branch.to_bus) else {
+                continue;
+            };
 
             // Susceptance = 1/x (ignoring resistance for B')
             let x = branch.reactance.abs().max(1e-6);
@@ -103,11 +104,8 @@ pub fn build_b_double_prime_matrix(network: &Network) -> Vec<Vec<f64>> {
     bus_ids.sort_by_key(|b| b.value());
 
     let n = bus_ids.len();
-    let id_to_idx: HashMap<BusId, usize> = bus_ids
-        .iter()
-        .enumerate()
-        .map(|(i, &id)| (id, i))
-        .collect();
+    let id_to_idx: HashMap<BusId, usize> =
+        bus_ids.iter().enumerate().map(|(i, &id)| (id, i)).collect();
 
     let mut b_double_prime = vec![vec![0.0; n]; n];
 
@@ -118,15 +116,23 @@ pub fn build_b_double_prime_matrix(network: &Network) -> Vec<Vec<f64>> {
                 continue;
             }
 
-            let Some(&i) = id_to_idx.get(&branch.from_bus) else { continue };
-            let Some(&j) = id_to_idx.get(&branch.to_bus) else { continue };
+            let Some(&i) = id_to_idx.get(&branch.from_bus) else {
+                continue;
+            };
+            let Some(&j) = id_to_idx.get(&branch.to_bus) else {
+                continue;
+            };
 
             // Susceptance b = 1/x
             let x = branch.reactance.abs().max(1e-6);
             let b = 1.0 / x;
 
             // Tap ratio (use 1.0 if not set)
-            let tap = if branch.tap_ratio > 0.0 { branch.tap_ratio } else { 1.0 };
+            let tap = if branch.tap_ratio > 0.0 {
+                branch.tap_ratio
+            } else {
+                1.0
+            };
 
             // Off-diagonal: -b/tap
             let b_off = b / tap;
@@ -235,7 +241,8 @@ impl FastDecoupledSolver {
         }
 
         // Compute specified injections
-        let (p_spec, q_spec) = self.compute_specified_power(&buses, &bus_idx_map, &generators, &loads);
+        let (p_spec, q_spec) =
+            self.compute_specified_power(&buses, &bus_idx_map, &generators, &loads);
 
         // Identify non-slack and PQ buses
         let p_buses: Vec<usize> = buses
@@ -374,7 +381,11 @@ impl FastDecoupledSolver {
             .collect()
     }
 
-    fn classify_buses(&self, buses: &[BusId], generators: &[GeneratorData]) -> HashMap<BusId, BusType> {
+    fn classify_buses(
+        &self,
+        buses: &[BusId],
+        generators: &[GeneratorData],
+    ) -> HashMap<BusId, BusType> {
         let mut types = HashMap::new();
         for &id in buses {
             types.insert(id, BusType::PQ);
@@ -575,7 +586,12 @@ impl FastDecoupledSolver {
         y_bus
     }
 
-    fn compute_power(&self, y_bus: &[Vec<(f64, f64)>], v_mag: &[f64], v_ang: &[f64]) -> (Vec<f64>, Vec<f64>) {
+    fn compute_power(
+        &self,
+        y_bus: &[Vec<(f64, f64)>],
+        v_mag: &[f64],
+        v_ang: &[f64],
+    ) -> (Vec<f64>, Vec<f64>) {
         let n = v_mag.len();
         let mut p = vec![0.0; n];
         let mut q = vec![0.0; n];
@@ -659,32 +675,44 @@ mod tests {
         }));
 
         // Branch 0-1: x=0.1, tap=1.0
-        network.graph.add_edge(b0, b1, Edge::Branch(Branch {
-            id: BranchId::new(0),
-            from_bus: BusId::new(0),
-            to_bus: BusId::new(1),
-            resistance: 0.01,
-            reactance: 0.1,
-            ..Branch::default()
-        }));
+        network.graph.add_edge(
+            b0,
+            b1,
+            Edge::Branch(Branch {
+                id: BranchId::new(0),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(1),
+                resistance: 0.01,
+                reactance: 0.1,
+                ..Branch::default()
+            }),
+        );
         // Branch 1-2: x=0.2, tap=1.0
-        network.graph.add_edge(b1, b2, Edge::Branch(Branch {
-            id: BranchId::new(1),
-            from_bus: BusId::new(1),
-            to_bus: BusId::new(2),
-            resistance: 0.02,
-            reactance: 0.2,
-            ..Branch::default()
-        }));
+        network.graph.add_edge(
+            b1,
+            b2,
+            Edge::Branch(Branch {
+                id: BranchId::new(1),
+                from_bus: BusId::new(1),
+                to_bus: BusId::new(2),
+                resistance: 0.02,
+                reactance: 0.2,
+                ..Branch::default()
+            }),
+        );
         // Branch 0-2: x=0.15, tap=1.0
-        network.graph.add_edge(b0, b2, Edge::Branch(Branch {
-            id: BranchId::new(2),
-            from_bus: BusId::new(0),
-            to_bus: BusId::new(2),
-            resistance: 0.015,
-            reactance: 0.15,
-            ..Branch::default()
-        }));
+        network.graph.add_edge(
+            b0,
+            b2,
+            Edge::Branch(Branch {
+                id: BranchId::new(2),
+                from_bus: BusId::new(0),
+                to_bus: BusId::new(2),
+                resistance: 0.015,
+                reactance: 0.15,
+                ..Branch::default()
+            }),
+        );
 
         network
     }

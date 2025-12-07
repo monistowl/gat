@@ -87,10 +87,18 @@ impl GpuBranchFlowCalculator {
         #[cfg(feature = "gpu")]
         {
             if self.is_gpu_available() {
-                match self.compute_branch_flows_gpu(network, bus_voltage_mag, bus_voltage_ang, base_mva) {
+                match self.compute_branch_flows_gpu(
+                    network,
+                    bus_voltage_mag,
+                    bus_voltage_ang,
+                    base_mva,
+                ) {
                     Ok(result) => return Ok(result),
                     Err(e) => {
-                        eprintln!("[gat-gpu] GPU branch flow failed, falling back to CPU: {}", e);
+                        eprintln!(
+                            "[gat-gpu] GPU branch flow failed, falling back to CPU: {}",
+                            e
+                        );
                     }
                 }
             }
@@ -156,8 +164,14 @@ impl GpuBranchFlowCalculator {
                 let from_name = bus_id_to_name.get(&branch.from_bus);
                 let to_name = bus_id_to_name.get(&branch.to_bus);
 
-                let from_idx = from_name.and_then(|n| bus_name_to_idx.get(n)).copied().unwrap_or(0);
-                let to_idx = to_name.and_then(|n| bus_name_to_idx.get(n)).copied().unwrap_or(0);
+                let from_idx = from_name
+                    .and_then(|n| bus_name_to_idx.get(n))
+                    .copied()
+                    .unwrap_or(0);
+                let to_idx = to_name
+                    .and_then(|n| bus_name_to_idx.get(n))
+                    .copied()
+                    .unwrap_or(0);
 
                 // Branch params: [r, x, b_charging, tap, shift, status]
                 branch_params.push(branch.resistance as f32);
@@ -402,12 +416,9 @@ mod tests {
         bus_voltage_ang.insert("Bus2".to_string(), -0.05);
 
         let mut calc = GpuBranchFlowCalculator::new();
-        let (p_flow, q_flow, losses) = calc.compute_branch_flows(
-            &network,
-            &bus_voltage_mag,
-            &bus_voltage_ang,
-            100.0,
-        ).unwrap();
+        let (p_flow, q_flow, losses) = calc
+            .compute_branch_flows(&network, &bus_voltage_mag, &bus_voltage_ang, 100.0)
+            .unwrap();
 
         // Verify we got results for the branch
         assert!(p_flow.contains_key("Branch1"), "Should have Branch1 P flow");

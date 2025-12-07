@@ -327,9 +327,8 @@ pub fn load_pmu_csv(path: impl AsRef<Path>, config: Option<PmuCsvConfig>) -> Res
     let headers: Vec<&str> = header_line.split(',').map(|s| s.trim()).collect();
 
     // Find column indices
-    let find_col = |name: &str| -> Option<usize> {
-        headers.iter().position(|h| h.eq_ignore_ascii_case(name))
-    };
+    let find_col =
+        |name: &str| -> Option<usize> { headers.iter().position(|h| h.eq_ignore_ascii_case(name)) };
 
     let ts_idx = find_col(&config.timestamp_col);
     let station_idx = find_col(&config.station_id_col);
@@ -659,9 +658,7 @@ mod tests {
         // Check voltage magnitude measurement
         let vmag_1 = measurements
             .iter()
-            .find(|m| {
-                m.bus_id == Some(1) && matches!(m.measurement_type, MeasurementType::Voltage)
-            })
+            .find(|m| m.bus_id == Some(1) && matches!(m.measurement_type, MeasurementType::Voltage))
             .unwrap();
         assert!((vmag_1.value - 1.02).abs() < 1e-10);
     }

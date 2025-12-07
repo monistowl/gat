@@ -69,9 +69,9 @@ pub struct SoCal28Config {
 impl Default for SoCal28Config {
     fn default() -> Self {
         Self {
-            primary_kv: 16.5,      // MV primary
-            secondary_kv: 0.48,    // 480V secondary
-            base_mva: 10.0,        // Distribution system base
+            primary_kv: 16.5,   // MV primary
+            secondary_kv: 0.48, // 480V secondary
+            base_mva: 10.0,     // Distribution system base
             load_scale: 1.0,
             der_as_generators: true,
         }
@@ -231,39 +231,179 @@ pub fn build_socal28_network(config: &SoCal28Config) -> Network {
     // Format: (bus_id, name, voltage_kv, bus_type)
     let buses: Vec<(usize, &str, f64, SoCal28BusType)> = vec![
         // Substation
-        (0, "Main Substation", config.primary_kv, SoCal28BusType::Substation),
+        (
+            0,
+            "Main Substation",
+            config.primary_kv,
+            SoCal28BusType::Substation,
+        ),
         // Primary feeder buses
-        (1, "Feeder 1 Head", config.primary_kv, SoCal28BusType::PrimaryFeeder),
-        (2, "Feeder 2 Head", config.primary_kv, SoCal28BusType::PrimaryFeeder),
-        (3, "Feeder 3 Head", config.primary_kv, SoCal28BusType::PrimaryFeeder),
+        (
+            1,
+            "Feeder 1 Head",
+            config.primary_kv,
+            SoCal28BusType::PrimaryFeeder,
+        ),
+        (
+            2,
+            "Feeder 2 Head",
+            config.primary_kv,
+            SoCal28BusType::PrimaryFeeder,
+        ),
+        (
+            3,
+            "Feeder 3 Head",
+            config.primary_kv,
+            SoCal28BusType::PrimaryFeeder,
+        ),
         // Feeder 1 secondary
-        (4, "F1 Xfmr A", config.secondary_kv, SoCal28BusType::Transformer),
-        (5, "Solar PV Site", config.secondary_kv, SoCal28BusType::Generation),
-        (6, "F1 Xfmr B", config.secondary_kv, SoCal28BusType::Transformer),
+        (
+            4,
+            "F1 Xfmr A",
+            config.secondary_kv,
+            SoCal28BusType::Transformer,
+        ),
+        (
+            5,
+            "Solar PV Site",
+            config.secondary_kv,
+            SoCal28BusType::Generation,
+        ),
+        (
+            6,
+            "F1 Xfmr B",
+            config.secondary_kv,
+            SoCal28BusType::Transformer,
+        ),
         // Feeder 2 secondary
-        (7, "F2 Xfmr A", config.secondary_kv, SoCal28BusType::Transformer),
-        (8, "Data Center", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (9, "F2 Xfmr B", config.secondary_kv, SoCal28BusType::Transformer),
+        (
+            7,
+            "F2 Xfmr A",
+            config.secondary_kv,
+            SoCal28BusType::Transformer,
+        ),
+        (
+            8,
+            "Data Center",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            9,
+            "F2 Xfmr B",
+            config.secondary_kv,
+            SoCal28BusType::Transformer,
+        ),
         // Feeder 3 secondary
-        (10, "F3 Xfmr A", config.secondary_kv, SoCal28BusType::Transformer),
-        (11, "F3 Xfmr B", config.secondary_kv, SoCal28BusType::Transformer),
-        (12, "EV Charging", config.secondary_kv, SoCal28BusType::SecondaryLoad),
+        (
+            10,
+            "F3 Xfmr A",
+            config.secondary_kv,
+            SoCal28BusType::Transformer,
+        ),
+        (
+            11,
+            "F3 Xfmr B",
+            config.secondary_kv,
+            SoCal28BusType::Transformer,
+        ),
+        (
+            12,
+            "EV Charging",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
         // Further secondary
-        (13, "Res Load 1", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (14, "Res Load 2", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (15, "Central Cooling", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (16, "Res Load 3", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (17, "Res Load 4", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (18, "Office A", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (19, "Res Load 5", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (20, "Res Load 6", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (21, "Fuel Cell Site", config.secondary_kv, SoCal28BusType::Generation),
-        (22, "Res Load 7", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (23, "Res Load 8", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (24, "NG Generator", config.secondary_kv, SoCal28BusType::Generation),
-        (25, "Res Load 9", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (26, "Res Load 10", config.secondary_kv, SoCal28BusType::SecondaryLoad),
-        (27, "Office B", config.secondary_kv, SoCal28BusType::SecondaryLoad),
+        (
+            13,
+            "Res Load 1",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            14,
+            "Res Load 2",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            15,
+            "Central Cooling",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            16,
+            "Res Load 3",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            17,
+            "Res Load 4",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            18,
+            "Office A",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            19,
+            "Res Load 5",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            20,
+            "Res Load 6",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            21,
+            "Fuel Cell Site",
+            config.secondary_kv,
+            SoCal28BusType::Generation,
+        ),
+        (
+            22,
+            "Res Load 7",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            23,
+            "Res Load 8",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            24,
+            "NG Generator",
+            config.secondary_kv,
+            SoCal28BusType::Generation,
+        ),
+        (
+            25,
+            "Res Load 9",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            26,
+            "Res Load 10",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
+        (
+            27,
+            "Office B",
+            config.secondary_kv,
+            SoCal28BusType::SecondaryLoad,
+        ),
     ];
 
     // Add buses to network
@@ -352,11 +492,11 @@ pub fn build_socal28_network(config: &SoCal28Config) -> Network {
     // Load data: (bus_id, P_MW, Q_Mvar, name)
     // Representative distribution loads scaled for 10 MVA base
     let loads: Vec<(usize, f64, f64, &str)> = vec![
-        (8, 1.5, 0.5, "Data Center"),           // High constant power
-        (12, 0.8, 0.2, "EV Charging"),          // Variable
+        (8, 1.5, 0.5, "Data Center"),  // High constant power
+        (12, 0.8, 0.2, "EV Charging"), // Variable
         (13, 0.15, 0.05, "Residential 1"),
         (14, 0.12, 0.04, "Residential 2"),
-        (15, 0.6, 0.3, "Central Cooling"),      // High reactive
+        (15, 0.6, 0.3, "Central Cooling"), // High reactive
         (16, 0.18, 0.06, "Residential 3"),
         (17, 0.14, 0.04, "Residential 4"),
         (18, 0.45, 0.15, "Office A"),
@@ -388,15 +528,15 @@ pub fn build_socal28_network(config: &SoCal28Config) -> Network {
         (0, 2, 0.001, 0.012, 0.002, false),
         (0, 3, 0.001, 0.011, 0.002, false),
         // Feeder 1 branches
-        (1, 4, 0.002, 0.020, 0.001, true),  // Transformer
-        (1, 5, 0.002, 0.018, 0.001, true),  // Transformer to PV
-        (1, 6, 0.002, 0.022, 0.001, true),  // Transformer
+        (1, 4, 0.002, 0.020, 0.001, true), // Transformer
+        (1, 5, 0.002, 0.018, 0.001, true), // Transformer to PV
+        (1, 6, 0.002, 0.022, 0.001, true), // Transformer
         (4, 13, 0.010, 0.030, 0.0005, false),
         (4, 14, 0.012, 0.035, 0.0005, false),
         (6, 15, 0.008, 0.025, 0.0005, false),
         // Feeder 2 branches
         (2, 7, 0.002, 0.021, 0.001, true),
-        (2, 8, 0.002, 0.019, 0.001, true),  // Transformer to DC
+        (2, 8, 0.002, 0.019, 0.001, true), // Transformer to DC
         (2, 9, 0.002, 0.020, 0.001, true),
         (7, 16, 0.011, 0.032, 0.0005, false),
         (7, 17, 0.013, 0.038, 0.0005, false),
@@ -404,7 +544,7 @@ pub fn build_socal28_network(config: &SoCal28Config) -> Network {
         // Feeder 3 branches
         (3, 10, 0.002, 0.020, 0.001, true),
         (3, 11, 0.002, 0.022, 0.001, true),
-        (3, 12, 0.002, 0.018, 0.001, true),  // Transformer to EV
+        (3, 12, 0.002, 0.018, 0.001, true), // Transformer to EV
         (10, 19, 0.010, 0.030, 0.0005, false),
         (10, 20, 0.014, 0.040, 0.0005, false),
         (11, 21, 0.008, 0.024, 0.0005, false), // To fuel cell
@@ -428,12 +568,7 @@ pub fn build_socal28_network(config: &SoCal28Config) -> Network {
             to_idx,
             Edge::Branch(Branch {
                 id: BranchId::new(i),
-                name: format!(
-                    "{} {}-{}",
-                    if *is_xfmr { "Xfmr" } else { "Line" },
-                    from,
-                    to
-                ),
+                name: format!("{} {}-{}", if *is_xfmr { "Xfmr" } else { "Line" }, from, to),
                 from_bus: BusId::new(*from),
                 to_bus: BusId::new(*to),
                 resistance: *r,

@@ -391,10 +391,7 @@ pub fn write_measurements_csv(
     )?;
 
     for m in measurements {
-        let branch_id = m
-            .branch_id
-            .map(|b| b.to_string())
-            .unwrap_or_default();
+        let branch_id = m.branch_id.map(|b| b.to_string()).unwrap_or_default();
         let bus_id = m.bus_id.map(|b| b.to_string()).unwrap_or_default();
         let label = m.label.as_deref().unwrap_or("");
 
@@ -465,7 +462,8 @@ mod tests {
             seed: Some(42),
         };
 
-        let measurements = generate_measurements(&bus_angles, &branch_flows, &bus_injections, &config);
+        let measurements =
+            generate_measurements(&bus_angles, &branch_flows, &bus_injections, &config);
 
         assert_eq!(measurements.len(), 8, "Should have 8 measurements total");
 

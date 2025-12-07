@@ -914,9 +914,7 @@ pub fn featurize_gnn_with_format(
 
                 let path = output_root.join(&filename);
                 let json_value = match format {
-                    GnnOutputFormat::NeuripsJson => {
-                        serde_json::to_value(sample.to_neurips_json())?
-                    }
+                    GnnOutputFormat::NeuripsJson => serde_json::to_value(sample.to_neurips_json())?,
                     GnnOutputFormat::PytorchGeometric => {
                         serde_json::to_value(sample.to_pytorch_geometric_json())?
                     }
@@ -1092,10 +1090,7 @@ mod tests {
                 vec![138.0, 50.0, 25.0, 40.0, 15.0, 0.0, 1.0],
                 vec![69.0, 0.0, 0.0, 60.0, 25.0, 0.0, 1.0],
             ],
-            edge_features: vec![
-                vec![0.01, 0.1, 50.0],
-                vec![0.02, 0.2, 30.0],
-            ],
+            edge_features: vec![vec![0.01, 0.1, 50.0], vec![0.02, 0.2, 30.0]],
             edge_index: (vec![0, 1], vec![1, 2]),
         };
 
@@ -1235,7 +1230,9 @@ mod tests {
         let imported = GnnGraphSample::from_pytorch_geometric_json(&parsed_pyg);
 
         // Validate the imported sample
-        imported.validate().expect("imported sample should be valid");
+        imported
+            .validate()
+            .expect("imported sample should be valid");
 
         // Check feature equivalence (PyG doesn't preserve metadata)
         assert_eq!(imported.num_nodes, original.num_nodes);
@@ -1263,7 +1260,9 @@ mod tests {
         let imported = GnnGraphSample::from_neurips_json(&parsed_neurips);
 
         // Validate the imported sample
-        imported.validate().expect("imported sample should be valid");
+        imported
+            .validate()
+            .expect("imported sample should be valid");
 
         // Check full equivalence (NeurIPS preserves metadata)
         assert_eq!(imported.graph_id, original.graph_id);

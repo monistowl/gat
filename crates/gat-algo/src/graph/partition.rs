@@ -257,12 +257,8 @@ pub fn partition_network(
 
     match &strategy {
         PartitionStrategy::Spectral { num_partitions }
-        | PartitionStrategy::LoadBalanced {
-            num_partitions, ..
-        }
-        | PartitionStrategy::Recursive {
-            num_partitions, ..
-        } => {
+        | PartitionStrategy::LoadBalanced { num_partitions, .. }
+        | PartitionStrategy::Recursive { num_partitions, .. } => {
             if *num_partitions < 2 {
                 return Err(PartitionError::InvalidPartitionCount(*num_partitions));
             }
@@ -280,9 +276,7 @@ pub fn partition_network(
     }
 
     match strategy {
-        PartitionStrategy::Spectral { num_partitions } => {
-            partition_spectral(&data, num_partitions)
-        }
+        PartitionStrategy::Spectral { num_partitions } => partition_spectral(&data, num_partitions),
         PartitionStrategy::LoadBalanced {
             max_imbalance,
             num_partitions,
@@ -531,7 +525,8 @@ fn partition_load_balanced(
     let mut partition_loads = vec![0.0f64; num_partitions];
 
     // Sort buses by load (descending) for better packing
-    let mut bus_order: Vec<(usize, f64)> = bus_loads.iter().enumerate().map(|(i, &l)| (i, l)).collect();
+    let mut bus_order: Vec<(usize, f64)> =
+        bus_loads.iter().enumerate().map(|(i, &l)| (i, l)).collect();
     bus_order.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
     for (bus_idx, load) in bus_order {
@@ -554,7 +549,10 @@ fn partition_load_balanced(
 /// Area-based partitioning using zone data.
 fn partition_by_areas(data: &NetworkData) -> Result<Vec<NetworkPartition>, PartitionError> {
     // Check if zone data is available
-    let has_zones = data.buses.iter().any(|b| b.zone_id.is_some() || b.area_id.is_some());
+    let has_zones = data
+        .buses
+        .iter()
+        .any(|b| b.zone_id.is_some() || b.area_id.is_some());
 
     if !has_zones {
         return Err(PartitionError::AreaDataMissing(
@@ -789,7 +787,9 @@ fn build_partitions_from_assignments(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gat_core::{BranchId, BusId, GenId, Kilovolts, LoadId, Megavars, Megawatts, PerUnit, Radians};
+    use gat_core::{
+        BranchId, BusId, GenId, Kilovolts, LoadId, Megavars, Megawatts, PerUnit, Radians,
+    };
 
     fn create_test_network() -> Network {
         let mut network = Network::new();
@@ -818,12 +818,10 @@ mod tests {
 
         // Add generators
         network.graph.add_node(Node::Gen(
-            Gen::new(GenId::new(1), "gen1".to_string(), BusId::new(1))
-                .with_p_limits(0.0, 100.0),
+            Gen::new(GenId::new(1), "gen1".to_string(), BusId::new(1)).with_p_limits(0.0, 100.0),
         ));
         network.graph.add_node(Node::Gen(
-            Gen::new(GenId::new(2), "gen6".to_string(), BusId::new(6))
-                .with_p_limits(0.0, 100.0),
+            Gen::new(GenId::new(2), "gen6".to_string(), BusId::new(6)).with_p_limits(0.0, 100.0),
         ));
 
         // Add loads
@@ -923,12 +921,13 @@ mod tests {
     #[test]
     fn test_partition_too_small() {
         let network = create_test_network();
-        let result = partition_network(
-            &network,
-            PartitionStrategy::Spectral { num_partitions: 10 },
-        );
+        let result =
+            partition_network(&network, PartitionStrategy::Spectral { num_partitions: 10 });
 
-        assert!(matches!(result, Err(PartitionError::NetworkTooSmall(_, _, _))));
+        assert!(matches!(
+            result,
+            Err(PartitionError::NetworkTooSmall(_, _, _))
+        ));
     }
 
     #[test]

@@ -5,9 +5,9 @@ pub mod fast_decoupled;
 mod q_limits;
 
 // Export new power flow solvers for public use
-pub use fast_decoupled::FastDecoupledSolver;
-pub use cpf::{CpfPoint, CpfResult, CpfSolver};
 pub use ac_pf::AcPowerFlowSolution as AcPfSolution;
+pub use cpf::{CpfPoint, CpfResult, CpfSolver};
+pub use fast_decoupled::FastDecoupledSolver;
 
 use std::{
     collections::{HashMap, HashSet},

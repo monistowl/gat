@@ -109,9 +109,7 @@ pub use featurize_geo::*;
 pub use featurize_gnn::*;
 pub use featurize_kpi::*;
 pub use geo_join::*;
-pub use graph::{
-    partition_network, NetworkPartition, PartitionError, PartitionStrategy, TieLine,
-};
+pub use graph::{partition_network, NetworkPartition, PartitionError, PartitionStrategy, TieLine};
 pub use io::*;
 pub use opf::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution, OpfSolver};
 pub use power_flow::*;

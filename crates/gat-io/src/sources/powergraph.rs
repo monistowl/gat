@@ -159,7 +159,11 @@ pub fn list_powergraph_datasets(root: &Path) -> Result<Vec<PowerGraphDatasetInfo
 fn get_dataset_info(path: &Path, name: &str) -> Result<PowerGraphDatasetInfo> {
     // Check for required files
     let raw_path = path.join("raw");
-    let base_path = if raw_path.exists() { raw_path } else { path.to_path_buf() };
+    let base_path = if raw_path.exists() {
+        raw_path
+    } else {
+        path.to_path_buf()
+    };
 
     let bf_path = base_path.join("Bf.mat");
     let blist_path = base_path.join("blist.mat");
@@ -172,8 +176,8 @@ fn get_dataset_info(path: &Path, name: &str) -> Result<PowerGraphDatasetInfo> {
     }
 
     // Load node features to get dimensions
-    let bf_file = MatFile::parse(std::fs::File::open(&bf_path)?)
-        .context("Failed to parse Bf.mat")?;
+    let bf_file =
+        MatFile::parse(std::fs::File::open(&bf_path)?).context("Failed to parse Bf.mat")?;
 
     let node_array = bf_file
         .find_by_name("Bf")
@@ -182,8 +186,8 @@ fn get_dataset_info(path: &Path, name: &str) -> Result<PowerGraphDatasetInfo> {
     let (num_samples, num_nodes, _num_features) = get_3d_dimensions(node_array)?;
 
     // Load edge list to get edge count
-    let blist_file = MatFile::parse(std::fs::File::open(&blist_path)?)
-        .context("Failed to parse blist.mat")?;
+    let blist_file =
+        MatFile::parse(std::fs::File::open(&blist_path)?).context("Failed to parse blist.mat")?;
 
     let edge_array = blist_file
         .find_by_name("blist")
@@ -226,12 +230,16 @@ pub fn load_powergraph_dataset(
 ) -> Result<Vec<PowerGraphSample>> {
     // Locate raw data directory
     let raw_path = path.join("raw");
-    let base_path = if raw_path.exists() { raw_path } else { path.to_path_buf() };
+    let base_path = if raw_path.exists() {
+        raw_path
+    } else {
+        path.to_path_buf()
+    };
 
     // Load node features: Bf.mat -> [num_samples, num_nodes, 3]
     let bf_path = base_path.join("Bf.mat");
-    let bf_file = MatFile::parse(std::fs::File::open(&bf_path)?)
-        .context("Failed to parse Bf.mat")?;
+    let bf_file =
+        MatFile::parse(std::fs::File::open(&bf_path)?).context("Failed to parse Bf.mat")?;
 
     let bf_array = bf_file
         .find_by_name("Bf")
@@ -241,8 +249,8 @@ pub fn load_powergraph_dataset(
 
     // Load edge list: blist.mat -> [(from, to), ...]
     let blist_path = base_path.join("blist.mat");
-    let blist_file = MatFile::parse(std::fs::File::open(&blist_path)?)
-        .context("Failed to parse blist.mat")?;
+    let blist_file =
+        MatFile::parse(std::fs::File::open(&blist_path)?).context("Failed to parse blist.mat")?;
 
     let blist_array = blist_file
         .find_by_name("blist")
@@ -253,8 +261,8 @@ pub fn load_powergraph_dataset(
     // Load edge features: Ef.mat -> [num_samples, num_edges, 4]
     let ef_path = base_path.join("Ef.mat");
     let edge_features = if ef_path.exists() {
-        let ef_file = MatFile::parse(std::fs::File::open(&ef_path)?)
-            .context("Failed to parse Ef.mat")?;
+        let ef_file =
+            MatFile::parse(std::fs::File::open(&ef_path)?).context("Failed to parse Ef.mat")?;
 
         let ef_array = ef_file
             .find_by_name("Ef")
@@ -273,7 +281,11 @@ pub fn load_powergraph_dataset(
     let explanations = load_explanations(&base_path, num_samples, edge_index.len())?;
 
     // Construct samples
-    let sample_limit = if max_samples == 0 { num_samples } else { max_samples.min(num_samples) };
+    let sample_limit = if max_samples == 0 {
+        num_samples
+    } else {
+        max_samples.min(num_samples)
+    };
     let mut samples = Vec::with_capacity(sample_limit);
 
     for i in 0..sample_limit {
@@ -314,7 +326,8 @@ fn load_labels(base_path: &Path, task: PowerGraphTask, num_samples: usize) -> Re
             let path = base_path.join("of_bi.mat");
             if path.exists() {
                 let file = MatFile::parse(std::fs::File::open(&path)?)?;
-                let array = file.find_by_name("of_bi")
+                let array = file
+                    .find_by_name("of_bi")
                     .ok_or_else(|| anyhow!("of_bi array not found"))?;
                 labels.binary = Some(load_binary_labels(array, num_samples)?);
             }
@@ -323,7 +336,8 @@ fn load_labels(base_path: &Path, task: PowerGraphTask, num_samples: usize) -> Re
             let path = base_path.join("of_reg.mat");
             if path.exists() {
                 let file = MatFile::parse(std::fs::File::open(&path)?)?;
-                let array = file.find_by_name("of_reg")
+                let array = file
+                    .find_by_name("of_reg")
                     .ok_or_else(|| anyhow!("of_reg array not found"))?;
                 labels.regression = Some(load_regression_labels(array, num_samples)?);
             }
@@ -332,7 +346,8 @@ fn load_labels(base_path: &Path, task: PowerGraphTask, num_samples: usize) -> Re
             let path = base_path.join("of_mc.mat");
             if path.exists() {
                 let file = MatFile::parse(std::fs::File::open(&path)?)?;
-                let array = file.find_by_name("of_mc")
+                let array = file
+                    .find_by_name("of_mc")
                     .ok_or_else(|| anyhow!("of_mc array not found"))?;
                 labels.multiclass = Some(load_multiclass_labels(array, num_samples)?);
             }
@@ -354,7 +369,8 @@ fn load_explanations(
     }
 
     let file = MatFile::parse(std::fs::File::open(&path)?)?;
-    let array = file.find_by_name("exp")
+    let array = file
+        .find_by_name("exp")
         .ok_or_else(|| anyhow!("exp array not found in exp.mat"))?;
 
     let masks = load_explanation_masks(array, num_samples, num_edges)?;
@@ -420,7 +436,10 @@ fn load_node_features(array: &matfile::Array) -> Result<(Vec<Vec<[f64; 3]>>, usi
     };
 
     if num_features < 3 {
-        return Err(anyhow!("Expected at least 3 node features, got {}", num_features));
+        return Err(anyhow!(
+            "Expected at least 3 node features, got {}",
+            num_features
+        ));
     }
 
     let mut result = Vec::with_capacity(num_samples);
@@ -515,7 +534,10 @@ fn load_edge_features(array: &matfile::Array) -> Result<Vec<Vec<[f64; 4]>>> {
     };
 
     if num_features < 4 {
-        return Err(anyhow!("Expected at least 4 edge features, got {}", num_features));
+        return Err(anyhow!(
+            "Expected at least 4 edge features, got {}",
+            num_features
+        ));
     }
 
     let mut result = Vec::with_capacity(num_samples);
@@ -601,7 +623,10 @@ fn load_multiclass_labels(array: &matfile::Array, _num_samples: usize) -> Result
     };
 
     // MATLAB class labels are 1-indexed, convert to 0-indexed
-    Ok(values.iter().map(|&v| (v as usize).saturating_sub(1)).collect())
+    Ok(values
+        .iter()
+        .map(|&v| (v as usize).saturating_sub(1))
+        .collect())
 }
 
 #[cfg(feature = "powergraph")]
@@ -651,9 +676,7 @@ pub fn sample_to_pytorch_geometric_json(sample: &PowerGraphSample) -> serde_json
     use serde_json::json;
 
     // Node features: [num_nodes, 3]
-    let x: Vec<Vec<f64>> = sample.node_features.iter()
-        .map(|f| f.to_vec())
-        .collect();
+    let x: Vec<Vec<f64>> = sample.node_features.iter().map(|f| f.to_vec()).collect();
 
     // Edge index: [2, num_edges] - transposed from [(from, to), ...]
     let edge_index: Vec<Vec<usize>> = vec![
@@ -662,9 +685,7 @@ pub fn sample_to_pytorch_geometric_json(sample: &PowerGraphSample) -> serde_json
     ];
 
     // Edge features: [num_edges, 4]
-    let edge_attr: Vec<Vec<f64>> = sample.edge_features.iter()
-        .map(|f| f.to_vec())
-        .collect();
+    let edge_attr: Vec<Vec<f64>> = sample.edge_features.iter().map(|f| f.to_vec()).collect();
 
     let mut obj = json!({
         "num_nodes": sample.num_nodes,
@@ -701,16 +722,9 @@ mod tests {
         let sample = PowerGraphSample {
             num_nodes: 3,
             num_edges: 2,
-            node_features: vec![
-                [1.0, 2.0, 1.0],
-                [0.5, 1.0, 1.02],
-                [-0.5, -1.0, 0.98],
-            ],
+            node_features: vec![[1.0, 2.0, 1.0], [0.5, 1.0, 1.02], [-0.5, -1.0, 0.98]],
             edge_index: vec![(0, 1), (1, 2)],
-            edge_features: vec![
-                [10.0, 5.0, 0.1, 100.0],
-                [8.0, 4.0, 0.15, 80.0],
-            ],
+            edge_features: vec![[10.0, 5.0, 0.1, 100.0], [8.0, 4.0, 0.15, 80.0]],
             label_binary: Some(true),
             label_regression: None,
             label_multiclass: None,

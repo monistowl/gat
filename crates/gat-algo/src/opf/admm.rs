@@ -33,9 +33,7 @@
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
-use gat_core::{
-    BranchId, BusId, Edge, GenId, Load, LoadId, Megavars, Megawatts, Network, Node,
-};
+use gat_core::{BranchId, BusId, Edge, GenId, Load, LoadId, Megavars, Megawatts, Network, Node};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -118,7 +116,7 @@ impl Default for AdmmConfig {
             max_penalty: 1e6,
             min_penalty: 1e-6,
             verbose: false,
-            use_gpu: true,  // Enable by default, auto-fallback to CPU
+            use_gpu: true, // Enable by default, auto-fallback to CPU
         }
     }
 }
@@ -317,7 +315,11 @@ fn extract_subnetwork(
 
     // Build set of bus names in this partition for fast lookup
     let partition_buses: HashSet<&str> = partition.buses.iter().map(|s| s.as_str()).collect();
-    let boundary_buses: HashSet<&str> = partition.boundary_buses.iter().map(|s| s.as_str()).collect();
+    let boundary_buses: HashSet<&str> = partition
+        .boundary_buses
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
 
     // Build mapping from bus name to BusId for the original network
     let mut original_bus_name_to_id: HashMap<&str, BusId> = HashMap::new();
@@ -649,8 +651,8 @@ fn compute_all_branch_flows(
                     - (vm_from * vm_to / tap) * (g * sin_diff - b * cos_diff);
 
                 // To-bus power injection (p.u.) - for loss calculation
-                let p_to = (vm_to * vm_to * g)
-                    - (vm_from * vm_to / tap) * (g * cos_diff - b * sin_diff);
+                let p_to =
+                    (vm_to * vm_to * g) - (vm_from * vm_to / tap) * (g * cos_diff - b * sin_diff);
 
                 // Convert to MW/MVAr
                 let p_from_mw = p_from * base_mva;
@@ -844,7 +846,10 @@ impl AdmmOpfSolver {
         }
     }
 
-    fn initialize_consensus(&self, partitions: &[NetworkPartition]) -> HashMap<String, ConsensusVar> {
+    fn initialize_consensus(
+        &self,
+        partitions: &[NetworkPartition],
+    ) -> HashMap<String, ConsensusVar> {
         let mut consensus = HashMap::new();
 
         for (part_idx, partition) in partitions.iter().enumerate() {
@@ -853,7 +858,7 @@ impl AdmmOpfSolver {
                     .entry(boundary_bus.clone())
                     .or_insert_with(|| ConsensusVar {
                         bus_name: boundary_bus.clone(),
-                        z_vm: 1.0,  // Flat start
+                        z_vm: 1.0, // Flat start
                         z_va: 0.0,
                         lambda_vm: 0.0,
                         lambda_va: 0.0,
@@ -918,11 +923,8 @@ impl AdmmOpfSolver {
                 match solver.solve(&extracted.network) {
                     Ok(solution) => {
                         // Remap solution variables back to original bus/gen names
-                        let remapped = self.remap_solution(
-                            &solution,
-                            partition,
-                            &extracted.bus_name_to_id,
-                        );
+                        let remapped =
+                            self.remap_solution(&solution, partition, &extracted.bus_name_to_id);
                         Ok((remapped, partition))
                     }
                     Err(e) => Err(AdmmError::SubproblemFailed {
@@ -1082,7 +1084,8 @@ impl AdmmOpfSolver {
                 let delta_vm = cv.z_vm - prev_vm;
                 let delta_va = cv.z_va - prev_va;
                 // Dual residual scales with penalty and number of partitions
-                dual_residual_sq += penalty.powi(2) * cv.partitions.len() as f64
+                dual_residual_sq += penalty.powi(2)
+                    * cv.partitions.len() as f64
                     * (delta_vm.powi(2) + delta_va.powi(2));
             }
         }
@@ -1169,8 +1172,10 @@ impl AdmmOpfSolver {
         }
 
         // Second pass: merge generators and compute tie-line flows
-        for (part_idx, (solution, partition)) in
-            partition_solutions.iter().zip(partitions.iter()).enumerate()
+        for (part_idx, (solution, partition)) in partition_solutions
+            .iter()
+            .zip(partitions.iter())
+            .enumerate()
         {
             // Only include generators belonging to this partition
             for gen_name in &partition.generators {
@@ -1186,16 +1191,29 @@ impl AdmmOpfSolver {
             for tie_line in &partition.tie_lines {
                 // Only record from lower partition index to avoid duplicates
                 if part_idx < tie_line.neighbor_partition {
-                    let vm_local = bus_voltage_mag.get(&tie_line.local_bus).copied().unwrap_or(1.0);
-                    let va_local = bus_voltage_ang.get(&tie_line.local_bus).copied().unwrap_or(0.0);
-                    let vm_remote = bus_voltage_mag.get(&tie_line.remote_bus).copied().unwrap_or(1.0);
-                    let va_remote = bus_voltage_ang.get(&tie_line.remote_bus).copied().unwrap_or(0.0);
+                    let vm_local = bus_voltage_mag
+                        .get(&tie_line.local_bus)
+                        .copied()
+                        .unwrap_or(1.0);
+                    let va_local = bus_voltage_ang
+                        .get(&tie_line.local_bus)
+                        .copied()
+                        .unwrap_or(0.0);
+                    let vm_remote = bus_voltage_mag
+                        .get(&tie_line.remote_bus)
+                        .copied()
+                        .unwrap_or(1.0);
+                    let va_remote = bus_voltage_ang
+                        .get(&tie_line.remote_bus)
+                        .copied()
+                        .unwrap_or(0.0);
 
                     // Estimate R from susceptance (typical X/R ratio of 4)
                     let x = 1.0 / tie_line.susceptance.abs().max(1e-6);
                     let r = x / 4.0;
 
-                    let (p_pu, q_pu) = compute_tie_line_flow(vm_local, va_local, vm_remote, va_remote, r, x);
+                    let (p_pu, q_pu) =
+                        compute_tie_line_flow(vm_local, va_local, vm_remote, va_remote, r, x);
                     let p_mw = p_pu * 100.0; // Assuming 100 MVA base
                     let q_mvar = q_pu * 100.0;
 
@@ -1222,11 +1240,19 @@ impl AdmmOpfSolver {
         let base_mva = 100.0; // Standard base MVA
         let (branch_p_flow, branch_q_flow, total_losses_mw) = if self.config.use_gpu {
             let mut gpu_calc = GpuBranchFlowCalculator::new();
-            match gpu_calc.compute_branch_flows(network, &bus_voltage_mag, &bus_voltage_ang, base_mva) {
+            match gpu_calc.compute_branch_flows(
+                network,
+                &bus_voltage_mag,
+                &bus_voltage_ang,
+                base_mva,
+            ) {
                 Ok(result) => result,
                 Err(e) => {
                     if self.config.verbose {
-                        eprintln!("[gat-admm] GPU branch flow failed, falling back to CPU: {}", e);
+                        eprintln!(
+                            "[gat-admm] GPU branch flow failed, falling back to CPU: {}",
+                            e
+                        );
                     }
                     compute_all_branch_flows(network, &bus_voltage_mag, &bus_voltage_ang, base_mva)
                 }
@@ -1508,7 +1534,10 @@ mod tests {
             Ok(solution) => {
                 // With 2 partitions on a 6-bus network with 7 branches,
                 // we expect some tie-lines between partitions
-                assert!(solution.num_tie_lines <= 7, "Cannot have more tie-lines than branches");
+                assert!(
+                    solution.num_tie_lines <= 7,
+                    "Cannot have more tie-lines than branches"
+                );
             }
             Err(AdmmError::NotConverged { .. }) => {
                 // Expected - we're testing structure not convergence
@@ -1547,7 +1576,11 @@ mod tests {
                 let total_buses: usize = solution.partition_sizes.iter().sum();
                 assert_eq!(total_buses, 6);
             }
-            Err(AdmmError::NotConverged { iterations, primal_residual, dual_residual }) => {
+            Err(AdmmError::NotConverged {
+                iterations,
+                primal_residual,
+                dual_residual,
+            }) => {
                 // Verify residuals are computed
                 assert!(iterations > 0);
                 assert!(primal_residual >= 0.0);
