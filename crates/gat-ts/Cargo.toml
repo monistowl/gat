@@ -1,6 +1,6 @@
 [package]
 name = "gat-ts"
-version = "0.5.5"
+version = "0.5.6"
 edition = "2021"
 
 [features]

@@ -1,7 +1,7 @@
 # GAT Validation Summary Report
 
 **Date**: December 2024
-**Version**: GAT 0.5.5
+**Version**: GAT 0.5.6
 **Platform**: Linux x86_64, Release build with `dist` features
 
 ## Executive Summary

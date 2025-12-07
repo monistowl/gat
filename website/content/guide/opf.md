@@ -62,7 +62,7 @@ GAT provides a **four-tier solver hierarchy** for optimal power flow, from sub-m
 - Full physics accuracy required
 - Regulatory compliance
 
-## Architecture Overview (v0.5.5)
+## Architecture Overview (v0.5.6)
 
 GAT provides a unified `OpfSolver` supporting multiple solution methods:
 
@@ -94,7 +94,7 @@ The SOCP solver has been validated against all 68 PGLib-OPF cases:
 
 → [View complete benchmark results](@/internals/benchmarks.md)
 
-### What's New in 0.5.5
+### What's New in 0.5.6
 
 - **Constraint scaling / row equilibration** for DC-OPF LP conditioning
 - **Zero-reactance epsilon handling** (1e-6) for bus tie transformers

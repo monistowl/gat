@@ -1,6 +1,6 @@
 [package]
 name = "gat-ipopt-sys"
-version = "0.5.5"
+version = "0.5.6"
 edition = "2021"
 description = "Native FFI bindings to IPOPT (Interior Point OPTimizer) for GAT"
 license = "MIT OR Apache-2.0"
