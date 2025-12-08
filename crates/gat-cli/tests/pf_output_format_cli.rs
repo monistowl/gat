@@ -52,7 +52,10 @@ fn test_dc_pf_output_format_parquet() {
 
     // Check that output file exists and is a valid Parquet file
     assert!(out.exists(), "Parquet output should exist");
-    assert!(out.metadata().unwrap().len() > 0, "Parquet should have content");
+    assert!(
+        out.metadata().unwrap().len() > 0,
+        "Parquet should have content"
+    );
 }
 
 #[test]
@@ -93,7 +96,10 @@ fn test_dc_pf_output_format_json() {
     // Check that output file exists and is valid JSON
     assert!(out.exists(), "JSON output should exist");
     let content = fs::read_to_string(&out).unwrap();
-    assert!(content.contains("branch_id"), "JSON should contain branch_id");
+    assert!(
+        content.contains("branch_id"),
+        "JSON should contain branch_id"
+    );
     assert!(content.contains("flow_mw"), "JSON should contain flow_mw");
 
     // Verify it's valid JSON
@@ -138,8 +144,14 @@ fn test_dc_pf_output_format_csv() {
     // Check that output file exists and is valid CSV
     assert!(out.exists(), "CSV output should exist");
     let content = fs::read_to_string(&out).unwrap();
-    assert!(content.contains("branch_id"), "CSV should contain branch_id header");
-    assert!(content.contains("flow_mw"), "CSV should contain flow_mw header");
+    assert!(
+        content.contains("branch_id"),
+        "CSV should contain branch_id header"
+    );
+    assert!(
+        content.contains("flow_mw"),
+        "CSV should contain flow_mw header"
+    );
 
     // Verify CSV has multiple lines
     let lines: Vec<&str> = content.lines().collect();

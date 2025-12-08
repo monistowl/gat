@@ -12,9 +12,8 @@ use std::collections::HashMap;
 
 use gat_algo::{OpfMethod, OpfSolver};
 use gat_core::{
-    Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Kilovolts, Load, LoadId,
-    MegavoltAmperes, Megavars, Megawatts, Network, Node, NodeIndex, PerUnit, Radians, Shunt,
-    ShuntId,
+    Branch, BranchId, Bus, BusId, CostModel, Edge, Gen, GenId, Kilovolts, Load, LoadId, Megavars,
+    MegavoltAmperes, Megawatts, Network, Node, NodeIndex, PerUnit, Radians, Shunt, ShuntId,
 };
 use gat_io::wasm_parsers::{parse_matpower_string, MatpowerCase};
 use serde::Serialize;
@@ -100,8 +99,8 @@ pub fn run_dc_power_flow(content: &str) -> Result<String, JsValue> {
     let case = parse_matpower_string(content).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // 2. Convert to Network graph
-    let network =
-        matpower_to_network(&case).map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
+    let network = matpower_to_network(&case)
+        .map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
 
     // 3. Run DC-OPF solver
     let solver = OpfSolver::new().with_method(OpfMethod::DcOpf);
@@ -236,16 +235,22 @@ fn matpower_to_network(case: &MatpowerCase) -> Result<Network, String> {
         let branch_id = br_idx + 1;
 
         // Get node indices for from/to buses
-        let from_idx = *bus_index_map
-            .get(&br.f_bus)
-            .ok_or_else(|| format!("Branch {} references unknown from_bus {}", branch_id, br.f_bus))?;
-        let to_idx = *bus_index_map
-            .get(&br.t_bus)
-            .ok_or_else(|| format!("Branch {} references unknown to_bus {}", branch_id, br.t_bus))?;
+        let from_idx = *bus_index_map.get(&br.f_bus).ok_or_else(|| {
+            format!(
+                "Branch {} references unknown from_bus {}",
+                branch_id, br.f_bus
+            )
+        })?;
+        let to_idx = *bus_index_map.get(&br.t_bus).ok_or_else(|| {
+            format!(
+                "Branch {} references unknown to_bus {}",
+                branch_id, br.t_bus
+            )
+        })?;
 
         // Determine if it's a transformer (tap != 0 and != 1, or has phase shift)
-        let is_transformer = (br.tap.abs() > 1e-9 && (br.tap - 1.0).abs() > 1e-9)
-            || br.shift.abs() > 1e-9;
+        let is_transformer =
+            (br.tap.abs() > 1e-9 && (br.tap - 1.0).abs() > 1e-9) || br.shift.abs() > 1e-9;
 
         // Thermal rating (use rate_a if nonzero, otherwise None)
         let s_max = if br.rate_a > 0.0 {
@@ -352,8 +357,8 @@ pub fn run_socp_power_flow(content: &str) -> Result<String, JsValue> {
     let case = parse_matpower_string(content).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // 2. Convert to Network graph
-    let network =
-        matpower_to_network(&case).map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
+    let network = matpower_to_network(&case)
+        .map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
 
     // 3. Run SOCP-OPF solver
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -416,8 +421,8 @@ pub fn run_economic_dispatch(content: &str) -> Result<String, JsValue> {
     let case = parse_matpower_string(content).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // 2. Convert to Network graph
-    let network =
-        matpower_to_network(&case).map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
+    let network = matpower_to_network(&case)
+        .map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
 
     // 3. Run Economic Dispatch solver
     let solver = OpfSolver::new().with_method(OpfMethod::EconomicDispatch);
@@ -547,8 +552,8 @@ pub fn compare_methods(content: &str) -> Result<String, JsValue> {
 
     // Parse MATPOWER content
     let case = parse_matpower_string(content).map_err(|e| JsValue::from_str(&e.to_string()))?;
-    let network =
-        matpower_to_network(&case).map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
+    let network = matpower_to_network(&case)
+        .map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
     let total_load: f64 = case.bus.iter().map(|b| b.pd).sum();
 
     let mut methods = Vec::new();
@@ -650,8 +655,8 @@ pub fn compute_layout(content: &str, iterations: Option<u32>) -> Result<String, 
     let case = parse_matpower_string(content).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // 2. Convert to Network graph
-    let network =
-        matpower_to_network(&case).map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
+    let network = matpower_to_network(&case)
+        .map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
 
     // 3. Run force-directed layout
     let iters = iterations.unwrap_or(100) as usize;
@@ -721,8 +726,8 @@ pub fn run_dc_opf_arrow(content: &str) -> Result<OpfArrowTables, JsValue> {
     let case = parse_matpower_string(content).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // 2. Convert to Network graph
-    let network =
-        matpower_to_network(&case).map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
+    let network = matpower_to_network(&case)
+        .map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
 
     // 3. Run DC-OPF solver
     let solver = OpfSolver::new().with_method(OpfMethod::DcOpf);
@@ -735,19 +740,22 @@ pub fn run_dc_opf_arrow(content: &str) -> Result<OpfArrowTables, JsValue> {
     let total_load: f64 = case.bus.iter().map(|b| b.pd).sum();
 
     // 5. Convert to Arrow IPC
-    let generators = arrow_export::generators_to_arrow(&solution.generator_p, &solution.generator_q)
-        .map_err(|e| JsValue::from_str(&format!("Arrow generator error: {e}")))?;
+    let generators =
+        arrow_export::generators_to_arrow(&solution.generator_p, &solution.generator_q)
+            .map_err(|e| JsValue::from_str(&format!("Arrow generator error: {e}")))?;
 
     let bus_ang_deg: HashMap<String, f64> = solution
         .bus_voltage_ang
         .iter()
         .map(|(k, v)| (k.clone(), v.to_degrees()))
         .collect();
-    let buses = arrow_export::buses_to_arrow(&solution.bus_voltage_mag, &bus_ang_deg, &solution.bus_lmp)
-        .map_err(|e| JsValue::from_str(&format!("Arrow bus error: {e}")))?;
+    let buses =
+        arrow_export::buses_to_arrow(&solution.bus_voltage_mag, &bus_ang_deg, &solution.bus_lmp)
+            .map_err(|e| JsValue::from_str(&format!("Arrow bus error: {e}")))?;
 
-    let branches = arrow_export::branches_to_arrow(&solution.branch_p_flow, &solution.branch_q_flow)
-        .map_err(|e| JsValue::from_str(&format!("Arrow branch error: {e}")))?;
+    let branches =
+        arrow_export::branches_to_arrow(&solution.branch_p_flow, &solution.branch_q_flow)
+            .map_err(|e| JsValue::from_str(&format!("Arrow branch error: {e}")))?;
 
     // 6. Create summary JSON
     let summary = arrow_export::OpfSummary {
@@ -779,8 +787,8 @@ pub fn run_socp_opf_arrow(content: &str) -> Result<OpfArrowTables, JsValue> {
     let case = parse_matpower_string(content).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // 2. Convert to Network graph
-    let network =
-        matpower_to_network(&case).map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
+    let network = matpower_to_network(&case)
+        .map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
 
     // 3. Run SOCP-OPF solver
     let solver = OpfSolver::new().with_method(OpfMethod::SocpRelaxation);
@@ -793,19 +801,22 @@ pub fn run_socp_opf_arrow(content: &str) -> Result<OpfArrowTables, JsValue> {
     let total_load: f64 = case.bus.iter().map(|b| b.pd).sum();
 
     // 5. Convert to Arrow IPC
-    let generators = arrow_export::generators_to_arrow(&solution.generator_p, &solution.generator_q)
-        .map_err(|e| JsValue::from_str(&format!("Arrow generator error: {e}")))?;
+    let generators =
+        arrow_export::generators_to_arrow(&solution.generator_p, &solution.generator_q)
+            .map_err(|e| JsValue::from_str(&format!("Arrow generator error: {e}")))?;
 
     let bus_ang_deg: HashMap<String, f64> = solution
         .bus_voltage_ang
         .iter()
         .map(|(k, v)| (k.clone(), v.to_degrees()))
         .collect();
-    let buses = arrow_export::buses_to_arrow(&solution.bus_voltage_mag, &bus_ang_deg, &solution.bus_lmp)
-        .map_err(|e| JsValue::from_str(&format!("Arrow bus error: {e}")))?;
+    let buses =
+        arrow_export::buses_to_arrow(&solution.bus_voltage_mag, &bus_ang_deg, &solution.bus_lmp)
+            .map_err(|e| JsValue::from_str(&format!("Arrow bus error: {e}")))?;
 
-    let branches = arrow_export::branches_to_arrow(&solution.branch_p_flow, &solution.branch_q_flow)
-        .map_err(|e| JsValue::from_str(&format!("Arrow branch error: {e}")))?;
+    let branches =
+        arrow_export::branches_to_arrow(&solution.branch_p_flow, &solution.branch_q_flow)
+            .map_err(|e| JsValue::from_str(&format!("Arrow branch error: {e}")))?;
 
     // 6. Create summary JSON
     let summary = arrow_export::OpfSummary {
@@ -842,14 +853,14 @@ pub fn run_socp_opf_fast_arrow(content: &str) -> Result<OpfArrowTables, JsValue>
     let case = parse_matpower_string(content).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // 2. Convert to Network graph
-    let network =
-        matpower_to_network(&case).map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
+    let network = matpower_to_network(&case)
+        .map_err(|e| JsValue::from_str(&format!("Network error: {e}")))?;
 
     // 3. Run SOCP-OPF solver with relaxed tolerances
     let solver = OpfSolver::new()
         .with_method(OpfMethod::SocpRelaxation)
-        .with_tolerance(1e-4)      // Relaxed from 1e-6
-        .with_max_iterations(50);  // Reduced from 100
+        .with_tolerance(1e-4) // Relaxed from 1e-6
+        .with_max_iterations(50); // Reduced from 100
     let solution = solver
         .solve(&network)
         .map_err(|e| JsValue::from_str(&format!("Solver error: {e}")))?;
@@ -859,19 +870,22 @@ pub fn run_socp_opf_fast_arrow(content: &str) -> Result<OpfArrowTables, JsValue>
     let total_load: f64 = case.bus.iter().map(|b| b.pd).sum();
 
     // 5. Convert to Arrow IPC
-    let generators = arrow_export::generators_to_arrow(&solution.generator_p, &solution.generator_q)
-        .map_err(|e| JsValue::from_str(&format!("Arrow generator error: {e}")))?;
+    let generators =
+        arrow_export::generators_to_arrow(&solution.generator_p, &solution.generator_q)
+            .map_err(|e| JsValue::from_str(&format!("Arrow generator error: {e}")))?;
 
     let bus_ang_deg: HashMap<String, f64> = solution
         .bus_voltage_ang
         .iter()
         .map(|(k, v)| (k.clone(), v.to_degrees()))
         .collect();
-    let buses = arrow_export::buses_to_arrow(&solution.bus_voltage_mag, &bus_ang_deg, &solution.bus_lmp)
-        .map_err(|e| JsValue::from_str(&format!("Arrow bus error: {e}")))?;
+    let buses =
+        arrow_export::buses_to_arrow(&solution.bus_voltage_mag, &bus_ang_deg, &solution.bus_lmp)
+            .map_err(|e| JsValue::from_str(&format!("Arrow bus error: {e}")))?;
 
-    let branches = arrow_export::branches_to_arrow(&solution.branch_p_flow, &solution.branch_q_flow)
-        .map_err(|e| JsValue::from_str(&format!("Arrow branch error: {e}")))?;
+    let branches =
+        arrow_export::branches_to_arrow(&solution.branch_p_flow, &solution.branch_q_flow)
+            .map_err(|e| JsValue::from_str(&format!("Arrow branch error: {e}")))?;
 
     // 6. Create summary JSON (mark as "fast" variant in method string)
     let summary = arrow_export::OpfSummary {

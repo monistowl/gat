@@ -66,14 +66,14 @@ impl<'a> PowerFlowAnalysis<'a> {
             iterations: 1,
             bus_angles,
             bus_voltages: HashMap::new(), // DC doesn't solve voltages
-            branch_flows: HashMap::new(),  // Not computed by dc_power_flow_angles
-            losses_mw: 0.0, // DC is lossless
+            branch_flows: HashMap::new(), // Not computed by dc_power_flow_angles
+            losses_mw: 0.0,               // DC is lossless
         })
     }
 
     /// Solve AC power flow (Newton-Raphson)
     pub fn solve_ac(self) -> Result<PowerFlowSolution> {
-        use crate::power_flow::{AcPowerFlowSolver, AcPowerFlowSolution as AcPfSolution};
+        use crate::power_flow::{AcPowerFlowSolution as AcPfSolution, AcPowerFlowSolver};
 
         let solver = AcPowerFlowSolver::new()
             .with_tolerance(self.tolerance)
@@ -100,7 +100,7 @@ impl<'a> PowerFlowAnalysis<'a> {
             bus_angles,
             bus_voltages,
             branch_flows: HashMap::new(), // Not included in AcPowerFlowSolution
-            losses_mw: 0.0, // Not computed by AcPowerFlowSolver
+            losses_mw: 0.0,               // Not computed by AcPowerFlowSolver
         })
     }
 }
@@ -108,7 +108,7 @@ impl<'a> PowerFlowAnalysis<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gat_core::{Bus, BusId, Gen, GenId, Load, LoadId, Megawatts, Megavars, Node};
+    use gat_core::{Bus, BusId, Gen, GenId, Load, LoadId, Megavars, Megawatts, Node};
 
     fn create_simple_test_network() -> Network {
         let mut network = Network::new();
@@ -217,8 +217,10 @@ mod tests {
                 // If it succeeds, check structure
                 assert!(pf.iterations > 0, "Should have at least 1 iteration");
                 // Bus voltages should be computed in AC
-                assert!(!pf.bus_voltages.is_empty() || !pf.bus_angles.is_empty(),
-                    "AC should compute voltages or angles");
+                assert!(
+                    !pf.bus_voltages.is_empty() || !pf.bus_angles.is_empty(),
+                    "AC should compute voltages or angles"
+                );
             }
             Err(_) => {
                 // Network might be incomplete for AC PF - that's okay for this test

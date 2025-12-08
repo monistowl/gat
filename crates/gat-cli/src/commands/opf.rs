@@ -897,8 +897,13 @@ fn handle_admm(
     let network = importers::load_grid_from_arrow(grid_file)
         .context("loading network from Arrow directory")?;
 
-    println!("Loaded network: {} buses, {} branches",
-        network.graph.node_weights().filter(|n| matches!(n, Node::Bus(_))).count(),
+    println!(
+        "Loaded network: {} buses, {} branches",
+        network
+            .graph
+            .node_weights()
+            .filter(|n| matches!(n, Node::Bus(_)))
+            .count(),
         network.graph.edge_count()
     );
 
@@ -933,7 +938,14 @@ fn handle_admm(
 
     // Print results
     println!("\n╭─ ADMM OPF Solution ─────────────────────────────────────╮");
-    println!("│  Converged:         {}", if solution.converged { "✓ Yes" } else { "✗ No" });
+    println!(
+        "│  Converged:         {}",
+        if solution.converged {
+            "✓ Yes"
+        } else {
+            "✗ No"
+        }
+    );
     println!("│  Iterations:        {}", solution.iterations);
     println!("│  Objective:         ${:.2}/hr", solution.objective);
     println!("│  Primal residual:   {:.2e}", solution.primal_residual);
@@ -943,20 +955,37 @@ fn handle_admm(
     println!();
 
     println!("Partition summary:");
-    for (i, (&obj, &size)) in solution.partition_objectives.iter()
+    for (i, (&obj, &size)) in solution
+        .partition_objectives
+        .iter()
         .zip(solution.partition_sizes.iter())
         .enumerate()
     {
-        println!("  Partition {}: {} buses, objective ${:.2}/hr", i, size, obj);
+        println!(
+            "  Partition {}: {} buses, objective ${:.2}/hr",
+            i, size, obj
+        );
     }
     println!("  Tie-lines: {}", solution.num_tie_lines);
     println!();
 
     println!("Timing breakdown:");
-    println!("  Partitioning:  {:>6} ms", solution.phase_times_ms.partition_ms);
-    println!("  X-updates:     {:>6} ms", solution.phase_times_ms.x_update_ms);
-    println!("  Z-updates:     {:>6} ms", solution.phase_times_ms.z_update_ms);
-    println!("  Dual updates:  {:>6} ms", solution.phase_times_ms.dual_update_ms);
+    println!(
+        "  Partitioning:  {:>6} ms",
+        solution.phase_times_ms.partition_ms
+    );
+    println!(
+        "  X-updates:     {:>6} ms",
+        solution.phase_times_ms.x_update_ms
+    );
+    println!(
+        "  Z-updates:     {:>6} ms",
+        solution.phase_times_ms.z_update_ms
+    );
+    println!(
+        "  Dual updates:  {:>6} ms",
+        solution.phase_times_ms.dual_update_ms
+    );
     println!("  Total:         {:>6} ms", solution.solve_time_ms);
     println!();
 

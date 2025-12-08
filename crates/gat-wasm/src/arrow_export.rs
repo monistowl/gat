@@ -100,10 +100,7 @@ pub fn buses_to_arrow(
         .iter()
         .map(|id| bus_voltage_ang.get(*id).copied())
         .collect();
-    let lmp_array: Float64Array = bus_ids
-        .iter()
-        .map(|id| bus_lmp.get(*id).copied())
-        .collect();
+    let lmp_array: Float64Array = bus_ids.iter().map(|id| bus_lmp.get(*id).copied()).collect();
 
     let batch = RecordBatch::try_new(
         Arc::new(schema.clone()),

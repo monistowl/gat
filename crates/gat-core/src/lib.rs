@@ -645,7 +645,6 @@ impl Network {
         stats
     }
 
-
     /// Validate network data for common issues that cause solver failures.
     ///
     /// Populates the provided `Diagnostics` with any warnings/errors found.
@@ -822,7 +821,6 @@ impl std::fmt::Display for NetworkStats {
         )
     }
 }
-
 
 impl Node {
     /// Returns a human-readable label for the node (bus/gen/load/shunt name).
@@ -1020,10 +1018,8 @@ mod tests {
     fn test_total_capacity() {
         let mut network = Network::new();
         network.graph.add_node(Node::Bus(Bus::default()));
-        let gen1 = Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1))
-            .with_p_limits(0.0, 100.0);
-        let gen2 = Gen::new(GenId::new(2), "Gen2".into(), BusId::new(1))
-            .with_p_limits(0.0, 50.0);
+        let gen1 = Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1)).with_p_limits(0.0, 100.0);
+        let gen2 = Gen::new(GenId::new(2), "Gen2".into(), BusId::new(1)).with_p_limits(0.0, 50.0);
         network.graph.add_node(Node::Gen(gen1));
         network.graph.add_node(Node::Gen(gen2));
 
@@ -1034,8 +1030,7 @@ mod tests {
     fn test_reserve_margin() {
         let mut network = Network::new();
         network.graph.add_node(Node::Bus(Bus::default()));
-        let gen = Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1))
-            .with_p_limits(0.0, 150.0);
+        let gen = Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1)).with_p_limits(0.0, 150.0);
         network.graph.add_node(Node::Gen(gen));
         network.graph.add_node(Node::Load(Load {
             id: LoadId::new(1),
@@ -1098,12 +1093,14 @@ mod tests {
         let mut network = Network::new();
         let bus1 = network.graph.add_node(Node::Bus(Bus::default()));
         let bus2 = network.graph.add_node(Node::Bus(Bus::default()));
-        network.graph.add_node(Node::Gen(Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1))));
-        network.graph.add_edge(
-            bus1,
-            bus2,
-            Edge::Branch(Branch::default()),
-        );
+        network.graph.add_node(Node::Gen(Gen::new(
+            GenId::new(1),
+            "Gen1".into(),
+            BusId::new(1),
+        )));
+        network
+            .graph
+            .add_edge(bus1, bus2, Edge::Branch(Branch::default()));
 
         assert_eq!(network.buses().len(), 2);
         assert_eq!(network.generators().len(), 1);

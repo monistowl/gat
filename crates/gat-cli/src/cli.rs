@@ -3,7 +3,9 @@ use clap_complete::Shell;
 use gat_io::importers::Format;
 use std::path::PathBuf;
 
-use crate::common::{FileOutputFormat, FlowMode, GnnOutputFormat, OpfMethod, OutputFormat, RatingType};
+use crate::common::{
+    FileOutputFormat, FlowMode, GnnOutputFormat, OpfMethod, OutputFormat, RatingType,
+};
 
 /// GPU floating-point precision mode for GPU-accelerated operations.
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]

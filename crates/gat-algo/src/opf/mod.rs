@@ -75,10 +75,10 @@ pub mod backends;
 mod dc_opf;
 pub mod dispatch;
 mod dispatcher;
-mod merit_order;
 pub mod export;
 pub mod formulations;
 pub mod gpu_branch_flow;
+mod merit_order;
 #[cfg(feature = "native-dispatch")]
 pub mod native_dispatch;
 pub mod registry;

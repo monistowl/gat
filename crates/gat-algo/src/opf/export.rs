@@ -11,8 +11,7 @@ use std::path::Path;
 impl OpfSolution {
     /// Export to JSON format
     pub fn to_json(&self, path: &Path) -> Result<()> {
-        let json = serde_json::to_string_pretty(self)
-            .context("serializing OpfSolution to JSON")?;
+        let json = serde_json::to_string_pretty(self).context("serializing OpfSolution to JSON")?;
         std::fs::write(path, json)
             .with_context(|| format!("writing JSON to {}", path.display()))?;
         Ok(())
@@ -134,7 +133,10 @@ mod tests {
 
         let json = result.unwrap();
         assert!(json.is_object(), "JSON value should be an object");
-        assert!(json.get("converged").is_some(), "JSON should have converged field");
+        assert!(
+            json.get("converged").is_some(),
+            "JSON should have converged field"
+        );
         assert!(
             json.get("objective_value").is_some(),
             "JSON should have objective_value field"

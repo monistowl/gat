@@ -192,16 +192,10 @@ fn handle_validate(candidates_path: &str) -> Result<()> {
 
     for (i, c) in candidates.iter().enumerate() {
         if c.reactance_pu <= 0.0 {
-            println!(
-                "  Warning: Candidate {} has non-positive reactance",
-                i + 1
-            );
+            println!("  Warning: Candidate {} has non-positive reactance", i + 1);
         }
         if c.capacity_mw <= 0.0 {
-            println!(
-                "  Warning: Candidate {} has non-positive capacity",
-                i + 1
-            );
+            println!("  Warning: Candidate {} has non-positive capacity", i + 1);
         }
         if c.investment_cost < 0.0 {
             println!(
