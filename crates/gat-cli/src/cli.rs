@@ -1428,6 +1428,33 @@ pub enum AnalyticsCommands {
         #[arg(long, default_value_t = 0)]
         max_jobs: usize,
     },
+    /// Multi-area reliability analysis with corridor constraints
+    #[command(name = "multiarea")]
+    MultiArea {
+        /// Directory containing area network files (Arrow format)
+        #[arg(long)]
+        areas_dir: String,
+
+        /// Corridor definitions file (JSON)
+        #[arg(long)]
+        corridors: String,
+
+        /// Number of Monte Carlo samples
+        #[arg(long, default_value = "1000")]
+        samples: usize,
+
+        /// Random seed
+        #[arg(long)]
+        seed: Option<u64>,
+
+        /// Output file (JSON)
+        #[arg(short = 'o', long = "out")]
+        out: String,
+
+        /// Number of threads
+        #[arg(short = 't', long, default_value = "auto")]
+        threads: String,
+    },
 }
 
 #[derive(Subcommand, Debug)]

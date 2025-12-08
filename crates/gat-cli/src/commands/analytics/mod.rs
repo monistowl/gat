@@ -3,14 +3,16 @@ use gat_cli::cli::AnalyticsCommands;
 
 pub mod ds;
 pub mod elcc;
+pub mod multiarea;
 pub mod ptdf;
-pub mod reliability; // NEW
+pub mod reliability;
 
 pub fn handle(command: &AnalyticsCommands) -> Result<()> {
     match command {
         AnalyticsCommands::Ptdf { .. } => ptdf::handle(command),
         AnalyticsCommands::Ds { .. } => ds::handle(command),
         AnalyticsCommands::Reliability { .. } => reliability::handle(command),
-        AnalyticsCommands::Elcc { .. } => elcc::handle(command), // NEW
+        AnalyticsCommands::Elcc { .. } => elcc::handle(command),
+        AnalyticsCommands::MultiArea { .. } => multiarea::handle(command),
     }
 }
