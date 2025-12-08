@@ -16,9 +16,11 @@ use bumpalo::Bump;
 /// use gat_algo::arena::ArenaContext;
 ///
 /// let mut ctx = ArenaContext::new();
-/// let mut vec = ctx.alloc_vec::<i32>();
-/// vec.push(1);
-/// vec.push(2);
+/// {
+///     let mut vec = ctx.alloc_vec::<i32>();
+///     vec.push(1);
+///     vec.push(2);
+/// } // vec dropped here
 /// ctx.reset(); // O(1) - all allocations freed
 /// ```
 pub struct ArenaContext {
