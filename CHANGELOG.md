@@ -35,9 +35,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [0.5.7] - 2025-12-08
 
 ### Added
+
+#### New CLI Commands
+
+- **`gat tep solve`** — Transmission Expansion Planning via MILP optimization
+  - Evaluates candidate transmission line investments
+  - Minimizes total investment + operating cost
+  - Outputs build decisions with cost breakdown
+
+- **`gat analytics multiarea`** — Multi-area reliability analysis
+  - Monte Carlo simulation across interconnected areas
+  - Corridor capacity constraints between areas
+  - Per-area and system-wide LOLE/EUE metrics
+
+- **`gat opf admm`** — Distributed OPF using ADMM decomposition
+  - Partitions network into regions for parallel solving
+  - Configurable penalty parameter (ρ) and convergence tolerance
+  - Reports primal/dual residuals and iteration count
+
+- **`--output-format`** option for power flow commands
+  - Supports `parquet`, `json`, `csv` output formats
+  - Available on `gat pf dc` and `gat pf ac` commands
+
+#### API Improvements
+
+- **Network query helpers** in `gat-core`
+  - `total_generation_mw()`, `total_load_mw()`, `total_capacity_mw()`
+  - `reserve_margin()` for capacity adequacy assessment
+  - `generators_at_bus()`, `loads_at_bus()` for topology queries
+  - `buses()`, `generators()`, `branches()` iterators
+
+- **`PowerFlowAnalysis` facade** in `gat-algo`
+  - Fluent builder API: `PowerFlowAnalysis::new(&network).with_tolerance(1e-6).solve_dc()`
+  - Unified interface for DC and AC power flow
+
+- **`SolutionExport` trait** for uniform output formats
+  - Implemented for `OpfSolution`
+  - Methods: `to_json()`, `to_csv()`, `to_summary_string()`
+
+- **`GatError` and `GatResult<T>`** unified error types in `gat-core`
+  - Common error type for I/O, parsing, validation, solver errors
+  - `From` conversions for `std::io::Error`, `anyhow::Error`, `serde_json::Error`
+
+### Changed
+
+- **PTDF/LODF consolidated** to type-safe `sparse::sensitivity` module
+  - Old `contingency::lodf` module removed
+  - New API uses typed `BranchId`/`BusId` for compile-time safety
+  - `SparsePtdf::compute_ptdf()` and `SparsePtdf::compute_lodf()`
+
+- **`opf::economic` renamed** to `opf::merit_order` for clarity
+  - Internal module rename; public `OpfMethod::EconomicDispatch` unchanged
+
+### Removed
+
+- **`NetworkValidationIssue`** enum (use `DiagnosticIssue` instead)
+- **`Network::validate()`** method (use `Network::validate_into(&mut Diagnostics)`)
+- **`contingency::lodf`** module (use `sparse::SparsePtdf`)
 
 #### GPU Acceleration Phase 2
 
