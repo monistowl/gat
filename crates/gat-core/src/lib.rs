@@ -643,23 +643,6 @@ impl Network {
         stats
     }
 
-    /// Validate network data for common issues that cause solver failures.
-    /// Returns a list of warnings/errors found.
-    #[deprecated(since = "0.5.0", note = "Use validate_into() with Diagnostics instead")]
-    #[allow(deprecated)]
-    pub fn validate(&self) -> Vec<NetworkValidationIssue> {
-        let mut diag = Diagnostics::new();
-        self.validate_into(&mut diag);
-
-        // Convert to legacy format
-        diag.issues
-            .into_iter()
-            .map(|issue| match issue.severity {
-                Severity::Warning => NetworkValidationIssue::Warning(issue.message),
-                Severity::Error => NetworkValidationIssue::Error(issue.message),
-            })
-            .collect()
-    }
 
     /// Validate network data for common issues that cause solver failures.
     ///
@@ -838,28 +821,6 @@ impl std::fmt::Display for NetworkStats {
     }
 }
 
-/// Validation issue found in a network
-///
-/// **Deprecated**: Use [`DiagnosticIssue`] from the [`diagnostics`] module instead.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use DiagnosticIssue from the diagnostics module instead"
-)]
-#[derive(Debug, Clone)]
-pub enum NetworkValidationIssue {
-    Warning(String),
-    Error(String),
-}
-
-#[allow(deprecated)]
-impl std::fmt::Display for NetworkValidationIssue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NetworkValidationIssue::Warning(msg) => write!(f, "Warning: {}", msg),
-            NetworkValidationIssue::Error(msg) => write!(f, "Error: {}", msg),
-        }
-    }
-}
 
 impl Node {
     /// Returns a human-readable label for the node (bus/gen/load/shunt name).
