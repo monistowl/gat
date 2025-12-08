@@ -107,6 +107,8 @@ pub mod io;
 pub mod power_flow;
 #[cfg(feature = "desktop")]
 pub mod reliability_monte_carlo;
+#[cfg(feature = "desktop")]
+pub mod workflows;
 
 // GPU-accelerated modules (optional feature)
 #[cfg(feature = "gpu")]
@@ -165,3 +167,5 @@ pub use reliability_monte_carlo::{
     DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
     ReliabilityMetrics,
 };
+#[cfg(feature = "desktop")]
+pub use workflows::PowerFlowAnalysis;
