@@ -96,13 +96,13 @@ For N-k analysis:
 
 ```rust
 use gat_algo::contingency::{
-    compute_ptdf_matrix, compute_lodf_matrix,
     NkScreener, NkScreeningConfig, screen_nk_contingencies,
 };
+use gat_algo::sparse::SparsePtdf;
 
 // Pre-compute sensitivity matrices
-let ptdf = compute_ptdf_matrix(&network)?;
-let lodf = compute_lodf_matrix(&network, &ptdf)?;
+let ptdf = SparsePtdf::compute_ptdf(&network)?;
+let lodf = SparsePtdf::compute_lodf(&network, &ptdf)?;
 
 // Configure N-2 screening
 let config = NkScreeningConfig {

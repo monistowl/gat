@@ -27,10 +27,10 @@
 //! - Wood & Wollenberg, "Power Generation, Operation and Control", Ch. 9
 //! - Alsac et al., "Fast Calculation of LODF and Application to Branch Outage Studies"
 
-pub mod lodf;
 pub mod n_k;
 
-pub use lodf::{compute_lodf_matrix, compute_ptdf_matrix, LodfMatrix, PtdfMatrix};
+// Re-export from sparse module for backwards compatibility at module level
+pub use crate::sparse::{LodfMatrix, PtdfMatrix, SparsePtdf};
 pub use n_k::{
     collect_branch_limits, collect_branch_terminals, collect_injections, screen_nk_contingencies,
     BranchViolation, Contingency, ContingencyEvaluation, NkEvaluationResults, NkEvaluator,

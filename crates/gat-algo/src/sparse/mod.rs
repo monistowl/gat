@@ -13,9 +13,9 @@
 //!
 //! ## Type Safety
 //!
-//! Unlike older implementations in [`crate::contingency::lodf`] and
-//! [`crate::opf::ac_nlp::sparse_ybus`], this module uses typed IDs
-//! ([`gat_core::BranchId`], [`gat_core::BusId`]) throughout for compile-time safety.
+//! Unlike older implementations such as [`crate::opf::ac_nlp::sparse_ybus`],
+//! this module uses typed IDs ([`gat_core::BranchId`], [`gat_core::BusId`])
+//! throughout for compile-time safety.
 //!
 //! ## Memory Comparison
 //!

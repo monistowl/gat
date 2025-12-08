@@ -12,7 +12,7 @@ use gat_algo::contingency::{
 use gat_algo::opf::ac_nlp::SparseYBus;
 use gat_algo::power_flow::ac_pf::AcPowerFlowSolver;
 use gat_core::solver::{FaerSolver, LinearSystemBackend};
-use gat_core::{BranchId, BusId, Edge, Network, Node};
+use gat_core::{BusId, Edge, Network, Node};
 use gat_io::importers::{parse_matpower, Format};
 use serde::{Deserialize, Serialize};
 
@@ -1694,7 +1694,7 @@ pub fn get_batch_status(
 // PTDF Computation
 // ============================================================================
 
-use gat_algo::contingency::lodf::compute_ptdf_matrix;
+use gat_algo::sparse::SparsePtdf;
 
 /// Request to compute PTDF factors.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1731,7 +1731,7 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
     let start = std::time::Instant::now();
     let path = std::path::Path::new(&request.network_path);
 
-    // Parse network (use existing pattern from commands.rs)
+    // Parse network
     let result = if let Some((format, _)) = Format::detect(path) {
         format
             .parse(&request.network_path)
@@ -1742,18 +1742,18 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
 
     let network = &result.network;
 
-    // Compute PTDF matrix
-    let ptdf_matrix = compute_ptdf_matrix(network).map_err(|e| e.to_string())?;
+    // Compute PTDF matrix using new type-safe API
+    let ptdf_matrix = SparsePtdf::compute_ptdf(network).map_err(|e| e.to_string())?;
 
     // Get branch info for names
     let mut branch_info: HashMap<usize, (usize, usize, String)> = HashMap::new();
     for edge in network.graph.edge_references() {
         if let Edge::Branch(branch) = edge.weight() {
             branch_info.insert(
-                branch.id.value(),
+                branch.id.value() as usize,
                 (
-                    branch.from_bus.value(),
-                    branch.to_bus.value(),
+                    branch.from_bus.value() as usize,
+                    branch.to_bus.value() as usize,
                     branch.name.clone(),
                 ),
             );
@@ -1761,28 +1761,24 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
     }
 
     // Calculate PTDF for the specified transfer
-    // Transfer = inject at injection_bus, withdraw at withdrawal_bus
-    // Net PTDF = PTDF[branch, injection] - PTDF[branch, withdrawal]
-    let transfer_mw = 100.0; // Standard 100 MW transfer
+    let transfer_mw = 100.0;
+    let injection_bus = BusId::new(request.injection_bus);
+    let withdrawal_bus = BusId::new(request.withdrawal_bus);
+
     let mut branches: Vec<PtdfBranchResult> = Vec::new();
 
     for &branch_id in &ptdf_matrix.branch_ids {
-        let ptdf_inject = ptdf_matrix
-            .get(branch_id, request.injection_bus)
-            .unwrap_or(0.0);
-        let ptdf_withdraw = ptdf_matrix
-            .get(branch_id, request.withdrawal_bus)
-            .unwrap_or(0.0);
+        let ptdf_inject = ptdf_matrix.get(branch_id, injection_bus).unwrap_or(0.0);
+        let ptdf_withdraw = ptdf_matrix.get(branch_id, withdrawal_bus).unwrap_or(0.0);
         let ptdf_factor = ptdf_inject - ptdf_withdraw;
 
-        let (from_bus, to_bus, name) =
-            branch_info
-                .get(&branch_id)
-                .cloned()
-                .unwrap_or((0, 0, format!("Branch {}", branch_id)));
+        let (from_bus, to_bus, name) = branch_info
+            .get(&(branch_id.value() as usize))
+            .cloned()
+            .unwrap_or((0, 0, format!("Branch {}", branch_id.value())));
 
         branches.push(PtdfBranchResult {
-            branch_id,
+            branch_id: branch_id.value() as usize,
             from_bus,
             to_bus,
             branch_name: name,
@@ -1791,7 +1787,6 @@ pub fn compute_ptdf(request: PtdfRequest) -> Result<PtdfResponse, String> {
         });
     }
 
-    // Sort by absolute PTDF factor descending
     branches.sort_by(|a, b| {
         b.ptdf_factor
             .abs()
@@ -2199,7 +2194,7 @@ pub fn detect_islands(path: &str) -> Result<IslandDetectionResult, String> {
 // LODF Matrix Computation
 // ============================================================================
 
-use gat_algo::contingency::lodf::compute_lodf_matrix;
+// Already imported SparsePtdf above
 
 /// LODF entry for a pair of branches.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2233,7 +2228,6 @@ pub fn get_lodf_matrix(path: &str) -> Result<LodfResponse, String> {
     let path_obj = Path::new(path);
     let start = std::time::Instant::now();
 
-    // Parse the case
     let result = if let Some((format, _)) = Format::detect(path_obj) {
         format.parse(path).map_err(|e| e.to_string())?
     } else {
@@ -2242,50 +2236,49 @@ pub fn get_lodf_matrix(path: &str) -> Result<LodfResponse, String> {
 
     let network = &result.network;
 
-    // Compute PTDF first (required for LODF)
-    let ptdf = compute_ptdf_matrix(network).map_err(|e| e.to_string())?;
+    // Compute PTDF first using new type-safe API
+    let ptdf = SparsePtdf::compute_ptdf(network).map_err(|e| e.to_string())?;
 
     // Compute LODF matrix
-    let lodf = compute_lodf_matrix(network, &ptdf).map_err(|e| e.to_string())?;
+    let lodf = SparsePtdf::compute_lodf(network, &ptdf).map_err(|e| e.to_string())?;
 
     // Get branch terminal info
     let branch_terminals = collect_branch_terminals(network);
 
     // Collect all non-trivial LODF entries
     let mut entries: Vec<LodfEntry> = Vec::new();
-    let threshold = 0.01; // Only include entries > 1%
+    let threshold = 0.01;
 
     for (l_idx, &branch_l) in lodf.branch_ids.iter().enumerate() {
         let (l_from, l_to) = branch_terminals
-            .get(&BranchId::new(branch_l))
+            .get(&branch_l)
             .copied()
             .unwrap_or((BusId::new(0), BusId::new(0)));
 
         for (m_idx, &branch_m) in lodf.branch_ids.iter().enumerate() {
             if l_idx == m_idx {
-                continue; // Skip diagonal (self-outage)
+                continue;
             }
 
             let lodf_val = lodf.values[l_idx][m_idx];
             if lodf_val.abs() > threshold {
                 let (m_from, m_to) = branch_terminals
-                    .get(&BranchId::new(branch_m))
+                    .get(&branch_m)
                     .copied()
                     .unwrap_or((BusId::new(0), BusId::new(0)));
                 entries.push(LodfEntry {
-                    monitored_branch: branch_l,
-                    monitored_from: l_from.value(),
-                    monitored_to: l_to.value(),
-                    outaged_branch: branch_m,
-                    outaged_from: m_from.value(),
-                    outaged_to: m_to.value(),
+                    monitored_branch: branch_l.value() as usize,
+                    monitored_from: l_from.value() as usize,
+                    monitored_to: l_to.value() as usize,
+                    outaged_branch: branch_m.value() as usize,
+                    outaged_from: m_from.value() as usize,
+                    outaged_to: m_to.value() as usize,
                     lodf_factor: lodf_val,
                 });
             }
         }
     }
 
-    // Sort by absolute LODF factor
     entries.sort_by(|a, b| {
         b.lodf_factor
             .abs()
@@ -2293,9 +2286,7 @@ pub fn get_lodf_matrix(path: &str) -> Result<LodfResponse, String> {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    // Top 50 entries for quick view
     let top_entries: Vec<LodfEntry> = entries.iter().take(50).cloned().collect();
-
     let compute_time_ms = start.elapsed().as_secs_f64() * 1000.0;
 
     Ok(LodfResponse {
