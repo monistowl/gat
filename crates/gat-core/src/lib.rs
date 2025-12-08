@@ -108,11 +108,13 @@ use petgraph::{prelude::*, Undirected};
 use serde::{Deserialize, Serialize};
 
 pub mod diagnostics;
+pub mod error;
 pub mod graph_utils;
 pub mod solver;
 pub mod units;
 
 pub use diagnostics::{DiagnosticIssue, Diagnostics, ImportDiagnostics, ImportStats, Severity};
+pub use error::{GatError, GatResult};
 pub use graph_utils::*;
 pub use petgraph::graph::NodeIndex;
 pub use solver::*;
