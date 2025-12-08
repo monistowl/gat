@@ -1930,6 +1930,60 @@ pub enum OpfCommands {
         #[arg(long)]
         show_iterations: bool,
     },
+    /// Solve OPF using distributed ADMM algorithm.
+    ///
+    /// Uses the Alternating Direction Method of Multipliers (ADMM) to solve OPF
+    /// in a distributed manner by partitioning the network into regions. Each region
+    /// solves a local subproblem in parallel, coordinating through consensus variables
+    /// at boundary buses.
+    ///
+    /// # Examples
+    ///
+    /// Basic ADMM with 4 partitions:
+    /// ```sh
+    /// gat opf admm case118.arrow -o solution.json
+    /// ```
+    ///
+    /// Custom partitioning and penalty:
+    /// ```sh
+    /// gat opf admm case300.arrow --partitions 8 --rho 2.0 -o solution.json
+    /// ```
+    Admm {
+        /// Grid file (Arrow directory)
+        grid_file: String,
+
+        /// Number of partitions for distributed solving
+        #[arg(long, default_value = "4")]
+        partitions: usize,
+
+        /// ADMM penalty parameter (rho)
+        #[arg(long, default_value = "1.0")]
+        rho: f64,
+
+        /// Convergence tolerance
+        #[arg(long, default_value = "1e-4")]
+        tol: f64,
+
+        /// Maximum iterations
+        #[arg(long, default_value = "100")]
+        max_iter: u32,
+
+        /// Inner OPF method for subproblems
+        #[arg(long, value_enum, default_value_t = OpfMethod::Dc)]
+        inner_method: OpfMethod,
+
+        /// Output file for solution (JSON)
+        #[arg(short = 'o', long = "out")]
+        out: String,
+
+        /// Number of threads
+        #[arg(short = 't', long, default_value = "auto")]
+        threads: String,
+
+        /// Show per-iteration convergence
+        #[arg(long)]
+        show_iterations: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

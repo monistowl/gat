@@ -321,6 +321,29 @@ pub fn handle(command: &OpfCommands) -> Result<()> {
                 out.as_deref(),
             )
         }
+        OpfCommands::Admm {
+            grid_file,
+            partitions,
+            rho,
+            tol,
+            max_iter,
+            inner_method,
+            out,
+            threads,
+            show_iterations,
+        } => {
+            configure_threads(threads);
+            handle_admm(
+                grid_file,
+                *partitions,
+                *rho,
+                *tol,
+                *max_iter,
+                *inner_method,
+                out,
+                *show_iterations,
+            )
+        }
     }
 }
 
@@ -848,6 +871,114 @@ fn handle_run(
             .context("writing JSON output")?;
         eprintln!("  Results written to {}", out_path);
     }
+
+    Ok(())
+}
+
+// ============================================================================
+// `opf admm` Implementation
+// ============================================================================
+
+/// Handle ADMM-based distributed OPF
+#[allow(clippy::too_many_arguments)]
+fn handle_admm(
+    grid_file: &str,
+    partitions: usize,
+    rho: f64,
+    tol: f64,
+    max_iter: u32,
+    inner_method: OpfMethod,
+    out: &str,
+    show_iterations: bool,
+) -> Result<()> {
+    use gat_algo::opf::admm::{AdmmConfig, AdmmOpfSolver, PartitionStrategyConfig};
+
+    // Load network
+    let network = importers::load_grid_from_arrow(grid_file)
+        .context("loading network from Arrow directory")?;
+
+    println!("Loaded network: {} buses, {} branches",
+        network.graph.node_weights().filter(|n| matches!(n, Node::Bus(_))).count(),
+        network.graph.edge_count()
+    );
+
+    // Configure ADMM solver
+    let config = AdmmConfig {
+        penalty: rho,
+        primal_tol: tol,
+        dual_tol: tol,
+        max_iter: max_iter as usize,
+        inner_method: cli_method_to_algo(inner_method),
+        num_partitions: partitions,
+        partition_strategy: PartitionStrategyConfig::Spectral,
+        adaptive_penalty: true,
+        penalty_scale: 2.0,
+        max_penalty: 1e6,
+        min_penalty: 1e-6,
+        verbose: show_iterations,
+        use_gpu: false, // Default to CPU for CLI
+    };
+
+    println!("\nADMM Configuration:");
+    println!("  Partitions: {}", config.num_partitions);
+    println!("  Penalty (rho): {}", config.penalty);
+    println!("  Tolerance: {:.2e}", config.primal_tol);
+    println!("  Max iterations: {}", config.max_iter);
+    println!("  Inner method: {:?}", config.inner_method);
+    println!();
+
+    // Solve using ADMM
+    let solver = AdmmOpfSolver::new(config);
+    let solution = solver.solve(&network).context("ADMM OPF solve")?;
+
+    // Print results
+    println!("\n╭─ ADMM OPF Solution ─────────────────────────────────────╮");
+    println!("│  Converged:         {}", if solution.converged { "✓ Yes" } else { "✗ No" });
+    println!("│  Iterations:        {}", solution.iterations);
+    println!("│  Objective:         ${:.2}/hr", solution.objective);
+    println!("│  Primal residual:   {:.2e}", solution.primal_residual);
+    println!("│  Dual residual:     {:.2e}", solution.dual_residual);
+    println!("│  Total losses:      {:.2} MW", solution.total_losses_mw);
+    println!("╰──────────────────────────────────────────────────────────╯");
+    println!();
+
+    println!("Partition summary:");
+    for (i, (&obj, &size)) in solution.partition_objectives.iter()
+        .zip(solution.partition_sizes.iter())
+        .enumerate()
+    {
+        println!("  Partition {}: {} buses, objective ${:.2}/hr", i, size, obj);
+    }
+    println!("  Tie-lines: {}", solution.num_tie_lines);
+    println!();
+
+    println!("Timing breakdown:");
+    println!("  Partitioning:  {:>6} ms", solution.phase_times_ms.partition_ms);
+    println!("  X-updates:     {:>6} ms", solution.phase_times_ms.x_update_ms);
+    println!("  Z-updates:     {:>6} ms", solution.phase_times_ms.z_update_ms);
+    println!("  Dual updates:  {:>6} ms", solution.phase_times_ms.dual_update_ms);
+    println!("  Total:         {:>6} ms", solution.solve_time_ms);
+    println!();
+
+    // Write JSON output
+    let json = serde_json::to_string_pretty(&solution).context("serializing solution")?;
+    let mut file = File::create(out).context("creating output file")?;
+    file.write_all(json.as_bytes()).context("writing output")?;
+
+    println!("Results written to {}", out);
+
+    record_run(
+        out,
+        "opf admm",
+        &[
+            ("grid_file", grid_file),
+            ("partitions", &partitions.to_string()),
+            ("rho", &rho.to_string()),
+            ("tol", &tol.to_string()),
+            ("max_iter", &max_iter.to_string()),
+            ("inner_method", &format!("{:?}", inner_method)),
+        ],
+    );
 
     Ok(())
 }
