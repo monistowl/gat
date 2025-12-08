@@ -708,6 +708,105 @@ impl Network {
             diag.add_error("structure", "Network has multiple buses but no branches");
         }
     }
+
+    /// Get total active power generation (MW)
+    pub fn total_generation_mw(&self) -> f64 {
+        self.graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Gen(g) if g.status => Some(g.active_power.value()),
+                _ => None,
+            })
+            .sum()
+    }
+
+    /// Get total active power load (MW)
+    pub fn total_load_mw(&self) -> f64 {
+        self.graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Load(l) => Some(l.active_power.value()),
+                _ => None,
+            })
+            .sum()
+    }
+
+    /// Get total generation capacity (MW)
+    pub fn total_capacity_mw(&self) -> f64 {
+        self.graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Gen(g) if g.status => Some(g.pmax.value()),
+                _ => None,
+            })
+            .filter(|v| v.is_finite())
+            .sum()
+    }
+
+    /// Get reserve margin (generation capacity - load) / load
+    pub fn reserve_margin(&self) -> f64 {
+        let load = self.total_load_mw();
+        if load.abs() < 1e-9 {
+            return f64::INFINITY;
+        }
+        let capacity = self.total_capacity_mw();
+        (capacity - load) / load
+    }
+
+    /// Find generators at a specific bus
+    pub fn generators_at_bus(&self, bus_id: BusId) -> Vec<&Gen> {
+        self.graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Gen(g) if g.bus == bus_id => Some(g),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Find loads at a specific bus
+    pub fn loads_at_bus(&self, bus_id: BusId) -> Vec<&Load> {
+        self.graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Load(l) if l.bus == bus_id => Some(l),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Get all buses as a vector
+    pub fn buses(&self) -> Vec<&Bus> {
+        self.graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Bus(b) => Some(b),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Get all generators as a vector
+    pub fn generators(&self) -> Vec<&Gen> {
+        self.graph
+            .node_weights()
+            .filter_map(|n| match n {
+                Node::Gen(g) => Some(g),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Get all branches as a vector
+    pub fn branches(&self) -> Vec<&Branch> {
+        self.graph
+            .edge_weights()
+            .filter_map(|e| match e {
+                Edge::Branch(b) => Some(b),
+                _ => None,
+            })
+            .collect()
+    }
 }
 
 /// Statistics about a network's size and capacity
@@ -923,5 +1022,128 @@ mod tests {
         assert!(gen.is_synchronous_condenser);
         assert_eq!(gen.pmin.value(), -10.0);
         assert_eq!(gen.pmax.value(), 0.0);
+    }
+
+    #[test]
+    fn test_total_generation() {
+        let mut network = Network::new();
+        network.graph.add_node(Node::Bus(Bus::default()));
+        let mut gen1 = Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1));
+        gen1.active_power = Megawatts(50.0);
+        let mut gen2 = Gen::new(GenId::new(2), "Gen2".into(), BusId::new(1));
+        gen2.active_power = Megawatts(30.0);
+        network.graph.add_node(Node::Gen(gen1));
+        network.graph.add_node(Node::Gen(gen2));
+
+        assert!((network.total_generation_mw() - 80.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_total_load() {
+        let mut network = Network::new();
+        network.graph.add_node(Node::Bus(Bus::default()));
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "Load1".into(),
+            bus: BusId::new(1),
+            active_power: Megawatts(100.0),
+            reactive_power: Megavars(20.0),
+        }));
+
+        assert!((network.total_load_mw() - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_total_capacity() {
+        let mut network = Network::new();
+        network.graph.add_node(Node::Bus(Bus::default()));
+        let gen1 = Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1))
+            .with_p_limits(0.0, 100.0);
+        let gen2 = Gen::new(GenId::new(2), "Gen2".into(), BusId::new(1))
+            .with_p_limits(0.0, 50.0);
+        network.graph.add_node(Node::Gen(gen1));
+        network.graph.add_node(Node::Gen(gen2));
+
+        assert!((network.total_capacity_mw() - 150.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_reserve_margin() {
+        let mut network = Network::new();
+        network.graph.add_node(Node::Bus(Bus::default()));
+        let gen = Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1))
+            .with_p_limits(0.0, 150.0);
+        network.graph.add_node(Node::Gen(gen));
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "Load1".into(),
+            bus: BusId::new(1),
+            active_power: Megawatts(100.0),
+            reactive_power: Megavars(20.0),
+        }));
+
+        // Reserve margin = (capacity - load) / load = (150 - 100) / 100 = 0.5
+        assert!((network.reserve_margin() - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_generators_at_bus() {
+        let mut network = Network::new();
+        network.graph.add_node(Node::Bus(Bus::default()));
+        let gen1 = Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1));
+        let gen2 = Gen::new(GenId::new(2), "Gen2".into(), BusId::new(1));
+        let gen3 = Gen::new(GenId::new(3), "Gen3".into(), BusId::new(2));
+        network.graph.add_node(Node::Gen(gen1));
+        network.graph.add_node(Node::Gen(gen2));
+        network.graph.add_node(Node::Gen(gen3));
+
+        let gens_at_bus1 = network.generators_at_bus(BusId::new(1));
+        assert_eq!(gens_at_bus1.len(), 2);
+
+        let gens_at_bus2 = network.generators_at_bus(BusId::new(2));
+        assert_eq!(gens_at_bus2.len(), 1);
+    }
+
+    #[test]
+    fn test_loads_at_bus() {
+        let mut network = Network::new();
+        network.graph.add_node(Node::Bus(Bus::default()));
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(1),
+            name: "Load1".into(),
+            bus: BusId::new(1),
+            active_power: Megawatts(50.0),
+            reactive_power: Megavars(10.0),
+        }));
+        network.graph.add_node(Node::Load(Load {
+            id: LoadId::new(2),
+            name: "Load2".into(),
+            bus: BusId::new(2),
+            active_power: Megawatts(30.0),
+            reactive_power: Megavars(5.0),
+        }));
+
+        let loads_at_bus1 = network.loads_at_bus(BusId::new(1));
+        assert_eq!(loads_at_bus1.len(), 1);
+
+        let loads_at_bus2 = network.loads_at_bus(BusId::new(2));
+        assert_eq!(loads_at_bus2.len(), 1);
+    }
+
+    #[test]
+    fn test_buses_generators_branches_accessors() {
+        let mut network = Network::new();
+        let bus1 = network.graph.add_node(Node::Bus(Bus::default()));
+        let bus2 = network.graph.add_node(Node::Bus(Bus::default()));
+        network.graph.add_node(Node::Gen(Gen::new(GenId::new(1), "Gen1".into(), BusId::new(1))));
+        network.graph.add_edge(
+            bus1,
+            bus2,
+            Edge::Branch(Branch::default()),
+        );
+
+        assert_eq!(network.buses().len(), 2);
+        assert_eq!(network.generators().len(), 1);
+        assert_eq!(network.branches().len(), 1);
     }
 }
