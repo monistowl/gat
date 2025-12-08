@@ -76,6 +76,7 @@ mod dc_opf;
 pub mod dispatch;
 mod dispatcher;
 mod economic;
+pub mod export;
 pub mod formulations;
 pub mod gpu_branch_flow;
 #[cfg(feature = "native-dispatch")]

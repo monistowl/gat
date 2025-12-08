@@ -124,9 +124,15 @@ pub mod wasm_parsers;
 
 // Modules requiring native I/O (polars, filesystem)
 #[cfg(feature = "native-io")]
+pub mod export;
+#[cfg(feature = "native-io")]
 pub mod exporters;
 #[cfg(feature = "native-io")]
 pub mod validate;
+
+// Re-export SolutionExport trait for convenience
+#[cfg(feature = "native-io")]
+pub use export::SolutionExport;
 
 // Modules requiring non-WASM filesystem access AND native-io (polars)
 // These modules use both std::fs and polars DataFrame operations
