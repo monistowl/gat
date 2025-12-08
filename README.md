@@ -420,9 +420,10 @@ gat inspect {summary,generators,branches,power-balance,json}  # Network diagnost
 ```
 gat graph {stats,islands,export,visualize}  # Network topology
 gat pf {dc,ac}                    # Power flows
-gat opf {dc,ac,ac-nlp}            # Optimal dispatch (dc=LP, ac=SOR, ac-nlp=NLP)
+gat opf {dc,ac,ac-nlp,admm}       # Optimal dispatch (dc=LP, ac=SOR, ac-nlp=NLP, admm=distributed)
 gat nminus1 {dc,ac}               # Contingency screening
 gat se wls                         # State estimation
+gat tep solve                      # Transmission expansion planning (MILP)
 ```
 
 ### Time Series & Feature Engineering
@@ -451,7 +452,7 @@ gat alloc {rents,kpi}             # Allocation metrics
 ### Analytics & Insights
 
 ```
-gat analytics {ptdf,reliability,elcc,ds,deliverability}  # Grid metrics
+gat analytics {ptdf,reliability,elcc,ds,deliverability,multiarea}  # Grid metrics
 ```
 
 ### Benchmarking
