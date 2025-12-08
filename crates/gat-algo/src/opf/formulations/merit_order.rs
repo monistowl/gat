@@ -7,7 +7,7 @@ use gat_core::Network;
 
 /// Economic dispatch formulation (linear program, no network).
 ///
-/// Wraps the existing `economic::solve()` implementation.
+/// Wraps the existing `merit_order::solve()` implementation.
 pub struct EconomicDispatchFormulation;
 
 impl OpfFormulation for EconomicDispatchFormulation {

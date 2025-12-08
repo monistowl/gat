@@ -5,10 +5,10 @@
 
 mod ac;
 mod dc;
-mod economic;
+mod merit_order;
 mod socp;
 
 pub use ac::AcOpfFormulation;
 pub use dc::DcOpfFormulation;
-pub use economic::EconomicDispatchFormulation;
+pub use merit_order::EconomicDispatchFormulation;
 pub use socp::SocpFormulation;

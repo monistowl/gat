@@ -75,7 +75,7 @@ pub mod backends;
 mod dc_opf;
 pub mod dispatch;
 mod dispatcher;
-mod economic;
+mod merit_order;
 pub mod export;
 pub mod formulations;
 pub mod gpu_branch_flow;
@@ -207,7 +207,7 @@ impl OpfSolver {
     pub fn solve(&self, network: &Network) -> Result<OpfSolution, OpfError> {
         match self.method {
             OpfMethod::EconomicDispatch => {
-                economic::solve(network, self.max_iterations, self.tolerance)
+                merit_order::solve(network, self.max_iterations, self.tolerance)
             }
             OpfMethod::DcOpf => {
                 // Try native CLP if preferred and available
