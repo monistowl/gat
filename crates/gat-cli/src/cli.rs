@@ -3,7 +3,7 @@ use clap_complete::Shell;
 use gat_io::importers::Format;
 use std::path::PathBuf;
 
-use crate::common::{FlowMode, GnnOutputFormat, OpfMethod, OutputFormat, RatingType};
+use crate::common::{FileOutputFormat, FlowMode, GnnOutputFormat, OpfMethod, OutputFormat, RatingType};
 
 /// GPU floating-point precision mode for GPU-accelerated operations.
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
@@ -828,6 +828,9 @@ pub enum PowerFlowCommands {
         /// Output format when writing to stdout (-o -)
         #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
         stdout_format: OutputFormat,
+        /// Output file format (parquet, json, csv)
+        #[arg(long, value_enum, default_value_t = FileOutputFormat::Parquet)]
+        output_format: FileOutputFormat,
         /// Override slack bus selection (default: auto-select from network data)
         #[arg(long)]
         slack_bus: Option<usize>,

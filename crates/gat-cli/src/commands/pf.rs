@@ -8,7 +8,7 @@ use crate::commands::util::{configure_threads, parse_partitions};
 use anyhow::Result;
 use gat_algo::power_flow::{self, AcPowerFlowSolver, CpfSolver, FastDecoupledSolver};
 use gat_cli::cli::PowerFlowCommands;
-use gat_cli::common::{write_json, write_jsonl, OutputDest, OutputFormat};
+use gat_cli::common::{write_json, write_jsonl, FileOutputFormat, OutputDest, OutputFormat};
 use gat_core::solver::SolverKind;
 use gat_core::BusId;
 use gat_io::importers;
@@ -23,6 +23,7 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
             lp_solver: _, // unused in DC power flow
             out_partitions,
             stdout_format,
+            output_format,
             slack_bus: _, // TODO: wire into solver
         } => {
             let start = Instant::now();
@@ -36,8 +37,12 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
 
             let res = match output_dest {
                 OutputDest::File(path) => {
-                    // Existing Parquet write logic
-                    power_flow::dc_power_flow(&network, solver_impl.as_ref(), &path, &partitions)
+                    // Get DataFrame from DC power flow
+                    let (df, _max_flow, _min_flow) =
+                        power_flow::dc_power_flow_dataframe(&network, solver_impl.as_ref())?;
+
+                    // Write to file based on output format
+                    write_dataframe_to_file(&df, &path, *output_format, &partitions)
                 }
                 OutputDest::Stdout => {
                     // Compute the DC power flow and get the DataFrame
@@ -265,6 +270,90 @@ pub fn handle(command: &PowerFlowCommands) -> Result<()> {
                 &res,
             );
             res
+        }
+    }
+}
+
+/// Write a Polars DataFrame to a file in the specified format
+fn write_dataframe_to_file(
+    df: &polars::prelude::DataFrame,
+    path: &std::path::PathBuf,
+    format: FileOutputFormat,
+    partitions: &[String],
+) -> Result<()> {
+    use gat_algo::io::persist_dataframe;
+    use gat_algo::OutputStage;
+    use polars::prelude::*;
+
+    match format {
+        FileOutputFormat::Parquet => {
+            // Write to Parquet using existing infrastructure
+            let mut df_mut = df.clone();
+            persist_dataframe(&mut df_mut, path, partitions, OutputStage::PfDc.as_str())?;
+            println!(
+                "DC power flow summary: {} branch(es), persisted to {}",
+                df.height(),
+                path.display()
+            );
+            Ok(())
+        }
+        FileOutputFormat::Json => {
+            // Convert DataFrame to JSON
+            let column_names: Vec<_> = df.get_column_names();
+            let mut json_objects = Vec::new();
+
+            for row_idx in 0..df.height() {
+                let mut obj = serde_json::Map::new();
+                for (col_idx, &col_name) in column_names.iter().enumerate() {
+                    let series = &df.get_columns()[col_idx];
+                    let value = match series.dtype() {
+                        DataType::Int64 => {
+                            let val = series.i64()?.get(row_idx);
+                            val.map(|v| serde_json::Value::Number(v.into()))
+                                .unwrap_or(serde_json::Value::Null)
+                        }
+                        DataType::Float64 => {
+                            let val = series.f64()?.get(row_idx);
+                            val.and_then(serde_json::Number::from_f64)
+                                .map(serde_json::Value::Number)
+                                .unwrap_or(serde_json::Value::Null)
+                        }
+                        DataType::Utf8 => {
+                            let val = series.utf8()?.get(row_idx);
+                            val.map(|s| serde_json::Value::String(s.to_string()))
+                                .unwrap_or(serde_json::Value::Null)
+                        }
+                        _ => serde_json::Value::Null,
+                    };
+                    obj.insert(col_name.to_string(), value);
+                }
+                json_objects.push(serde_json::Value::Object(obj));
+            }
+
+            // Write JSON to file
+            let file = File::create(path)?;
+            let writer = BufWriter::new(file);
+            serde_json::to_writer_pretty(writer, &json_objects)?;
+            println!(
+                "DC power flow summary: {} branch(es), persisted to {}",
+                df.height(),
+                path.display()
+            );
+            Ok(())
+        }
+        FileOutputFormat::Csv => {
+            // Write CSV to file
+            let file = File::create(path)?;
+            let mut writer = CsvWriter::new(file);
+            writer
+                .finish(&mut df.clone())
+                .map_err(|e| anyhow::anyhow!("Failed to write CSV: {}", e))?;
+            println!(
+                "DC power flow summary: {} branch(es), persisted to {}",
+                df.height(),
+                path.display()
+            );
+            Ok(())
         }
     }
 }

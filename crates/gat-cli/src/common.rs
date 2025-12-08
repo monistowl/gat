@@ -28,6 +28,21 @@ pub enum OutputFormat {
     Csv,
 }
 
+/// File output format for power flow commands.
+///
+/// Used for commands that write analysis results to files, allowing users
+/// to choose between binary (Parquet) and text formats (JSON, CSV).
+#[derive(ValueEnum, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FileOutputFormat {
+    /// Apache Parquet columnar format (default, efficient for large datasets)
+    #[default]
+    Parquet,
+    /// JSON object or array (human-readable, structured)
+    Json,
+    /// Comma-separated values (widely compatible)
+    Csv,
+}
+
 impl OutputFormat {
     /// Returns true if this format is machine-readable (suitable for piping)
     pub fn is_machine_readable(&self) -> bool {
