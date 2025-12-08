@@ -144,7 +144,7 @@ use gat_core::{BusId, Edge, Network, Node};
 use good_lp::solvers::clarabel::clarabel;
 use good_lp::{constraint, variable, variables, Expression, Solution, SolverModel, Variable};
 use std::collections::HashMap;
-use std::time::Instant;
+use web_time::Instant;
 
 /// Constraint scaler for improving LP numerical conditioning.
 ///

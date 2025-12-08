@@ -10,6 +10,8 @@ use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+#[cfg(feature = "native-io")]
 use std::path::Path;
 
 /// Current schema version (semver)
@@ -101,6 +103,7 @@ impl ArrowManifest {
     }
 
     /// Validate checksums of all table files
+    #[cfg(feature = "native-io")]
     pub fn validate_checksums(&self, base_path: &Path) -> Result<()> {
         for (table_name, info) in &self.tables {
             let file_path = base_path.join(format!("{}.arrow", table_name));
@@ -141,6 +144,7 @@ impl ArrowManifest {
 }
 
 /// Compute SHA256 hash of a file
+#[cfg(feature = "native-io")]
 pub fn compute_sha256(path: &Path) -> Result<String> {
     use sha2::{Digest, Sha256};
     use std::fs::File;

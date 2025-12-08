@@ -128,7 +128,7 @@ use clarabel::{
 };
 use gat_core::{BusId, Edge, Network, Node};
 use std::collections::HashMap;
-use std::time::Instant;
+use web_time::Instant;
 
 // ============================================================================
 // DATA STRUCTURES
@@ -2290,7 +2290,7 @@ pub fn tighten_bounds_obbt(
     n_branch: usize,
     max_iterations: usize,
 ) -> TighteningStats {
-    use std::time::Instant;
+    use web_time::Instant;
     let start = Instant::now();
 
     let mut stats = TighteningStats::default();

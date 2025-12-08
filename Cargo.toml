@@ -26,6 +26,7 @@ members = [
     "crates/gat-mcp-docs",
     "crates/gat-gui/src-tauri",
     "crates/gat-gpu",
+    "crates/gat-wasm",
 ]
 default-members = [
     "crates/gat-core",

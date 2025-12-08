@@ -205,6 +205,12 @@ pub enum Commands {
         #[command(subcommand)]
         command: TuiCommands,
     },
+    /// Transmission expansion planning
+    #[command(name = "tep")]
+    Tep {
+        #[command(subcommand)]
+        command: TepCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -1948,6 +1954,41 @@ pub enum SolverCommands {
     },
     /// Show solver configuration status
     Status,
+}
+
+/// Transmission Expansion Planning commands
+#[derive(Subcommand, Debug)]
+pub enum TepCommands {
+    /// Solve transmission expansion planning problem
+    #[command(name = "solve")]
+    Solve {
+        /// Network file (Arrow directory format)
+        #[arg(long)]
+        network: String,
+
+        /// Candidate lines file (JSON or Parquet)
+        #[arg(long)]
+        candidates: String,
+
+        /// Investment budget limit (optional)
+        #[arg(long)]
+        budget: Option<f64>,
+
+        /// Output file for solution (JSON)
+        #[arg(short = 'o', long = "out")]
+        out: String,
+
+        /// Number of threads
+        #[arg(short = 't', long, default_value = "auto")]
+        threads: String,
+    },
+    /// Validate candidate lines file format
+    #[command(name = "validate")]
+    Validate {
+        /// Candidate lines file to validate
+        #[arg(long)]
+        candidates: String,
+    },
 }
 
 pub fn build_cli_command() -> clap::Command {

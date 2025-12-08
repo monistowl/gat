@@ -5,7 +5,10 @@
 
 {% block extra_head %}
 <style>
-  /* Light mode (default) - uses central theme system variables */
+  /* ═══════════════════════════════════════════════════════════════════════════════
+     GAT Experimental UI - Network-Centric Design
+     ═══════════════════════════════════════════════════════════════════════════════ */
+
   :root {
     --exp-bg: radial-gradient(circle at 20% 20%, rgba(234, 88, 12, 0.06), transparent 35%),
               radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.08), transparent 30%),
@@ -15,11 +18,11 @@
     --exp-text: var(--f1, #1e293b);
     --exp-heading: var(--f2, #0f172a);
     --accent: var(--a1, #ea580c);
+    --accent-glow: rgba(234, 88, 12, 0.3);
     --muted: var(--c4, #64748b);
     --code: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
   }
 
-  /* Dark mode - preserves original dark IDE aesthetic */
   [data-theme="dark"], .dark, html.switch {
     --exp-bg: radial-gradient(circle at 20% 20%, rgba(248, 113, 113, 0.1), transparent 35%),
               radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.12), transparent 30%),
@@ -29,6 +32,7 @@
     --exp-text: #e2e8f0;
     --exp-heading: #ffffff;
     --accent: #fb923c;
+    --accent-glow: rgba(251, 146, 60, 0.4);
     --muted: #94a3b8;
   }
 
@@ -38,16 +42,153 @@
     color: var(--exp-text);
   }
 
-  .exp-hero {
-    border: 1px solid var(--panel-stroke);
-    border-radius: 14px;
-    padding: 1.6rem;
-    background: var(--panel);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  /* Main Layout - Network Front and Center */
+  .exp-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    grid-template-rows: auto 1fr auto;
+    gap: 1rem;
+    min-height: calc(100vh - 160px);
   }
-  [data-theme="dark"] .exp-hero, .dark .exp-hero, html.switch .exp-hero {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
-    box-shadow: 0 18px 60px rgba(0,0,0,0.35);
+
+  @media (max-width: 1200px) {
+    .exp-layout {
+      grid-template-columns: 1fr;
+    }
+    .exp-sidebar {
+      order: 2;
+    }
+    .exp-main {
+      order: 1;
+    }
+  }
+
+  /* Sidebar Panel */
+  .exp-sidebar {
+    grid-row: 1 / 4;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-stroke);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+  [data-theme="dark"] .card, .dark .card {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  }
+
+  /* Main Content Area */
+  .exp-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* Network Visualization Container - HERO */
+  .network-hero {
+    flex: 1;
+    min-height: 500px;
+    background: var(--panel);
+    border: 1px solid var(--panel-stroke);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+    overflow: hidden;
+  }
+  [data-theme="dark"] .network-hero {
+    box-shadow: 0 12px 50px rgba(0,0,0,0.35);
+  }
+
+  .network-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--panel-stroke);
+    background: color-mix(in srgb, var(--panel) 80%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  #network-graph {
+    flex: 1;
+    background: var(--c2, #f1f5f9);
+  }
+  [data-theme="dark"] #network-graph {
+    background: rgba(0,0,0,0.35);
+  }
+
+  .network-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    border-top: 1px solid var(--panel-stroke);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  /* Tabbed Feature Panel */
+  .feature-tabs {
+    background: var(--panel);
+    border: 1px solid var(--panel-stroke);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--panel-stroke);
+    background: color-mix(in srgb, var(--panel-stroke) 30%, transparent);
+    overflow-x: auto;
+  }
+
+  .tab-btn {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--muted);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover {
+    color: var(--exp-text);
+    background: color-mix(in srgb, var(--panel-stroke) 20%, transparent);
+  }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: var(--panel);
+  }
+
+  .tab-content {
+    display: none;
+    padding: 1rem;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .tab-content.active {
+    display: block;
+  }
+
+  /* Common Components */
+  .section-title {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
   }
 
   .pill {
@@ -58,36 +199,22 @@
     border-radius: 999px;
     background: var(--panel);
     border: 1px solid var(--panel-stroke);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--muted);
   }
 
-  .grid {
-    display: grid;
-    grid-template-columns: 280px 1.1fr 1fr;
-    gap: 1rem;
-  }
-
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--panel-stroke);
-    border-radius: 12px;
-    padding: 1rem;
-    box-shadow: 0 12px 36px rgba(0,0,0,0.22);
-  }
-
-  .section-title {
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-size: 0.78rem;
-    color: var(--muted);
-    margin-bottom: 0.4rem;
+  .signal {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 10px rgba(34,197,94,0.55);
   }
 
   .badge {
     border-radius: 6px;
     padding: 0.2rem 0.55rem;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     background: rgba(249, 115, 22, 0.12);
     color: #fdba74;
     border: 1px solid rgba(249, 115, 22, 0.35);
@@ -98,24 +225,34 @@
     background: var(--c1, #ffffff);
     border: 1px solid var(--panel-stroke);
     color: var(--exp-text);
-    border-radius: 10px;
-    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    padding: 0.55rem 0.7rem;
     font-family: var(--code);
+    font-size: 0.85rem;
   }
-  [data-theme="dark"] .stub-input, .dark .stub-input, html.switch .stub-input {
+  [data-theme="dark"] .stub-input {
     background: rgba(255,255,255,0.03);
   }
 
   .btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.65rem 1rem;
-    border-radius: 10px;
+    gap: 0.45rem;
+    padding: 0.55rem 0.9rem;
+    border-radius: 8px;
     border: 1px solid var(--accent);
     background: var(--accent);
     color: white;
     font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn:hover {
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+  .btn:active {
+    transform: scale(0.98);
   }
 
   .btn.ghost {
@@ -123,139 +260,134 @@
     border-color: var(--panel-stroke);
     color: var(--exp-text);
   }
-  [data-theme="dark"] .btn.ghost, .dark .btn.ghost, html.switch .btn.ghost {
+  [data-theme="dark"] .btn.ghost {
     background: rgba(255,255,255,0.02);
     color: var(--muted);
   }
-
-  .stack {
-    display: grid;
-    gap: 0.75rem;
+  .btn.ghost:hover {
+    border-color: var(--accent);
+    box-shadow: none;
   }
 
-  .signal {
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: #22c55e;
-    box-shadow: 0 0 12px rgba(34,197,94,0.55);
+  .btn.sm {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.78rem;
+  }
+
+  .mini-tab {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    background: var(--c1, #ffffff);
+    border: 1px solid var(--panel-stroke);
+    color: var(--exp-text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 0.8rem;
+  }
+  [data-theme="dark"] .mini-tab {
+    background: rgba(255,255,255,0.03);
+  }
+  .mini-tab:hover {
+    border-color: var(--accent);
+  }
+  .mini-tab.active {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+  }
+
+  .layout-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.55rem;
+    background: var(--c1, #ffffff);
+    border-radius: 6px;
+    border: 1px solid var(--panel-stroke);
+    color: var(--exp-text);
+    font-size: 0.78rem;
+  }
+  [data-theme="dark"] .layout-chip {
+    background: rgba(255,255,255,0.04);
+  }
+
+  .console {
+    background: var(--c2, #f1f5f9);
+    border: 1px solid var(--panel-stroke);
+    border-radius: 8px;
+    padding: 0.6rem;
+    font-family: var(--code);
+    font-size: 0.8rem;
+    color: var(--exp-text);
+    min-height: 100px;
+    max-height: 160px;
+    overflow-y: auto;
+    line-height: 1.4;
+  }
+  [data-theme="dark"] .console {
+    background: rgba(0,0,0,0.45);
+    color: #a5f3fc;
   }
 
   .codebox {
     font-family: var(--code);
     background: var(--c2, #f1f5f9);
     border: 1px solid var(--panel-stroke);
-    border-radius: 10px;
-    padding: 0.75rem;
+    border-radius: 8px;
+    padding: 0.6rem;
     color: var(--exp-text);
     white-space: pre-wrap;
     word-break: break-word;
-    min-height: 140px;
-  }
-  [data-theme="dark"] .codebox, .dark .codebox, html.switch .codebox {
-    background: rgba(0,0,0,0.35);
-  }
-
-  .mini-tab {
-    display: inline-flex;
-    gap: 0.4rem;
-    align-items: center;
-    padding: 0.4rem 0.7rem;
-    border-radius: 8px;
-    background: var(--c1, #ffffff);
-    border: 1px solid var(--panel-stroke);
-    color: var(--exp-text);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  [data-theme="dark"] .mini-tab, .dark .mini-tab, html.switch .mini-tab {
-    background: rgba(255,255,255,0.03);
-  }
-  .mini-tab.active {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 15%, transparent);
-  }
-
-  .layout-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.6rem;
-    background: var(--c1, #ffffff);
-    border-radius: 6px;
-    border: 1px solid var(--panel-stroke);
-    color: var(--exp-text);
-  }
-  [data-theme="dark"] .layout-chip, .dark .layout-chip, html.switch .layout-chip {
-    background: rgba(255,255,255,0.04);
-  }
-
-  .grid-ghost {
-    border: 1px dashed rgba(148, 163, 184, 0.4);
-    border-radius: 8px;
-    padding: 0.7rem;
-    color: var(--muted);
-    font-size: 0.92rem;
-  }
-
-  .console {
-    background: var(--c2, #f1f5f9);
-    border: 1px solid var(--panel-stroke);
-    border-radius: 10px;
-    padding: 0.65rem;
-    font-family: var(--code);
-    color: var(--exp-text);
-    min-height: 140px;
-    max-height: 220px;
+    font-size: 0.78rem;
+    min-height: 80px;
+    max-height: 150px;
     overflow-y: auto;
-    line-height: 1.4;
   }
-  [data-theme="dark"] .console, .dark .console, html.switch .console {
-    background: rgba(0,0,0,0.45);
-    color: #a5f3fc;
+  [data-theme="dark"] .codebox {
+    background: rgba(0,0,0,0.35);
   }
 
   .prog {
     width: 100%;
-    height: 10px;
+    height: 6px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.05);
+    background: var(--panel-stroke);
     overflow: hidden;
-    border: 1px solid var(--panel-stroke);
   }
   .prog span {
     display: block;
     height: 100%;
     background: linear-gradient(90deg, #f97316, #fb923c);
-    width: 12%;
+    width: 0%;
     transition: width 0.2s ease;
   }
 
-  @media (max-width: 1100px) {
-    .grid { grid-template-columns: 1fr; }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
   }
 
-  /* Extensions area */
-  .extensions {
-    margin-top: 1.25rem;
-    display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 1rem;
-  }
-  @media (max-width: 1100px) {
-    .extensions { grid-template-columns: 1fr; }
+  .flex-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   .canvas-ghost {
-    border: 1px dashed rgba(148, 163, 184, 0.45);
-    border-radius: 12px;
-    min-height: 220px;
+    border: 1px dashed var(--panel-stroke);
+    border-radius: 8px;
+    min-height: 100px;
     background: repeating-linear-gradient(
       45deg,
-      rgba(255,255,255,0.02),
-      rgba(255,255,255,0.02) 12px,
-      rgba(255,255,255,0.04) 12px,
-      rgba(255,255,255,0.04) 24px
+      transparent,
+      transparent 10px,
+      color-mix(in srgb, var(--panel-stroke) 20%, transparent) 10px,
+      color-mix(in srgb, var(--panel-stroke) 20%, transparent) 20px
     );
     color: var(--muted);
     display: flex;
@@ -263,436 +395,882 @@
     justify-content: center;
     text-align: center;
     padding: 1rem;
+    font-size: 0.85rem;
   }
 
-  .toolbelt {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.35rem 0.7rem;
-    border-radius: 999px;
-    background: var(--c1, #ffffff);
-    border: 1px solid var(--panel-stroke);
-    cursor: pointer;
-    color: var(--exp-text);
-  }
-  [data-theme="dark"] .toggle, .dark .toggle, html.switch .toggle {
-    background: rgba(255,255,255,0.03);
-  }
-
-  .drag-step {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.6rem 0.75rem;
-    background: var(--c1, #ffffff);
-    border: 1px dashed var(--panel-stroke);
-    border-radius: 10px;
-    color: var(--exp-text);
-  }
-  [data-theme="dark"] .drag-step, .dark .drag-step, html.switch .drag-step {
-    background: rgba(255,255,255,0.03);
-  }
-
-  .chiplist {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
+  /* Utilities */
+  .text-xs { font-size: 0.75rem; }
+  .text-sm { font-size: 0.85rem; }
+  .text-muted { color: var(--muted); }
+  .mt-2 { margin-top: 0.5rem; }
+  .mt-3 { margin-top: 0.75rem; }
+  .mb-2 { margin-bottom: 0.5rem; }
+  .gap-2 { gap: 0.5rem; }
+  .gap-3 { gap: 0.75rem; }
+  .flex-1 { flex: 1; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
 {% endblock extra_head %}
 
 {% block content %}
 <div class="relative z-10">
   {% include "partials/header.html" %}
 
-<section class="container mx-auto px-4 py-8">
-  <div class="exp-hero mb-8">
-    <div class="flex items-center gap-3 mb-3">
-      <span class="pill">
-        <span class="signal"></span>
-        Experimental UI Surface
-      </span>
-      <span class="badge">WASM stub</span>
-      <span class="badge">Agent-ready</span>
-    </div>
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-semibold mb-2" style="color: var(--exp-heading);">Embedded Web Console (Prototype)</h1>
-        <p class="max-w-3xl" style="color: var(--muted);">
-          A scaffolded web front-end for running GAT inside the browser via WASM, MCP, or remote runners.
-          No binaries are invoked yet—controls emit structured intents we can wire to real backends later.
-        </p>
+<section class="container mx-auto px-4 py-6">
+  <div class="exp-layout">
+    <!-- ═══════════════════════════════════════════════════════════════════════════
+         SIDEBAR: Controls & Status
+         ═══════════════════════════════════════════════════════════════════════════ -->
+    <div class="exp-sidebar">
+      <!-- Status Header -->
+      <div class="card">
+        <div class="flex-row mb-2">
+          <span class="pill"><span class="signal"></span> Live</span>
+          <span class="badge" id="wasm-status">WASM loading</span>
+        </div>
+        <div class="text-sm text-muted">Run power flow analysis entirely in-browser via WebAssembly.</div>
       </div>
-      <div class="flex gap-3">
-        <button class="btn" data-action="export-spec">
-          <span>Download intent JSON</span>
+
+      <!-- Case Selection -->
+      <div class="card stack">
+        <div class="section-title">Test Case</div>
+        <select class="stub-input" id="case-select">
+          <option value="">-- Select case --</option>
+          <option value="ieee14">IEEE 14</option>
+          <option value="ieee30">IEEE 30</option>
+          <option value="ieee57">IEEE 57</option>
+          <option value="ieee118">IEEE 118</option>
+        </select>
+        <div class="layout-chip" id="file-drop-zone" style="cursor:pointer; justify-content: center;">
+          <span>+</span><span>Drop .m file</span>
+        </div>
+      </div>
+
+      <!-- Analysis Type -->
+      <div class="card stack">
+        <div class="section-title">Analysis</div>
+        <div class="flex-row">
+          <span class="mini-tab" data-preset="ed">ED</span>
+          <span class="mini-tab active" data-preset="opf-dc">DC OPF</span>
+          <span class="mini-tab" data-preset="socp-fast">SOCP Fast</span>
+          <span class="mini-tab" data-preset="pf-ac">SOCP</span>
+          <span class="mini-tab" data-preset="compare">Compare</span>
+        </div>
+        <div class="text-xs text-muted" id="method-hint">DC linearized optimal power flow</div>
+        <button class="btn" data-action="simulate-run" style="width: 100%; justify-content: center;">
+          Run Analysis
         </button>
-        <button class="btn ghost" data-action="open-wireframe">
-          <span>View interaction map</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div class="grid">
-    <!-- Left rail: dataset and runner selection -->
-    <div class="card stack">
-      <div class="section-title">Workspace</div>
-      <div class="stack">
-        <label class="text-sm" style="color: var(--exp-text);">Dataset manifest</label>
-        <input class="stub-input" data-field="manifest" value="ieee14.arrow" />
-        <div class="layout-chip"><span>↗</span><span>Drop file (stubbed)</span></div>
       </div>
 
-      <div class="stack">
-        <div class="section-title">Execution target</div>
-        <div class="flex gap-2 flex-wrap">
-          <div class="mini-tab active" data-runner="wasm">
-            <span>🧩</span> In-browser WASM
-          </div>
-          <div class="mini-tab" data-runner="mcp">
-            <span>🤝</span> MCP bridge
-          </div>
-          <div class="mini-tab" data-runner="remote">
-            <span>🌐</span> Remote daemon
-          </div>
-        </div>
-        <div class="grid-ghost">Runner config surface will appear here once a backend is wired.</div>
-      </div>
-
-      <div class="stack">
-        <div class="section-title">Scenario presets</div>
-        <div class="flex gap-2 flex-wrap">
-          <span class="mini-tab active" data-preset="pf-dc">PF: DC</span>
-          <span class="mini-tab" data-preset="pf-ac">PF: AC</span>
-          <span class="mini-tab" data-preset="opf-dc">OPF: DC</span>
-          <span class="mini-tab" data-preset="n1">N-1 sweep</span>
-        </div>
-        <p class="text-sm" style="color: var(--muted);">Presets populate the intent form; swapping between them keeps local edits.</p>
-      </div>
-    </div>
-
-    <!-- Middle: intent builder -->
-    <div class="card stack">
-      <div class="section-title">Intent builder (stubbed)</div>
-      <div class="stack">
-        <label class="text-sm" style="color: var(--exp-text);">Command template</label>
-        <input class="stub-input" data-field="template" value="gat pf dc" />
-      </div>
-      <div class="stack">
-        <label class="text-sm" style="color: var(--exp-text);">Parameters</label>
-        <div class="stack" data-params>
-          <div class="grid grid-cols-2 gap-2">
-            <input class="stub-input" value="--out flows.parquet" />
-            <input class="stub-input" value="--threads 4" />
-          </div>
-          <div class="stub-input" contenteditable="true" data-field="notes"># add more flags or leave comments</div>
-        </div>
-      </div>
-      <div class="flex gap-3">
-        <button class="btn" data-action="preview-intent">Preview intent</button>
-        <button class="btn ghost" data-action="reset">Reset</button>
-        <button class="btn" data-action="simulate-run">Simulate run</button>
-      </div>
-    </div>
-
-    <!-- Right: preview & wiring hints -->
-    <div class="card stack">
-      <div class="section-title">Preview (structured)</div>
-      {% set initial_intent = '{ "status": "waiting", "runner": "wasm", "template": "gat pf dc" }' %}
-      <div class="codebox" id="intent-preview">
-        {{ initial_intent }}
-      </div>
-      <div class="stack">
-        <div class="section-title">Wiring plan</div>
-        <ul class="text-sm space-y-1" style="color: var(--muted);">
-          <li>• Bind `runner` selection to WASM loader (wasm-bindgen/worker) or MCP client.</li>
-          <li>• Map `template` + params → structured intent JSON for agents.</li>
-          <li>• Stream stdout/stderr into this pane once backend is live.</li>
-          <li>• Persist last-run intent in localStorage for offline demos.</li>
-        </ul>
-        <div class="section-title mt-2">Simulated output</div>
+      <!-- Results Summary -->
+      <div class="card stack flex-1">
+        <div class="section-title">Results</div>
         <div class="prog"><span id="sim-progress"></span></div>
+        <div class="codebox" id="intent-preview">{ "status": "waiting" }</div>
         <div class="console" id="sim-console">[idle]</div>
       </div>
     </div>
-  </div>
-</section>
 
-<section class="container mx-auto px-4 pb-10">
-  <div class="extensions">
-    <div class="card stack">
-      <div class="section-title">Network sketchpad (speculative)</div>
-      <div class="toolbelt">
-        <span class="mini-tab active">🪢 Add bus</span>
-        <span class="mini-tab">🪢 Add branch</span>
-        <span class="mini-tab">⚡ Generator</span>
-        <span class="mini-tab">⛔ Contingency toggle</span>
-        <span class="mini-tab">↺ Undo</span>
-        <span class="mini-tab">↻ Redo</span>
-      </div>
-      <div class="canvas-ghost">
-        Canvas placeholder: drop nodes/lines, edit impedances inline, snap to GIS if enabled. Emits JSON diffs for WASM solver.
-      </div>
-      <div class="toolbelt">
-        <span class="toggle">Auto-solve on edit</span>
-        <span class="toggle">Validate topology</span>
-        <span class="toggle">Show limits</span>
-      </div>
-    </div>
-
-    <div class="card stack">
-      <div class="section-title">GIS overlay (speculative)</div>
-      <div class="stack">
-        <div class="layout-chip"><span>🗺️</span><span>Basemap: Dark terrain</span></div>
-        <div class="layout-chip"><span>📍</span><span>Geo-join: census tracts.parquet</span></div>
-        <div class="layout-chip"><span>🎯</span><span>Layer: hosting-capacity (kW)</span></div>
-      </div>
-      <div class="canvas-ghost" style="min-height:180px;">
-        Map stub: show buses as points, branches as lines, choropleth polygons. Toggle lasso to select subgraph and re-run intent with spatial filter.
-      </div>
-      <div class="toolbelt">
-        <span class="toggle">Sync with sketchpad</span>
-        <span class="toggle">Heatmap mode</span>
-        <span class="toggle">Show outages</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="extensions">
-    <div class="card stack">
-      <div class="section-title">Collab & agents</div>
-      <div class="stack">
-        <div class="layout-chip"><span>👥</span><span>Live cursors (planned)</span></div>
-        <div class="layout-chip"><span>🤖</span><span>Agent suggestions</span></div>
-        <div class="layout-chip"><span>📝</span><span>Comment threads</span></div>
-      </div>
-      <div class="console" id="agent-console">Agent stream: (stub) awaiting MCP hook</div>
-      <div class="toolbelt">
-        <span class="toggle">Allow auto-fix proposals</span>
-        <span class="toggle">Guardrails: read-only</span>
-      </div>
-    </div>
-
-    <div class="card stack">
-      <div class="section-title">Artifacts & checkpoints</div>
-      <div class="stack">
-        <div class="grid-ghost">
-          When wired, runs will attach artifacts (Parquet, Arrow, SVGs) and allow diffing intents. Use this space for a run history timeline.
+    <!-- ═══════════════════════════════════════════════════════════════════════════
+         MAIN: Network Visualization
+         ═══════════════════════════════════════════════════════════════════════════ -->
+    <div class="exp-main">
+      <!-- Network Graph Hero -->
+      <div class="network-hero">
+        <div class="network-toolbar">
+          <div class="flex-row gap-2">
+            <span class="mini-tab active" data-layout="preset">Computed</span>
+            <span class="mini-tab" data-layout="circle">Circle</span>
+            <span class="mini-tab" data-layout="grid">Grid</span>
+          </div>
+          <div class="flex-row gap-2">
+            <button class="btn sm ghost" data-action="fit">Fit</button>
+            <button class="btn sm ghost" data-action="center">Center</button>
+            <button class="btn sm ghost" data-action="export-spec">Export</button>
+          </div>
+        </div>
+        <div id="network-graph"></div>
+        <div class="network-status">
+          <span id="network-stats">Select a case to visualize the network</span>
+          <span class="flex-1"></span>
+          <span class="layout-chip" id="toggle-labels" style="cursor:pointer;">Labels</span>
+          <span class="layout-chip" id="toggle-flows" style="cursor:pointer;">Flows</span>
         </div>
       </div>
-      <div class="toolbelt">
-        <span class="toggle">Autosave intents</span>
-        <span class="toggle">Retain artifacts</span>
-        <span class="toggle">Shareable links</span>
-      </div>
-    </div>
-  </div>
 
-  <div class="extensions">
-    <div class="card stack">
-      <div class="section-title">Pipeline composer (speculative)</div>
-      <div class="stack">
-        <div class="drag-step">⬡ Import MATPOWER → grid.arrow</div>
-        <div class="drag-step">⬡ PF DC → flows.parquet</div>
-        <div class="drag-step">⬡ N-1 sweep → n1_results/</div>
-        <div class="drag-step">⬡ Reliability metrics → metrics.parquet</div>
-      </div>
-      <div class="toolbelt">
-        <span class="toggle">Parallelize</span>
-        <span class="toggle">Cache artifacts</span>
-        <span class="toggle">Replay with new data</span>
-      </div>
-      <div class="grid-ghost">Drag-to-reorder placeholder; future: export as manifest.json for batch runner or invoke via WASM pipeline scheduler.</div>
-    </div>
+      <!-- Tabbed Features Panel -->
+      <div class="feature-tabs">
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="sql">SQL Query</button>
+          <button class="tab-btn" data-tab="data">Data Tables</button>
+          <button class="tab-btn" data-tab="gis">GIS Overlay</button>
+          <button class="tab-btn" data-tab="pipeline">Pipeline</button>
+          <button class="tab-btn" data-tab="collab">Agents</button>
+          <button class="tab-btn" data-tab="diag">Diagnostics</button>
+        </div>
 
-    <div class="card stack">
-      <div class="section-title">Scripting sandbox</div>
-      <div class="chiplist">
-        <span class="mini-tab active">WASM + JS</span>
-        <span class="mini-tab">Lua (rhai?)</span>
-        <span class="mini-tab">Python (pyodide)</span>
-      </div>
-      <div class="codebox" id="script-box">// write quick transforms here\nconst buses = await load('grid.arrow');\nreturn buses.length;</div>
-      <div class="toolbelt">
-        <span class="toggle">Expose gat wasm bindings</span>
-        <span class="toggle">Allow fs sandbox</span>
-        <span class="toggle">Share snippet</span>
-      </div>
-    </div>
-  </div>
+        <!-- SQL Tab -->
+        <div class="tab-content active" data-tab-content="sql">
+          <div class="stack">
+            <div class="flex-row">
+              <span class="mini-tab active" data-query="top-generators">Top Generators</span>
+              <span class="mini-tab" data-query="high-lmps">High LMPs</span>
+              <span class="mini-tab" data-query="loaded-branches">Loaded Branches</span>
+              <span class="mini-tab" data-query="summary">Summary</span>
+            </div>
+            <textarea class="stub-input" id="sql-input" rows="2" style="resize: vertical;">SELECT gen_id, p_mw, q_mvar FROM opf_generators ORDER BY p_mw DESC LIMIT 10</textarea>
+            <div class="flex-row">
+              <button class="btn sm" id="run-sql-btn">Run SQL</button>
+              <span class="layout-chip" id="sql-status">Tables: (run OPF first)</span>
+              <span class="flex-1"></span>
+              <span class="layout-chip" id="toggle-arrow" style="cursor:pointer;">Arrow: ON</span>
+            </div>
+            <div class="codebox" id="sql-results">[SQL results appear here after running OPF]</div>
+          </div>
+        </div>
 
-  <div class="extensions">
-    <div class="card stack">
-      <div class="section-title">Diagnostics & tuner</div>
-      <div class="chiplist">
-        <span class="mini-tab active">Solver traces</span>
-        <span class="mini-tab">Jacobian heatmap</span>
-        <span class="mini-tab">Constraint violations</span>
-      </div>
-      <div class="canvas-ghost" style="min-height:170px;">
-        Visualization slot for iteration traces, step lengths, KKT residuals. Hook to WASM streams or MCP logs.
-      </div>
-      <div class="toolbelt">
-        <span class="toggle">Auto-tune tolerances</span>
-        <span class="toggle">Export trace</span>
-      </div>
-    </div>
+        <!-- Data Tables Tab -->
+        <div class="tab-content" data-tab-content="data">
+          <div class="stack">
+            <div class="flex-row">
+              <span class="mini-tab active" data-table="generators">Generators</span>
+              <span class="mini-tab" data-table="buses">Buses</span>
+              <span class="mini-tab" data-table="branches">Branches</span>
+              <span class="mini-tab" data-table="network">Network Info</span>
+              <span class="flex-1"></span>
+              <button class="btn sm" id="export-csv-btn" style="font-size:0.75rem;">Export CSV</button>
+            </div>
+            <div class="codebox" id="data-table-view" style="max-height: 200px; overflow-y: auto;">[Run analysis to populate data tables]</div>
+          </div>
+        </div>
 
-    <div class="card stack">
-      <div class="section-title">Notebook/embed</div>
-      <div class="grid-ghost">
-        Placeholder iframe for Observable/Marimo; lets users mix narrative + charts + embedded intent runner bound to the same WASM backend.
-      </div>
-      <div class="toolbelt">
-        <span class="toggle">Trust notebook</span>
-        <span class="toggle">Isolate environment</span>
-        <span class="toggle">Share snapshot</span>
+        <!-- GIS Tab -->
+        <div class="tab-content" data-tab-content="gis">
+          <div class="stack">
+            <div class="flex-row">
+              <span class="layout-chip">Basemap: Dark terrain</span>
+              <span class="layout-chip">Geo-join: census tracts</span>
+              <span class="layout-chip">Layer: hosting-capacity</span>
+            </div>
+            <div class="canvas-ghost">
+              Geographic overlay coming soon. Map buses as points, branches as lines, with choropleth polygons for hosting capacity.
+            </div>
+          </div>
+        </div>
+
+        <!-- Pipeline Tab -->
+        <div class="tab-content" data-tab-content="pipeline">
+          <div class="stack">
+            <div class="text-sm text-muted mb-2">Compose multi-step analysis workflows:</div>
+            <div class="flex-row">
+              <span class="layout-chip">Import MATPOWER</span>
+              <span class="text-muted">&#8594;</span>
+              <span class="layout-chip">DC-OPF</span>
+              <span class="text-muted">&#8594;</span>
+              <span class="layout-chip">N-1 Sweep</span>
+              <span class="text-muted">&#8594;</span>
+              <span class="layout-chip">Metrics</span>
+            </div>
+            <div class="canvas-ghost" style="min-height: 80px;">
+              Drag-and-drop pipeline builder coming soon. Export as manifest.json for batch processing.
+            </div>
+          </div>
+        </div>
+
+        <!-- Collab/Agents Tab -->
+        <div class="tab-content" data-tab-content="collab">
+          <div class="stack">
+            <div class="flex-row">
+              <span class="layout-chip">Live cursors (planned)</span>
+              <span class="layout-chip">Agent suggestions</span>
+              <span class="layout-chip">Comment threads</span>
+            </div>
+            <div class="console" id="agent-console">Agent stream: awaiting MCP hook...</div>
+            <div class="flex-row">
+              <span class="layout-chip" style="cursor:pointer;">Auto-fix proposals</span>
+              <span class="layout-chip" style="cursor:pointer;">Guardrails: read-only</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Diagnostics Tab -->
+        <div class="tab-content" data-tab-content="diag">
+          <div class="stack">
+            <div class="flex-row">
+              <span class="mini-tab active">Solver traces</span>
+              <span class="mini-tab">Jacobian heatmap</span>
+              <span class="mini-tab">Violations</span>
+            </div>
+            <div class="canvas-ghost">
+              Iteration traces, step lengths, KKT residuals visualization coming soon.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<script>
-(function() {
-  const intentPreview = document.getElementById('intent-preview');
-  const state = {
-    runner: 'wasm',
-    preset: 'pf-dc',
-    template: 'gat pf dc',
-    manifest: 'ieee14.arrow',
-    params: ['--out flows.parquet', '--threads 4'],
-    notes: '# add more flags or leave comments'
-  };
+<script type="module">
+// ═══════════════════════════════════════════════════════════════════════════════
+// GAT WASM Web Demo - Network-Centric UI
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  function updatePreview() {
-    const payload = {
-      version: "0.1",
-      runner: state.runner,
-      preset: state.preset,
-      template: state.template,
-      manifest: state.manifest,
-      params: state.params,
-      notes: state.notes,
-      wiring: {
-        stdout: "pending",
-        stderr: "pending",
-        artifacts: []
+import init, {
+  list_builtin_cases,
+  get_builtin_case,
+  run_dc_power_flow,
+  run_socp_power_flow,
+  run_dc_opf_arrow,
+  run_socp_opf_arrow,
+  run_socp_opf_fast_arrow,
+  run_economic_dispatch,
+  compute_layout,
+  analyze_network,
+  compare_methods
+} from '/experimental/pkg/gat_wasm.js';
+
+import * as GatBridge from '/experimental/gat-bridge.js';
+
+// DOM elements
+const intentPreview = document.getElementById('intent-preview');
+const consoleEl = document.getElementById('sim-console');
+const progressEl = document.getElementById('sim-progress');
+const caseSelect = document.getElementById('case-select');
+const wasmStatus = document.getElementById('wasm-status');
+const networkStats = document.getElementById('network-stats');
+
+// Application state
+const state = {
+  runner: 'wasm',
+  preset: 'opf-dc',
+  caseContent: null,
+  caseName: null,
+  wasmReady: false,
+  cy: null,
+  arrowTables: null,
+  duckDbConn: null,
+  useArrow: true
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tab Navigation
+// ═══════════════════════════════════════════════════════════════════════════════
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabName = btn.getAttribute('data-tab');
+    // Update buttons
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Update content
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`[data-tab-content="${tabName}"]`)?.classList.add('active');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Console & Progress
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function log(line, type = 'info') {
+  if (consoleEl.textContent.trim() === '[idle]' || consoleEl.textContent.includes('loading')) {
+    consoleEl.textContent = '';
+  }
+  const prefix = type === 'error' ? '! ' : type === 'success' ? '+ ' : '> ';
+  consoleEl.textContent += prefix + line + '\n';
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function setProgress(pct) {
+  progressEl.style.width = pct + '%';
+}
+
+function updatePreview(data) {
+  intentPreview.textContent = JSON.stringify(data || {
+    status: state.caseName ? 'ready' : 'waiting',
+    case: state.caseName || null,
+    method: state.preset,
+    wasmReady: state.wasmReady
+  }, null, 2);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Cytoscape Network Visualization
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function initCytoscape() {
+  if (typeof cytoscape === 'undefined') return null;
+
+  return cytoscape({
+    container: document.getElementById('network-graph'),
+    style: [
+      {
+        selector: 'node',
+        style: {
+          'background-color': '#f97316',
+          'label': 'data(label)',
+          'width': 24,
+          'height': 24,
+          'font-size': '11px',
+          'color': '#94a3b8',
+          'text-valign': 'bottom',
+          'text-margin-y': 6,
+          'border-width': 2,
+          'border-color': '#ea580c'
+        }
+      },
+      {
+        selector: 'edge',
+        style: {
+          'width': 2,
+          'line-color': '#64748b',
+          'curve-style': 'bezier',
+          'opacity': 0.7
+        }
+      },
+      {
+        selector: 'node:selected',
+        style: {
+          'background-color': '#22c55e',
+          'border-color': '#16a34a'
+        }
       }
-    };
-    intentPreview.textContent = JSON.stringify(payload, null, 2);
+    ],
+    layout: { name: 'preset' },
+    minZoom: 0.2,
+    maxZoom: 4
+  });
+}
+
+function renderNetwork(layoutData) {
+  if (!state.cy) {
+    state.cy = initCytoscape();
+    if (!state.cy) return;
   }
 
-  document.querySelectorAll('[data-runner]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-runner]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.runner = btn.getAttribute('data-runner');
-      updatePreview();
+  state.cy.elements().remove();
+
+  const nodes = layoutData.nodes.map(n => ({
+    data: { id: String(n.id), label: n.label },
+    position: { x: n.x * 4, y: n.y * 4 }
+  }));
+
+  const edges = layoutData.edges.map((e, i) => ({
+    data: {
+      id: 'e' + i,
+      source: String(e.source),
+      target: String(e.target)
+    }
+  }));
+
+  state.cy.add([...nodes, ...edges]);
+  state.cy.fit(undefined, 30);
+
+  networkStats.textContent = `${nodes.length} buses | ${edges.length} branches`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WASM Integration
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function initWasm() {
+  try {
+    consoleEl.textContent = '[WASM loading...]';
+    setProgress(10);
+
+    await init();
+    setProgress(50);
+
+    const casesJson = list_builtin_cases();
+    const cases = JSON.parse(casesJson);
+    log('WASM ready');
+    log('Cases: ' + cases.join(', '));
+
+    // Populate select
+    while (caseSelect.firstChild) caseSelect.removeChild(caseSelect.firstChild);
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '-- Select case --';
+    caseSelect.appendChild(defaultOpt);
+    cases.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c.toUpperCase();
+      caseSelect.appendChild(opt);
     });
-  });
 
-  document.querySelectorAll('[data-preset]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.preset = btn.getAttribute('data-preset');
-      // minimal preset swap
-      if (state.preset === 'pf-ac') state.template = 'gat pf ac';
-      else if (state.preset === 'opf-dc') state.template = 'gat opf dc';
-      else if (state.preset === 'n1') state.template = 'gat nminus1 dc';
-      else state.template = 'gat pf dc';
-      document.querySelector('[data-field=\"template\"]').value = state.template;
-      updatePreview();
-    });
-  });
+    setProgress(100);
+    state.wasmReady = true;
+    wasmStatus.textContent = 'WASM ready';
+    wasmStatus.style.background = 'rgba(34, 197, 94, 0.12)';
+    wasmStatus.style.color = '#86efac';
+    wasmStatus.style.borderColor = 'rgba(34, 197, 94, 0.35)';
 
-  const manifestField = document.querySelector('[data-field=\"manifest\"]');
-  manifestField.addEventListener('input', (e) => {
-    state.manifest = e.target.value;
     updatePreview();
-  });
 
-  document.querySelector('[data-field=\"template\"]').addEventListener('input', (e) => {
-    state.template = e.target.value;
+  } catch (err) {
+    log('WASM failed: ' + err.message, 'error');
+    wasmStatus.textContent = 'WASM error';
+    wasmStatus.style.background = 'rgba(239, 68, 68, 0.12)';
+    console.error(err);
+  }
+}
+
+async function loadCase(caseName) {
+  if (!state.wasmReady) return;
+
+  try {
+    log('Loading ' + caseName + '...');
+    setProgress(20);
+
+    state.caseContent = get_builtin_case(caseName);
+    state.caseName = caseName;
+    setProgress(40);
+
+    state.networkAnalysis = JSON.parse(analyze_network(state.caseContent));
+    log(`${state.networkAnalysis.bus_count} buses, ${state.networkAnalysis.branch_count} branches, ${state.networkAnalysis.gen_count} gens`);
+    setProgress(60);
+
+    log('Computing layout...');
+    const layoutData = JSON.parse(compute_layout(state.caseContent, 150));
+    setProgress(80);
+
+    renderNetwork(layoutData);
+    setProgress(100);
+
+    log('Ready', 'success');
     updatePreview();
-  });
 
-  document.querySelector('[data-field=\"notes\"]').addEventListener('input', (e) => {
-    state.notes = e.target.textContent;
-    updatePreview();
-  });
+  } catch (err) {
+    log('Load failed: ' + err.message, 'error');
+    console.error(err);
+  }
+}
 
-  document.querySelector('[data-action=\"preview-intent\"]').addEventListener('click', updatePreview);
-  document.querySelector('[data-action=\"reset\"]').addEventListener('click', () => {
-    state.template = 'gat pf dc';
-    state.params = ['--out flows.parquet', '--threads 4'];
-    state.manifest = 'ieee14.arrow';
-    state.notes = '# add more flags or leave comments';
-    document.querySelector('[data-field=\"template\"]').value = state.template;
-    document.querySelector('[data-field=\"manifest\"]').value = state.manifest;
-    document.querySelector('[data-field=\"notes\"]').textContent = state.notes;
-    updatePreview();
-  });
-
-  document.querySelector('[data-action=\"export-spec\"]').addEventListener('click', () => {
-    const blob = new Blob([intentPreview.textContent], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'gat-intent.json';
-    a.click();
-  });
-
-  document.querySelector('[data-action=\"open-wireframe\"]').addEventListener('click', () => {
-    alert("Wireframe view is a placeholder. We'll swap this for a draw.io/mermaid embed when ready.");
-  });
-
-  // Simulated run loop: animates progress and pushes mock stdout lines
-  const consoleEl = document.getElementById('sim-console');
-  const progressEl = document.getElementById('sim-progress');
-  function log(line) {
-    if (consoleEl.textContent.trim() === '[idle]') consoleEl.textContent = '';
-    consoleEl.textContent += line + "\\n";
-    consoleEl.scrollTop = consoleEl.scrollHeight;
+async function runOpf() {
+  if (!state.wasmReady || !state.caseContent) {
+    log('Select a case first', 'error');
+    return;
   }
 
-  document.querySelector('[data-action=\"simulate-run\"]').addEventListener('click', () => {
-    consoleEl.textContent = '[starting wasm worker]';
-    progressEl.style.width = '5%';
-    const script = [
-      'loading grid manifest: ' + state.manifest,
-      'spawning wasm module (stub)...',
-      'allocating buffers...',
-      'running ' + state.template + ' ' + state.params.join(' '),
-      'computing flows...',
-      'serializing Parquet...',
-      'done (simulated)'
-    ];
-    let idx = 0;
-    const tick = () => {
-      if (idx < script.length) {
-        const pct = Math.min(100, 10 + idx * 15);
-        progressEl.style.width = pct + '%';
-        log('> ' + script[idx]);
-        idx += 1;
-        setTimeout(tick, 350);
-      } else {
-        progressEl.style.width = '100%';
-        log('status: success (stub)');
+  try {
+    consoleEl.textContent = '';
+    log('Running ' + state.preset + '...');
+    setProgress(10);
+
+    const startTime = performance.now();
+    let result;
+    let arrowResult = null;
+
+    if (state.preset === 'ed') {
+      log('Economic Dispatch (no network constraints)');
+      setProgress(30);
+      result = JSON.parse(run_economic_dispatch(state.caseContent));
+    } else if (state.useArrow && state.preset === 'opf-dc') {
+      log('DC-OPF (Arrow IPC)');
+      setProgress(30);
+      arrowResult = run_dc_opf_arrow(state.caseContent);
+      result = JSON.parse(arrowResult.summary);
+    } else if (state.useArrow && state.preset === 'socp-fast') {
+      log('SOCP Fast (Arrow IPC, relaxed tolerances)');
+      setProgress(30);
+      arrowResult = run_socp_opf_fast_arrow(state.caseContent);
+      result = JSON.parse(arrowResult.summary);
+    } else if (state.useArrow && state.preset === 'pf-ac') {
+      log('SOCP (Arrow IPC)');
+      setProgress(30);
+      arrowResult = run_socp_opf_arrow(state.caseContent);
+      result = JSON.parse(arrowResult.summary);
+    } else if (state.preset === 'compare') {
+      log('Comparing all methods...');
+      setProgress(30);
+      result = JSON.parse(compare_methods(state.caseContent));
+    } else {
+      log('DC Power Flow');
+      setProgress(30);
+      result = JSON.parse(run_dc_power_flow(state.caseContent));
+    }
+
+    setProgress(70);
+    const elapsed = (performance.now() - startTime).toFixed(1);
+
+    // Process Arrow results
+    if (arrowResult) {
+      try {
+        await GatBridge.initArrow();
+        state.arrowTables = {
+          generators: GatBridge.parseArrowIPC(arrowResult.generators),
+          buses: GatBridge.parseArrowIPC(arrowResult.buses),
+          branches: GatBridge.parseArrowIPC(arrowResult.branches),
+          summary: result
+        };
+        arrowResult.free();
+        log('Arrow tables ready', 'success');
+
+        try {
+          state.duckDbConn = await GatBridge.registerInDuckDB(state.arrowTables, 'opf');
+          log('DuckDB ready', 'success');
+          document.getElementById('sql-status').textContent = 'Tables: generators, buses, branches';
+        } catch (dbErr) {
+          log('DuckDB: ' + dbErr.message);
+        }
+      } catch (arrowErr) {
+        log('Arrow: ' + arrowErr.message, 'error');
+      }
+    }
+
+    setProgress(90);
+
+    // Display results
+    if (state.preset === 'compare') {
+      log('Comparison complete', 'success');
+      // Show comparison summary
+      if (result.dc_opf) log(`DC-OPF: $${result.dc_opf.objective?.toFixed(2)}/hr (${result.dc_opf.solve_time_ms?.toFixed(1)}ms)`);
+      if (result.socp) log(`SOCP: $${result.socp.objective?.toFixed(2)}/hr (${result.socp.solve_time_ms?.toFixed(1)}ms)`);
+      if (result.economic_dispatch) log(`ED: $${result.economic_dispatch.objective?.toFixed(2)}/hr (${result.economic_dispatch.solve_time_ms?.toFixed(1)}ms)`);
+      updatePreview(result);
+    } else if (state.preset === 'ed') {
+      const obj = result.total_cost || result.objective;
+      log('ED Complete: $' + (obj?.toFixed?.(2) || 'N/A') + '/hr', 'success');
+      log('Time: ' + elapsed + 'ms');
+      if (result.total_generation_mw) {
+        log('Generation: ' + result.total_generation_mw.toFixed(1) + ' MW');
+      }
+      updatePreview({
+        status: 'complete',
+        objective: obj,
+        solve_time_ms: parseFloat(elapsed),
+        case: state.caseName,
+        method: 'economic_dispatch',
+        total_generation_mw: result.total_generation_mw
+      });
+    } else if (result.converged || result.status === 'optimal' || result.status === 'converged') {
+      const obj = result.objective_value || result.objective;
+      log('Converged: $' + (obj?.toFixed?.(2) || 'N/A') + '/hr', 'success');
+      log('Time: ' + elapsed + 'ms');
+
+      if (result.total_generation_mw) {
+        log('Generation: ' + result.total_generation_mw.toFixed(1) + ' MW');
+      }
+
+      updatePreview({
+        status: 'converged',
+        objective: obj,
+        solve_time_ms: parseFloat(elapsed),
+        case: state.caseName,
+        method: state.preset,
+        sql_enabled: !!state.duckDbConn
+      });
+    } else {
+      log('Status: ' + (result.status || 'unknown'), 'error');
+    }
+
+    setProgress(100);
+
+    // Auto-populate data tables
+    if (state.arrowTables) {
+      renderDataTable(state.currentDataTable);
+    }
+
+  } catch (err) {
+    log('Failed: ' + err.message, 'error');
+    console.error(err);
+    setProgress(0);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SQL Console
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const sqlPresets = {
+  'top-generators': 'SELECT gen_id, p_mw, q_mvar FROM opf_generators ORDER BY p_mw DESC LIMIT 10',
+  'high-lmps': 'SELECT bus_id, lmp, v_mag FROM opf_buses WHERE lmp IS NOT NULL ORDER BY lmp DESC LIMIT 10',
+  'loaded-branches': 'SELECT branch_id, ABS(p_flow_mw) as flow_mw FROM opf_branches ORDER BY ABS(p_flow_mw) DESC LIMIT 10',
+  'summary': 'SELECT COUNT(*) as n_buses, AVG(v_mag) as avg_v, AVG(lmp) as avg_lmp FROM opf_buses'
+};
+
+document.querySelectorAll('[data-query]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-query]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const sqlInput = document.getElementById('sql-input');
+    if (sqlInput) sqlInput.value = sqlPresets[btn.getAttribute('data-query')] || '';
+  });
+});
+
+document.getElementById('run-sql-btn')?.addEventListener('click', async () => {
+  const sqlInput = document.getElementById('sql-input');
+  const sqlResults = document.getElementById('sql-results');
+
+  if (!state.duckDbConn) {
+    sqlResults.textContent = 'Run OPF first to enable SQL queries';
+    return;
+  }
+
+  const sql = sqlInput.value.trim();
+  if (!sql) return;
+
+  try {
+    sqlResults.textContent = 'Running...';
+    log('SQL: ' + sql.substring(0, 40) + '...');
+    const results = await GatBridge.querySql(state.duckDbConn, sql);
+
+    if (results?.length > 0) {
+      const cols = Object.keys(results[0]);
+      let output = cols.join(' | ') + '\n' + cols.map(() => '---').join(' | ') + '\n';
+      results.forEach(row => {
+        output += cols.map(c => {
+          const v = row[c];
+          return typeof v === 'number' ? v.toFixed(4) : v;
+        }).join(' | ') + '\n';
+      });
+      sqlResults.textContent = output;
+      document.getElementById('sql-status').textContent = `Tables: gen, bus, branch | ${results.length} rows`;
+      log(results.length + ' rows', 'success');
+    } else {
+      sqlResults.textContent = 'No results';
+    }
+  } catch (err) {
+    sqlResults.textContent = 'Error: ' + err.message;
+    log('SQL error: ' + err.message, 'error');
+  }
+});
+
+// Arrow mode toggle
+document.getElementById('toggle-arrow')?.addEventListener('click', function() {
+  state.useArrow = !state.useArrow;
+  this.textContent = 'Arrow: ' + (state.useArrow ? 'ON' : 'OFF');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Data Tables & Network Analysis
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Store network analysis results
+state.networkAnalysis = null;
+state.currentDataTable = 'generators';
+
+function renderDataTable(tableName) {
+  const view = document.getElementById('data-table-view');
+  state.currentDataTable = tableName;
+
+  // Update active tab
+  document.querySelectorAll('[data-table]').forEach(t => t.classList.remove('active'));
+  document.querySelector(`[data-table="${tableName}"]`)?.classList.add('active');
+
+  // Handle network info tab (uses analyze_network)
+  if (tableName === 'network') {
+    if (!state.networkAnalysis) {
+      view.textContent = state.caseContent
+        ? 'Click "Run Analysis" to compute network statistics'
+        : 'Select a case first';
+      return;
+    }
+    const a = state.networkAnalysis;
+    view.innerHTML = `<table style="width:100%; font-size:0.8rem;">
+      <tr><td style="padding:4px 8px;"><b>Buses</b></td><td>${a.bus_count}</td></tr>
+      <tr><td style="padding:4px 8px;"><b>Generators</b></td><td>${a.gen_count}</td></tr>
+      <tr><td style="padding:4px 8px;"><b>Branches</b></td><td>${a.branch_count}</td></tr>
+      <tr><td style="padding:4px 8px;"><b>Total Gen Capacity</b></td><td>${a.total_gen_capacity_mw?.toFixed(1) || 'N/A'} MW</td></tr>
+      <tr><td style="padding:4px 8px;"><b>Total Load</b></td><td>${a.total_load_mw?.toFixed(1) || 'N/A'} MW</td></tr>
+      <tr><td style="padding:4px 8px;"><b>Capacity Margin</b></td><td>${((a.total_gen_capacity_mw - a.total_load_mw) / a.total_load_mw * 100)?.toFixed(1) || 'N/A'}%</td></tr>
+      <tr><td style="padding:4px 8px;"><b>Areas</b></td><td>${a.area_count || 1}</td></tr>
+      <tr><td style="padding:4px 8px;"><b>Voltage Levels</b></td><td>${a.voltage_levels?.join(', ') || 'N/A'} kV</td></tr>
+    </table>`;
+    return;
+  }
+
+  // Handle OPF result tables
+  if (!state.arrowTables) {
+    view.textContent = '[Run analysis to populate data tables]';
+    return;
+  }
+
+  const table = state.arrowTables[tableName];
+  if (!table) {
+    view.textContent = `No ${tableName} data available`;
+    return;
+  }
+
+  // Convert Arrow table to HTML
+  const fields = table.schema.fields;
+  let html = '<table style="width:100%; font-size:0.78rem; border-collapse: collapse;">';
+  html += '<thead><tr style="border-bottom:1px solid var(--panel-stroke);">';
+  for (const f of fields) {
+    html += `<th style="padding:4px 6px; text-align:left; font-weight:600;">${f.name}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  let count = 0;
+  for (const row of table) {
+    if (count >= 50) break;
+    html += '<tr style="border-bottom:1px solid var(--panel-stroke); opacity:0.9;">';
+    for (const f of fields) {
+      const v = row[f.name];
+      const formatted = typeof v === 'number' ? v.toFixed(4) : v;
+      html += `<td style="padding:3px 6px;">${formatted}</td>`;
+    }
+    html += '</tr>';
+    count++;
+  }
+
+  html += '</tbody></table>';
+  if (table.numRows > 50) {
+    html += `<div style="padding:4px; font-size:0.75rem; color:var(--muted);">Showing 50 of ${table.numRows} rows</div>`;
+  }
+  view.innerHTML = html;
+}
+
+// Data table tab clicks
+document.querySelectorAll('[data-table]').forEach(btn => {
+  btn.addEventListener('click', () => renderDataTable(btn.getAttribute('data-table')));
+});
+
+// CSV Export functionality
+document.getElementById('export-csv-btn')?.addEventListener('click', () => {
+  if (!state.arrowTables) {
+    log('No data to export. Run analysis first.', 'error');
+    return;
+  }
+
+  const tableName = state.currentDataTable === 'network' ? 'generators' : state.currentDataTable;
+  const table = state.arrowTables[tableName];
+  if (!table) return;
+
+  const fields = table.schema.fields;
+  let csv = fields.map(f => f.name).join(',') + '\n';
+
+  for (const row of table) {
+    const values = fields.map(f => {
+      const v = row[f.name];
+      return typeof v === 'number' ? v.toFixed(6) : v;
+    });
+    csv += values.join(',') + '\n';
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `opf_${tableName}_${state.caseName || 'results'}.csv`;
+  a.click();
+  log(`Exported ${tableName} as CSV`, 'success');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Event Handlers
+// ═══════════════════════════════════════════════════════════════════════════════
+
+caseSelect.addEventListener('change', e => {
+  if (e.target.value) loadCase(e.target.value);
+});
+
+const methodHints = {
+  'ed': 'Merit-order dispatch without network constraints (fastest)',
+  'opf-dc': 'DC linearized optimal power flow',
+  'socp-fast': 'SOCP with relaxed tolerances (50-70% faster)',
+  'pf-ac': 'SOCP convex relaxation (more accurate)',
+  'compare': 'Compare all methods side-by-side'
+};
+
+document.querySelectorAll('[data-preset]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.preset = btn.getAttribute('data-preset');
+    document.getElementById('method-hint').textContent = methodHints[state.preset] || '';
+    updatePreview();
+  });
+});
+
+document.querySelector('[data-action="simulate-run"]')?.addEventListener('click', runOpf);
+
+document.querySelectorAll('[data-layout]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!state.cy || state.cy.elements().length === 0) return;
+    document.querySelectorAll('[data-layout]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const layout = btn.getAttribute('data-layout');
+    if (layout === 'preset' && state.caseContent) {
+      const layoutData = JSON.parse(compute_layout(state.caseContent, 150));
+      renderNetwork(layoutData);
+    } else {
+      state.cy.layout({ name: layout, animate: true }).run();
+    }
+  });
+});
+
+document.querySelector('[data-action="fit"]')?.addEventListener('click', () => state.cy?.fit(undefined, 30));
+document.querySelector('[data-action="center"]')?.addEventListener('click', () => state.cy?.center());
+
+document.querySelector('[data-action="export-spec"]')?.addEventListener('click', () => {
+  const blob = new Blob([intentPreview.textContent], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'gat-results.json';
+  a.click();
+});
+
+// File drop zone
+const dropZone = document.getElementById('file-drop-zone');
+if (dropZone) {
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; });
+  dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
+  dropZone.addEventListener('drop', async e => {
+    e.preventDefault();
+    dropZone.style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file?.name.endsWith('.m')) {
+      state.caseContent = await file.text();
+      state.caseName = file.name;
+      caseSelect.value = '';
+      log('Loaded: ' + file.name);
+      try {
+        const analysis = JSON.parse(analyze_network(state.caseContent));
+        log(`${analysis.bus_count} buses, ${analysis.branch_count} branches`);
+        const layoutData = JSON.parse(compute_layout(state.caseContent, 150));
+        renderNetwork(layoutData);
+        log('Ready', 'success');
+        updatePreview();
+      } catch (err) {
+        log('Parse error: ' + err.message, 'error');
+      }
+    }
+  });
+  dropZone.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.m';
+    input.onchange = async e => {
+      const file = e.target.files[0];
+      if (file) {
+        state.caseContent = await file.text();
+        state.caseName = file.name;
+        caseSelect.value = '';
+        log('Loaded: ' + file.name);
+        try {
+          const analysis = JSON.parse(analyze_network(state.caseContent));
+          log(`${analysis.bus_count} buses, ${analysis.branch_count} branches`);
+          const layoutData = JSON.parse(compute_layout(state.caseContent, 150));
+          renderNetwork(layoutData);
+          log('Ready', 'success');
+          updatePreview();
+        } catch (err) {
+          log('Parse error: ' + err.message, 'error');
+        }
       }
     };
-    tick();
+    input.click();
   });
+}
 
-  updatePreview();
-})();
+// ═══════════════════════════════════════════════════════════════════════════════
+// Initialize
+// ═══════════════════════════════════════════════════════════════════════════════
+
+updatePreview();
+initWasm();
 </script>
 
   {% include "partials/footer.html" %}

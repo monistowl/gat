@@ -24,6 +24,7 @@ pub mod scenarios;
 pub mod se;
 pub mod solver;
 pub mod telemetry;
+pub mod tep;
 pub mod ts;
 #[cfg(feature = "tui")]
 pub mod tui;

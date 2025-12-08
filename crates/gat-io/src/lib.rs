@@ -116,13 +116,24 @@
 pub mod arrow_manifest;
 pub mod arrow_schema;
 pub mod arrow_validator;
-pub mod exporters;
 pub mod helpers;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod importers;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod sources;
+
+// WASM-compatible parsing module - always available
+// Contains string-based parsers that work in both native and WASM environments
+pub mod wasm_parsers;
+
+// Modules requiring native I/O (polars, filesystem)
+#[cfg(feature = "native-io")]
+pub mod exporters;
+#[cfg(feature = "native-io")]
 pub mod validate;
+
+// Modules requiring non-WASM filesystem access AND native-io (polars)
+// These modules use both std::fs and polars DataFrame operations
+#[cfg(all(not(target_arch = "wasm32"), feature = "native-io"))]
+pub mod importers;
+#[cfg(all(not(target_arch = "wasm32"), feature = "native-io"))]
+pub mod sources;
 
 // For wasm builds we stub IO; web demo should provide data from host/JS.
 #[cfg(target_arch = "wasm32")]

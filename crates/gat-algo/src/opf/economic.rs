@@ -8,7 +8,7 @@ use crate::{
     OpfError,
 };
 use gat_core::{Gen, Network, Node};
-use std::time::Instant;
+use web_time::Instant;
 
 /// Solve using merit-order economic dispatch
 pub fn solve(

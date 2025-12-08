@@ -65,58 +65,60 @@
 //! println!("Losses: {:.2} MW", solution.total_losses_mw);
 //! ```
 
+// Core modules (always available, WASM-compatible)
 pub mod ac_opf;
-pub mod alloc_kpi;
-pub mod alloc_rents;
-pub mod analytics_ds;
-pub mod analytics_reliability;
 pub mod arena;
-pub mod canos_multiarea;
-pub mod contingency;
-pub mod elcc;
-pub mod featurize_geo;
-pub mod featurize_gnn;
-pub mod featurize_kpi;
-pub mod geo_join;
 pub mod graph;
-pub mod io;
 pub mod opf;
-pub mod power_flow;
-pub mod reliability_monte_carlo;
 pub mod sparse;
+pub mod tep;
+pub mod validation;
+
+// Modules that use rayon for parallelism (desktop-only)
+#[cfg(feature = "desktop")]
+pub mod contingency;
+#[cfg(feature = "desktop")]
+pub mod test_utils;
+
+// Desktop-only modules (require rayon, polars, or csv)
+#[cfg(feature = "desktop")]
+pub mod alloc_kpi;
+#[cfg(feature = "desktop")]
+pub mod alloc_rents;
+#[cfg(feature = "desktop")]
+pub mod analytics_ds;
+#[cfg(feature = "desktop")]
+pub mod analytics_reliability;
+#[cfg(feature = "desktop")]
+pub mod canos_multiarea;
+#[cfg(feature = "desktop")]
+pub mod elcc;
+#[cfg(feature = "desktop")]
+pub mod featurize_geo;
+#[cfg(feature = "desktop")]
+pub mod featurize_gnn;
+#[cfg(feature = "desktop")]
+pub mod featurize_kpi;
+#[cfg(feature = "desktop")]
+pub mod geo_join;
+#[cfg(feature = "desktop")]
+pub mod io;
+#[cfg(feature = "desktop")]
+pub mod power_flow;
+#[cfg(feature = "desktop")]
+pub mod reliability_monte_carlo;
 
 // GPU-accelerated modules (optional feature)
 #[cfg(feature = "gpu")]
 pub mod gpu_monte_carlo;
 #[cfg(feature = "gpu")]
 pub use gpu_monte_carlo::GpuMonteCarlo;
-pub mod tep;
-pub mod test_utils;
-pub mod validation;
 
+// Core re-exports (always available)
 pub use ac_opf::{AcOpfError, AcOpfSolution, AcOpfSolver, OpfError};
-pub use alloc_kpi::*;
-pub use alloc_rents::*;
-pub use analytics_ds::*;
-pub use analytics_reliability::*;
 pub use arena::ArenaContext;
-pub use canos_multiarea::{
-    AreaId, AreaLoleMetrics, Corridor, MultiAreaMonteCarlo, MultiAreaOutageScenario,
-    MultiAreaSystem,
-};
-pub use elcc::*;
-pub use featurize_geo::*;
-pub use featurize_gnn::*;
-pub use featurize_kpi::*;
-pub use geo_join::*;
 pub use graph::{partition_network, NetworkPartition, PartitionError, PartitionStrategy, TieLine};
-pub use io::*;
 pub use opf::{ConstraintInfo, ConstraintType, OpfMethod, OpfSolution, OpfSolver};
-pub use power_flow::*;
-pub use reliability_monte_carlo::{
-    DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
-    ReliabilityMetrics,
-};
 pub use sparse::{
     IncrementalSolver, LodfMatrix, PtdfMatrix, SparsePtdf, SparseSusceptance, SparseYBus,
     SusceptanceError, WoodburyUpdate, YBusError,
@@ -128,4 +130,38 @@ pub use tep::{
 pub use validation::{
     compute_opf_violations, compute_opf_violations_from_solution, compute_pf_errors,
     OPFViolationMetrics, ObjectiveGap, PFErrorMetrics, PFReferenceSolution,
+};
+
+// Desktop-only re-exports
+#[cfg(feature = "desktop")]
+pub use alloc_kpi::*;
+#[cfg(feature = "desktop")]
+pub use alloc_rents::*;
+#[cfg(feature = "desktop")]
+pub use analytics_ds::*;
+#[cfg(feature = "desktop")]
+pub use analytics_reliability::*;
+#[cfg(feature = "desktop")]
+pub use canos_multiarea::{
+    AreaId, AreaLoleMetrics, Corridor, MultiAreaMonteCarlo, MultiAreaOutageScenario,
+    MultiAreaSystem,
+};
+#[cfg(feature = "desktop")]
+pub use elcc::*;
+#[cfg(feature = "desktop")]
+pub use featurize_geo::*;
+#[cfg(feature = "desktop")]
+pub use featurize_gnn::*;
+#[cfg(feature = "desktop")]
+pub use featurize_kpi::*;
+#[cfg(feature = "desktop")]
+pub use geo_join::*;
+#[cfg(feature = "desktop")]
+pub use io::*;
+#[cfg(feature = "desktop")]
+pub use power_flow::*;
+#[cfg(feature = "desktop")]
+pub use reliability_monte_carlo::{
+    DeliverabilityScore, DeliverabilityScoreConfig, MonteCarlo, OutageGenerator, OutageScenario,
+    ReliabilityMetrics,
 };

@@ -5,6 +5,8 @@ on:
     branches: ["main"]
     paths:
       - 'website/**'
+      - 'crates/gat-wasm/**'
+      - 'crates/gat-io/src/wasm_parsers.rs'
       - '.github/workflows/deploy-website.yml'
   workflow_dispatch:
 
@@ -20,6 +22,7 @@ concurrency:
 
 env:
   ZOLA_VERSION: 0.21.0
+  CARGO_TERM_COLOR: always
 
 jobs:
   build:
@@ -29,6 +32,33 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: wasm-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            wasm-cargo-
+
+      - name: Build WASM package
+        run: |
+          echo "Building gat-wasm for web target..."
+          cd crates/gat-wasm
+          wasm-pack build --target web --out-dir ../../website/static/experimental/pkg
+          echo "WASM build complete"
+          ls -la ../../website/static/experimental/pkg/
 
       - name: Install Zola
         run: |
@@ -41,10 +71,13 @@ jobs:
         run: |
           cd website
           zola build
-          echo "✅ Zola build complete!"
+          echo "Zola build complete"
           echo ""
           echo "Site structure:"
           find public -maxdepth 2 -type f | head -20
+          echo ""
+          echo "WASM package in experimental:"
+          ls -la public/experimental/pkg/ 2>/dev/null || echo "WASM pkg directory not found"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -78,5 +111,6 @@ jobs:
           echo "- **Blog:** https://monistowl.github.io/gat/blog/" >> $GITHUB_STEP_SUMMARY
           echo "- **AI Lab:** https://monistowl.github.io/gat/ai-experiments/" >> $GITHUB_STEP_SUMMARY
           echo "- **Command Builder:** https://monistowl.github.io/gat/command-builder/" >> $GITHUB_STEP_SUMMARY
+          echo "- **WASM Experimental:** https://monistowl.github.io/gat/experimental/" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Site should be live in ~1 minute." >> $GITHUB_STEP_SUMMARY

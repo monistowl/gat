@@ -69,6 +69,7 @@
 //! ```
 
 pub mod ac_nlp;
+#[cfg(feature = "desktop")]
 pub mod admm;
 pub mod backends;
 mod dc_opf;
@@ -84,6 +85,7 @@ mod socp;
 pub mod traits;
 mod types;
 
+#[cfg(feature = "desktop")]
 pub use admm::{AdmmConfig, AdmmError, AdmmOpfSolver, AdmmPhaseTimes, AdmmSolution};
 pub use dispatch::{DispatchConfig, ProblemClass, SolverBackend, SolverDispatcher};
 pub use dispatcher::OpfDispatcher;
