@@ -195,11 +195,42 @@ Output includes:
 ### Multi-Area Reliability Analysis
 
 ```bash
-# Evaluate zone-to-zone LOLE and corridor utilization
+# Using gat analytics multiarea (v0.5.7+)
+gat analytics multiarea \
+  --areas-dir areas/ \
+  --corridors corridors.json \
+  --samples 1000 \
+  --out multiarea_results.json
+
+# Or via ADMS integration
 gat adms multiarea-reliability \
   --system-config multi_area.yaml \
   --scenarios 500 \
   --out multiarea_results.parquet
+```
+
+#### Corridors File Format (JSON)
+
+```json
+[
+  {"id": 1, "area_a": 1, "area_b": 2, "capacity_mw": 500.0, "failure_rate": 0.01},
+  {"id": 2, "area_a": 2, "area_b": 3, "capacity_mw": 300.0, "failure_rate": 0.02}
+]
+```
+
+#### Output (JSON)
+
+```json
+{
+  "areas": [
+    {"area_id": 1, "lole": 0.5, "eue": 120.5},
+    {"area_id": 2, "lole": 1.2, "eue": 350.0}
+  ],
+  "system_lole": 1.2,
+  "system_eue": 470.5,
+  "samples": 1000,
+  "solve_time_ms": 2340
+}
 ```
 
 Output per area:

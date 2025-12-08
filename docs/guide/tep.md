@@ -54,6 +54,62 @@ Big-M formulation achieves this:
 - When x=1: `-M·0 ≤ P - b·Δθ ≤ M·0` → `P = b·Δθ` (physics enforced)
 - When x=0: `-M ≤ P - b·Δθ ≤ M` (relaxed, but P=0 from flow limit)
 
+## CLI Usage
+
+The `gat tep solve` command provides command-line access to the TEP solver:
+
+```bash
+# Solve TEP with network and candidate lines file
+gat tep solve \
+  --network grid.arrow \
+  --candidates candidates.json \
+  --out solution.json
+
+# With optional budget constraint
+gat tep solve \
+  --network grid.arrow \
+  --candidates candidates.json \
+  --budget 100000000 \
+  --out solution.json
+```
+
+### Candidate Lines File Format (JSON)
+
+```json
+[
+  {
+    "from_bus": 1,
+    "to_bus": 2,
+    "reactance": 0.10,
+    "capacity_mw": 200.0,
+    "cost": 40000000.0
+  },
+  {
+    "from_bus": 2,
+    "to_bus": 3,
+    "reactance": 0.10,
+    "capacity_mw": 200.0,
+    "cost": 30000000.0
+  }
+]
+```
+
+### Solution Output (JSON)
+
+```json
+{
+  "status": "Optimal",
+  "total_cost": 157372812.51,
+  "investment_cost": 15460812.51,
+  "operating_cost": 141912000.0,
+  "lines_built": [
+    {"from_bus": 2, "to_bus": 3, "built": true, "cost": 30000000.0},
+    {"from_bus": 3, "to_bus": 4, "built": true, "cost": 50000000.0}
+  ],
+  "solve_time_ms": 143
+}
+```
+
 ## API Usage
 
 ### Creating a TEP Problem

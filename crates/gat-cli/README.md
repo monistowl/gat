@@ -27,15 +27,16 @@ gat batch pf --manifest runs/scenarios/scenario_manifest.json --out runs/batch
 **Categories:**
 - `import` — Load grid models (MATPOWER, PSS/E, CIM, pandapower)
 - `pf` — Power flow (DC/AC)
-- `opf` — Optimal power flow (DC/AC)
+- `opf` — Optimal power flow (DC/AC, SOCP, ADMM distributed)
 - `nminus1` — N-1 contingency screening
 - `se` — State estimation
+- `tep` — Transmission Expansion Planning (MILP)
 - `graph` — Network topology tools
 - `ts` — Time-series operations
 - `scenarios` — What-if case definition
 - `batch` — Parallel job execution
 - `benchmark` — Solver validation against reference datasets (PFΔ, PGLib, OPFData)
-- `analytics` — Grid metrics (reliability, deliverability, ELCC)
+- `analytics` — Grid metrics (reliability, deliverability, ELCC, multi-area)
 - `dist` / `adms` / `derms` — Distribution domain workflows
 - `tui` / `gui` — Interactive interfaces
 
@@ -61,7 +62,16 @@ gat graph stats grid.arrow                       # Network topology
 gat pf dc grid.arrow --out flows.parquet         # DC power flow
 gat opf ac-nlp grid.arrow --out dispatch.json    # Full nonlinear AC-OPF
 gat opf ac grid.arrow --out flows.parquet        # Fast-decoupled approximation
+gat opf admm grid.arrow --areas 3 --out dist.json  # ADMM distributed OPF
 gat nminus1 dc grid.arrow --out nminus1.parquet  # Contingency screening
+```
+
+### Transmission Expansion Planning
+```bash
+gat tep solve \
+  --network grid.arrow \
+  --candidates candidates.json \
+  --out solution.json
 ```
 
 ### Scenarios & Batch Jobs
@@ -89,6 +99,11 @@ gat benchmark opfdata --opfdata-dir data/opfdata/case118 --max-cases 1000 -o opf
 gat analytics reliability --grid grid.arrow --outages contingencies.yaml
 gat analytics deliverability --grid grid.arrow --assets assets.csv
 gat analytics elcc --grid grid.arrow --scenarios 1000
+gat analytics multiarea \
+  --areas-dir areas/ \
+  --corridors corridors.json \
+  --samples 1000 \
+  --out multiarea_results.json
 ```
 
 ### Specialized Domains
@@ -187,7 +202,8 @@ gat analytics reliability \
 - [CLI Architecture](https://monistowl.github.io/gat/internals/cli-architecture/) — Command structure and modules
 
 **Advanced Topics:**
-- [Reliability Analysis](https://monistowl.github.io/gat/guide/reliability/) — N-1 contingency screening
+- [Reliability Analysis](https://monistowl.github.io/gat/guide/reliability/) — Multi-area reliability, LOLE/EUE metrics
+- [Transmission Expansion Planning](https://monistowl.github.io/gat/guide/tep/) — MILP-based network planning
 - [Batch Processing](https://monistowl.github.io/gat/guide/batch/) — Parallel job execution
 - [Feature Matrix](https://monistowl.github.io/gat/internals/feature-matrix/) — Build variants and features
 
@@ -211,6 +227,7 @@ cargo test -p gat-cli --features "minimal-io all-backends"
 ## Related Crates
 
 - **gat-core** — Grid types and solvers
+- **gat-algo** — Algorithms (OPF, TEP, contingency analysis, reliability)
 - **gat-io** — I/O, schemas, data formats
 - **gat-tui** — Interactive terminal dashboard
 - **gat-dist**, **gat-adms**, **gat-derms** — Domain-specific solvers
